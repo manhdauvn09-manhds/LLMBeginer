@@ -1,0 +1,12 @@
+Hôm nay trời đẹp. Tôi ngồi trước máy tính và học cách tạo ra mô hình ngôn ngữ.
+Mô hình ngôn ngữ học cách dự đoán từ tiếp theo trong một câu.
+Mỗi từ được chuyển thành một con số gọi là token.
+Mô hình nhìn vào các token đã có và đoán token tiếp theo.
+Quá trình này lặp đi lặp lại cho đến khi tạo ra một đoạn văn bản.
+Học sâu giúp máy tính hiểu được quy luật của ngôn ngữ.
+Tôi muốn trở thành một kỹ sư trí tuệ nhân tạo giỏi.
+Mỗi ngày tôi học lý thuyết vào buổi sáng và thực hành vào buổi tối.
+Kiên trì là chìa khóa để thành công trong lĩnh vực này.
+Năng lượng cũng rất quan trọng khi huấn luyện mô hình lớn.
+Một mô hình tốt vừa chính xác vừa tiết kiệm tài nguyên.
+Tôi sẽ bắt đầu từ những mô hình nhỏ nhất có thể chạy được.

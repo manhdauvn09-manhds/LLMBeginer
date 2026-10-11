@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bigram Language Model — Giải thích từ con số 0</title>
+<style>
+  :root{
+    --bg:#f7f4ee; --card:#ffffff; --ink:#23272f; --muted:#6b7280;
+    --accent:#6d28d9; --accent-soft:#ede9fe;
+    --blue:#2563eb; --blue-soft:#dbeafe;
+    --amber:#b45309; --amber-soft:#fef3c7;
+    --green:#047857; --green-soft:#d1fae5;
+    --rose:#be123c; --rose-soft:#ffe4e6;
+    --line:#e5e0d5; --code-bg:#1e2230;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    line-height:1.75;font-size:16.5px}
+  .wrap{max-width:960px;margin:0 auto;padding:0 20px}
+  header.hero{background:linear-gradient(135deg,#2e1065 0%,#6d28d9 55%,#9333ea 100%);
+    color:#fff;padding:64px 0 48px;margin-bottom:8px}
+  header.hero h1{margin:0 0 12px;font-size:2.1rem;line-height:1.3}
+  header.hero p{margin:6px 0;opacity:.92;max-width:720px}
+  .tag{display:inline-block;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.35);
+    border-radius:999px;padding:3px 14px;font-size:.85rem;margin-bottom:14px}
+  nav.sticky{position:sticky;top:0;z-index:50;background:rgba(247,244,238,.96);
+    backdrop-filter:blur(6px);border-bottom:1px solid var(--line)}
+  nav.sticky .wrap{display:flex;gap:4px;overflow-x:auto;padding:10px 20px;white-space:nowrap}
+  nav.sticky a{color:var(--muted);text-decoration:none;font-size:.88rem;padding:6px 10px;border-radius:8px}
+  nav.sticky a:hover{background:var(--accent-soft);color:var(--accent)}
+  section{padding:34px 0;border-bottom:1px solid var(--line)}
+  h2{font-size:1.55rem;margin:0 0 6px;color:#1c1033}
+  h2 .num{display:inline-block;background:var(--accent);color:#fff;font-size:.95rem;
+    width:34px;height:34px;line-height:34px;text-align:center;border-radius:10px;margin-right:10px;vertical-align:middle}
+  h3{font-size:1.15rem;margin:26px 0 8px}
+  .lead{color:#4b5563;font-size:1.05rem}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:20px 22px;margin:16px 0;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin:18px 0}
+  .concept{background:var(--card);border:1px solid var(--line);border-top:4px solid var(--accent);
+    border-radius:12px;padding:16px 18px}
+  .concept h4{margin:0 0 6px;font-size:1.02rem}
+  .concept p{margin:0;font-size:.93rem;color:#4b5563}
+  .concept.blue{border-top-color:var(--blue)} .concept.amber{border-top-color:var(--amber)}
+  .concept.green{border-top-color:var(--green)} .concept.rose{border-top-color:var(--rose)}
+  pre{background:var(--code-bg);color:#e8eaf2;border-radius:12px;padding:18px 20px;
+    overflow-x:auto;font-size:.86rem;line-height:1.6;margin:14px 0}
+  code{font-family:"SF Mono",Consolas,"Courier New",monospace}
+  p code, li code{background:#efe9dc;padding:1px 7px;border-radius:6px;font-size:.88em;color:#7c2d12}
+  pre code{background:none;padding:0;color:inherit}
+  .kw{color:#c792ea}.fn{color:#82aaff}.str{color:#c3e88d}.cm{color:#697098;font-style:italic}.num2{color:#f78c6c}
+  .diagram{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px 10px;margin:18px 0;text-align:center}
+  .diagram svg{max-width:100%;height:auto}
+  .caption{font-size:.9rem;color:var(--muted);margin-top:10px;font-style:italic}
+  .flow{display:flex;align-items:stretch;gap:0;overflow-x:auto;padding:18px 6px;margin:14px 0}
+  .fstep{background:#fff;border:2px solid var(--line);border-radius:12px;padding:12px 14px;
+    min-width:150px;text-align:center;font-size:.88rem;flex-shrink:0}
+  .fstep b{display:block;margin-bottom:4px;font-size:.95rem}
+  .fstep small{color:var(--muted)}
+  .fstep.d{background:var(--blue-soft);border-color:var(--blue)}
+  .fstep.m{background:var(--accent-soft);border-color:var(--accent)}
+  .fstep.e{background:var(--amber-soft);border-color:var(--amber)}
+  .fstep.g{background:var(--green-soft);border-color:var(--green)}
+  .farrow{align-self:center;font-size:1.6rem;color:var(--muted);padding:0 6px;flex-shrink:0}
+  .analogy{background:#fffbeb;border:1px solid #fcd34d;border-left:6px solid #f59e0b;
+    border-radius:10px;padding:16px 20px;margin:16px 0}
+  .analogy b{color:#92400e}
+  .warn{background:#fff1f2;border:1px solid #fda4af;border-left:6px solid var(--rose);
+    border-radius:10px;padding:16px 20px;margin:16px 0}
+  .warn b{color:#9f1239}
+  .ok{background:#ecfdf5;border:1px solid #6ee7b7;border-left:6px solid var(--green);
+    border-radius:10px;padding:16px 20px;margin:16px 0}
+  table.mini{border-collapse:collapse;margin:14px auto;font-size:.9rem}
+  table.mini th, table.mini td{border:1px solid var(--line);padding:8px 14px;text-align:center}
+  table.mini th{background:#f3f0e8}
+  .demo{background:#fff;border:2px solid var(--accent);border-radius:16px;padding:24px;margin:18px 0}
+  .demo h3{margin-top:0}
+  .charbtns{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+  .charbtns button{border:2px solid var(--line);background:#fff;border-radius:10px;
+    padding:8px 16px;font-size:1.05rem;cursor:pointer;font-family:monospace}
+  .charbtns button.active{border-color:var(--accent);background:var(--accent-soft);font-weight:700}
+  input[type=range]{width:100%;accent-color:var(--accent);margin:8px 0}
+  .bar-row{display:flex;align-items:center;gap:10px;margin:7px 0;font-size:.92rem}
+  .bar-row .lbl{width:56px;text-align:right;font-family:monospace;font-weight:700}
+  .bar-track{flex:1;background:#f1ede3;border-radius:6px;height:22px;position:relative;overflow:hidden}
+  .bar-fill{height:100%;background:linear-gradient(90deg,#8b5cf6,#6d28d9);border-radius:6px;
+    transition:width .25s ease;display:flex;align-items:center;justify-content:flex-end}
+  .bar-row .pct{width:64px;font-family:monospace;color:var(--muted)}
+  .gen-out{background:var(--code-bg);color:#d6f5c8;border-radius:12px;padding:18px 20px;
+    font-family:monospace;font-size:1rem;min-height:70px;margin-top:12px;white-space:pre-wrap;word-break:break-word}
+  .btn{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:10px 22px;
+    font-size:1rem;cursor:pointer;margin-top:10px}
+  .btn:hover{background:#5b21b6}
+  .formula{text-align:center;font-size:1.15rem;background:#f6f3ec;border-radius:10px;
+    padding:14px;margin:14px 0;font-family:Georgia,serif}
+  footer{padding:36px 0 60px;color:var(--muted);font-size:.9rem;text-align:center}
+  ul.tight li{margin-bottom:6px}
+  @media(max-width:600px){header.hero h1{font-size:1.6rem}body{font-size:15.5px}}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="tag">📄 Phân tích file: bigram_lm.py</span>
+    <h1>Mô hình ngôn ngữ Bigram<br>hiểu từ con số 0</h1>
+    <p>File code này dạy máy tính một trò duy nhất: <b>nhìn một chữ cái, đoán chữ cái tiếp theo</b>.
+    Tài liệu này vẽ lại toàn bộ chương trình thành sơ đồ và giải thích từng phần bằng ngôn ngữ đời thường — không cần biết lập trình vẫn hiểu được.</p>
+  </div>
+</header>
+
+<nav class="sticky"><div class="wrap">
+  <a href="#tong-quan">🍿 Tóm tắt 30 giây</a>
+  <a href="#khai-niem">🧩 Khái niệm</a>
+  <a href="#so-do">🗺️ Sơ đồ tổng thể</a>
+  <a href="#buoc1">1️⃣ Dữ liệu</a>
+  <a href="#buoc2">2️⃣ Lấy batch</a>
+  <a href="#buoc3">3️⃣ Mô hình</a>
+  <a href="#buoc4">4️⃣ Huấn luyện</a>
+  <a href="#buoc5">5️⃣ Sinh chữ</a>
+  <a href="#buoc6">6️⃣ Temperature</a>
+  <a href="#buoc7">7️⃣ Thống kê & lưu ý</a>
+  <a href="#han-che">🚧 Hạn chế</a>
+</div></nav>
+
+<div class="wrap">
+
+<!-- ================= 1. TỔNG QUAN ================= -->
+<section id="tong-quan">
+  <h2><span class="num">🍿</span>Tóm tắt 30 giây cho người ngoại đạo</h2>
+  <p class="lead">Hãy tưởng tượng bạn đang nhắn tin: gõ <code>"xin ch"</code> thì điện thoại gợi ý <code>"ào"</code>.
+  File <code>bigram_lm.py</code> chính là một "bộ não tí hon" học đúng trò đó — nhưng ở mức <b>chữ cái</b> thay vì từ ngữ.</p>
+
+  <div class="analogy">
+    <b>👶 Ví dụ — Đứa trẻ học đánh vần:</b> Đưa cho một đứa trẻ đọc hàng nghìn trang sách.
+    Nó không hiểu nghĩa, nhưng nó <b>đếm</b>: sau chữ <i>"q"</i> gần như luôn là <i>"u"</i>;
+    sau <i>"t"</i> hay là <i>"h", "r", "o"</i>... Rồi khi bạn đưa nó một chữ, nó đoán chữ tiếp theo dựa trên "trí nhớ đếm" đó.
+    Bigram chính là như vậy — <b>trí nhớ về các cặp chữ cái</b> (bi = 2).
+  </div>
+
+  <p>Cả chương trình gói gọn trong <b>7 bước</b>, và toàn bộ "trí thông minh" của model chỉ là <b>một bảng điểm hình vuông</b>:
+  hàng = chữ hiện tại, cột = chữ tiếp theo. Ô nào điểm cao nghĩa là "cặp này hay đi với nhau".</p>
+
+  <div class="grid">
+    <div class="concept blue"><h4>📥 Đầu vào</h4><p>Một file văn bản <code>corpus.txt</code> — càng nhiều chữ càng tốt.</p></div>
+    <div class="concept"><h4>🧠 Bộ não</h4><p>Một bảng điểm vuông V×V (V = số ký tự khác nhau). Ban đầu toàn số ngẫu nhiên.</p></div>
+    <div class="concept amber"><h4>🏋️ Học</h4><p>Đọc văn bản thật, tự chấm điểm đúng/sai, rồi sửa bảng điểm — lặp lại 2000 lần.</p></div>
+    <div class="concept green"><h4>✍️ Sáng tạo</h4><p>Sau khi học xong: cho một chữ, tung "xúc xắc có gian lận" để viết tiếp thành đoạn văn.</p></div>
+  </div>
+</section>
+
+<!-- ================= 2. KHÁI NIỆM ================= -->
+<section id="khai-niem">
+  <h2><span class="num">🧩</span>Từ điển khái niệm (đọc trước, hiểu sau)</h2>
+  <p class="lead">8 từ khóa xuất hiện khắp file. Nắm được chừng này là đọc code như đọc truyện.</p>
+  <div class="grid">
+    <div class="concept blue"><h4>🔢 Token</h4><p>Mỗi ký tự được đổi thành một <b>con số</b>. Ví dụ: <code>'a' → 5</code>, <code>'b' → 6</code>. Máy tính chỉ làm việc với số.</p></div>
+    <div class="concept blue"><h4>📚 Vocabulary (từ vựng)</h4><p>Danh sách <b>tất cả ký tự khác nhau</b> trong văn bản, xếp theo thứ tự. Có bao nhiêu ký tự thì bảng điểm to bấy nhiêu (V×V).</p></div>
+    <div class="concept"><h4>🔄 Encode / Decode</h4><p><b>Encode:</b> dịch chữ → số để máy học. <b>Decode:</b> dịch số → chữ để người đọc. Như mã Morse hai chiều.</p></div>
+    <div class="concept"><h4>👯 Bigram</h4><p><b>Cặp 2 chữ liên tiếp</b>: ("h"→"e"), ("e"→"l")... Model này <i>chỉ</i> nhớ quan hệ cặp đôi, không nhớ xa hơn.</p></div>
+    <div class="concept amber"><h4>📉 Loss (điểm phạt)</h4><p>Thước đo "đoán sai cỡ nào". Đoán sai mà còn <b>tự tin</b> thì bị phạt nặng. Mục tiêu: phạt càng ít càng tốt.</p></div>
+    <div class="concept amber"><h4>📦 Batch</h4><p>Học theo <b>"lớp" 32 ví dụ một lúc</b> thay vì từng chữ một — nhanh hơn và ổn định hơn.</p></div>
+    <div class="concept green"><h4>🌡️ Temperature</h4><p><b>Núm vặn "độ liều"</b> khi sáng tạo: vặn thấp → viết an toàn, khuôn mẫu; vặn cao → viết táo bạo, ngẫu hứng.</p></div>
+    <div class="concept rose"><h4>🧪 Train / Val</h4><p><b>Train:</b> sách giáo khoa để học (90%). <b>Val:</b> đề thi thử chưa từng thấy (10%) — kiểm tra có "học vẹt" không.</p></div>
+  </div>
+</section>
+
+<!-- ================= 3. SƠ ĐỒ TỔNG THỂ ================= -->
+<section id="so-do">
+  <h2><span class="num">🗺️</span>Sơ đồ tổng thể chương trình</h2>
+  <p class="lead">Toàn bộ file chỉ làm 3 việc lớn, nối tiếp nhau như một dây chuyền:</p>
+  <div class="card" style="overflow-x:auto">
+    <div class="flow">
+      <div class="fstep d"><b>📄 corpus.txt</b><small>văn bản thô</small></div><div class="farrow">→</div>
+      <div class="fstep d"><b>🔢 Mã hoá</b><small>chữ → số (token)</small></div><div class="farrow">→</div>
+      <div class="fstep d"><b>✂️ Chia 90/10</b><small>train / val</small></div><div class="farrow">→</div>
+      <div class="fstep d"><b>📦 Batch (x, y)</b><small>32 đoạn × 16 chữ</small></div><div class="farrow">→</div>
+      <div class="fstep m"><b>🧠 Bảng điểm V×V</b><small>model BigramLM</small></div><div class="farrow">→</div>
+      <div class="fstep e"><b>📉 Loss</b><small>chấm điểm đúng/sai</small></div><div class="farrow">→</div>
+      <div class="fstep e"><b>🔧 Sửa bảng</b><small>lan truyền ngược + AdamW</small></div><div class="farrow">↺</div>
+      <div class="fstep g"><b>✍️ Sinh văn bản</b><small>tung xúc xắc theo bảng điểm</small></div>
+    </div>
+    <p class="caption">Vòng lặp ↺ ở giữa lặp lại 2000 lần (mặc định). Mỗi vòng: đoán → chấm điểm → sửa bảng điểm cho khôn ra.</p>
+  </div>
+</section>
+
+<!-- ================= BƯỚC 1 ================= -->
+<section id="buoc1">
+  <h2><span class="num">1</span>Bước 1 — Chuẩn bị dữ liệu: biến chữ thành số</h2>
+  <p>Máy tính không hiểu chữ <i>"a"</i>, nó chỉ hiểu số. Nên việc đầu tiên là lập <b>"danh bạ ký tự"</b>: liệt kê mọi ký tự khác nhau trong văn bản, xếp theo thứ tự, đánh số từ 0.</p>
+<pre><code><span class="cm"># đọc toàn bộ văn bản</span>
+text = <span class="fn">open</span>(<span class="str">'corpus.txt'</span>, encoding=<span class="str">'utf-8'</span>).<span class="fn">read</span>()
+chars = <span class="fn">sorted</span>(<span class="fn">set</span>(text))          <span class="cm"># từ vựng: mọi ký tự khác nhau</span>
+stoi = {ch: i <span class="kw">for</span> i, ch <span class="kw">in</span> <span class="fn">enumerate</span>(chars)}  <span class="cm"># chữ -&gt; số (encode)</span>
+itos = {i: ch <span class="kw">for</span> i, ch <span class="kw">in</span> <span class="fn">enumerate</span>(chars)}  <span class="cm"># số -&gt; chữ (decode)</span>
+data = torch.<span class="fn">tensor</span>(<span class="fn">encode</span>(text))       <span class="cm"># cả cuốn sách thành dãy số dài</span>
+train_data, val_data = data[:n], data[n:]  <span class="cm"># cắt 90% học / 10% thi thử</span></code></pre>
+
+  <div class="diagram">
+    <svg width="640" viewBox="0 0 640 210" font-family="inherit">
+      <text x="320" y="22" text-anchor="middle" font-size="15" font-weight="700">Ví dụ: chữ "hello!" đi qua máy mã hoá</text>
+      <g font-size="17" text-anchor="middle">
+        <rect x="60" y="45" width="52" height="52" rx="8" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/><text x="86" y="79" font-weight="700">h</text>
+        <rect x="122" y="45" width="52" height="52" rx="8" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/><text x="148" y="79" font-weight="700">e</text>
+        <rect x="184" y="45" width="52" height="52" rx="8" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/><text x="210" y="79" font-weight="700">l</text>
+        <rect x="246" y="45" width="52" height="52" rx="8" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/><text x="272" y="79" font-weight="700">l</text>
+        <rect x="308" y="45" width="52" height="52" rx="8" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/><text x="334" y="79" font-weight="700">o</text>
+        <rect x="370" y="45" width="52" height="52" rx="8" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/><text x="396" y="79" font-weight="700">!</text>
+      </g>
+      <text x="320" y="125" text-anchor="middle" font-size="26">⬇</text>
+      <text x="320" y="150" text-anchor="middle" font-size="13" fill="#6b7280">encode: tra "danh bạ ký tự"</text>
+      <g font-size="17" text-anchor="middle">
+        <rect x="60" y="160" width="52" height="40" rx="8" fill="#ede9fe" stroke="#6d28d9" stroke-width="2"/><text x="86" y="187" font-weight="700">7</text>
+        <rect x="122" y="160" width="52" height="40" rx="8" fill="#ede9fe" stroke="#6d28d9" stroke-width="2"/><text x="148" y="187" font-weight="700">4</text>
+        <rect x="184" y="160" width="52" height="40" rx="8" fill="#ede9fe" stroke="#6d28d9" stroke-width="2"/><text x="210" y="187" font-weight="700">11</text>
+        <rect x="246" y="160" width="52" height="40" rx="8" fill="#ede9fe" stroke="#6d28d9" stroke-width="2"/><text x="272" y="187" font-weight="700">11</text>
+        <rect x="308" y="160" width="52" height="40" rx="8" fill="#ede9fe" stroke="#6d28d9" stroke-width="2"/><text x="334" y="187" font-weight="700">14</text>
+        <rect x="370" y="160" width="52" height="40" rx="8" fill="#ede9fe" stroke="#6d28d9" stroke-width="2"/><text x="396" y="187" font-weight="700">1</text>
+      </g>
+      <text x="500" y="75" font-size="13" fill="#6b7280">danh bạ ví dụ:</text>
+      <text x="500" y="98" font-size="13" font-family="monospace" fill="#6b7280">'!'→1 … 'e'→4</text>
+      <text x="500" y="118" font-size="13" font-family="monospace" fill="#6b7280">'h'→7 … 'l'→11</text>
+      <text x="500" y="138" font-size="13" font-family="monospace" fill="#6b7280">'o'→14 …</text>
+      <text x="500" y="185" font-size="13" fill="#6b7280">decode làm ngược lại:</text>
+      <text x="500" y="205" font-size="13" font-family="monospace" fill="#6b7280">[7,4,11,11,14,1]→"hello!"</text>
+    </svg>
+    <p class="caption">Minh hoạ: mỗi ký tự được thay bằng "số báo danh" của nó trong danh bạ.</p>
+  </div>
+
+  <div class="analogy"><b>🎯 Ý tưởng then chốt:</b> Sau bước này, cả cuốn sách chỉ còn là <b>một dãy số dài</b>.
+  Mọi bước sau đó — học, đoán, sáng tạo — đều diễn ra trên dãy số này. Chỉ đến cuối cùng mới dịch ngược thành chữ cho người đọc.</div>
+</section>
+
+<!-- ================= BƯỚC 2 ================= -->
+<section id="buoc2">
+  <h2><span class="num">2</span>Bước 2 — Lấy batch: chuẩn bị "đề bài + đáp án"</h2>
+  <p>Hàm <code>get_batch</code> bốc ngẫu nhiên <b>32 đoạn văn</b>, mỗi đoạn dài <b>16 chữ</b>. Mỗi đoạn được cắt thành 2 bản:</p>
+  <ul class="tight">
+    <li><b><code>x</code> — đề bài:</b> 16 chữ đầu, đưa cho model đoán.</li>
+    <li><b><code>y</code> — đáp án:</b> cũng 16 chữ đó nhưng <b>dịch phải 1 vị trí</b>: chữ đáp án của vị trí <i>i</i> chính là chữ thật đứng ngay sau nó trong văn bản.</li>
+  </ul>
+<pre><code><span class="kw">def</span> <span class="fn">get_batch</span>(split):
+    starts = torch.<span class="fn">randint</span>(<span class="fn">len</span>(data) - block_size, (batch_size,))  <span class="cm"># 32 vị trí ngẫu nhiên</span>
+    x = torch.<span class="fn">stack</span>([data[i:i+block_size] <span class="kw">for</span> i <span class="kw">in</span> starts])      <span class="cm"># đề bài</span>
+    y = torch.<span class="fn">stack</span>([data[i+<span class="num2">1</span>:i+block_size+<span class="num2">1</span>] <span class="kw">for</span> i <span class="kw">in</span> starts])  <span class="cm"># đáp án = x dịch phải 1</span>
+    <span class="kw">return</span> x, y</code></pre>
+
+  <div class="diagram">
+    <svg width="660" viewBox="0 0 660 250" font-family="inherit">
+      <text x="330" y="24" text-anchor="middle" font-size="15" font-weight="700">Một đoạn văn được cắt thành "đề" và "đáp án"</text>
+      <text x="40" y="70" font-size="13" fill="#6b7280">văn bản thật:</text>
+      <g font-size="16" text-anchor="middle" font-family="monospace">
+        <rect x="150" y="45" width="44" height="44" rx="6" fill="#f3f0e8" stroke="#a8a29e"/><text x="172" y="73">x</text>
+        <rect x="198" y="45" width="44" height="44" rx="6" fill="#f3f0e8" stroke="#a8a29e"/><text x="220" y="73">i</text>
+        <rect x="246" y="45" width="44" height="44" rx="6" fill="#f3f0e8" stroke="#a8a29e"/><text x="268" y="73">n</text>
+        <rect x="294" y="45" width="44" height="44" rx="6" fill="#f3f0e8" stroke="#a8a29e"/><text x="316" y="73">␣</text>
+        <rect x="342" y="45" width="44" height="44" rx="6" fill="#f3f0e8" stroke="#a8a29e"/><text x="364" y="73">c</text>
+        <rect x="390" y="45" width="44" height="44" rx="6" fill="#f3f0e8" stroke="#a8a29e"/><text x="412" y="73">h</text>
+        <rect x="438" y="45" width="44" height="44" rx="6" fill="#f3f0e8" stroke="#a8a29e"/><text x="460" y="73">à</text>
+        <rect x="486" y="45" width="44" height="44" rx="6" fill="#f3f0e8" stroke="#a8a29e"/><text x="508" y="73">o</text>
+      </g>
+      <text x="330" y="118" text-anchor="middle" font-size="26">⬇</text>
+      <text x="150" y="150" font-size="14" font-weight="700" fill="#2563eb">x (đề bài cho model):</text>
+      <text x="150" y="172" font-size="13" fill="#6b7280">16 chữ: "xin chà"</text>
+      <rect x="146" y="182" width="300" height="14" rx="7" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+      <text x="470" y="150" font-size="14" font-weight="700" fill="#b45309">y (đáp án để chấm):</text>
+      <text x="470" y="172" font-size="13" fill="#6b7280">16 chữ: "in chào" ← dịch phải 1</text>
+      <rect x="200" y="182" width="300" height="14" rx="7" fill="#fef3c7" stroke="#b45309" stroke-width="2"/>
+      <text x="330" y="228" text-anchor="middle" font-size="14" fill="#6b7280">Mỗi chữ trong <tspan fill="#2563eb" font-weight="700">x</tspan> phải đoán ra chữ <tspan fill="#b45309" font-weight="700">y</tspan> đứng ngay sau nó</text>
+    </svg>
+    <p class="caption">Mẹo hay của học máy: không cần ai ra đề — đáp án nằm sẵn trong văn bản, chỉ cần "dịch phải 1 ô".</p>
+  </div>
+</section>
+
+<!-- ================= BƯỚC 3 ================= -->
+<section id="buoc3">
+  <h2><span class="num">3</span>Bước 3 — Mô hình: toàn bộ trí khôn nằm trong một bảng điểm</h2>
+  <p>Đây là phần "não" — class <code>BigramLM</code>. Nhưng đừng tưởng tượng gì cao siêu: nó chỉ là <b>một bảng số hình vuông</b>, kích thước V×V (V = số ký tự khác nhau).</p>
+<pre><code><span class="kw">class</span> <span class="fn">BigramLM</span>(nn.Module):
+    <span class="kw">def</span> <span class="fn">__init__</span>(self, vocab_size):
+        <span class="cm"># bảng điểm: hàng = chữ hiện tại, cột = chữ tiếp theo</span>
+        self.token_embedding_table = nn.<span class="fn">Embedding</span>(vocab_size, vocab_size)
+
+    <span class="kw">def</span> <span class="fn">forward</span>(self, idx, targets=<span class="kw">None</span>):
+        logits = self.token_embedding_table(idx)  <span class="cm"># tra bảng: mỗi chữ → 1 hàng điểm</span>
+        loss = <span class="kw">None</span>
+        <span class="kw">if</span> targets <span class="kw">is not None</span>:
+            loss = F.<span class="fn">cross_entropy</span>(logits, targets)  <span class="cm"># chấm điểm đúng/sai</span>
+        <span class="kw">return</span> logits, loss</code></pre>
+
+  <div class="diagram">
+    <svg width="680" viewBox="0 0 680 340" font-family="inherit">
+      <text x="340" y="24" text-anchor="middle" font-size="15" font-weight="700">Bảng điểm V×V — "hồ sơ cặp đôi" của từng chữ cái</text>
+      <text x="120" y="60" font-size="12" fill="#6b7280">hàng = chữ hiện tại ↓</text>
+      <text x="330" y="60" font-size="12" fill="#6b7280">cột = chữ tiếp theo →</text>
+      <g font-size="14" text-anchor="middle" font-family="monospace">
+        <text x="120" y="105" fill="#9ca3af">a</text><text x="180" y="105" fill="#9ca3af">b</text><text x="240" y="105" fill="#9ca3af">c</text><text x="300" y="105" fill="#9ca3af">d</text><text x="360" y="105" fill="#9ca3af">e</text><text x="420" y="105" fill="#9ca3af">f</text>
+        <text x="60" y="150" fill="#9ca3af">a</text><text x="60" y="195" fill="#9ca3af">b</text><text x="60" y="240" fill="#9ca3af">c</text><text x="60" y="285" fill="#9ca3af">d</text>
+        <g opacity="0.45">
+          <rect x="95" y="125" width="50" height="40" fill="#f3f0e8"/><rect x="155" y="125" width="50" height="40" fill="#f3f0e8"/><rect x="215" y="125" width="50" height="40" fill="#f3f0e8"/><rect x="275" y="125" width="50" height="40" fill="#f3f0e8"/><rect x="335" y="125" width="50" height="40" fill="#f3f0e8"/><rect x="395" y="125" width="50" height="40" fill="#f3f0e8"/>
+          <rect x="95" y="215" width="50" height="40" fill="#f3f0e8"/><rect x="155" y="215" width="50" height="40" fill="#f3f0e8"/><rect x="215" y="215" width="50" height="40" fill="#f3f0e8"/><rect x="275" y="215" width="50" height="40" fill="#f3f0e8"/><rect x="335" y="215" width="50" height="40" fill="#f3f0e8"/><rect x="395" y="215" width="50" height="40" fill="#f3f0e8"/>
+          <rect x="95" y="260" width="50" height="40" fill="#f3f0e8"/><rect x="155" y="260" width="50" height="40" fill="#f3f0e8"/><rect x="215" y="260" width="50" height="40" fill="#f3f0e8"/><rect x="275" y="260" width="50" height="40" fill="#f3f0e8"/><rect x="335" y="260" width="50" height="40" fill="#f3f0e8"/><rect x="395" y="260" width="50" height="40" fill="#f3f0e8"/>
+        </g>
+        <rect x="95" y="170" width="50" height="40" fill="#ede9fe" stroke="#6d28d9" stroke-width="2.5"/><text x="120" y="196" font-weight="700">0.2</text>
+        <rect x="155" y="170" width="50" height="40" fill="#ede9fe" stroke="#6d28d9" stroke-width="2.5"/><text x="180" y="196" font-weight="700">1.1</text>
+        <rect x="215" y="170" width="50" height="40" fill="#ede9fe" stroke="#6d28d9" stroke-width="2.5"/><text x="240" y="196" font-weight="700">-0.4</text>
+        <rect x="275" y="170" width="50" height="40" fill="#ede9fe" stroke="#6d28d9" stroke-width="2.5"/><text x="300" y="196" font-weight="700">0.7</text>
+        <rect x="335" y="170" width="50" height="40" fill="#c4b5fd" stroke="#6d28d9" stroke-width="2.5"/><text x="360" y="196" font-weight="700">3.8</text>
+        <rect x="395" y="170" width="50" height="40" fill="#ede9fe" stroke="#6d28d9" stroke-width="2.5"/><text x="420" y="196" font-weight="700">0.0</text>
+      </g>
+      <text x="470" y="150" font-size="13" fill="#6d28d9" font-weight="700">← hàng của chữ "b"</text>
+      <text x="470" y="172" font-size="13" fill="#6b7280">được tô đậm</text>
+      <text x="470" y="205" font-size="13" fill="#6b7280">ô <b>"e" = 3.8</b> cao nhất →</text>
+      <text x="470" y="225" font-size="13" fill="#6b7280">sau "b", model tin "e"</text>
+      <text x="470" y="245" font-size="13" fill="#6b7280">là đáp án đúng nhất</text>
+      <line x1="445" y1="190" x2="392" y2="190" stroke="#6d28d9" stroke-width="2"/>
+      <text x="340" y="325" text-anchor="middle" font-size="13" fill="#6b7280">Ban đầu mọi ô là số ngẫu nhiên → học xong, các ô "cặp đôi hay đi với nhau" sẽ có điểm cao</text>
+    </svg>
+    <p class="caption">Minh hoạ với 6 ký tự; thực tế bảng có kích thước V×V (ví dụ 65×65).</p>
+  </div>
+
+  <div class="analogy"><b>🧠 Hiểu "forward" trong 1 câu:</b> Đưa một chữ vào → model <b>lật đúng hàng đó trong bảng</b> → trả ra cả hàng điểm số (gọi là <i>logits</i>) cho mọi chữ có thể đứng tiếp theo. Xong. Không có phép màu nào khác — vì đây là bigram, model <b>không thèm nhìn</b> các chữ trước đó.</div>
+
+  <p><b>Còn "loss" là gì?</b> Sau khi model đưa ra hàng điểm, ta so với đáp án thật (<code>y</code>) bằng hàm <code>cross_entropy</code>. Hãy nghĩ nó như <b>giáo viên chấm bài</b>: đáp án đúng mà model chấm điểm thấp → phạt nặng; đoán trúng phóc → phạt ~0. Mục tiêu của cả quá trình học là làm con số phạt này nhỏ dần.</p>
+</section>
+
+<!-- ================= BƯỚC 4 ================= -->
+<section id="buoc4">
+  <h2><span class="num">4</span>Bước 4 — Huấn luyện: đoán → chấm → sửa, lặp 2000 lần</h2>
+  <p>Vòng lặp huấn luyện trong <code>main()</code> chính là quá trình "luyện thi": mỗi vòng, model làm một đề 32 câu, bị chấm điểm, rồi <b>tự sửa bảng điểm</b> dựa trên lỗi sai.</p>
+<pre><code><span class="kw">for</span> step <span class="kw">in</span> <span class="fn">range</span>(<span class="num2">1</span>, steps+<span class="num2">1</span>):      <span class="cm"># mặc định 2000 vòng</span>
+    x, y = <span class="fn">get_batch</span>(<span class="str">"train"</span>)      <span class="cm"># 1. bốc đề ngẫu nhiên</span>
+    _, loss = <span class="fn">model</span>(x, y)             <span class="cm"># 2. đoán + chấm điểm</span>
+    optimizer.<span class="fn">zero_grad</span>()
+    loss.<span class="fn">backward</span>()                  <span class="cm"># 3. truy tìm: ô nào trong bảng gây ra lỗi?</span>
+    optimizer.<span class="fn">step</span>()                   <span class="cm"># 4. AdamW: sửa các ô đó một chút</span></code></pre>
+
+  <div class="diagram">
+    <svg width="680" viewBox="0 0 680 330" font-family="inherit">
+      <text x="340" y="24" text-anchor="middle" font-size="15" font-weight="700">Một vòng huấn luyện (lặp lại 2000 lần)</text>
+      <rect x="30" y="60" width="150" height="70" rx="12" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+      <text x="105" y="88" text-anchor="middle" font-size="14" font-weight="700">📦 Lấy batch</text>
+      <text x="105" y="110" text-anchor="middle" font-size="12" fill="#6b7280">32 đoạn văn</text>
+      <rect x="265" y="60" width="150" height="70" rx="12" fill="#ede9fe" stroke="#6d28d9" stroke-width="2"/>
+      <text x="340" y="88" text-anchor="middle" font-size="14" font-weight="700">🧠 Model đoán</text>
+      <text x="340" y="110" text-anchor="middle" font-size="12" fill="#6b7280">tra bảng → hàng điểm</text>
+      <rect x="500" y="60" width="150" height="70" rx="12" fill="#fef3c7" stroke="#b45309" stroke-width="2"/>
+      <text x="575" y="88" text-anchor="middle" font-size="14" font-weight="700">📉 Tính loss</text>
+      <text x="575" y="110" text-anchor="middle" font-size="12" fill="#6b7280">so với đáp án y</text>
+      <rect x="265" y="200" width="150" height="70" rx="12" fill="#ffe4e6" stroke="#be123c" stroke-width="2"/>
+      <text x="340" y="228" text-anchor="middle" font-size="14" font-weight="700">🔧 Sửa bảng điểm</text>
+      <text x="340" y="250" text-anchor="middle" font-size="12" fill="#6b7280">backward + AdamW</text>
+      <line x1="180" y1="95" x2="260" y2="95" stroke="#9ca3af" stroke-width="2.5"/><polygon points="260,95 250,89 250,101" fill="#9ca3af"/>
+      <line x1="415" y1="95" x2="495" y2="95" stroke="#9ca3af" stroke-width="2.5"/><polygon points="495,95 485,89 485,101" fill="#9ca3af"/>
+      <line x1="575" y1="130" x2="575" y2="170" stroke="#9ca3af" stroke-width="2.5"/><polygon points="575,170 569,160 581,160" fill="#9ca3af"/>
+      <line x1="575" y1="200" x2="415" y2="200" stroke="#9ca3af" stroke-width="2.5"/>
+      <line x1="415" y1="200" x2="415" y2="130" stroke="#9ca3af" stroke-width="2.5"/>
+      <line x1="415" y1="130" x2="270" y2="130" stroke="#9ca3af" stroke-width="2.5" stroke-dasharray="7,5"/>
+      <polygon points="270,130 280,124 280,136" fill="#9ca3af"/>
+      <text x="180" y="160" font-size="12" fill="#6b7280">đoán</text>
+      <text x="440" y="160" font-size="12" fill="#6b7280">chấm</text>
+      <text x="500" y="222" font-size="12" fill="#6b7280">truy lỗi</text>
+      <text x="330" y="160" font-size="12" fill="#6b7280">sửa xong → vòng mới</text>
+      <text x="340" y="305" text-anchor="middle" font-size="13" fill="#6b7280">Mỗi 200 vòng: in <b>train loss</b> (điểm trên sách giáo khoa) và <b>val loss</b> (điểm thi thử) để xem có "học vẹt" không</text>
+    </svg>
+    <p class="caption">Lan truyền ngược (backward) = "truy tìm thủ phạm": tính xem mỗi ô trong bảng phải sửa bao nhiêu thì lỗi giảm. AdamW là "thợ sửa" khéo tay, sửa từng chút một.</p>
+  </div>
+
+  <div class="ok"><b>✅ Vì sao cần val loss?</b> Nếu chỉ học thuộc sách giáo khoa (train loss thấp) mà thi thử (val loss) điểm kém → model đang <b>học vẹt</b>, không khái quát được. Đây là cách kiểm tra trung thực nhất trong học máy.</div>
+</section>
+
+<!-- ================= BƯỚC 5 ================= -->
+<section id="buoc5">
+  <h2><span class="num">5</span>Bước 5 — Sinh chữ: tung "xúc xắc có gian lận"</h2>
+  <p>Hàm <code>generate</code> viết văn bản mới từng chữ một. Điểm đặc biệt của bigram: <b>mỗi lần chỉ nhìn đúng 1 chữ cuối cùng</b> — cả đoạn văn trước đó bị "quên" sạch.</p>
+<pre><code><span class="kw">def</span> <span class="fn">generate</span>(self, idx, max_new_tokens, temperature=<span class="num2">1.0</span>):
+    <span class="kw">for</span> _ <span class="kw">in</span> <span class="fn">range</span>(max_new_tokens):      <span class="cm"># lặp: mỗi vòng thêm 1 chữ</span>
+        logits, _ = self(idx[:, -<span class="num2">1</span>:])          <span class="cm"># chỉ lấy CHỮ CUỐI, tra bảng điểm</span>
+        logits = logits[:, -<span class="num2">1</span>, :] / temperature
+        probabilities = F.<span class="fn">softmax</span>(logits, dim=-<span class="num2">1</span>)  <span class="cm"># điểm → xác suất %</span>
+        next_token = torch.<span class="fn">multinomial</span>(probabilities, <span class="num2">1</span>)  <span class="cm"># tung xúc xắc</span>
+        idx = torch.<span class="fn">cat</span>((idx, next_token), dim=<span class="num2">1</span>)   <span class="cm"># dán chữ mới vào cuối</span>
+    <span class="kw">return</span> idx</code></pre>
+
+  <div class="diagram">
+    <svg width="680" viewBox="0 0 680 320" font-family="inherit">
+      <text x="340" y="24" text-anchor="middle" font-size="15" font-weight="700">Một vòng "đẻ" ra 1 chữ mới (lặp lại 200 lần)</text>
+      <rect x="30" y="55" width="170" height="64" rx="12" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+      <text x="115" y="82" text-anchor="middle" font-size="13" font-weight="700">Chuỗi hiện tại</text>
+      <text x="115" y="103" text-anchor="middle" font-size="13" font-family="monospace">… "xin chà<u>o</u>"</text>
+      <rect x="255" y="55" width="170" height="64" rx="12" fill="#ede9fe" stroke="#6d28d9" stroke-width="2"/>
+      <text x="340" y="82" text-anchor="middle" font-size="13" font-weight="700">Tra bảng + chia T</text>
+      <text x="340" y="103" text-anchor="middle" font-size="13" font-family="monospace">hàng "o" ÷ T</text>
+      <rect x="480" y="55" width="170" height="64" rx="12" fill="#fef3c7" stroke="#b45309" stroke-width="2"/>
+      <text x="565" y="82" text-anchor="middle" font-size="13" font-weight="700">Softmax → %</text>
+      <text x="565" y="103" text-anchor="middle" font-size="12" font-family="monospace">o→?: i 40%, n 25%…</text>
+      <rect x="255" y="180" width="170" height="64" rx="12" fill="#d1fae5" stroke="#047857" stroke-width="2"/>
+      <text x="340" y="207" text-anchor="middle" font-size="13" font-weight="700">🎲 Tung xúc xắc</text>
+      <text x="340" y="228" text-anchor="middle" font-size="13" font-family="monospace">trúng "i"!</text>
+      <rect x="480" y="180" width="170" height="64" rx="12" fill="#d1fae5" stroke="#047857" stroke-width="2"/>
+      <text x="565" y="207" text-anchor="middle" font-size="13" font-weight="700">Dán vào cuối</text>
+      <text x="565" y="228" text-anchor="middle" font-size="13" font-family="monospace">… "xin chàoi"</text>
+      <line x1="200" y1="87" x2="250" y2="87" stroke="#9ca3af" stroke-width="2.5"/><polygon points="250,87 240,81 240,93" fill="#9ca3af"/>
+      <line x1="425" y1="87" x2="475" y2="87" stroke="#9ca3af" stroke-width="2.5"/><polygon points="475,87 465,81 465,93" fill="#9ca3af"/>
+      <line x1="480" y1="87" x2="425" y2="180" stroke="#9ca3af" stroke-width="2.5"/><polygon points="425,180 433,172 437,182" fill="#9ca3af"/>
+      <line x1="425" y1="212" x2="475" y2="212" stroke="#9ca3af" stroke-width="2.5"/><polygon points="475,212 465,206 465,218" fill="#9ca3af"/>
+      <path d="M 650 212 C 650 280, 120 280, 115 125" stroke="#047857" stroke-width="2.5" fill="none" stroke-dasharray="7,5"/>
+      <polygon points="115,125 121,135 109,135" fill="#047857"/>
+      <text x="340" y="300" text-anchor="middle" font-size="13" fill="#047857" font-weight="700">↺ lặp lại: giờ chữ cuối là "i", tra hàng "i" để đoán tiếp…</text>
+    </svg>
+    <p class="caption">Vì có "tung xúc xắc", cùng một model mỗi lần chạy sẽ viết ra một đoạn văn khác nhau — giống như gieo hạt giống ngẫu nhiên.</p>
+  </div>
+
+  <div class="analogy"><b>🎲 Vì sao không chọn luôn chữ điểm cao nhất?</b> Nếu lúc nào cũng chọn "đáp án an toàn nhất", văn bản sẽ lặp đi lặp lại một cách nhàm chán ("the the the…"). Tung xúc xắc theo đúng tỉ lệ xác suất giúp văn bản <b>đa dạng mà vẫn "nghe có vẻ đúng"</b> — chữ điểm cao trúng nhiều, chữ điểm thấp thỉnh thoảng trúng.</div>
+</section>
+
+<!-- ================= BƯỚC 6 ================= -->
+<section id="buoc6">
+  <h2><span class="num">6</span>Bước 6 — Temperature: núm vặn "độ liều" 🌡️</h2>
+  <p>Trước khi tung xúc xắc, code chia mọi điểm số cho <code>temperature</code> (T). Công thức:</p>
+  <div class="formula">P(chữ tiếp theo) = softmax( điểm ÷ T )</div>
+  <ul class="tight">
+    <li><b>T nhỏ (ví dụ 0.7)</b> → khoảng cách điểm bị <b>phóng đại</b>: chữ đầu bảng gần như luôn thắng → văn bản <b>an toàn, khuôn mẫu</b>.</li>
+    <li><b>T = 1</b> → giữ nguyên những gì đã học.</li>
+    <li><b>T lớn (ví dụ 1.3+)</b> → mọi chữ <b>cào bằng</b> nhau: chữ hiếm cũng có cửa → văn bản <b>táo bạo, ngẫu hứng</b>, đôi khi kỳ quặc.</li>
+  </ul>
+  <p>File chạy thử 3 mức <code>0.7, 1.0, 1.3</code> để so sánh cùng một model viết "tính cách" khác nhau ra sao.</p>
+
+  <div class="demo">
+    <h3>🎛️ Thử ngay: vặn núm Temperature xem xác suất đổi thế nào</h3>
+    <p style="margin-top:0">Bảng dưới mô phỏng "hàng điểm" của một chữ cái (đếm từ văn bản mẫu). Kéo thanh trượt và bấm các chữ khác nhau:</p>
+    <div class="charbtns" id="charBtns">
+      <button data-ch="t">t</button>
+      <button data-ch="a">a</button>
+      <button data-ch="h">h</button>
+      <button data-ch="q">q</button>
+      <button data-ch=" ">␣ (dấu cách)</button>
+    </div>
+    <label><b>Temperature = <span id="tempVal">1.00</span></b> <span style="color:var(--muted)">(kéo để thay đổi)</span></label>
+    <input type="range" id="tempSlider" min="0.1" max="2" step="0.05" value="1">
+    <p style="margin:8px 0 4px"><b>Sau chữ "<span id="curCharLbl" style="font-family:monospace">t</span>", xác suất chữ tiếp theo là:</b></p>
+    <div id="bars"></div>
+    <p id="demoNote" style="color:var(--muted);font-size:.93rem"></p>
+    <button class="btn" id="genBtn">🎲 Sinh thử một đoạn văn (60 chữ)</button>
+    <div class="gen-out" id="genOut">Bấm nút để xem model "tưởng tượng" ra chữ…</div>
+  </div>
+</section>
+
+<!-- ================= BƯỚC 7 ================= -->
+<section id="buoc7">
+  <h2><span class="num">7</span>Bước 7 — Thống kê & vài lưu ý khi chạy thật</h2>
+  <p>Cuối chương trình in ra "báo cáo sức khoẻ": mất bao lâu để học, tốn bao nhiêu RAM/VRAM. Ngoài ra có 3 điểm đáng chú ý:</p>
+
+  <div class="warn">
+    <b>⚠️ Lỗi nhỏ trong file (chạy thật sẽ vấp):</b> hàm <code>main()</code> dùng tới <code>argparse</code>, <code>Path</code>, <code>sys</code>
+    nhưng đầu file <b>chưa import</b> chúng (chỉ có <code>torch, time, math</code>). Muốn chạy được cần thêm:<br>
+    <code>import argparse, sys</code> và <code>from pathlib import Path</code> ở đầu file.
+  </div>
+
+  <div class="card">
+    <b>🎲 Số 1337 bí ẩn:</b> <code>torch.manual_seed(1337)</code> là "gieo hạt giống" cho bộ số ngẫu nhiên —
+    để mỗi lần chạy, các con số ngẫu nhiên (vị trí batch, tung xúc xắc…) <b>giống hệt nhau</b>, dễ so sánh và gỡ lỗi.<br><br>
+    <b>💻 Tự chọn GPU/CPU:</b> <code>device = 'cuda' if torch.cuda.is_available() else 'cpu'</code> —
+    có card đồ hoạ thì dùng cho nhanh, không có thì dùng CPU thường.<br><br>
+    <b>📝 Hai nửa code:</b> phần đầu file (đọc <code>corpus.txt</code>, <code>get_batch</code>, class model…) chạy ngay khi mở file;
+    <code>main()</code> làm lại từ đầu nhưng đọc tham số từ dòng lệnh (<code>--steps</code>, <code>--batch-size</code>…).
+    Các dòng <code>TODO (Bước 2/3/5)</code> cho thấy đây là bài tập thực hành "Ngày 1 buổi tối" — và đáp án đã được điền sẵn.
+  </div>
+
+  <h3>Cách chạy (sau khi sửa import)</h3>
+<pre><code>python bigram_lm.py corpus.txt --steps 2000 --batch-size 32 --block-size 16</code></pre>
+  <p>Bạn sẽ thấy loss giảm dần qua các vòng, rồi 3 đoạn văn được sinh ra với 3 "tính cách" temperature khác nhau, cuối cùng là báo cáo thời gian + RAM.</p>
+</section>
+
+<!-- ================= HẠN CHẾ ================= -->
+<section id="han-che">
+  <h2><span class="num">🚧</span>Hạn chế của Bigram — và con đường tới ChatGPT</h2>
+  <div class="grid">
+    <div class="concept rose"><h4>🧠 Trí nhớ "cá vàng"</h4><p>Chỉ nhớ đúng <b>1 chữ</b> vừa rồi. Viết ra câu đúng chính tả cục bộ nhưng <b>vô nghĩa toàn cục</b> — như người nói mớ.</p></div>
+    <div class="concept amber"><h4>📐 Bảng phình to</h4><p>Bảng V×V: 65 ký tự → 4.225 ô (ổn). Nhưng nếu học theo <b>từ</b> với 50.000 từ → 2,5 <b>tỉ</b> ô. Không khả thi!</p></div>
+    <div class="concept green"><h4>🚀 Hướng đi tiếp</h4><p><b>Trigram</b> (nhớ 2 chữ) → <b>n-gram</b> → rồi <b>Transformer/GPT</b>: nhớ cả đoạn văn bằng cơ chế "chú ý", bảng điểm gọn nhẹ hơn nhiều.</p></div>
+  </div>
+  <div class="ok"><b>💡 Điều đáng nể:</b> dù đơn sơ, bigram đã chứa <b>mọi ý tưởng cốt lõi</b> của model ngôn ngữ hiện đại:
+  token hoá → dự đoán chữ tiếp theo → chấm điểm bằng cross-entropy → sửa bằng lan truyền ngược → sinh văn bản bằng sampling + temperature.
+  ChatGPT cũng làm đúng những việc này — chỉ là ở quy mô khổng lồ và trí nhớ dài hơn.</div>
+</section>
+
+</div><!-- /wrap -->
+
+<footer>
+  <div class="wrap">
+    Được dựng từ file <code>bigram_lm.py</code> — giải thích bằng tiếng Việt, vẽ thành sơ đồ cho người ngoại đạo.<br>
+    Các sơ đồ bảng điểm và ví dụ số liệu là minh hoạ (không phải số thật từ quá trình huấn luyện).
+  </div>
+</footer>
+
+<script>
+const COUNTS = {
+  't': [['h',42],['o',26],['e',16],['a',9],['r',5],['i',2]],
+  'a': [['n',20],['t',14],['l',12],['r',10],['c',8],['s',6],['m',5],[' ',5]],
+  'h': [['e',35],['a',15],['i',12],['o',10],[' ',8]],
+  'q': [['u',48],[' ',2]],
+  ' ': [['t',18],['a',12],['s',10],['c',8],['h',7],['m',6],[' ',4]]
+};
+let cur = 't';
+let temp = 1.0;
+
+function distFor(ch){ return COUNTS[ch] || COUNTS[' ']; }
+
+function probsOf(rows){
+  const logits = rows.map(r => Math.log(r[1]));
+  const scaled = logits.map(l => l / temp);
+  const m = Math.max.apply(null, scaled);
+  const exps = scaled.map(s => Math.exp(s - m));
+  const sum = exps.reduce((a,b) => a + b, 0);
+  return rows.map((r,i) => ({ch: r[0], p: exps[i] / sum}));
+}
+
+function render(){
+  document.getElementById('tempVal').textContent = temp.toFixed(2);
+  document.getElementById('curCharLbl').textContent = cur === ' ' ? '␣' : cur;
+  const ps = probsOf(distFor(cur));
+  const box = document.getElementById('bars');
+  box.innerHTML = '';
+  ps.forEach(function(o){
+    const row = document.createElement('div');
+    row.className = 'bar-row';
+    const lbl = o.ch === ' ' ? '␣' : o.ch;
+    const pct = (o.p * 100);
+    row.innerHTML = '<div class="lbl">' + lbl + '</div>' +
+      '<div class="bar-track"><div class="bar-fill" style="width:' + pct.toFixed(1) + '%"></div></div>' +
+      '<div class="pct">' + pct.toFixed(1) + '%</div>';
+    box.appendChild(row);
+  });
+  const btns = document.querySelectorAll('#charBtns button');
+  btns.forEach(b => b.classList.toggle('active', b.getAttribute('data-ch') === cur));
+  let note;
+  if (temp < 0.5) note = '🥶 T rất thấp: chữ đầu bảng "' + (ps[0].ch === ' ' ? '␣' : ps[0].ch) + '" gần như luôn thắng — viết cực kỳ an toàn, dễ lặp lại.';
+  else if (temp <= 1.2) note = '🙂 T quanh 1: giữ đúng "trí nhớ" đã học — chữ hay đi với nhau trúng nhiều, chữ hiếm thỉnh thoảng trúng.';
+  else note = '🥵 T cao: mọi chữ cào bằng nhau — văn bản táo bạo, bất ngờ, đôi khi kỳ quặc.';
+  document.getElementById('demoNote').textContent = note;
+}
+
+function sampleFrom(rows){
+  const ps = probsOf(rows);
+  let r = Math.random(), acc = 0;
+  for (let i = 0; i < ps.length; i++){ acc += ps[i].p; if (r <= acc) return ps[i].ch; }
+  return ps[ps.length - 1].ch;
+}
+
+function generateDemo(){
+  let s = cur, out = (cur === ' ' ? '␣' : cur);
+  for (let i = 0; i < 60; i++){
+    s = sampleFrom(distFor(s));
+    out += (s === ' ' ? '␣' : s);
+  }
+  document.getElementById('genOut').textContent = out;
+}
+
+document.getElementById('tempSlider').addEventListener('input', function(e){
+  temp = parseFloat(e.target.value);
+  render();
+});
+document.querySelectorAll('#charBtns button').forEach(function(b){
+  b.addEventListener('click', function(){
+    cur = b.getAttribute('data-ch');
+    render();
+  });
+});
+document.getElementById('genBtn').addEventListener('click', generateDemo);
+render();
+</script>
+</body>
+</html>
