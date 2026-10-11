@@ -123,6 +123,7 @@
   <a href="#buoc6">6️⃣ Temperature</a>
   <a href="#buoc7">7️⃣ Thống kê & lưu ý</a>
   <a href="#han-che">🚧 Hạn chế</a>
+  <a href="#source">📜 Source code</a>
 </div></nav>
 
 <div class="wrap">
@@ -146,7 +147,7 @@
   <div class="grid">
     <div class="concept blue"><h4>📥 Đầu vào</h4><p>Một file văn bản <code>corpus.txt</code> — càng nhiều chữ càng tốt.</p></div>
     <div class="concept"><h4>🧠 Bộ não</h4><p>Một bảng điểm vuông V×V (V = số ký tự khác nhau). Ban đầu toàn số ngẫu nhiên.</p></div>
-    <div class="concept amber"><h4>🏋️ Học</h4><p>Đọc văn bản thật, tự chấm điểm đúng/sai, rồi sửa bảng điểm — lặp lại 2000 lần.</p></div>
+    <div class="concept amber"><h4>🏋️ Học</h4><p>Đọc văn bản thật, tự chấm điểm đúng/sai, rồi sửa bảng điểm — lặp tối đa 5000 lần, có "dừng sớm" nếu không tiến bộ.</p></div>
     <div class="concept green"><h4>✍️ Sáng tạo</h4><p>Sau khi học xong: cho một chữ, tung "xúc xắc có gian lận" để viết tiếp thành đoạn văn.</p></div>
   </div>
 </section>
@@ -176,27 +177,28 @@
       <div class="fstep d"><b>📄 corpus.txt</b><small>văn bản thô</small></div><div class="farrow">→</div>
       <div class="fstep d"><b>🔢 Mã hoá</b><small>chữ → số (token)</small></div><div class="farrow">→</div>
       <div class="fstep d"><b>✂️ Chia 90/10</b><small>train / val</small></div><div class="farrow">→</div>
-      <div class="fstep d"><b>📦 Batch (x, y)</b><small>32 đoạn × 16 chữ</small></div><div class="farrow">→</div>
+      <div class="fstep d"><b>📦 Batch (x, y)</b><small>32 đoạn × 32 chữ</small></div><div class="farrow">→</div>
       <div class="fstep m"><b>🧠 Bảng điểm V×V</b><small>model BigramLM</small></div><div class="farrow">→</div>
       <div class="fstep e"><b>📉 Loss</b><small>chấm điểm đúng/sai</small></div><div class="farrow">→</div>
       <div class="fstep e"><b>🔧 Sửa bảng</b><small>lan truyền ngược + AdamW</small></div><div class="farrow">↺</div>
       <div class="fstep g"><b>✍️ Sinh văn bản</b><small>tung xúc xắc theo bảng điểm</small></div>
     </div>
-    <p class="caption">Vòng lặp ↺ ở giữa lặp lại 2000 lần (mặc định). Mỗi vòng: đoán → chấm điểm → sửa bảng điểm cho khôn ra.</p>
+    <p class="caption">Vòng lặp ↺ ở giữa lặp lại tối đa 5000 lần (mặc định), có thể dừng sớm. Mỗi vòng: đoán → chấm điểm → sửa bảng điểm cho khôn ra.</p>
   </div>
 </section>
 
 <!-- ================= BƯỚC 1 ================= -->
 <section id="buoc1">
   <h2><span class="num">1</span>Bước 1 — Chuẩn bị dữ liệu: biến chữ thành số</h2>
-  <p>Máy tính không hiểu chữ <i>"a"</i>, nó chỉ hiểu số. Nên việc đầu tiên là lập <b>"danh bạ ký tự"</b>: liệt kê mọi ký tự khác nhau trong văn bản, xếp theo thứ tự, đánh số từ 0.</p>
-<pre><code><span class="cm"># đọc toàn bộ văn bản</span>
-text = <span class="fn">open</span>(<span class="str">'corpus.txt'</span>, encoding=<span class="str">'utf-8'</span>).<span class="fn">read</span>()
+  <p>Máy tính không hiểu chữ <i>"a"</i>, nó chỉ hiểu số. Nên việc đầu tiên là lập <b>"danh bạ ký tự"</b>: liệt kê mọi ký tự khác nhau trong văn bản, xếp theo thứ tự, đánh số từ 0. Đoạn này nằm trong <code>main()</code> và đọc file từ tham số dòng lệnh:</p>
+<pre><code><span class="cm"># đọc file văn bản do người dùng chỉ định: python bigram_lm.py corpus.txt</span>
+text = args.input.<span class="fn">read_text</span>(encoding=<span class="str">"utf-8"</span>)
 chars = <span class="fn">sorted</span>(<span class="fn">set</span>(text))          <span class="cm"># từ vựng: mọi ký tự khác nhau</span>
 stoi = {ch: i <span class="kw">for</span> i, ch <span class="kw">in</span> <span class="fn">enumerate</span>(chars)}  <span class="cm"># chữ -&gt; số (encode)</span>
-itos = {i: ch <span class="kw">for</span> i, ch <span class="kw">in</span> <span class="fn">enumerate</span>(chars)}  <span class="cm"># số -&gt; chữ (decode)</span>
-data = torch.<span class="fn">tensor</span>(<span class="fn">encode</span>(text))       <span class="cm"># cả cuốn sách thành dãy số dài</span>
+data = torch.<span class="fn">tensor</span>([stoi[ch] <span class="kw">for</span> ch <span class="kw">in</span> text])  <span class="cm"># cả cuốn sách thành dãy số dài</span>
+n = <span class="fn">int</span>(<span class="num2">0.9</span> * <span class="fn">len</span>(data))
 train_data, val_data = data[:n], data[n:]  <span class="cm"># cắt 90% học / 10% thi thử</span></code></pre>
+  <div class="ok"><b>📦 Mới trong bản này — import an toàn:</b> đầu file chỉ khai báo <code>train_data = None</code>, <code>val_data = None</code>… rồi <code>main()</code> mới gán giá trị thật. Nhờ vậy, ai <code>import bigram_lm</code> từ file khác sẽ <b>không bị "chạy ké"</b> cả chương trình (bản cũ đọc <code>corpus.txt</code> ngay khi import).</div>
 
   <div class="diagram">
     <svg width="640" viewBox="0 0 640 210" font-family="inherit">
@@ -236,16 +238,20 @@ train_data, val_data = data[:n], data[n:]  <span class="cm"># cắt 90% học / 
 <!-- ================= BƯỚC 2 ================= -->
 <section id="buoc2">
   <h2><span class="num">2</span>Bước 2 — Lấy batch: chuẩn bị "đề bài + đáp án"</h2>
-  <p>Hàm <code>get_batch</code> bốc ngẫu nhiên <b>32 đoạn văn</b>, mỗi đoạn dài <b>16 chữ</b>. Mỗi đoạn được cắt thành 2 bản:</p>
+  <p>Hàm <code>get_batch</code> bốc ngẫu nhiên <b>32 đoạn văn</b>, mỗi đoạn dài <b>32 chữ</b> (mặc định). Mỗi đoạn được cắt thành 2 bản:</p>
   <ul class="tight">
-    <li><b><code>x</code> — đề bài:</b> 16 chữ đầu, đưa cho model đoán.</li>
-    <li><b><code>y</code> — đáp án:</b> cũng 16 chữ đó nhưng <b>dịch phải 1 vị trí</b>: chữ đáp án của vị trí <i>i</i> chính là chữ thật đứng ngay sau nó trong văn bản.</li>
+    <li><b><code>x</code> — đề bài:</b> 32 chữ đầu, đưa cho model đoán.</li>
+    <li><b><code>y</code> — đáp án:</b> cũng 32 chữ đó nhưng <b>dịch phải 1 vị trí</b>: chữ đáp án của vị trí <i>i</i> chính là chữ thật đứng ngay sau nó trong văn bản.</li>
   </ul>
 <pre><code><span class="kw">def</span> <span class="fn">get_batch</span>(split):
-    starts = torch.<span class="fn">randint</span>(<span class="fn">len</span>(data) - block_size, (batch_size,))  <span class="cm"># 32 vị trí ngẫu nhiên</span>
-    x = torch.<span class="fn">stack</span>([data[i:i+block_size] <span class="kw">for</span> i <span class="kw">in</span> starts])      <span class="cm"># đề bài</span>
-    y = torch.<span class="fn">stack</span>([data[i+<span class="num2">1</span>:i+block_size+<span class="num2">1</span>] <span class="kw">for</span> i <span class="kw">in</span> starts])  <span class="cm"># đáp án = x dịch phải 1</span>
-    <span class="kw">return</span> x, y</code></pre>
+    split_data = train_data <span class="kw">if</span> split == <span class="str">"train"</span> <span class="kw">else</span> val_data
+    starts = torch.<span class="fn">randint</span>(<span class="fn">len</span>(split_data) - block_size, (batch_size,))  <span class="cm"># 32 vị trí ngẫu nhiên</span>
+    <span class="cm"># "Đánh chỉ số hàng loạt": một phép toán duy nhất cắt ra cả 32 đoạn cùng lúc,</span>
+    <span class="cm"># nhanh hơn nhiều so với cắt từng đoạn bằng vòng lặp Python.</span>
+    offsets = torch.<span class="fn">arange</span>(block_size)          <span class="cm"># [0, 1, 2, ..., 31]</span>
+    x = split_data[starts[:, <span class="kw">None</span>] + offsets]      <span class="cm"># đề bài</span>
+    y = split_data[starts[:, <span class="kw">None</span>] + offsets + <span class="num2">1</span>]  <span class="cm"># đáp án = x dịch phải 1</span>
+    <span class="kw">return</span> x.<span class="fn">to</span>(device), y.<span class="fn">to</span>(device)</code></pre>
 
   <div class="diagram">
     <svg width="660" viewBox="0 0 660 250" font-family="inherit">
@@ -328,18 +334,29 @@ train_data, val_data = data[:n], data[n:]  <span class="cm"># cắt 90% học / 
 
 <!-- ================= BƯỚC 4 ================= -->
 <section id="buoc4">
-  <h2><span class="num">4</span>Bước 4 — Huấn luyện: đoán → chấm → sửa, lặp 2000 lần</h2>
-  <p>Vòng lặp huấn luyện trong <code>main()</code> chính là quá trình "luyện thi": mỗi vòng, model làm một đề 32 câu, bị chấm điểm, rồi <b>tự sửa bảng điểm</b> dựa trên lỗi sai.</p>
-<pre><code><span class="kw">for</span> step <span class="kw">in</span> <span class="fn">range</span>(<span class="num2">1</span>, steps+<span class="num2">1</span>):      <span class="cm"># mặc định 2000 vòng</span>
-    x, y = <span class="fn">get_batch</span>(<span class="str">"train"</span>)      <span class="cm"># 1. bốc đề ngẫu nhiên</span>
-    _, loss = <span class="fn">model</span>(x, y)             <span class="cm"># 2. đoán + chấm điểm</span>
+  <h2><span class="num">4</span>Bước 4 — Huấn luyện: đoán → chấm → sửa, có "dừng sớm"</h2>
+  <p>Vòng lặp huấn luyện trong <code>main()</code> chính là quá trình "luyện thi": mỗi vòng, model làm một đề 32 câu, bị chấm điểm, rồi <b>tự sửa bảng điểm</b> dựa trên lỗi sai. Bản mới còn thêm "huấn luyện viên" giám sát: nếu thi thử nhiều lần không tiến bộ thì <b>cho nghỉ sớm</b>.</p>
+<pre><code><span class="kw">for</span> step <span class="kw">in</span> <span class="fn">range</span>(<span class="num2">1</span>, steps+<span class="num2">1</span>):   <span class="cm"># tối đa 5000 vòng</span>
+    x, y = <span class="fn">get_batch</span>(<span class="str">"train"</span>)   <span class="cm"># 1. bốc đề ngẫu nhiên</span>
+    _, loss = <span class="fn">model</span>(x, y)          <span class="cm"># 2. đoán + chấm điểm</span>
     optimizer.<span class="fn">zero_grad</span>()
-    loss.<span class="fn">backward</span>()                  <span class="cm"># 3. truy tìm: ô nào trong bảng gây ra lỗi?</span>
-    optimizer.<span class="fn">step</span>()                   <span class="cm"># 4. AdamW: sửa các ô đó một chút</span></code></pre>
+    loss.<span class="fn">backward</span>()               <span class="cm"># 3. truy tìm: ô nào trong bảng gây ra lỗi?</span>
+    optimizer.<span class="fn">step</span>()                <span class="cm"># 4. AdamW: sửa các ô đó một chút</span>
+
+    <span class="kw">if</span> step % <span class="num2">200</span> == <span class="num2">0</span>:           <span class="cm"># 5. mỗi 200 vòng: thi thử</span>
+        val_loss = <span class="fn">estimate_val_loss</span>(model)
+        <span class="kw">if</span> val_loss &lt; best_val:     <span class="cm"># thi tốt hơn kỷ lục?</span>
+            best_val = val_loss
+            torch.<span class="fn">save</span>(...)         <span class="cm"># → lưu bài làm hay nhất (best_bigram.pt)</span>
+            no_improve = <span class="num2">0</span>
+        <span class="kw">else</span>:
+            no_improve += <span class="num2">1</span>
+            <span class="kw">if</span> no_improve &gt;= <span class="num2">5</span>:   <span class="cm"># 5 lần thi không tiến bộ?</span>
+                <span class="kw">break</span>               <span class="cm"># → nghỉ sớm, dùng bản tốt nhất!</span></code></pre>
 
   <div class="diagram">
     <svg width="680" viewBox="0 0 680 330" font-family="inherit">
-      <text x="340" y="24" text-anchor="middle" font-size="15" font-weight="700">Một vòng huấn luyện (lặp lại 2000 lần)</text>
+      <text x="340" y="24" text-anchor="middle" font-size="15" font-weight="700">Một vòng huấn luyện (lặp lại tối đa 5000 lần)</text>
       <rect x="30" y="60" width="150" height="70" rx="12" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
       <text x="105" y="88" text-anchor="middle" font-size="14" font-weight="700">📦 Lấy batch</text>
       <text x="105" y="110" text-anchor="middle" font-size="12" fill="#6b7280">32 đoạn văn</text>
@@ -368,6 +385,24 @@ train_data, val_data = data[:n], data[n:]  <span class="cm"># cắt 90% học / 
     <p class="caption">Lan truyền ngược (backward) = "truy tìm thủ phạm": tính xem mỗi ô trong bảng phải sửa bao nhiêu thì lỗi giảm. AdamW là "thợ sửa" khéo tay, sửa từng chút một.</p>
   </div>
 
+  <h3>🛑 Cơ chế mới: "dừng sớm" (early stopping)</h3>
+  <p>Bản mới của bạn thêm một "huấn luyện viên" khó tính đứng ngoài quan sát. Mỗi 200 vòng, ông cho model <b>thi thử</b> (đo val loss) rồi áp dụng luật:</p>
+  <div class="card" style="overflow-x:auto">
+    <p style="margin-top:0"><b>Nhánh 1 — thi tốt hơn kỷ lục:</b></p>
+    <div class="flow">
+      <div class="fstep e"><b>📝 Đo val loss</b><small>mỗi 200 vòng</small></div><div class="farrow">→</div>
+      <div class="fstep g"><b>✔️ Tốt hơn best</b><small>lưu <code>best_bigram.pt</code><br>đếm lại từ 0</small></div>
+    </div>
+    <p><b>Nhánh 2 — thi mãi không tiến bộ:</b></p>
+    <div class="flow">
+      <div class="fstep e"><b>📝 Đo val loss</b><small>mỗi 200 vòng</small></div><div class="farrow">→</div>
+      <div class="fstep" style="background:var(--rose-soft);border-color:var(--rose)"><b>✖️ Không tốt hơn</b><small>đếm +1</small></div><div class="farrow">→</div>
+      <div class="fstep" style="background:var(--rose-soft);border-color:var(--rose)"><b>🛑 Đủ 5 lần liên tiếp?</b><small>dừng học, nạp lại<br>bản tốt nhất đã lưu</small></div>
+    </div>
+    <p class="caption">Sau khi dừng (hoặc học hết 5000 vòng), code nạp lại <code>best_bigram.pt</code> — tức luôn dùng "bài thi điểm cao nhất", không dùng bản cuối cùng.</p>
+  </div>
+  <div class="analogy"><b>🎯 Ví dụ đời thường:</b> như luyện thi đại học — mỗi tuần thi thử một lần. Nếu <b>5 tuần liền điểm không tăng</b> thì nghỉ luôn cho đỡ tốn thời gian, và giữ lại <b>bài thi điểm cao nhất</b> để nộp. Đó chính là <code>--patience</code> (mặc định 5) và file <code>best_bigram.pt</code>.</div>
+
   <div class="ok"><b>✅ Vì sao cần val loss?</b> Nếu chỉ học thuộc sách giáo khoa (train loss thấp) mà thi thử (val loss) điểm kém → model đang <b>học vẹt</b>, không khái quát được. Đây là cách kiểm tra trung thực nhất trong học máy.</div>
 </section>
 
@@ -377,8 +412,8 @@ train_data, val_data = data[:n], data[n:]  <span class="cm"># cắt 90% học / 
   <p>Hàm <code>generate</code> viết văn bản mới từng chữ một. Điểm đặc biệt của bigram: <b>mỗi lần chỉ nhìn đúng 1 chữ cuối cùng</b> — cả đoạn văn trước đó bị "quên" sạch.</p>
 <pre><code><span class="kw">def</span> <span class="fn">generate</span>(self, idx, max_new_tokens, temperature=<span class="num2">1.0</span>):
     <span class="kw">for</span> _ <span class="kw">in</span> <span class="fn">range</span>(max_new_tokens):      <span class="cm"># lặp: mỗi vòng thêm 1 chữ</span>
-        logits, _ = self(idx[:, -<span class="num2">1</span>:])          <span class="cm"># chỉ lấy CHỮ CUỐI, tra bảng điểm</span>
-        logits = logits[:, -<span class="num2">1</span>, :] / temperature
+        <span class="cm"># chỉ nhìn CHỮ CUỐI, tra bảng điểm, chia temperature — gọn trong 1 dòng</span>
+        logits = self(idx[:, -<span class="num2">1</span>:])[:, <span class="num2">0</span>, :] / temperature
         probabilities = F.<span class="fn">softmax</span>(logits, dim=-<span class="num2">1</span>)  <span class="cm"># điểm → xác suất %</span>
         next_token = torch.<span class="fn">multinomial</span>(probabilities, <span class="num2">1</span>)  <span class="cm"># tung xúc xắc</span>
         idx = torch.<span class="fn">cat</span>((idx, next_token), dim=<span class="num2">1</span>)   <span class="cm"># dán chữ mới vào cuối</span>
@@ -453,10 +488,8 @@ train_data, val_data = data[:n], data[n:]  <span class="cm"># cắt 90% học / 
   <h2><span class="num">7</span>Bước 7 — Thống kê & vài lưu ý khi chạy thật</h2>
   <p>Cuối chương trình in ra "báo cáo sức khoẻ": mất bao lâu để học, tốn bao nhiêu RAM/VRAM. Ngoài ra có 3 điểm đáng chú ý:</p>
 
-  <div class="warn">
-    <b>⚠️ Lỗi nhỏ trong file (chạy thật sẽ vấp):</b> hàm <code>main()</code> dùng tới <code>argparse</code>, <code>Path</code>, <code>sys</code>
-    nhưng đầu file <b>chưa import</b> chúng (chỉ có <code>torch, time, math</code>). Muốn chạy được cần thêm:<br>
-    <code>import argparse, sys</code> và <code>from pathlib import Path</code> ở đầu file.
+  <div class="ok">
+    <b>✅ Đã sửa trong bản mới:</b> đầu file giờ import đầy đủ <code>argparse, math, sys, time</code> và <code>from pathlib import Path</code> — lỗi thiếu import tôi chỉ ra ở bản trước đã được bạn khắc phục.
   </div>
 
   <div class="card">
@@ -464,14 +497,15 @@ train_data, val_data = data[:n], data[n:]  <span class="cm"># cắt 90% học / 
     để mỗi lần chạy, các con số ngẫu nhiên (vị trí batch, tung xúc xắc…) <b>giống hệt nhau</b>, dễ so sánh và gỡ lỗi.<br><br>
     <b>💻 Tự chọn GPU/CPU:</b> <code>device = 'cuda' if torch.cuda.is_available() else 'cpu'</code> —
     có card đồ hoạ thì dùng cho nhanh, không có thì dùng CPU thường.<br><br>
-    <b>📝 Hai nửa code:</b> phần đầu file (đọc <code>corpus.txt</code>, <code>get_batch</code>, class model…) chạy ngay khi mở file;
-    <code>main()</code> làm lại từ đầu nhưng đọc tham số từ dòng lệnh (<code>--steps</code>, <code>--batch-size</code>…).
-    Các dòng <code>TODO (Bước 2/3/5)</code> cho thấy đây là bài tập thực hành "Ngày 1 buổi tối" — và đáp án đã được điền sẵn.
+    <b>📦 Import an toàn:</b> bản mới không còn đọc file khi import — <code>train_data</code>, <code>val_data</code>… chỉ là <code>None</code> ở đầu file, <code>main()</code> mới gán giá trị thật từ tham số dòng lệnh. Muốn tái sử dụng model trong code khác thì <code>import</code> thoải mái.<br><br>
+    <b>🪟 Kiểm tra psutil sớm:</b> trên Windows, chương trình kiểm tra <b>ngay từ đầu</b> đã cài <code>psutil</code> chưa — thiếu thì báo lỗi luôn, chứ không để train xong 5000 bước mới crash ở khâu in báo cáo.<br><br>
+    <b>🎛️ Thêm flag <code>--patience</code>:</b> số lần thi thử "dậm chân tại chỗ" cho phép trước khi dừng sớm (mặc định 5) giờ chỉnh được từ dòng lệnh.
   </div>
 
-  <h3>Cách chạy (sau khi sửa import)</h3>
-<pre><code>python bigram_lm.py corpus.txt --steps 2000 --batch-size 32 --block-size 16</code></pre>
-  <p>Bạn sẽ thấy loss giảm dần qua các vòng, rồi 3 đoạn văn được sinh ra với 3 "tính cách" temperature khác nhau, cuối cùng là báo cáo thời gian + RAM.</p>
+  <h3>Cách chạy</h3>
+<pre><code>python bigram_lm.py corpus.txt</code></pre>
+  <p>Mọi tham số đều có giá trị mặc định hợp lý (<code>--steps 5000</code>, <code>--batch-size 32</code>, <code>--block-size 32</code>, <code>--patience 5</code>). Muốn chỉnh thì thêm vào, ví dụ <code>--device cpu</code> để ép chạy CPU, <code>--patience 10</code> để "kiên nhẫn" hơn.</p>
+  <p>Bạn sẽ thấy loss giảm dần qua các vòng (có thể <b>dừng sớm</b> trước 5000 vòng nếu val loss nhiều lần liền không cải thiện), rồi 3 đoạn văn được sinh ra với 3 "tính cách" temperature khác nhau, cuối cùng là báo cáo thời gian + RAM. File <code>best_bigram.pt</code> trong thư mục chạy chính là "bài thi điểm cao nhất" được lưu lại.</p>
 </section>
 
 <!-- ================= HẠN CHẾ ================= -->
@@ -485,6 +519,252 @@ train_data, val_data = data[:n], data[n:]  <span class="cm"># cắt 90% học / 
   <div class="ok"><b>💡 Điều đáng nể:</b> dù đơn sơ, bigram đã chứa <b>mọi ý tưởng cốt lõi</b> của model ngôn ngữ hiện đại:
   token hoá → dự đoán chữ tiếp theo → chấm điểm bằng cross-entropy → sửa bằng lan truyền ngược → sinh văn bản bằng sampling + temperature.
   ChatGPT cũng làm đúng những việc này — chỉ là ở quy mô khổng lồ và trí nhớ dài hơn.</div>
+</section>
+
+<!-- ================= SOURCE CODE ================= -->
+<section id="source">
+  <h2><span class="num">📜</span>Toàn bộ source code (bản mới nhất)</h2>
+  <p class="lead">File <code>workspace/user/files/bigram_lm-3.py</code> — đặt cạnh các sơ đồ phía trên để vừa nhìn hình vừa đối chiếu từng dòng code. Code được tô màu tự động, bấm nút để copy mang đi.</p>
+  <button class="btn" id="copySrcBtn">📋 Copy toàn bộ code</button>
+  <span id="copyMsg" style="margin-left:12px;color:var(--green);font-weight:700"></span>
+  <pre id="fullsrc"><code># bigram_lm.py — Bigram Language Model (char-level), Ngày 1 buổi tối
+import argparse
+import math
+import sys
+import time
+from pathlib import Path
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+torch.manual_seed(1337)
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+# ---------- Dữ liệu ----------
+text = open('corpus.txt', encoding='utf-8').read()
+chars = sorted(set(text))
+vocab_size = len(chars)
+stoi = {ch: i for i, ch in enumerate(chars)}
+itos = {i: ch for i, ch in enumerate(chars)}
+encode = lambda s: [stoi[c] for c in s]
+decode = lambda l: ''.join([itos[i] for i in l])
+
+data = torch.tensor(encode(text), dtype=torch.long)
+n = int(0.9 * len(data))
+train_data, val_data = data[:n], data[n:]
+print(f"vocab={vocab_size}, train tokens={len(train_data)}, val tokens={len(val_data)}")
+
+batch_size, block_size = 32, 16   # block_size = độ dài context (bigram dùng 1, nhưng giữ 16 để Bước 4)
+
+def get_batch(split):
+    # TODO (Bước 2): trả về x, y trên đúng device.
+    # x: (batch_size, block_size) token đầu vào
+    # y: (batch_size, block_size) token mục tiêu = x dịch phải 1 vị trí
+    """Bước 2: trả về x, y có shape (batch_size, block_size)."""
+    if split not in ("train", "val"):
+        raise ValueError("split phải là 'train' hoặc 'val'.")
+    data = train_data if split == "train" else val_data
+    if len(data) &lt;= block_size:
+        raise ValueError(f"Tập {split} cần ít nhất {block_size + 1} token.")
+
+    # high bị loại trừ: i lớn nhất là len(data) - block_size - 1.
+    starts = torch.randint(len(data) - block_size, (batch_size,))
+    x = torch.stack([data[i:i + block_size] for i in starts.tolist()])
+    y = torch.stack([data[i + 1:i + block_size + 1] for i in starts.tolist()])
+    return x.to(device), y.to(device)
+
+# ---------- Mô hình ----------
+class BigramLM(nn.Module):
+    def __init__(self, vocab_size):
+        super().__init__()
+        # TODO (Bước 3): tạo bảng embedding vocab_size x vocab_size
+        self.token_embedding_table = nn.Embedding(vocab_size, vocab_size)
+
+    def forward(self, idx, targets=None):
+        # TODO (Bước 3): logits = embedding(idx); nếu có targets thì tính loss
+        logits = self.token_embedding_table(idx)  # (B, T, V)
+        loss = None
+        if targets is not None:
+            if targets.shape != idx.shape:
+                raise ValueError("targets phải có cùng shape với idx.")
+            # Cross entropy nhận logits thô, không softmax trước.
+            loss = F.cross_entropy(
+                logits.reshape(-1, logits.size(-1)),
+                targets.reshape(-1),
+            )
+        return logits, loss
+
+    def generate(self, idx, max_new_tokens, temperature=1.0):
+        # TODO (Bước 5): sinh token mới bằng sampling với temperature
+        if not math.isfinite(temperature) or temperature &lt;= 0:
+            raise ValueError("temperature phải hữu hạn và &gt; 0.")
+        if max_new_tokens &lt; 0:
+            raise ValueError("max_new_tokens phải &gt;= 0.")
+        if idx.ndim != 2 or idx.size(1) == 0:
+            raise ValueError("idx phải có shape (B, T), với T &gt;= 1.")
+
+        for _ in range(max_new_tokens):
+            # Bigram chỉ phụ thuộc token cuối cùng, không cần cả lịch sử.
+            logits, _ = self(idx[:, -1:])
+            logits = logits[:, -1, :] / temperature  # (B, V)
+            probabilities = F.softmax(logits, dim=-1)
+            next_token = torch.multinomial(probabilities, num_samples=1)
+            idx = torch.cat((idx, next_token), dim=1)
+        return idx
+
+@torch.no_grad()
+def estimate_val_loss(model, eval_iters=20):
+    """Đánh giá trung bình nhiều batch, không tính gradient."""
+    if eval_iters &lt;= 0:
+        raise ValueError("eval_iters phải &gt; 0.")
+    was_training = model.training
+    model.eval()
+    try:
+        losses = []
+        for _ in range(eval_iters):
+            x, y = get_batch("val")
+            _, loss = model(x, y)
+            losses.append(loss.item())
+        return sum(losses) / len(losses)
+    finally:
+        model.train(was_training)
+
+
+def peak_ram_mib():
+    """Peak RAM của tiến trình, tính bằng MiB, do hệ điều hành ghi nhận."""
+    if sys.platform == "win32":
+        import psutil
+        return psutil.Process().memory_info().peak_wset / (1024 ** 2)
+    import resource
+    peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    # macOS trả bytes; Linux trả KiB.
+    return peak / (1024 ** 2 if sys.platform == "darwin" else 1024)
+
+
+def synchronize_device():
+    if device.type == "cuda":
+        torch.cuda.synchronize(device)
+
+
+def main():
+    global batch_size, block_size, device, train_data, val_data
+
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("input", type=Path, help="File văn bản UTF-8.")
+    parser.add_argument("--steps", type=int, default=5000)
+    parser.add_argument("--batch-size", type=int, default=32)
+    parser.add_argument("--block-size", type=int, default=32)
+    parser.add_argument("--eval-interval", type=int, default=200)
+    parser.add_argument("--eval-iters", type=int, default=20)
+    parser.add_argument("--device", choices=("auto", "cpu", "cuda"), default="auto")
+    args = parser.parse_args()
+    for name in ("steps", "batch_size", "block_size", "eval_interval", "eval_iters"):
+        if getattr(args, name) &lt;= 0:
+            parser.error(f"--{name.replace('_', '-')} phải &gt; 0.")
+
+    torch.manual_seed(1337)
+    batch_size, block_size = args.batch_size, args.block_size
+    selected_device = args.device
+    if selected_device == "auto":
+        selected_device = "cuda" if torch.cuda.is_available() else "cpu"
+    if selected_device == "cuda" and not torch.cuda.is_available():
+        parser.error("CUDA không khả dụng; hãy dùng --device cpu.")
+    device = torch.device(selected_device)
+
+    # Phần dữ liệu bổ sung do không xuất hiện trong ảnh.
+    try:
+        text = args.input.read_text(encoding="utf-8")
+    except (OSError, UnicodeError) as exc:
+        parser.error(f"Không đọc được file UTF-8: {exc}")
+    chars = sorted(set(text))
+    stoi = {ch: i for i, ch in enumerate(chars)}
+    vocab_size = len(chars)
+    data = torch.tensor([stoi[ch] for ch in text], dtype=torch.long)
+    split_index = int(0.9 * len(data))
+    train_data, val_data = data[:split_index], data[split_index:]
+    if min(len(train_data), len(val_data)) &lt;= block_size:
+        parser.error(
+            f"Sau chia 90/10, mỗi tập cần ít nhất {block_size + 1} token. "
+            "Hãy thêm văn bản hoặc giảm --block-size."
+        )
+
+    def decode(ids):
+        return "".join(chars[i] for i in ids)
+
+    model = BigramLM(vocab_size).to(device)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3)
+    print(f"device={device}, vocab_size={vocab_size}")
+
+    # Bước 4: huấn luyện; mỗi 200 bước in train loss và đo val loss.
+    model.train()
+    if device.type == "cuda":
+        torch.cuda.reset_peak_memory_stats(device)
+    synchronize_device()
+    started_at = time.perf_counter()
+    running_loss = 0.0
+    window_steps = 0
+    best_val = float("inf")          # &lt;-- thêm dòng này
+    patience, no_improve = 5, 0   # thêm cạnh best_val = float("inf")
+    for step in range(1, args.steps + 1):
+        x, y = get_batch("train")
+        _, loss = model(x, y)
+        optimizer.zero_grad(set_to_none=True)
+        loss.backward()
+        optimizer.step()
+        running_loss += loss.item()
+        window_steps += 1
+
+        if step % args.eval_interval == 0 or step == args.steps:
+            val_loss = estimate_val_loss(model, args.eval_iters)
+            if val_loss &lt; best_val:                          # &lt;-- thêm từ đây
+                best_val = val_loss
+                torch.save(model.state_dict(), "best_bigram.pt")
+                print(f"  ★ lưu checkpoint tốt nhất (val {best_val:.4f})")
+                no_improve = 0  # có cải thiện -&gt; đếm lại từ đầu
+            else:
+                no_improve += 1
+                if no_improve &gt;= patience:
+                    print(f"Dừng sớm ở step {step} (val không cải thiện {patience} lần liên tiếp)")
+                    break
+            print(                                          # &lt;-- đến đây
+                f"step {step:4d}/{args.steps} | "
+                f"train loss {running_loss / window_steps:.4f} | "
+                f"val loss {val_loss:.4f}"
+            )
+            running_loss = 0.0
+            window_steps = 0
+
+    synchronize_device()
+    elapsed_seconds = time.perf_counter() - started_at
+    steps_done = step  # số step chạy thật (kể cả khi dừng sớm)
+    model.load_state_dict(torch.load("best_bigram.pt", weights_only=True))  # &lt;-- thêm dòng này
+    training_peak_ram = peak_ram_mib()                       # &lt;-- thêm lại
+    peak_vram = (                                            # &lt;-- thêm lại
+        torch.cuda.max_memory_allocated(device) / (1024 ** 2)
+        if device.type == "cuda" else None
+    )
+
+    # Bước 6: sinh 200 token mới với mỗi temperature được yêu cầu.
+    model.eval()
+    for temperature in (0.7, 1.0, 1.3):
+        context = torch.zeros((1, 1), dtype=torch.long, device=device)
+        generated = model.generate(context, 200, temperature=temperature)
+        print(f"\n--- temperature={temperature} ---")
+        print(decode(generated[0].tolist()))  # Gồm 1 token đầu + 200 token mới.
+
+    # Bước 7: thống kê, chụp trước phần sinh văn bản.
+    print("\n--- Green checkpoint ---")
+    print(f"Thời gian vòng huấn luyện (gồm validation/log): {elapsed_seconds:.2f} s")
+    print(f"Số bước optimizer: {steps_done}")
+    print(f"Peak RAM tiến trình từ khởi động đến hết train: {training_peak_ram:.2f} MiB")
+    if peak_vram is not None:
+        print(f"Peak VRAM tensor do PyTorch cấp phát khi train: {peak_vram:.2f} MiB")
+
+
+if __name__ == "__main__":
+    main()</code></pre>
+  <p class="caption">Các dòng ghi <code>&lt;-- thêm ...</code> là ghi chú của bạn về những chỗ mới sửa trong bản này.</p>
 </section>
 
 </div><!-- /wrap -->
@@ -571,6 +851,35 @@ document.querySelectorAll('#charBtns button').forEach(function(b){
 });
 document.getElementById('genBtn').addEventListener('click', generateDemo);
 render();
+</script>
+<script>
+// Tô màu cú pháp Python + nút copy cho toàn bộ source code
+(function(){
+  function escHtml(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+  function highlightPython(src){
+    var re = /(#[^\n]*)|("""[\s\S]*?"""|"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*')|\b(import|from|def|class|return|if|elif|else|for|while|in|is|not|and|or|None|True|False|lambda|with|as|try|except|finally|raise|global|pass|break|continue)\b|(\b\d+(?:\.\d+)?\b)|(@[\w.]+)/g;
+    var out='', last=0, m;
+    while((m=re.exec(src))){
+      out += escHtml(src.slice(last, m.index));
+      var tok=m[0], cls = m[1]?'cm':m[2]?'str':m[3]?'kw':m[4]?'num2':'fn';
+      out += '<span class="'+cls+'">'+escHtml(tok)+'</span>';
+      last = m.index + tok.length;
+      if(tok.length===0) re.lastIndex++;
+    }
+    return out + escHtml(src.slice(last));
+  }
+  var pre=document.getElementById('fullsrc');
+  if(pre){
+    var raw=pre.textContent;
+    pre.innerHTML='<code>'+highlightPython(raw)+'</code>';
+    var btn=document.getElementById('copySrcBtn');
+    if(btn){btn.addEventListener('click',function(){
+      var done=function(){var m=document.getElementById('copyMsg');m.textContent='Đã copy ✓';setTimeout(function(){m.textContent='';},2000);};
+      if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(raw).then(done,done);}
+      else{var ta=document.createElement('textarea');ta.value=raw;document.body.appendChild(ta);ta.select();try{document.execCommand('copy');}catch(e){}document.body.removeChild(ta);done();}
+    });}
+  }
+})();
 </script>
 </body>
 </html>
