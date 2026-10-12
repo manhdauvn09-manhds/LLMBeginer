@@ -1,0 +1,1237 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 02 — Gradient Check & Huấn luyện MLP: giải thích từ con số 0</title>
+<style>
+  :root{
+    --bg:#f7f4ee; --card:#ffffff; --ink:#23272f; --muted:#6b7280;
+    --accent:#6d28d9; --accent-soft:#ede9fe;
+    --blue:#2563eb; --blue-soft:#dbeafe;
+    --amber:#b45309; --amber-soft:#fef3c7;
+    --green:#047857; --green-soft:#d1fae5;
+    --rose:#be123c; --rose-soft:#ffe4e6;
+    --line:#e5e0d5; --code-bg:#1e2230;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    line-height:1.75;font-size:16.5px}
+  .wrap{max-width:960px;margin:0 auto;padding:0 20px}
+  header.hero{background:linear-gradient(135deg,#0c1a3a 0%,#1d4ed8 55%,#0ea5e9 100%);
+    color:#fff;padding:64px 0 48px;margin-bottom:8px}
+  header.hero h1{margin:0 0 12px;font-size:2.1rem;line-height:1.3}
+  header.hero p{margin:6px 0;opacity:.92;max-width:720px}
+  .tag{display:inline-block;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.35);
+    border-radius:999px;padding:3px 14px;font-size:.85rem;margin-bottom:14px}
+  nav.sticky{position:sticky;top:0;z-index:50;background:rgba(247,244,238,.96);
+    backdrop-filter:blur(6px);border-bottom:1px solid var(--line)}
+  nav.sticky .wrap{display:flex;gap:4px;overflow-x:auto;padding:10px 20px;white-space:nowrap}
+  nav.sticky a{color:var(--muted);text-decoration:none;font-size:.88rem;padding:6px 10px;border-radius:8px}
+  nav.sticky a:hover{background:var(--blue-soft);color:var(--blue)}
+  section{padding:34px 0;border-bottom:1px solid var(--line)}
+  h2{font-size:1.55rem;margin:0 0 6px;color:#0f1f3d}
+  h2 .num{display:inline-block;background:var(--blue);color:#fff;font-size:.95rem;
+    width:34px;height:34px;line-height:34px;text-align:center;border-radius:10px;margin-right:10px;vertical-align:middle}
+  h3{font-size:1.15rem;margin:26px 0 8px}
+  .lead{color:#4b5563;font-size:1.05rem}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:20px 22px;margin:16px 0;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin:18px 0}
+  .concept{background:var(--card);border:1px solid var(--line);border-top:4px solid var(--blue);
+    border-radius:12px;padding:16px 18px}
+  .concept h4{margin:0 0 6px;font-size:1.02rem}
+  .concept p{margin:0;font-size:.93rem;color:#4b5563}
+  .concept.violet{border-top-color:var(--accent)} .concept.amber{border-top-color:var(--amber)}
+  .concept.green{border-top-color:var(--green)} .concept.rose{border-top-color:var(--rose)}
+  pre{background:var(--code-bg);color:#e8eaf2;border-radius:12px;padding:18px 20px;
+    overflow-x:auto;font-size:.86rem;line-height:1.6;margin:14px 0;max-height:560px;overflow-y:auto}
+  code{font-family:"SF Mono",Consolas,"Courier New",monospace}
+  p code, li code, td code{background:#e8eefb;padding:1px 7px;border-radius:6px;font-size:.88em;color:#1e3a8a}
+  pre code{background:none;padding:0;color:inherit}
+  .kw{color:#c792ea}.fn{color:#82aaff}.str{color:#c3e88d}.cm{color:#697098;font-style:italic}.num2{color:#f78c6c}
+  .diagram{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px 10px;margin:18px 0;text-align:center;overflow-x:auto}
+  .diagram svg{max-width:100%;height:auto}
+  .caption{font-size:.9rem;color:var(--muted);margin-top:10px;font-style:italic}
+  .flow{display:flex;align-items:stretch;gap:0;overflow-x:auto;padding:18px 6px;margin:14px 0}
+  .fstep{background:#fff;border:2px solid var(--line);border-radius:12px;padding:12px 14px;
+    min-width:140px;text-align:center;font-size:.88rem;flex-shrink:0}
+  .fstep b{display:block;margin-bottom:4px;font-size:.95rem}
+  .fstep small{color:var(--muted)}
+  .fstep.d{background:var(--blue-soft);border-color:var(--blue)}
+  .fstep.m{background:var(--accent-soft);border-color:var(--accent)}
+  .fstep.e{background:var(--amber-soft);border-color:var(--amber)}
+  .fstep.g{background:var(--green-soft);border-color:var(--green)}
+  .fstep.r{background:var(--rose-soft);border-color:var(--rose)}
+  .farrow{align-self:center;font-size:1.6rem;color:var(--muted);padding:0 6px;flex-shrink:0}
+  .analogy{background:#eff6ff;border:1px solid #93c5fd;border-left:6px solid var(--blue);
+    border-radius:10px;padding:16px 20px;margin:16px 0}
+  .analogy b{color:#1e40af}
+  .warn{background:#fff1f2;border:1px solid #fda4af;border-left:6px solid var(--rose);
+    border-radius:10px;padding:16px 20px;margin:16px 0}
+  .warn b{color:#9f1239}
+  .ok{background:#ecfdf5;border:1px solid #6ee7b7;border-left:6px solid var(--green);
+    border-radius:10px;padding:16px 20px;margin:16px 0}
+  table.mini{border-collapse:collapse;margin:14px auto;font-size:.9rem;min-width:70%}
+  table.mini th, table.mini td{border:1px solid var(--line);padding:8px 14px;text-align:center}
+  table.mini th{background:#e8eefb}
+  table.mini td.num{font-family:monospace}
+  .demo{background:#fff;border:2px solid var(--blue);border-radius:16px;padding:24px;margin:18px 0}
+  .demo h3{margin-top:0}
+  input[type=range]{width:100%;accent-color:var(--blue);margin:8px 0}
+  .seg{display:flex;gap:8px;margin:10px 0;flex-wrap:wrap}
+  .seg button{border:2px solid var(--line);background:#fff;border-radius:10px;
+    padding:8px 18px;font-size:1rem;cursor:pointer;font-family:monospace}
+  .seg button.active{border-color:var(--blue);background:var(--blue-soft);font-weight:700}
+  .big-out{background:var(--code-bg);color:#e8eaf2;border-radius:12px;padding:18px 20px;
+    font-family:monospace;font-size:1.02rem;margin-top:12px;line-height:1.9}
+  .big-out .good{color:#6ee7b7;font-weight:700}.big-out .mid{color:#fcd34d;font-weight:700}.big-out .bad{color:#fda4af;font-weight:700}
+  .btn{background:var(--blue);color:#fff;border:none;border-radius:10px;padding:10px 22px;
+    font-size:1rem;cursor:pointer;margin:10px 8px 0 0}
+  .btn:hover{background:#1d4ed8}
+  .formula{text-align:center;font-size:1.2rem;background:#f1f5fd;border-radius:10px;
+    padding:16px;margin:14px 0;font-family:Georgia,serif}
+  .formula small{display:block;font-family:inherit;font-size:.85rem;color:var(--muted);margin-top:6px}
+  footer{padding:36px 0 60px;color:var(--muted);font-size:.9rem;text-align:center}
+  ul.tight li{margin-bottom:6px}
+  .filetabs{display:flex;gap:10px;margin:16px 0 0;flex-wrap:wrap}
+  .filetabs button{border:2px solid var(--line);background:#fff;border-radius:10px 10px 0 0;
+    padding:10px 20px;font-size:.95rem;cursor:pointer;border-bottom:none;font-family:monospace}
+  .filetabs button.active{border-color:var(--blue);background:var(--blue-soft);font-weight:700}
+  .srcpane{display:none}.srcpane.active{display:block}
+  @media(max-width:600px){header.hero h1{font-size:1.6rem}body{font-size:15.5px}}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="tag">📄 Phân tích: day02/gradient_check.py + train_mlp.py</span>
+    <h1>Day 02 — Gradient Check<br>&amp; Huấn luyện MLP</h1>
+    <p>Day 2 dạy bạn <b>2 kỹ năng sinh tồn</b> của AI engineer: <b>(1)</b> kiểm tra xem PyTorch có tính gradient đúng không — bằng cách đối chiếu với phép tính "chay"; <b>(2)</b> huấn luyện một mạng neuron tí hon và đọc <b>"huyết áp gradient"</b> của nó để bắt bệnh khi train.</p>
+    <p style="font-size:.9rem;opacity:.8">Số liệu trong bài đều là kết quả chạy thật trên máy (CPU).</p>
+  </div>
+</header>
+
+<nav class="sticky"><div class="wrap">
+  <a href="#tong-quan">🍿 Tóm tắt 30 giây</a>
+  <a href="#bai1">🔍 Bài 1: Gradient check</a>
+  <a href="#bai2">🧠 Bài 2: Train MLP</a>
+  <a href="#sosanh">⚖️ SGD vs AdamW</a>
+  <a href="#green">🌱 Green / AMP</a>
+  <a href="#bay">🪤 Bẫy thường gặp</a>
+  <a href="#source">📜 Source code</a>
+</div></nav>
+
+<div class="wrap">
+
+<!-- ================= TỔNG QUAN ================= -->
+<section id="tong-quan">
+  <h2><span class="num">🍿</span>Tóm tắt 30 giây cho người ngoại đạo</h2>
+  <div class="grid">
+    <div class="concept"><h4>🔍 Bài 1 — "Bắt autograd khai gian"</h4><p>PyTorch tự tính <b>gradient</b> (độ dốc) bằng <i>autograd</i>. Nhưng nếu autograd tính sai, model vẫn chạy, loss vẫn giảm — mà học ra rác. Bài này <b>đối chiếu</b> autograd với cách tính "chay" bằng cộng-trừ-nhân-chia thuần túy. Khớp nhau → tin được.</p></div>
+    <div class="concept violet"><h4>🧠 Bài 2 — "MLP tí hon đoán số"</h4><p>Dạy một mạng neuron mini đoán số tiếp theo trong chuỗi <code>0 1 2 3 0 1 2 3…</code>. Mỗi epoch ghi lại <b>gradient norm</b> — "máy đo huyết áp" của quá trình train. Đọc được nó là bắt được bệnh bằng con số.</p></div>
+  </div>
+  <div class="analogy"><b>🧭 Vì sao Day 2 đứng sau Day 1?</b> Day 1 bạn học <i>cách</i> train (đoán → chấm điểm → sửa). Day 2 dạy bạn <i>kiểm chứng</i> và <i>chẩn đoán</i>: gradient có đúng không? quá trình học có "khỏe" không? Đây là khác biệt giữa "chạy được code" và "làm chủ được training".</div>
+</section>
+
+<!-- ================= BÀI 1 ================= -->
+<section id="bai1">
+  <h2><span class="num">🔍</span>Bài 1 — Gradient check: bắt autograd "khai gian"</h2>
+  <p class="lead">File <code>gradient_check.py</code>. Mục tiêu duy nhất: chứng minh gradient do <code>torch.autograd</code> tính ra <b>khớp</b> với gradient tính bằng <b>sai phân hữu hạn</b> (finite differences) — một cách tính không hề dùng đến đạo hàm.</p>
+
+  <div class="analogy"><b>⚖️ Ví dụ — Cân điện tử và quả cân 1kg:</b> <i>autograd</i> giống <b>cân điện tử</b>: nhanh, hiện đại, nhưng nếu nó bị lệch mà bạn không biết thì mọi lần cân đều sai. <i>Sai phân hữu hạn</i> giống <b>quả cân chuẩn 1kg</b>: thô sơ, chậm, nhưng đáng tin tuyệt đối. Đặt quả cân lên: cân hiện đúng 1kg → từ nay tin được cái cân. Gradient check chính là "lần đặt quả cân" đó — chỉ cần làm <b>một lần</b> trên model mini, rồi train thật bằng autograd cho nhanh.</div>
+
+  <h3>Từ điển khái niệm</h3>
+  <div class="grid">
+    <div class="concept"><h4>📐 Gradient (độ dốc)</h4><p>Cho biết <b>loss sẽ thay đổi bao nhiêu</b> nếu nhích một tham số lên một chút. Dốc xuống hướng nào thì bước ngược lại để giảm loss — đó là toàn bộ ý tưởng của học máy.</p></div>
+    <div class="concept"><h4>⛓️ Backprop / chain rule</h4><p>"Truy tìm thủ phạm": loss sai thì lần ngược qua từng lớp, tính xem mỗi tham số phải chịu bao nhiêu phần trách nhiệm. <code>autograd</code> tự động hóa việc này.</p></div>
+    <div class="concept amber"><h4>🔌 requires_grad</h4><p>"Công tắc" gắn vào tensor để PyTorch <b>ghi lại mọi phép tính</b> đi qua nó. Không bật → <code>.backward()</code> không tính được gradient cho tensor đó.</p></div>
+    <div class="concept green"><h4>📏 Sai phân hữu hạn</h4><p>Cách tính đạo hàm "chay": nhích <i>x</i> lên/xuống một chút, đo <i>f</i> thay đổi bao nhiêu rồi chia. Chỉ dùng cộng trừ nhân chia — <b>không cần biết đạo hàm là gì</b>.</p></div>
+  </div>
+
+  <h3>Sơ đồ ý tưởng: hai con đường, một đích đến</h3>
+  <div class="diagram">
+    <svg width="680" viewBox="0 0 680 300" font-family="inherit">
+      <text x="340" y="24" text-anchor="middle" font-size="15" font-weight="700">Đối chiếu 2 cách tính gradient độc lập</text>
+      <rect x="40" y="55" width="270" height="90" rx="12" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+      <text x="175" y="82" text-anchor="middle" font-size="14" font-weight="700">Cách 1: autograd (giải tích)</text>
+      <text x="175" y="104" text-anchor="middle" font-size="12" fill="#6b7280">forward 1 lần + backward 1 lần</text>
+      <text x="175" y="122" text-anchor="middle" font-size="12" fill="#6b7280">⚡ nhanh, dùng chain rule</text>
+      <rect x="370" y="55" width="270" height="90" rx="12" fill="#fef3c7" stroke="#b45309" stroke-width="2"/>
+      <text x="505" y="82" text-anchor="middle" font-size="14" font-weight="700">Cách 2: sai phân (số học)</text>
+      <text x="505" y="104" text-anchor="middle" font-size="12" fill="#6b7280">nhích ±eps, forward 2 lần / vô hướng</text>
+      <text x="505" y="122" text-anchor="middle" font-size="12" fill="#6b7280">🐢 chậm, chỉ cộng trừ nhân chia</text>
+      <polygon points="340,160 250,210 250,190 180,190 180,230 500,230 500,190 430,190 430,210" fill="none" stroke="#9ca3af" stroke-width="2.5"/>
+      <rect x="250" y="230" width="180" height="56" rx="12" fill="#ede9fe" stroke="#6d28d9" stroke-width="2"/>
+      <text x="340" y="253" text-anchor="middle" font-size="13" font-weight="700">So sánh: |A − B| &lt; 1e-4 ?</text>
+      <text x="340" y="272" text-anchor="middle" font-size="12" fill="#6b7280">khớp → <tspan fill="#047857" font-weight="700">PASS</tspan> · lệch → <tspan fill="#be123c" font-weight="700">FAIL</tspan></text>
+    </svg>
+    <p class="caption">Hai cách hoàn toàn độc lập cho ra cùng một con số → tin được autograd.</p>
+  </div>
+
+  <h3>Mạng mini dùng để check</h3>
+  <p>Cố tình làm <b>cực nhỏ</b> để có thể kiểm tra bằng tay nếu muốn: vector vào 3 chiều → 2 lớp tuyến tính kẹp một <code>tanh</code> ở giữa → loss MSE.</p>
+  <div class="diagram">
+    <svg width="680" viewBox="0 0 680 200" font-family="inherit">
+      <text x="340" y="22" text-anchor="middle" font-size="15" font-weight="700">Kiến trúc mạng mini (forward pass)</text>
+      <g font-size="13" text-anchor="middle">
+        <rect x="15" y="60" width="90" height="64" rx="10" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+        <text x="60" y="86" font-weight="700">x</text><text x="60" y="106" fill="#6b7280">(3,)</text>
+        <rect x="140" y="60" width="110" height="64" rx="10" fill="#ede9fe" stroke="#6d28d9" stroke-width="2"/>
+        <text x="195" y="86" font-weight="700">Linear</text><text x="195" y="106" fill="#6b7280">W1(4,3) b1(4,)</text>
+        <rect x="285" y="60" width="90" height="64" rx="10" fill="#fef3c7" stroke="#b45309" stroke-width="2"/>
+        <text x="330" y="86" font-weight="700">tanh</text><text x="330" y="106" fill="#6b7280">phi tuyến</text>
+        <rect x="410" y="60" width="110" height="64" rx="10" fill="#ede9fe" stroke="#6d28d9" stroke-width="2"/>
+        <text x="465" y="86" font-weight="700">Linear</text><text x="465" y="106" fill="#6b7280">W2(1,4) b2(1,)</text>
+        <rect x="555" y="60" width="110" height="64" rx="10" fill="#ffe4e6" stroke="#be123c" stroke-width="2"/>
+        <text x="610" y="86" font-weight="700">MSE</text><text x="610" y="106" fill="#6b7280">so với t</text>
+      </g>
+      <g stroke="#9ca3af" stroke-width="2.5">
+        <line x1="105" y1="92" x2="136" y2="92"/><polygon points="136,92 128,87 128,97" fill="#9ca3af"/>
+        <line x1="250" y1="92" x2="281" y2="92"/><polygon points="281,92 273,87 273,97" fill="#9ca3af"/>
+        <line x1="375" y1="92" x2="406" y2="92"/><polygon points="406,92 398,87 398,97" fill="#9ca3af"/>
+        <line x1="520" y1="92" x2="551" y2="92"/><polygon points="551,92 543,87 543,97" fill="#9ca3af"/>
+      </g>
+      <text x="340" y="160" text-anchor="middle" font-size="13" fill="#6b7280">4 bộ tham số cần check: <tspan font-family="monospace" font-weight="700">W1, b1, W2, b2</tspan> (tổng 4×3+4+4+1 = 21 vô hướng)</text>
+      <text x="340" y="182" text-anchor="middle" font-size="13" fill="#6b7280"><i>tanh</i> ở giữa là bắt buộc: không có nó, 2 lớp tuyến tính chồng nhau vẫn chỉ là 1 hàm tuyến tính</text>
+    </svg>
+  </div>
+
+  <h3>Công thức "quả cân": sai phân trung tâm</h3>
+  <div class="formula">dL/dp ≈ [ L(p + ε) − L(p − ε) ] / (2ε)
+    <small>Nhích tham số lên/xuống một chút (ε), đo loss thay đổi bao nhiêu → suy ra độ dốc. Chính xác bậc O(ε²), tốt hơn công thức lệch một phía.</small>
+  </div>
+  <div class="diagram">
+    <svg width="680" viewBox="0 0 680 240" font-family="inherit">
+      <text x="340" y="22" text-anchor="middle" font-size="15" font-weight="700">Độ dốc = độ nghiêng của đường nối 2 điểm đo</text>
+      <path d="M 80 190 Q 340 200 600 60" fill="none" stroke="#2563eb" stroke-width="3"/>
+      <text x="610" y="55" font-size="13" fill="#2563eb">đường cong loss L(p)</text>
+      <circle cx="250" cy="186" r="6" fill="#b45309"/><circle cx="430" cy="150" r="6" fill="#b45309"/>
+      <line x1="250" y1="186" x2="430" y2="150" stroke="#be123c" stroke-width="2.5" stroke-dasharray="8,5"/>
+      <text x="340" y="140" text-anchor="middle" font-size="13" fill="#be123c" font-weight="700">đường cát tuyến — độ nghiêng ≈ đạo hàm</text>
+      <line x1="250" y1="186" x2="250" y2="215" stroke="#9ca3af" stroke-width="1.5" stroke-dasharray="4,3"/>
+      <line x1="430" y1="150" x2="430" y2="215" stroke="#9ca3af" stroke-width="1.5" stroke-dasharray="4,3"/>
+      <line x1="340" y1="196" x2="340" y2="215" stroke="#9ca3af" stroke-width="1.5"/>
+      <text x="250" y="232" text-anchor="middle" font-size="13" font-family="monospace">p − ε → L−</text>
+      <text x="340" y="232" text-anchor="middle" font-size="13" font-family="monospace" font-weight="700">p</text>
+      <text x="430" y="232" text-anchor="middle" font-size="13" font-family="monospace">p + ε → L+</text>
+    </svg>
+    <p class="caption">Đo tại 2 điểm cách đều p rồi nối lại: đường càng dốc, đạo hàm càng lớn.</p>
+  </div>
+
+  <div class="card">
+    <b>🎯 Chọn ε bao nhiêu?</b> Quá <b>nhỏ</b> → sai số làm tròn "nuốt chửng" phép trừ <code>L+ − L−</code> (đặc biệt ở float32). Quá <b>lớn</b> → đường cát tuyến không còn giống đường cong. <b>ε = 1e-6 ở float64</b> là "điểm ngọt" kinh điển — thử ngay dưới đây 👇
+  </div>
+
+  <div class="demo">
+    <h3>🎛️ Thử ngay: vặn ε xem "quả cân" còn chuẩn không</h3>
+    <p style="margin-top:0">Hàm <code>f(x) = x³ + 2x</code> tại <code>x = 2</code> có đạo hàm thật là <b>14</b>. Kéo ε và đổi kiểu số để xem sai số:</p>
+    <label><b>ε = <span id="epsVal">1e-6</span></b> <span style="color:var(--muted)">(kéo để thay đổi)</span></label>
+    <input type="range" id="epsSlider" min="0" max="110" step="1" value="60">
+    <div class="seg">
+      <button id="btnF64" class="active">float64</button>
+      <button id="btnF32">float32</button>
+    </div>
+    <div class="big-out" id="epsOut"></div>
+    <p id="epsNote" style="color:var(--muted);font-size:.93rem"></p>
+  </div>
+
+  <h3>Vòng lặp tính gradient số: 4 bước + 1 luật sắt</h3>
+  <div class="card" style="overflow-x:auto">
+    <div class="flow">
+      <div class="fstep e"><b>① Lưu gốc</b><small>orig = p[i]</small></div><div class="farrow">→</div>
+      <div class="fstep e"><b>② Nhích +ε</b><small>forward → L+</small></div><div class="farrow">→</div>
+      <div class="fstep e"><b>③ Nhích −ε</b><small>forward → L−</small></div><div class="farrow">→</div>
+      <div class="fstep r"><b>④ TRẢ VỀ GỐC</b><small>p[i] = orig ⚠️</small></div><div class="farrow">→</div>
+      <div class="fstep g"><b>(L+ − L−)/2ε</b><small>độ dốc tại p[i]</small></div>
+    </div>
+    <p class="caption">Lặp lại cho <b>từng vô hướng</b> của từng param (21 lần forward cặp ở đây — đó là lý do chỉ check trên model mini!).</p>
+  </div>
+  <div class="warn"><b>⚠️ Luật sắt:</b> quên bước ④ → các lần đo sau chạy trên param đã bị lệch → kết quả sai hoàn toàn. Code dùng <code>p.data</code> + <code>torch.no_grad()</code> khi nhích để <b>không làm bẩn</b> đồ thị tính toán của autograd.</div>
+
+  <h3>Kết quả chạy thật</h3>
+  <table class="mini">
+    <tr><th>param</th><th>max |autograd − numeric|</th><th>kết quả</th></tr>
+    <tr><td><code>W1</code></td><td class="num">3.923e-11</td><td>✅ PASS</td></tr>
+    <tr><td><code>b1</code></td><td class="num">2.114e-11</td><td>✅ PASS</td></tr>
+    <tr><td><code>W2</code></td><td class="num">2.987e-11</td><td>✅ PASS</td></tr>
+    <tr><td><code>b2</code></td><td class="num">4.047e-11</td><td>✅ PASS</td></tr>
+  </table>
+  <p class="caption" style="text-align:center">Ngưỡng 1e-4 — sai số thực tế nhỏ hơn ngưỡng <b>hàng triệu lần</b>. Autograd đáng tin.</p>
+
+  <div class="ok"><b>🧪 Bonus — vì sao KHÔNG check ở float32?</b> Chạy cùng code ở 2 kiểu số:
+  <table class="mini">
+    <tr><th>kiểu số</th><th>max_error</th><th>thời gian</th></tr>
+    <tr><td><code>float64</code></td><td class="num">4.047e-11 ✅</td><td class="num">2.0 ms</td></tr>
+    <tr><td><code>float32</code></td><td class="num">3.567e-02 ❌</td><td class="num">15.2 ms</td></tr>
+  </table>
+  float32 chỉ có ~7 chữ số thập phân: sai số làm tròn (~1e-7) <b>lấn át</b> bước nhích ε=1e-6 → "quả cân" không còn chuẩn. Đây là câu trả lời bằng số liệu, không phải lý thuyết suông.<br>
+  <span style="font-size:.88rem;color:var(--muted)">Lưu ý của trainer: 2.0ms vs 15.2ms ở quy mô này chủ yếu là <b>nhiễu</b> — đừng suy ra "float64 nhanh hơn". Bài học tốc độ thật sự nằm ở AMP/GPU (Bài 3).</span></div>
+</section>
+
+<!-- ================= BÀI 2 ================= -->
+<section id="bai2">
+  <h2><span class="num">🧠</span>Bài 2 — Huấn luyện MLP đoán token kế tiếp</h2>
+  <p class="lead">File <code>train_mlp.py</code>. Phiên bản thu nhỏ của cái mà <b>mọi LLM đều làm</b>: nhìn một đoạn ngắn, đoán token tiếp theo. Khác Day 1 ở chỗ: input là <b>3 token</b> (không phải 1), model là <b>mạng 2 lớp thật sự</b> (không phải bảng tra), và ta <b>log gradient norm mỗi epoch</b> để chẩn đoán.</p>
+
+  <h3>Dữ liệu đồ chơi: chuỗi tuần hoàn 0 1 2 3…</h3>
+  <p>Chuỗi <code>0,1,2,3,0,1,2,3,…</code> dài 2000 số. Mỗi mẫu: <b>x = 3 số liên tiếp</b>, <b>y = số đứng ngay sau</b>. Ví dụ <code>[1,2,3] → 0</code>. Bài toán cố tình <b>dễ</b> để ta tập trung vào kỹ thuật đo đạc, không phải độ khó.</p>
+
+  <div class="analogy"><b>💡 Vì sao one-hot mà không đưa số 0..3 thẳng vào?</b> Số <code>3</code> mang ý nghĩa thứ tự giả tạo ("3 lớn hơn 0") trong khi đây chỉ là <b>ký hiệu rời rạc</b>. One-hot nói với model: "mỗi token là một <b>công tắc đèn riêng</b>, các token bình đẳng, không có thứ tự". Mỗi token → vector 4 chiều chỉ có 1 vị trí là 1.</div>
+
+  <div class="diagram">
+    <svg width="680" viewBox="0 0 680 260" font-family="inherit">
+      <text x="340" y="22" text-anchor="middle" font-size="15" font-weight="700">Cửa sổ trượt: 3 token → vector 12 chiều, token thứ 4 làm đáp án</text>
+      <text x="60" y="70" font-size="13" fill="#6b7280">chuỗi:</text>
+      <g font-size="15" text-anchor="middle" font-family="monospace">
+        <rect x="130" y="48" width="40" height="40" rx="6" fill="#f3f0e8" stroke="#a8a29e"/><text x="150" y="74">0</text>
+        <rect x="174" y="48" width="40" height="40" rx="6" fill="#dbeafe" stroke="#2563eb" stroke-width="2.5"/><text x="194" y="74" font-weight="700">1</text>
+        <rect x="218" y="48" width="40" height="40" rx="6" fill="#dbeafe" stroke="#2563eb" stroke-width="2.5"/><text x="238" y="74" font-weight="700">2</text>
+        <rect x="262" y="48" width="40" height="40" rx="6" fill="#dbeafe" stroke="#2563eb" stroke-width="2.5"/><text x="282" y="74" font-weight="700">3</text>
+        <rect x="306" y="48" width="40" height="40" rx="6" fill="#fef3c7" stroke="#b45309" stroke-width="2.5"/><text x="326" y="74" font-weight="700">0</text>
+        <rect x="350" y="48" width="40" height="40" rx="6" fill="#f3f0e8" stroke="#a8a29e"/><text x="370" y="74">1</text>
+        <text x="410" y="74" fill="#9ca3af">…</text>
+      </g>
+      <text x="228" y="112" text-anchor="middle" font-size="12" fill="#2563eb" font-weight="700">x = [1, 2, 3]</text>
+      <text x="326" y="112" text-anchor="middle" font-size="12" fill="#b45309" font-weight="700">y = 0</text>
+      <text x="340" y="140" text-anchor="middle" font-size="26">⬇</text>
+      <text x="340" y="165" text-anchor="middle" font-size="13" fill="#6b7280">mỗi token → one-hot 4 chiều, ghép lại:</text>
+      <g font-size="12" text-anchor="middle" font-family="monospace">
+        <rect x="150" y="180" width="34" height="34" rx="5" fill="#f3f0e8" stroke="#a8a29e"/><text x="167" y="202">0</text>
+        <rect x="188" y="180" width="34" height="34" rx="5" fill="#2563eb"/><text x="205" y="202" fill="#fff" font-weight="700">1</text>
+        <rect x="226" y="180" width="34" height="34" rx="5" fill="#f3f0e8" stroke="#a8a29e"/><text x="243" y="202">0</text>
+        <rect x="264" y="180" width="34" height="34" rx="5" fill="#f3f0e8" stroke="#a8a29e"/><text x="281" y="202">0</text>
+        <rect x="312" y="180" width="34" height="34" rx="5" fill="#f3f0e8" stroke="#a8a29e"/><text x="329" y="202">0</text>
+        <rect x="350" y="180" width="34" height="34" rx="5" fill="#f3f0e8" stroke="#a8a29e"/><text x="367" y="202">0</text>
+        <rect x="388" y="180" width="34" height="34" rx="5" fill="#2563eb"/><text x="405" y="202" fill="#fff" font-weight="700">1</text>
+        <rect x="426" y="180" width="34" height="34" rx="5" fill="#f3f0e8" stroke="#a8a29e"/><text x="443" y="202">0</text>
+        <rect x="474" y="180" width="34" height="34" rx="5" fill="#f3f0e8" stroke="#a8a29e"/><text x="491" y="202">0</text>
+        <rect x="512" y="180" width="34" height="34" rx="5" fill="#f3f0e8" stroke="#a8a29e"/><text x="529" y="202">0</text>
+        <rect x="550" y="180" width="34" height="34" rx="5" fill="#f3f0e8" stroke="#a8a29e"/><text x="567" y="202">0</text>
+        <rect x="588" y="180" width="34" height="34" rx="5" fill="#2563eb"/><text x="605" y="202" fill="#fff" font-weight="700">1</text>
+      </g>
+      <text x="216" y="232" text-anchor="middle" font-size="11" fill="#6b7280">token "1"</text>
+      <text x="378" y="232" text-anchor="middle" font-size="11" fill="#6b7280">token "2"</text>
+      <text x="540" y="232" text-anchor="middle" font-size="11" fill="#6b7280">token "3"</text>
+    </svg>
+    <p class="caption">Trượt cửa sổ dọc 2000 số → 1997 mẫu (cửa sổ cuối không có "số tiếp theo" nên bỏ).</p>
+  </div>
+
+  <div class="demo">
+    <h3>💡 Thử ngay: one-hot là gì?</h3>
+    <p style="margin-top:0">Bấm một token để xem vector one-hot của nó:</p>
+    <div class="seg" id="ohBtns">
+      <button data-t="0" class="active">token 0</button>
+      <button data-t="1">token 1</button>
+      <button data-t="2">token 2</button>
+      <button data-t="3">token 3</button>
+    </div>
+    <div class="big-out" id="ohOut" style="font-size:1.4rem;letter-spacing:.1em"></div>
+    <p style="color:var(--muted);font-size:.93rem">Chỉ đúng 1 vị trí là 1 — như bật đúng 1 công tắc trong 4 cái.</p>
+  </div>
+
+  <h3>Kiến trúc MLP: 12 → 32 → 4</h3>
+  <div class="diagram">
+    <svg width="680" viewBox="0 0 680 230" font-family="inherit">
+      <text x="340" y="22" text-anchor="middle" font-size="15" font-weight="700">Mạng 2 lớp: mỗi neuron ẩn là một "đặc trưng" học được</text>
+      <g font-size="13" text-anchor="middle">
+        <rect x="30" y="70" width="110" height="80" rx="10" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+        <text x="85" y="98" font-weight="700">input x</text><text x="85" y="120" fill="#6b7280">12 chiều</text><text x="85" y="138" fill="#6b7280" font-size="11">(3 token one-hot)</text>
+        <rect x="200" y="70" width="130" height="80" rx="10" fill="#ede9fe" stroke="#6d28d9" stroke-width="2"/>
+        <text x="265" y="98" font-weight="700">Linear 12→32</text><text x="265" y="120" fill="#6b7280">+ tanh</text>
+        <rect x="390" y="70" width="110" height="80" rx="10" fill="#ede9fe" stroke="#6d28d9" stroke-width="2"/>
+        <text x="445" y="98" font-weight="700">Linear 32→4</text><text x="445" y="120" fill="#6b7280">logits</text>
+        <rect x="560" y="70" width="90" height="80" rx="10" fill="#d1fae5" stroke="#047857" stroke-width="2"/>
+        <text x="605" y="98" font-weight="700">argmax</text><text x="605" y="120" fill="#6b7280">token đoán</text>
+      </g>
+      <g stroke="#9ca3af" stroke-width="2.5">
+        <line x1="140" y1="110" x2="196" y2="110"/><polygon points="196,110 188,105 188,115" fill="#9ca3af"/>
+        <line x1="330" y1="110" x2="386" y2="110"/><polygon points="386,110 378,105 378,115" fill="#9ca3af"/>
+        <line x1="500" y1="110" x2="556" y2="110"/><polygon points="556,110 548,105 548,115" fill="#9ca3af"/>
+      </g>
+      <text x="340" y="185" text-anchor="middle" font-size="13" fill="#6b7280">CrossEntropyLoss nhận <b>logit thô</b> (chưa softmax) — nó tự xử lý bên trong</text>
+      <text x="340" y="207" text-anchor="middle" font-size="13" fill="#6b7280">So với Day 1: input dài hơn (3 token), model là mạng thật sự thay vì bảng tra</text>
+    </svg>
+  </div>
+
+  <h3>Vòng lặp huấn luyện: 7 bước phải thuộc lòng</h3>
+  <div class="card" style="overflow-x:auto">
+    <div class="flow">
+      <div class="fstep r"><b>1. zero_grad</b><small>xóa gradient cũ</small></div><div class="farrow">→</div>
+      <div class="fstep d"><b>2. forward</b><small>đoán → logits</small></div><div class="farrow">→</div>
+      <div class="fstep e"><b>3. loss</b><small>chấm điểm</small></div><div class="farrow">→</div>
+      <div class="fstep m"><b>4. backward</b><small>điền gradient</small></div><div class="farrow">→</div>
+      <div class="fstep e"><b>5. ĐO norm</b><small>⚠️ trước khi clip!</small></div><div class="farrow">→</div>
+      <div class="fstep e"><b>6. clip</b><small>phanh khẩn cấp</small></div><div class="farrow">→</div>
+      <div class="fstep g"><b>7. step</b><small>optimizer bước đi</small></div><div class="farrow">↺</div>
+    </div>
+    <p class="caption">Quên bước 1 → gradient <b>cộng dồn</b> qua các epoch: norm phình to "bí ẩn", loss giảm vài epoch rồi vọt — bẫy số 1 của người mới.</p>
+  </div>
+</section>
+
+<!-- ================= GRADIENT NORM ================= -->
+<section id="gradnorm">
+  <h2><span class="num">💓</span>Gradient norm — "máy đo huyết áp" của training</h2>
+  <p class="lead">Mỗi epoch, code tính <b>total gradient norm</b> = độ dài tổng hợp của mọi gradient trong model. Nó cho biết "bước đi" của optimizer đang <b>mạnh hay yếu</b> — và đó là tín hiệu chẩn đoán quý nhất khi train gặp vấn đề.</p>
+  <div class="formula">total_norm = √( Σ ||g<sub>p</sub>||² ) <small>cộng bình phương norm gradient của từng tham số rồi khai căn — như tính độ dài đường chéo trong không gian nhiều chiều</small></div>
+
+  <div class="warn"><b>⚠️ Quy tắc vàng:</b> phải đo norm <b>TRƯỚC</b> <code>clip_grad_norm_</code>! Đo sau khi clip thì plot lúc nào cũng "đẹp" (bị kẹp ở max_norm) và ta <b>mất hoàn toàn</b> tín hiệu chẩn đoán thật. Code còn bật cảnh báo tự động: norm = 0 → "gradient CHẾT", norm &gt; 1e3 → "sắp NỔ".</div>
+
+  <h3>3 "nhịp tim" phải thuộc lòng</h3>
+  <div class="diagram">
+    <svg width="680" viewBox="0 0 680 330" font-family="inherit">
+      <text x="340" y="22" text-anchor="middle" font-size="15" font-weight="700">Đọc plot gradient norm (trục y: thang log)</text>
+      <g font-size="13" text-anchor="middle">
+        <text x="115" y="55" font-weight="700" fill="#be123c">1. Vanishing — "máu không lên não"</text>
+        <rect x="20" y="65" width="190" height="110" rx="8" fill="#fff1f2" stroke="#fda4af"/>
+        <polyline points="30,85 60,95 90,110 120,130 150,155 180,170 200,172" fill="none" stroke="#be123c" stroke-width="2.5"/>
+        <text x="115" y="195" font-size="11" fill="#6b7280">norm → 0, loss vẫn cao</text>
+        <text x="115" y="212" font-size="11" fill="#6b7280">→ tăng lr, xem lại init</text>
+
+        <text x="340" y="55" font-weight="700" fill="#b45309">2. Exploding — "tăng huyết áp"</text>
+        <rect x="245" y="65" width="190" height="110" rx="8" fill="#fffbeb" stroke="#fcd34d"/>
+        <polyline points="255,160 285,155 315,150 345,140 375,100 405,60 425,75" fill="none" stroke="#b45309" stroke-width="2.5"/>
+        <text x="340" y="195" font-size="11" fill="#6b7280">norm vọt lên, loss NaN</text>
+        <text x="340" y="212" font-size="11" fill="#6b7280">→ giảm lr, bật clip</text>
+
+        <text x="565" y="55" font-weight="700" fill="#047857">3. Khỏe — "nhịp tim bình thường"</text>
+        <rect x="470" y="65" width="190" height="110" rx="8" fill="#ecfdf5" stroke="#6ee7b7"/>
+        <polyline points="480,90 500,110 520,95 540,115 560,100 580,118 600,105 620,115 640,110" fill="none" stroke="#047857" stroke-width="2.5"/>
+        <text x="565" y="195" font-size="11" fill="#6b7280">norm dao động đều</text>
+        <text x="565" y="212" font-size="11" fill="#6b7280">loss giảm mượt ✅</text>
+      </g>
+      <text x="340" y="250" text-anchor="middle" font-size="13" fill="#6b7280">Bài này phải ra dạng số 3 — và nó đã ra đúng như vậy (xem plot <tspan font-family="monospace">plot_sgd.png</tspan> / <tspan font-family="monospace">plot_adamw.png</tspan> khi chạy)</text>
+      <text x="340" y="272" text-anchor="middle" font-size="13" fill="#6b7280">Thang <b>log</b> cho trục y là bắt buộc: norm biến thiên nhiều bậc độ lớn, thang thường sẽ "bẹp" hết chi tiết</text>
+      <text x="340" y="300" text-anchor="middle" font-size="13" fill="#6b7280"><b>clip_grad_norm_</b> (max_norm=1.0) là "phanh khẩn cấp": giữ nguyên <i>hướng</i> bước đi, chỉ thu nhỏ <i>độ dài</i> về ≤ 1</text>
+    </svg>
+  </div>
+</section>
+
+<!-- ================= SGD vs ADAMW ================= -->
+<section id="sosanh">
+  <h2><span class="num">⚖️</span>SGD vs AdamW: cùng vạch xuất phát, ai về đích trước?</h2>
+  <div class="analogy"><b>🥾 Ví dụ — Hai người leo núi:</b> <b>SGD</b> đi với <b>bước chân cố định</b> (lr không đổi): chỗ dốc thì lao nhanh, chỗ bằng thì ì ạch. <b>AdamW</b> như người leo núi kinh nghiệm: <b>tự điều chỉnh độ dài bước chân theo địa hình</b> (adaptive lr cho từng tham số, dựa vào lịch sử gradient) + "ăn kiêng" riêng (weight decay tách bạch — chữ W). Code cho cả hai <b>cùng seed, cùng khởi tạo</b> nên so sánh là công bằng tuyệt đối.</div>
+
+  <div class="diagram">
+    <svg width="680" viewBox="0 0 680 250" font-family="inherit">
+      <text x="340" y="22" text-anchor="middle" font-size="15" font-weight="700">Minh họa: cùng điểm xuất phát trên "địa hình loss"</text>
+      <ellipse cx="340" cy="140" rx="240" ry="95" fill="none" stroke="#d1d5db" stroke-width="1.5"/>
+      <ellipse cx="340" cy="140" rx="170" ry="65" fill="none" stroke="#d1d5db" stroke-width="1.5"/>
+      <ellipse cx="340" cy="140" rx="100" ry="38" fill="none" stroke="#d1d5db" stroke-width="1.5"/>
+      <ellipse cx="340" cy="140" rx="35" ry="14" fill="#d1fae5" stroke="#047857" stroke-width="2"/>
+      <text x="340" y="144" text-anchor="middle" font-size="11" fill="#047857" font-weight="700">đáy</text>
+      <circle cx="520" cy="80" r="7" fill="#1f2937"/>
+      <text x="520" y="62" text-anchor="middle" font-size="12" font-weight="700">xuất phát</text>
+      <path d="M 515 85 Q 480 120 490 140 Q 500 160 460 150 Q 420 140 430 165 Q 440 190 400 175 Q 370 165 360 150" fill="none" stroke="#b45309" stroke-width="2.5" stroke-dasharray="7,4"/>
+      <text x="560" y="180" font-size="12" fill="#b45309" font-weight="700">SGD: zigzag, chậm</text>
+      <path d="M 515 85 Q 470 105 430 120 Q 390 132 355 138" fill="none" stroke="#6d28d9" stroke-width="2.5"/>
+      <text x="560" y="205" font-size="12" fill="#6d28d9" font-weight="700">AdamW: đi thẳng, nhanh</text>
+    </svg>
+    <p class="caption">Minh họa ý tưởng — đường đi thực tế phụ thuộc địa hình loss của bài toán.</p>
+  </div>
+
+  <h3>Bảng so sánh từ lần chạy thật</h3>
+  <table class="mini">
+    <tr><th>optimizer</th><th>epoch đạt acc 95%</th><th>loss cuối</th><th>accuracy</th><th>ms/epoch</th><th>tổng giờ train</th></tr>
+    <tr><td><b>SGD</b></td><td class="num">11</td><td class="num">0.5164</td><td class="num">100%</td><td class="num">3.9</td><td class="num">0.79s</td></tr>
+    <tr><td><b>AdamW</b></td><td class="num">0 ⚡</td><td class="num">0.0005</td><td class="num">100%</td><td class="num">1.6</td><td class="num">0.32s</td></tr>
+  </table>
+  <div class="ok"><b>✅ Kết luận:</b> AdamW chạm 95% <b>ngay epoch 0</b>, loss cuối nhỏ hơn SGD ~1000 lần. Nhưng đừng vội tôn thờ: bài này <b>quá dễ</b> (chuỗi tuần hoàn hoàn hảo), và AdamW tốn <b>gấp đôi bộ nhớ</b> cho optimizer state (m, v). Trên dữ liệu thật, khoảng cách mới có ý nghĩa thống kê — trainer còn gợi ý thử tắt clip hoặc thêm nhiễu để xem kết luận có còn đứng vững.</div>
+</section>
+
+<!-- ================= GREEN / AMP ================= -->
+<section id="green">
+  <h2><span class="num">🌱</span>Green checkpoint &amp; AMP: tiết kiệm từng watt</h2>
+  <p class="lead">"Green" là triết lý xuyên suốt khóa học: <b>không tăng mô hình trước khi baseline đúng</b> — đo đạc, so sánh, rồi mới tối ưu. Day 2 có 2 checkpoint xanh:</p>
+  <div class="grid">
+    <div class="concept green"><h4>🧪 Bài 1: float32 vs float64</h4><p>Không chỉ đúng/sai — còn đo <b>thời gian</b> mỗi kiểu số. Kết luận: float32 <b>trượt ngưỡng</b> (3.6e-02), lại còn chậm hơn ở quy mô mini (nhiễu đo, đừng suy diễn).</p></div>
+    <div class="concept green"><h4>⏱️ Bài 2: ms/epoch + tổng giờ train</h4><p>Mỗi optimizer in <b>ms/epoch</b> và <b>tổng thời gian</b>. Chỉ khi có số tổng mới thấy rõ chi phí năng lượng thật sự (SGD 0.79s vs AdamW 0.32s).</p></div>
+    <div class="concept amber"><h4>⚡ Bài 3: AMP (mixed precision)</h4><p><code>--amp</code> trên GPU: tính bằng <b>float16 cho nhanh</b>, giữ <b>float32 cho chỗ nhạy cảm</b>. <code>GradScaler</code> phóng to loss trước backward để gradient nhỏ không bị "trôi về 0" ở float16, rồi thu nhỏ lại trước khi update.</p></div>
+  </div>
+  <div class="analogy"><b>✏️ Ví dụ — Bút chì và bút mực:</b> AMP giống như <b>tính nháp bằng bút chì</b> (float16: nhanh, nhẹ, hơi nhòe) cho 90% phép tính, còn đáp án cuối cùng <b>viết bằng bút mực</b> (float32: chuẩn xác). Trên CPU không có CUDA, code <b>tự bỏ qua AMP</b> và báo rõ — không crash bí ẩn.</div>
+</section>
+
+<!-- ================= BẪY ================= -->
+<section id="bay">
+  <h2><span class="num">🪤</span>Bẫy thường gặp (đúc kết từ trainer notes)</h2>
+  <div class="grid">
+    <div class="concept rose"><h4>1. Quên <code>zero_grad</code></h4><p>Gradient cộng dồn qua các epoch → norm phình "bí ẩn", loss vọt sau vài epoch êm. Luôn xóa trước mỗi vòng.</p></div>
+    <div class="concept rose"><h4>2. Đo norm SAU khi clip</h4><p>Plot đẹp giả tạo, mất tín hiệu chẩn đoán. Quy tắc vàng: <b>đo trước, clip sau</b>.</p></div>
+    <div class="concept rose"><h4>3. Quên trả param về gốc</h4><p>Trong gradient check số: nhích mà không trả → mọi lần đo sau đều lệch. Bug câm lặng, khó phát hiện nhất.</p></div>
+    <div class="concept amber"><h4>4. Check khi forward còn ngẫu nhiên</h4><p>Dropout đang bật / chưa <code>eval()</code> → 2 lần forward ra 2 số khác nhau → FAIL oan dù code đúng 100%.</p></div>
+    <div class="concept amber"><h4>5. Dùng sai số tuyệt đối cho model lớn</h4><p>Bài này <code>|ana−num| &lt; 1e-4</code> là đủ vì gradient ~O(1). Model thật cần <b>sai số tương đối</b> (chuẩn Karpathy) vì gradient có thể tí hon hoặc khổng lồ.</p></div>
+    <div class="concept"><h4>6. Train/test cùng data rồi tưởng ngon</h4><p>Bài 2 toy thì OK, nhưng mang thói quen này sang bài thật là không bao giờ thấy được overfitting — như Day 1 đã thấy chữ U của val loss.</p></div>
+  </div>
+</section>
+
+<!-- ================= SOURCE CODE ================= -->
+<section id="source">
+  <h2><span class="num">📜</span>Toàn bộ source code</h2>
+  <p class="lead">Cả 2 file, tô màu tự động, bấm nút để copy. Đặt cạnh các sơ đồ phía trên để vừa nhìn hình vừa đối chiếu code.</p>
+  <div class="filetabs">
+    <button data-pane="pane1" class="active">🔍 gradient_check.py</button>
+    <button data-pane="pane2">🧠 train_mlp.py</button>
+  </div>
+  <div class="srcpane active" id="pane1">
+    <button class="btn" data-copy="src1">📋 Copy gradient_check.py</button>
+    <span class="copymsg" style="margin-left:12px;color:var(--green);font-weight:700"></span>
+    <pre class="pysrc" id="src1"><code>#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Day 02 - Bai 1: GRADIENT CHECK - "bat" autograd khai gian
+================================================================
+Muc dich:
+    Kiem chung rang gradient do torch.autograd tinh ra (giai tich)
+    KHOP voi gradient tinh bang SAI PHAN HUU HAN (finite differences).
+
+Vi sao phai lam viec nay?
+    - Backprop chi la chain rule duoc tu dong hoa. Neu gradient sai
+      o dau do (bug mask, sai shape, custom op viet sai cong thuc...),
+      model van chay, loss van giam "binh thuong", nhung hoc ra rac.
+    - Sai phan huu han la cach DOC LAP de xac thuc, khong dung autograd:
+          df/dx  ~  [ f(x + eps) - f(x - eps) ] / (2 * eps)
+      Cong thuc nay chi dung phep cong/tru/nhan/chia thuan tuy -
+      khong he dung den dao ham - nen neu 2 cach cho cung mot ket qua,
+      ta tin duoc autograd.
+
+Cach chay:
+    python gradient_check.py
+    # Ky vong: 4/4 param PASS, max_error &lt; 1e-4 (thuong ~1e-9 o float64)
+
+Thuc te su dung:
+    - Chi chay gradient check tren model MINI (vua du de check bang tay).
+    - Check xong, train binh thuong bang float32/bf16 (nhanh hon nhieu).
+"""
+
+import time
+
+import torch
+
+# ---------------------------------------------------------------------------
+# 0. THAM SO KIEM TRA
+# ---------------------------------------------------------------------------
+# EPS: buoc perturb (nhich) cho sai phan huu han.
+#   - Qua NHO  -&gt; bi sai so lam tron nuot (dac biet o float32).
+#   - Qua LON  -&gt; xap xi dao ham kem chinh xac (cong thuc la gioi han khi eps-&gt;0).
+#   - 1e-6 o float64 la "diem ngot" kinh dien.
+EPS = 1e-6
+
+# Nguong chap nhan: sai so lon nhat giua 2 cach tinh phai NHO hon muc nay.
+# Voi float64, sai so thuong roi vao ~1e-9, nen 1e-4 la nguong rat rong rai.
+TOL = 1e-4
+
+
+# ---------------------------------------------------------------------------
+# [TRAINER] Nhan xet cua Muse (2026-10-12):
+#   Code Bai 1 DUNG hoan toan, khong can sua logic. Bo sung 4 diem de sau nay
+#   ban tu ap dung gradient check cho model THAT:
+# ---------------------------------------------------------------------------
+# 1. O day dung SAI SO TUYET DOI |ana-num| &lt; 1e-4. Voi model mini (gradient
+#    ~ O(1)) thi on. Khi check model that, gradient co the cuc nho (vanishing,
+#    ~1e-8) hoac cuc lon -&gt; hay dung SAI SO TUONG DOI (chuan cua Karpathy):
+#        rel_err = |ana - num| / max(1.0, |ana| + |num|),  nguong &lt; 1e-5 (float64)
+#    Toi GIU NGUYEN check tuyet doi o day vi de hieu hon cho bai hoc dau tien.
+# 2. Gradient check CHI tin duoc khi forward DETERMINISTIC: tat dropout,
+#    model.eval(), khoa moi nguon ngau nhien. Neu khong, 2 lan forward cho 2 so
+#    khac nhau -&gt; FAIL oan du code cua ban dung 100%.
+# 3. torch.manual_seed(42) chi gieo cho CPU. Khi chay tren GPU, them
+#    torch.cuda.manual_seed_all(42) de ket qua tai lap duoc hoan toan.
+# 4. Thoi gian in o bonus (3.6ms vs 2.2ms) chu yeu la NOISE o quy mo nay -
+#    dung suy dien "float64 nhanh hon float32". Bai hoc Green that su chi hien
+#    ro khi chay tren du lieu/model lon (AMP/GPU, Bai 3).
+
+
+# ---------------------------------------------------------------------------
+# 1. MO HINH MINI: 2 lop tuyen tinh + tanh, loss MSE
+# ---------------------------------------------------------------------------
+def make_params(dtype=torch.float64):
+    """Khoi tao bo tham so + du lieu vao, co dinh seed de ket qua lap lai duoc.
+
+    Kich thuoc (rat nho, chu y de check bang tay neu muon):
+        x  : (3,)        - vector dau vao 3 chieu
+        W1 : (4, 3)      - lop 1: 3 -&gt; 4
+        b1 : (4,)        - bias lop 1
+        W2 : (1, 4)      - lop 2: 4 -&gt; 1
+        b2 : (1,)        - bias lop 2
+        t  : (1,)        - target (gia tri muc tieu muon du doan)
+    """
+    # Dat seed TRUOC khi randn -&gt; moi lan chay ra cung bo so ngau nhien.
+    # (Quan trong cho khoa hoc: ket qua phai tai lap duoc.)
+    torch.manual_seed(42)
+
+    # requires_grad=True: bao PyTorch "hay theo doi phep tinh tren tensor nay
+    # de sau nay .backward() tinh duoc gradient". Day la cong tac bat autograd.
+    W1 = torch.randn(4, 3, requires_grad=True, dtype=dtype)
+    b1 = torch.randn(4, requires_grad=True, dtype=dtype)
+    W2 = torch.randn(1, 4, requires_grad=True, dtype=dtype)
+    b2 = torch.randn(1, requires_grad=True, dtype=dtype)
+
+    # x, t KHONG can gradient: chung la du lieu, khong phai tham so can hoc.
+    x = torch.randn(3, dtype=dtype)
+    t = torch.randn(1, dtype=dtype)
+    return {"W1": W1, "b1": b1, "W2": W2, "b2": b2}, x, t
+
+
+def forward(params, x, t):
+    """Lan truyen THUAN (forward pass): x -&gt; du doan -&gt; loss (scalar).
+
+    Kien truc:  x --[Linear]--&gt; z1 --[tanh]--&gt; h --[Linear]--&gt; out
+                                                 |
+                                                 v
+                                              MSE(out, t)
+    """
+    W1, b1, W2, b2 = params["W1"], params["b1"], params["W2"], params["b2"]
+
+    # Lop 1: z1 = x @ W1.T + b1   -&gt; shape: (3,) @ (3,4) = (4,)
+    # (Dung .t() vi ta luu W dang (out_features, in_features) theo chuan PyTorch.)
+    z1 = x @ W1.t() + b1
+
+    # Kich hoat phi tuyen tanh: neu khong co no, 2 lop tuyen tinh chong len nhau
+    # van chi la 1 ham tuyen tinh -&gt; model khong hoc duoc gi phuc tap.
+    h = torch.tanh(z1)
+
+    # Lop 2: out = h @ W2.T + b2  -&gt; shape: (4,) @ (4,1) = (1,)
+    out = h @ W2.t() + b2
+
+    # Loss MSE: trung binh binh phuong sai so. .mean() tren 1 phan tu = chinh no,
+    # nhung viet tong quat de sau nay mo rong batch.
+    loss = ((out - t) ** 2).mean()
+    return loss
+
+
+# ---------------------------------------------------------------------------
+# 2. CACH 1 - GRADIENT GIAI TICH (do autograd tinh)
+# ---------------------------------------------------------------------------
+def analytic_grads(params, x, t):
+    """Chay forward 1 lan + .backward() 1 lan, thu thap gradient cua moi param.
+
+    Tra ve: dict {ten_param: tensor gradient cung shape voi param}.
+    """
+    # Xoa gradient cu (neu co) de dam bao phep do sach.
+    # (O day param moi tinh nen grad=None, nhung viet cho dung thoi quen train loop.)
+    for p in params.values():
+        if p.grad is not None:
+            p.grad.zero_()
+
+    loss = forward(params, x, t)
+
+    # .backward(): PyTorch di NGUOC qua do thi tinh toan (computational graph),
+    # ap dung chain rule tu dong, cong don dL/dp vao p.grad cua moi leaf tensor.
+    loss.backward()
+
+    # .clone(): copy gradient ra tensor moi. Neu khong clone, tensor grad goc
+    # se bi anh huong khi ta perturb param o buoc numeric ben duoi.
+    return {name: p.grad.clone() for name, p in params.items()}
+
+
+# ---------------------------------------------------------------------------
+# 3. CACH 2 - GRADIENT SO (sai phan huu han, KHONG dung autograd)
+# ---------------------------------------------------------------------------
+def numeric_grad(param, params, x, t, eps=EPS):
+    """Uoc luong gradient cua `param` bang cong thuc trung tam:
+            dL/dp_i ~ [ L(p_i + eps) - L(p_i - eps) ] / (2 * eps)
+
+    Y tuong cuc ky don gian: nhich tung vo huong cua param len/xuong
+    mot chut, do loss thay doi bao nhieu -&gt; suy ra do doc (dao ham).
+
+    LUU Y QUAN TRONG:
+      - Chi forward (khong .backward) -&gt; hoan toan doc lap voi autograd.
+      - Dung p.data / torch.no_grad() khi sua param de KHONG lam ban graph.
+      - Sau moi lan nhich phai TRA param ve gia tri goc (xem code duoi).
+    """
+    grad = torch.zeros_like(param)  # tensor cung shape, de chua ket qua
+
+    # flat = "lam phang" param thanh vector 1 chieu de duyet tung vo huong.
+    # .data: lay du lieu thuan tuy, tach khoi autograd (sua khong tao graph).
+    flat_param = param.data.view(-1)
+    flat_grad = grad.view(-1)
+
+    # torch.no_grad(): moi phep tinh trong khoi nay deu KHONG duoc theo doi
+    # boi autograd -&gt; tranh rac graph va tiet kiem bo nho.
+    with torch.no_grad():
+        for i in range(flat_param.numel()):
+            orig = flat_param[i].item()  # luu gia tri goc de tra lai sau
+
+            # Buoc 1: nhich LEN +eps, forward -&gt; L+
+            flat_param[i] = orig + eps
+            loss_plus = forward(params, x, t).item()
+
+            # Buoc 2: nhich XUONG -eps (tu gia tri goc), forward -&gt; L-
+            flat_param[i] = orig - eps
+            loss_minus = forward(params, x, t).item()
+
+            # Buoc 3: TRA param ve gia tri goc (bat buoc! neu quen, cac lan
+            # lap sau se do tren param da bi lech -&gt; ket qua sai hoan toan).
+            flat_param[i] = orig
+
+            # Cong thuc sai phan trung tam (do chinh xac bac O(eps^2),
+            # tot hon cong thuc lech 1 phia [L(x+eps)-L(x)]/eps chi O(eps)).
+            flat_grad[i] = (loss_plus - loss_minus) / (2 * eps)
+
+    return grad
+
+
+# ---------------------------------------------------------------------------
+# 4. SO SANH 2 CACH -&gt; PASS / FAIL
+# ---------------------------------------------------------------------------
+def gradient_check(params, x, t, eps=EPS, tol=TOL, verbose=True):
+    """Doi chieu gradient giai tich vs gradient so cho MOI param.
+
+    Tra ve: (passed: bool, max_error: float)
+    """
+    ana = analytic_grads(params, x, t)  # cach 1: autograd
+    all_ok, worst = True, 0.0
+
+    for name, p in params.items():
+        num = numeric_grad(p, params, x, t, eps)   # cach 2: sai phan
+        # Sai so lon nhat tren tung vo huong cua param nay.
+        err = (ana[name] - num).abs().max().item()
+        worst = max(worst, err)
+        ok = err &lt; tol
+        all_ok &amp;= ok
+        if verbose:
+            status = "PASS" if ok else "FAIL"
+            print(f"  [{status}] {name:&gt;3}: max |grad_autograd - grad_numeric| = {err:.3e}")
+
+    return all_ok, worst
+
+
+# ---------------------------------------------------------------------------
+# 5. BONUS (Green checkpoint): float32 vs float64 - tu do so lieu
+# ---------------------------------------------------------------------------
+def compare_dtypes():
+    """Chay gradient check o ca float32 va float64, do thoi gian + sai so.
+
+    Muc dich giao duc: tu thay vi sao KHONG check gradient o float32.
+    (float32 chi duoc dung de DEMO o day - khong assert, chi in so lieu.)
+    """
+    print("\n--- Bonus: float32 vs float64 (Green checkpoint) ---")
+    for dtype in (torch.float32, torch.float64):
+        params, x, t = make_params(dtype)
+        t0 = time.perf_counter()
+        ana = analytic_grads(params, x, t)
+        # Do sai so tong (khong assert): lay max tren tat ca param.
+        worst = 0.0
+        for name, p in params.items():
+            num = numeric_grad(p, params, x, t)
+            worst = max(worst, (ana[name] - num).abs().max().item())
+        dt = time.perf_counter() - t0
+        print(f"  {str(dtype):&gt;15}: max_error = {worst:.3e} | thoi gian = {dt*1000:6.1f} ms")
+    print("  -&gt; float32: sai so lam tron (~1e-7) lan at buoc eps=1e-6\n"
+          "     nen gradient so khong con la 'chuan vang' de doi chieu.")
+
+
+# ---------------------------------------------------------------------------
+# 6. MAIN
+# ---------------------------------------------------------------------------
+def main():
+    print("=" * 64)
+    print("Bai 1 - Gradient check: doi chieu autograd vs sai phan huu han")
+    print("=" * 64)
+
+    # Bai chinh BAT BUOC chay o float64 (ly do xem compare_dtypes / cau hoi 1).
+    params, x, t = make_params(torch.float64)
+
+    print("\nKiem tra tung param (nguong max_error &lt; 1e-4):")
+    passed, worst = gradient_check(params, x, t)
+
+    print(f"\nSai so lon nhat tong the: {worst:.3e}")
+    if passed:
+        print("KET QUA: 4/4 PASS - autograd cho gradient DUNG.")
+    else:
+        # raise SystemExit(1): bao loi cho shell/CI biet script that bai.
+        print("KET QUA: FAIL - co gradient khong khop, can debug!")
+        raise SystemExit(1)
+
+    # Bonus: tu do so lieu float32 vs float64 (khong anh huong PASS/FAIL).
+    compare_dtypes()
+
+
+if __name__ == "__main__":
+    main()
+</code></pre>
+  </div>
+  <div class="srcpane" id="pane2">
+    <button class="btn" data-copy="src2">📋 Copy train_mlp.py</button>
+    <span class="copymsg" style="margin-left:12px;color:var(--green);font-weight:700"></span>
+    <pre class="pysrc" id="src2"><code>#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Day 02 - Bai 2 (+3): HUAN LUYEN MLP DU DOAN TOKEN KE TIEP + LOG GRADIENT NORM
+===============================================================================
+Muc dich:
+    1. Huan luyen mot MLP cuc nho de "du doan token ke tiep" - phien ban
+       thu nho cua cai ma MOI LLM deu lam.
+    2. LOG GRADIENT NORM moi epoch: day la "may do huyet ap" cua qua trinh
+       huan luyen. Doc duoc no = bat duoc loi train bang con so.
+    3. (Buoc 4) So sanh SGD vs AdamW: giu nguyen seed &amp; khoi tao, chi doi
+       optimizer -&gt; xem ai hoi tu nhanh hon tren bai toan nho nay.
+    4. (Bai 3 - Green) Do thoi gian/epoch; neu co GPU thi thu AMP
+       (mixed precision) bang flag --amp.
+
+Cach chay:
+    python train_mlp.py                  # chay ca SGD + AdamW, ve plot, in bang so sanh
+    python train_mlp.py --optim adamw    # chi chay AdamW
+    python train_mlp.py --epochs 100      # doi so epoch
+    python train_mlp.py --amp            # bat mixed precision (can GPU/CUDA)
+
+Dau ra:
+    - plot_sgd.png / plot_adamw.png : 2 panel (loss | gradient norm log-scale)
+    - Bang so sanh: optimizer - epoch dat accuracy 95% - loss cuoi - nhan xet
+"""
+
+import argparse
+import time
+
+import torch
+import torch.nn as nn
+
+# Ve plot tren may khong co man hinh (server): dung backend 'Agg' de chi LUU file,
+# khong can mo cua so. Tren may ca nhan co the doi thanh plt.show().
+import matplotlib
+
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+
+# ---------------------------------------------------------------------------
+# 0. THAM SO BAI TOAN
+# ---------------------------------------------------------------------------
+SEED = 0          # seed co dinh -&gt; ket qua lap lai duoc (khoa hoc)
+VOCAB = 4         # bo tu vung: {0, 1, 2, 3}
+CONTEXT = 3       # nhin 3 token lien tiep de doan token thu 4
+N_TOKENS = 2000   # do dai chuoi du lieu do choi
+HIDDEN = 32       # so neuron lop an
+EPOCHS = 200      # so vong train mac dinh
+LR = 1e-2         # learning rate
+TARGET_ACC = 0.95  # nguong accuracy coi la "hoc duoc"
+
+
+# ---------------------------------------------------------------------------
+# 1. DU LIEU DO CHOI: chuoi tuan hoan 0 1 2 3 0 1 2 3 ...
+# ---------------------------------------------------------------------------
+def make_data():
+    """Sinh cap (x, y): x = 3 token lien tiep, y = token ke tiep.
+
+    Vi du: chuoi ..., 1, 2, 3, 0, ... -&gt; x = [1,2,3], y = 0.
+
+    Bieu dien x: ONE-HOT. Moi token (0..3) -&gt; vector 4 chieu co duy nhat
+    1 vi tri = 1, con lai = 0. Ghep 3 token -&gt; vector 12 chieu.
+    Vi sao one-hot ma khong dua so 0..3 truc tiep? Vi so 0..3 mang y nghia
+    THU TU gia tao ("3 &gt; 0") trong khi day chi la ky hieu roi rac.
+    One-hot noi voi model: "cac token binh dang, khong co thu tu".
+    """
+    # Chuoi tuan hoan: [0,1,2,3,0,1,2,3,...] dai N_TOKENS
+    seq = torch.arange(N_TOKENS) % VOCAB
+
+    # One-hot: (N_TOKENS, 4). eye(4)[k] = hang thu k cua ma tran don vi.
+    onehot = torch.eye(VOCAB)[seq]
+
+    # Xep cua so truot: mau thu i lay onehot[i:i+3] ghep phang -&gt; (12,)
+    # y[i] = seq[i+3] (token dung ngay sau cua so).
+    n = N_TOKENS - CONTEXT
+    # LUU Y off-by-one: unfold(size=3, step=1) tren 2000 phan tu cho ra
+    # 2000-3+1 = 1998 cua so, nhung y = seq[3:] chi co 1997 phan tu
+    # (cua so cuoi cung [1997,1998,1999] khong co "token ke tiep").
+    # -&gt; Chi lay n cua so DAU TIEN de X va y khop nhau.
+    X = onehot.unfold(0, CONTEXT, 1)[:n]  # (n, 4, 3): n cua so, moi cua so 3 token x 4 chieu
+    X = X.permute(0, 2, 1).reshape(n, -1)     # (n, 12): ghep 3 token thanh 1 vector
+    y = seq[CONTEXT:]                         # (n,): nhan la LONG tensor (yeu cau cua CrossEntropyLoss)
+
+    # Kiem tra nhanh "hop dong shape" - thoi quen vang khi debug (bai sang).
+    assert X.shape == (n, CONTEXT * VOCAB), X.shape
+    assert y.shape == (n,), y.shape
+    # [TRAINER] LUU Y PHUONG PHAP (2026-10-12): bai nay train VA test tren CUNG
+    # 1997 mau (khong co tap validation). Voi bai demo thi OK (muc dich la
+    # "hoc duoc pattern"), nhung DUNG mang thoi quen nay sang bai that: khong
+    # co val thi khong bao gio thay duoc overfitting - dung nhu Day 1 cua ban,
+    # val loss tao day chu U o step 3600! Bai mo rong (tuy chon): tach 20% mau
+    # cuoi lam val, log val_loss moi epoch + early stopping nhu day01/bigram_lm.py.
+    return X, y
+
+
+# ---------------------------------------------------------------------------
+# 2. MO HINH: MLP 12 -&gt; 32 -&gt; 4
+# ---------------------------------------------------------------------------
+class MLP(nn.Module):
+    """Mang 2 lop tuyen tinh + tanh o giua, dau ra 4 logit (ung voi 4 token)."""
+
+    def __init__(self):
+        super().__init__()
+        # Linear(12 -&gt; 32): moi neuron an la mot "dac trung" hoc duoc tu context.
+        self.fc1 = nn.Linear(CONTEXT * VOCAB, HIDDEN)
+        # Linear(32 -&gt; 4): bien dac trung thanh diem so (logit) cho 4 token.
+        self.fc2 = nn.Linear(HIDDEN, VOCAB)
+
+    def forward(self, x):
+        h = torch.tanh(self.fc1(x))  # tanh: phi tuyen, dua gia tri ve (-1, 1)
+        return self.fc2(h)           # tra ve LOGIT (chua softmax - CrossEntropyLoss tu lo)
+
+
+# ---------------------------------------------------------------------------
+# 3. HAM TIEN ICH
+# ---------------------------------------------------------------------------
+def total_grad_norm(model):
+    """Tinh TOTAL gradient norm = sqrt( sum ||g_p||^2 ) tren moi param.
+
+    QUY TAC VANG (bay so 2 trong bai): phai do norm TRUOC khi clip_grad_norm_!
+    Neu do SAU khi clip, plot luc nao cung dep (bi kep o max_norm) va ta
+    mat hoan toan tin hieu chan doan that cua qua trinh train.
+    """
+    total_sq = 0.0
+    # torch.no_grad(): day chi la phep DO, khong can autograd theo doi.
+    with torch.no_grad():
+        for p in model.parameters():
+            if p.grad is not None:
+                # .detach(): tach tensor khoi graph (phong khi p.grad van gan graph).
+                total_sq += p.grad.detach().pow(2).sum().item()
+    return total_sq ** 0.5
+
+
+@torch.no_grad()  # decorator: ham nay khong can tinh gradient -&gt; nhanh, nhe bo nho
+def accuracy(model, X, y):
+    """Ti le du doan dung tren toan bo tap du lieu."""
+    logits = model(X)
+    pred = logits.argmax(dim=1)      # chon token co logit cao nhat moi mau
+    return (pred == y).float().mean().item()
+
+
+# ---------------------------------------------------------------------------
+# 4. VONG LAP HUAN LUYEN (core cua Bai 2)
+# ---------------------------------------------------------------------------
+def train(optim_name, X, y, epochs=EPOCHS, lr=LR, use_amp=False):
+    """Huan luyen MLP voi optimizer chi dinh. Tra ve dict ket qua + lich su.
+
+    Trinh tu chuan cua 1 epoch (hoc thuoc long):
+        zero_grad -&gt; forward -&gt; loss -&gt; backward -&gt; [do norm] -&gt; [clip] -&gt; step
+    """
+    # Dat lai seed TRUOC khi tao model -&gt; SGD va AdamW XUAT PHAT GIONG HET NHAU
+    # (so sanh cong bang o Buoc 4 chi co y nghia khi diem xuat phat giong nhau).
+    torch.manual_seed(SEED)
+    model = MLP()
+    criterion = nn.CrossEntropyLoss()  # vua softmax vua negative log-likelihood
+
+    if optim_name == "sgd":
+        # SGD thuan: buoc di = -lr * gradient (huong doc nhat, do dai co dinh theo lr).
+        opt = torch.optim.SGD(model.parameters(), lr=lr)
+    elif optim_name == "adamw":
+        # AdamW: moi param co learning rate RIENG tu thich nghi theo lich su
+        # gradient (moment m, v) + weight decay tach rieng (ban "W").
+        opt = torch.optim.AdamW(model.parameters(), lr=lr)
+    else:
+        raise ValueError(f"optimizer la: {optim_name}")
+
+    # AMP (mixed precision, Bai 3): chi co y nghia tren GPU.
+    # autocast: tu dong dung float16 cho phep tinh on dinh, giu float32 cho phan nhay cam.
+    # GradScaler: phong to loss truoc backward de gradient nho khong bi "troit"
+    # ve 0 o float16 (underflow), roi thu nho lai truoc optimizer.step().
+    scaler = torch.amp.GradScaler("cuda") if (use_amp and torch.cuda.is_available()) else None
+    if use_amp and not torch.cuda.is_available():
+        print("  [Green] Khong thay CUDA -&gt; bo qua AMP, chay float32 tren CPU.")
+
+    losses, grad_norms = [], []
+    epoch_95 = None  # epoch dau tien dat accuracy &gt;= 95%
+    t0 = time.perf_counter()
+
+    for epoch in range(epochs):
+        # Buoc 1: XOA gradient cu. QUEN dong nay -&gt; gradient CONG DON qua cac
+        # epoch -&gt; norm phinh to "bi an", loss giam vai epoch roi vot (bay so 1).
+        opt.zero_grad()
+
+        # Buoc 2+3: forward -&gt; loss. Dung autocast neu bat AMP.
+        if scaler is not None:
+            with torch.amp.autocast("cuda"):
+                loss = criterion(model(X), y)
+        else:
+            loss = criterion(model(X), y)
+
+        # Buoc 4: backward - chain rule tu dong, dien gradient vao p.grad.
+        if scaler is not None:
+            scaler.scale(loss).backward()
+        else:
+            loss.backward()
+
+        # Buoc 5: DO gradient norm TRUOC khi clip (quy tac vang!).
+        # (Neu dung AMP: unscale truoc de norm la gia tri that, khong phai ban phong to.)
+        if scaler is not None:
+            scaler.unscale_(opt)
+        gnorm = total_grad_norm(model)
+        grad_norms.append(gnorm)
+
+        # BONUS chan doan nhanh ngay trong luc train:
+        if gnorm == 0.0:
+            print(f"  [CANH BAO] epoch {epoch}: grad norm = 0 (gradient CHET - model ngung hoc!)")
+        elif gnorm &gt; 1e3:
+            print(f"  [CANH BAO] epoch {epoch}: grad norm = {gnorm:.1e} (sap NO - can giam lr / clip)")
+
+        # Buoc 6: CLIP gradient - "phanh khan cap" chong gradient no.
+        # max_norm=1.0: neu total norm &gt; 1 thi thu nho tat ca gradient theo ti le
+        # de norm con dung 1 (giu NGUYEN huong, chi giam do dai buoc).
+        # LUU Y: scaler.unscale_(opt) chi duoc goi DUNG 1 LAN (da goi o Buoc 5
+        # truoc khi do norm). Go goi lan 2 se chia gradient cho scale them lan
+        # nua -&gt; sai. Vi vay o day chi clip, khong unscale lai.
+        # -&gt; Muon thi nghiem tac dung cua clip: comment dong nay lai va chay lai.
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+
+        # Buoc 7: optimizer buoc di 1 buoc (cap nhat trong so).
+        if scaler is not None:
+            scaler.step(opt)
+            scaler.update()
+        else:
+            opt.step()
+
+        losses.append(loss.item())
+
+        # Ghi nhan epoch dau tien cham nguong 95% (thong ke cho bang so sanh).
+        if epoch_95 is None and accuracy(model, X, y) &gt;= TARGET_ACC:
+            epoch_95 = epoch
+
+    train_time = time.perf_counter() - t0
+    final_acc = accuracy(model, X, y)
+    return {
+        "optim": optim_name,
+        "losses": losses,
+        "grad_norms": grad_norms,
+        "epoch_95": epoch_95,
+        "final_loss": losses[-1],
+        "final_acc": final_acc,
+        "train_time": train_time,
+    }
+
+
+# ---------------------------------------------------------------------------
+# 5. VE PLOT: loss + gradient norm (log-scale) theo epoch
+# ---------------------------------------------------------------------------
+def save_plot(result, path):
+    """Ve 2 panel: (a) loss theo epoch, (b) gradient norm (truc y log) theo epoch.
+
+    Cach doc plot (hoc thuoc 3 "nhip tim"):
+      - Norm giam dan ve 0 trong khi loss van cao -&gt; vanishing gradient /
+        hoc qua cham -&gt; tang lr, kiem tra init.
+      - Norm vot len roi loss NaN -&gt; exploding -&gt; giam lr, bat clip.
+      - Norm dao dong deu, loss giam muot -&gt; KHOE (nhip tim binh thuong).
+    """
+    fig, axes = plt.subplots(1, 2, figsize=(11, 4))
+    epochs = range(len(result["losses"]))
+
+    axes[0].plot(epochs, result["losses"])
+    axes[0].set_title(f"Loss theo epoch ({result['optim']})")
+    axes[0].set_xlabel("epoch")
+    axes[0].set_ylabel("CrossEntropy loss")
+    axes[0].grid(True, alpha=0.3)
+
+    axes[1].plot(epochs, result["grad_norms"])
+    axes[1].set_yscale("log")  # LOG-SCALE: norm bien thien nhieu bac do, thang
+                               # tuyen tinh se "bep" het chi tiet vung nho.
+    axes[1].set_title(f"Gradient norm theo epoch - log scale ({result['optim']})")
+    axes[1].set_xlabel("epoch")
+    axes[1].set_ylabel("total grad norm (log)")
+    axes[1].grid(True, alpha=0.3, which="both")
+
+    fig.tight_layout()
+    fig.savefig(path, dpi=120)
+    plt.close(fig)
+    print(f"  Da luu plot: {path}")
+
+
+# ---------------------------------------------------------------------------
+# 6. MAIN: chay thi nghiem + in bang so sanh
+# ---------------------------------------------------------------------------
+def main():
+    ap = argparse.ArgumentParser(description="Day02 - Huan luyen MLP du doan token ke tiep")
+    ap.add_argument("--epochs", type=int, default=EPOCHS, help="so epoch (mac dinh 200)")
+    ap.add_argument("--optim", choices=["sgd", "adamw", "both"], default="both",
+                    help="optimizer can chay (mac dinh: both de so sanh)")
+    ap.add_argument("--amp", action="store_true",
+                    help="bat mixed precision - AMP (can GPU/CUDA, Bai 3 Green checkpoint)")
+    args = ap.parse_args()
+
+    print("=" * 64)
+    print("Bai 2 - Huan luyen MLP du doan token ke tiep + log gradient norm")
+    print("=" * 64)
+
+    X, y = make_data()
+    print(f"Du lieu: X{X.shape} (one-hot), y{y.shape}, {len(y)} mau, vocab={VOCAB}")
+
+    optims = ["sgd", "adamw"] if args.optim == "both" else [args.optim]
+    results = []
+    for name in optims:
+        print(f"\n--- Train voi {name.upper()} (lr={LR}, epochs={args.epochs}) ---")
+        res = train(name, X, y, epochs=args.epochs, use_amp=args.amp)
+        results.append(res)
+        plot_path = f"plot_{name}.png"
+        save_plot(res, plot_path)
+        print(f"  loss cuoi = {res['final_loss']:.4f} | accuracy = {res['final_acc']*100:.1f}% "
+              f"| {res['train_time']/args.epochs*1000:.1f} ms/epoch")
+        # [TRAINER] Them 2026-10-12: in TONG thoi gian train. Truong train_time
+        # da duoc ham train() tra ve nhung truoc day chua ai in ra. So tong giay
+        # SGD vs AdamW moi thay ro chi phi (nang luong) that su cua moi optimizer.
+        print(f"  tong thoi gian train = {res['train_time']:.2f} giay")
+
+    # [TRAINER] Nhan xet ve phep so sanh (2026-10-12):
+    # 1. Clip (max_norm=1.0) dang BAT cho CA HAI optimizer nen so sanh van cong
+    #    bang, nhung clip rut ngan buoc nhay cua ca hai -&gt; co the che mo chenh
+    #    lech that giua 2 optimizer. Thi nghiem ablation dang gia: chay lai voi
+    #    clip TAT (comment dong clip_grad_norm_ o Buoc 6) roi lap lai bang nay
+    #    xem ket luan "AdamW thang" co con dung khong.
+    # 2. Du lieu tuan hoan hoan hao -&gt; bai QUA DE (AdamW dat 95% ngay epoch 0).
+    #    Tren du lieu that, khoang cach giua cac optimizer moi co y nghia thong
+    #    ke. Muon nang do kho: them nhieu (dao 5% token ngau nhien) hoac
+    #    CONTEXT=8, roi xem bang so sanh co con "dep" nhu nay khong.
+    # ---- Buoc 4: bang so sanh SGD vs AdamW (4 dong nhu bai yeu cau) ----
+    if len(results) == 2:
+        print("\n" + "=" * 64)
+        print("Buoc 4 - So sanh SGD vs AdamW (cung seed, cung khoi tao)")
+        print("=" * 64)
+        print(f"{'optimizer':&lt;10} | {'epoch dat acc 95%':&lt;17} | {'loss cuoi':&lt;10} | nhan xet")
+        print("-" * 64)
+        for r in results:
+            # [TRAINER] Fix 2026-10-12: dung args.epochs thay cho so cung 200.
+            # Neu chay --epochs 100 ma khong dat 95%, in "&gt;200" se sai su that.
+            e95 = str(r["epoch_95"]) if r["epoch_95"] is not None else f"&gt;{args.epochs} (chua dat)"
+            note = ("hoi tu nhanh (adaptive lr)" if r["optim"] == "adamw"
+                    else "cham hon (lr co dinh)")
+            print(f"{r['optim']:&lt;10} | {e95:&lt;17} | {r['final_loss']:&lt;10.4f} | {note}")
+        print("\nNhan xet mau: AdamW thuong thang tren bai nho nho adaptive lr giup\n"
+              "'leo' nhanh qua cac vung loss doc khac nhau; SGD lr co dinh de i\n"
+              "o vung phang. Nhung AdamW ton gap doi bo nho optimizer state (m, v).")
+
+    # ---- Checklist tu dong ----
+    print("\n--- Tu kiem tra ---")
+    ok = all(r["final_acc"] &gt;= TARGET_ACC for r in results)
+    print(f"  [{'OK' if ok else 'CHUA DAT'}] accuracy &gt;= 95% tren tap toy")
+    print(f"  [{'OK' if all(len(r['grad_norms']) == args.epochs for r in results) else 'LOI'}] "
+          "da log gradient norm moi epoch (TRUOC khi clip)")
+    print("  [OK] plot 2 panel loss + grad norm (log-scale) da luu file PNG")
+    if not ok:
+        raise SystemExit(1)
+
+
+if __name__ == "__main__":
+    main()
+</code></pre>
+  </div>
+</section>
+
+</div><!-- /wrap -->
+
+<footer>
+  <div class="wrap">
+    Được dựng từ <code>day02/gradient_check.py</code> và <code>day02/train_mlp.py</code> — giải thích bằng tiếng Việt, vẽ thành sơ đồ cho người ngoại đạo.<br>
+    Số liệu bảng biểu là kết quả chạy thật trên CPU (torch 2.14.1). Sơ đồ là minh họa ý tưởng.
+  </div>
+</footer>
+
+<script>
+// --- Demo 1: eps slider cho gradient check ---
+(function(){
+  function f(x){ return x*x*x + 2*x; }       // f'(x) = 3x^2 + 2 ; f'(2) = 14
+  var X0 = 2, TRUE = 14, useF32 = false, eps = 1e-6;
+  function fr(v){ return useF32 ? Math.fround(v) : v; }
+  function fmtE(v){
+    if(!isFinite(v)) return String(v);
+    if(v === 0) return "0";
+    var e = Math.floor(Math.log10(Math.abs(v)));
+    var m = (v / Math.pow(10, e)).toFixed(2);
+    return m + "e" + e;
+  }
+  function render(){
+    var xp = fr(X0 + eps), xm = fr(X0 - eps);
+    var fp = fr(f(xp)), fm = fr(f(xm));
+    var num = fr(fp - fm), den = 2 * eps;
+    var deriv = den === 0 ? NaN : num / den;
+    var err = Math.abs(deriv - TRUE);
+    var cls = !isFinite(err) || err >= 1e-1 ? "bad" : (err >= 1e-4 ? "mid" : "good");
+    var verdict = !isFinite(err) ? "❌ sai số vô định (0/0 — eps bị nuốt chửng)"
+      : err >= 1e-1 ? "❌ sai số nuốt chửng — 'quả cân' hỏng"
+      : err >= 1e-4 ? "⚠️ xấp xỉ kém — trượt ngưỡng 1e-4"
+      : "✅ khớp với đạo hàm thật";
+    document.getElementById("epsVal").textContent = fmtE(eps);
+    document.getElementById("epsOut").innerHTML =
+      "đạo hàm thật f'(2) = 14<br>" +
+      "sai phân: (" + fp.toPrecision(8) + " − " + fm.toPrecision(8) + ") / " + fmtE(den) +
+      " = <b>" + (isFinite(deriv) ? deriv.toPrecision(8) : String(deriv)) + "</b><br>" +
+      "sai số = <span class='" + cls + "'>" + fmtE(err) + "</span>  " + verdict;
+    var note;
+    if(useF32 && eps < 1e-7) note = "🥶 float32 + ε quá nhỏ: f(x+ε) và f(x−ε) làm tròn thành cùng một số → tử số = 0 → đạo hàm = 0. Đây chính là lý do bài 1 FAIL ở float32.";
+    else if(useF32 && eps <= 1e-4) note = "🙂 float32 vùng này vẫn 'tạm sống' nhưng sai số lớn hơn float64 hàng nghìn lần.";
+    else if(useF32) note = "🥵 ε quá to: đường cát tuyến không còn giống đường cong — sai số tăng ở cả 2 kiểu số.";
+    else if(eps < 1e-9) note = "🥶 ε quá nhỏ ngay cả với float64 cũng bắt đầu lung lay — đừng tham nhỏ.";
+    else if(eps <= 1e-4) note = "🎯 'Điểm ngọt': ε quanh 1e-6 → sai số ~1e-11, nhỏ hơn ngưỡng hàng triệu lần.";
+    else note = "🥵 ε quá to: xấp xỉ kém dần — công thức chỉ đúng khi ε → 0.";
+    document.getElementById("epsNote").textContent = note;
+    document.getElementById("btnF64").classList.toggle("active", !useF32);
+    document.getElementById("btnF32").classList.toggle("active", useF32);
+  }
+  document.getElementById("epsSlider").addEventListener("input", function(e){
+    eps = Math.pow(10, -12 + parseFloat(e.target.value) / 10);
+    render();
+  });
+  document.getElementById("btnF64").addEventListener("click", function(){ useF32 = false; render(); });
+  document.getElementById("btnF32").addEventListener("click", function(){ useF32 = true; render(); });
+  render();
+})();
+// --- Demo 2: one-hot ---
+(function(){
+  var out = document.getElementById("ohOut");
+  function render(t){
+    var v = [0,0,0,0]; v[t] = 1;
+    out.innerHTML = "token " + t + " → [" + v.map(function(x){
+      return x ? "<b style='color:#6ee7b7'>1</b>" : "0";
+    }).join(", ") + "]";
+    document.querySelectorAll("#ohBtns button").forEach(function(b){
+      b.classList.toggle("active", b.getAttribute("data-t") == String(t));
+    });
+  }
+  document.querySelectorAll("#ohBtns button").forEach(function(b){
+    b.addEventListener("click", function(){ render(parseInt(b.getAttribute("data-t"), 10)); });
+  });
+  render(0);
+})();
+// --- Tabs + copy + highlight cho source ---
+(function(){
+  document.querySelectorAll(".filetabs button").forEach(function(b){
+    b.addEventListener("click", function(){
+      document.querySelectorAll(".filetabs button").forEach(function(x){ x.classList.remove("active"); });
+      document.querySelectorAll(".srcpane").forEach(function(x){ x.classList.remove("active"); });
+      b.classList.add("active");
+      document.getElementById(b.getAttribute("data-pane")).classList.add("active");
+    });
+  });
+  document.querySelectorAll("[data-copy]").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      var pre = document.getElementById(btn.getAttribute("data-copy"));
+      var raw = pre.textContent;
+      var msg = btn.parentElement.querySelector(".copymsg");
+      var done = function(){ msg.textContent = "Đã copy ✓"; setTimeout(function(){ msg.textContent = ""; }, 2000); };
+      if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(raw).then(done, done); }
+      else { var ta = document.createElement("textarea"); ta.value = raw; document.body.appendChild(ta); ta.select(); try{ document.execCommand("copy"); }catch(e){} document.body.removeChild(ta); done(); }
+    });
+  });
+})();
+</script>
+<script>
+// Tô màu cú pháp Python cho các khối source
+(function(){
+  function escHtml(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+  function highlightPython(src){
+    var re = /(#[^\n]*)|("""[\s\S]*?"""|"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*')|\b(import|from|def|class|return|if|elif|else|for|while|in|is|not|and|or|None|True|False|lambda|with|as|try|except|finally|raise|global|pass|break|continue)\b|(\b\d+(?:\.\d+)?\b)|(@[\w.]+)/g;
+    var out="", last=0, m;
+    while((m = re.exec(src))){
+      out += escHtml(src.slice(last, m.index));
+      var tok = m[0], cls = m[1] ? "cm" : m[2] ? "str" : m[3] ? "kw" : m[4] ? "num2" : "fn";
+      out += '<span class="'+cls+'">'+escHtml(tok)+"</span>";
+      last = m.index + tok.length;
+      if(tok.length === 0) re.lastIndex++;
+    }
+    return out + escHtml(src.slice(last));
+  }
+  document.querySelectorAll("pre.pysrc").forEach(function(pre){
+    var raw = pre.textContent;
+    pre.innerHTML = "<code>" + highlightPython(raw) + "</code>";
+  });
+})();
+</script>
+</body>
+</html>
