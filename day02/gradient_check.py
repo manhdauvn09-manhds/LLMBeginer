@@ -45,6 +45,26 @@ TOL = 1e-4
 
 
 # ---------------------------------------------------------------------------
+# [TRAINER] Nhan xet cua Muse (2026-10-12):
+#   Code Bai 1 DUNG hoan toan, khong can sua logic. Bo sung 4 diem de sau nay
+#   ban tu ap dung gradient check cho model THAT:
+# ---------------------------------------------------------------------------
+# 1. O day dung SAI SO TUYET DOI |ana-num| < 1e-4. Voi model mini (gradient
+#    ~ O(1)) thi on. Khi check model that, gradient co the cuc nho (vanishing,
+#    ~1e-8) hoac cuc lon -> hay dung SAI SO TUONG DOI (chuan cua Karpathy):
+#        rel_err = |ana - num| / max(1.0, |ana| + |num|),  nguong < 1e-5 (float64)
+#    Toi GIU NGUYEN check tuyet doi o day vi de hieu hon cho bai hoc dau tien.
+# 2. Gradient check CHI tin duoc khi forward DETERMINISTIC: tat dropout,
+#    model.eval(), khoa moi nguon ngau nhien. Neu khong, 2 lan forward cho 2 so
+#    khac nhau -> FAIL oan du code cua ban dung 100%.
+# 3. torch.manual_seed(42) chi gieo cho CPU. Khi chay tren GPU, them
+#    torch.cuda.manual_seed_all(42) de ket qua tai lap duoc hoan toan.
+# 4. Thoi gian in o bonus (3.6ms vs 2.2ms) chu yeu la NOISE o quy mo nay -
+#    dung suy dien "float64 nhanh hon float32". Bai hoc Green that su chi hien
+#    ro khi chay tren du lieu/model lon (AMP/GPU, Bai 3).
+
+
+# ---------------------------------------------------------------------------
 # 1. MO HINH MINI: 2 lop tuyen tinh + tanh, loss MSE
 # ---------------------------------------------------------------------------
 def make_params(dtype=torch.float64):

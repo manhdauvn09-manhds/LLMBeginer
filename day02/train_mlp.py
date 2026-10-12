@@ -84,6 +84,12 @@ def make_data():
     # Kiem tra nhanh "hop dong shape" - thoi quen vang khi debug (bai sang).
     assert X.shape == (n, CONTEXT * VOCAB), X.shape
     assert y.shape == (n,), y.shape
+    # [TRAINER] LUU Y PHUONG PHAP (2026-10-12): bai nay train VA test tren CUNG
+    # 1997 mau (khong co tap validation). Voi bai demo thi OK (muc dich la
+    # "hoc duoc pattern"), nhung DUNG mang thoi quen nay sang bai that: khong
+    # co val thi khong bao gio thay duoc overfitting - dung nhu Day 1 cua ban,
+    # val loss tao day chu U o step 3600! Bai mo rong (tuy chon): tach 20% mau
+    # cuoi lam val, log val_loss moi epoch + early stopping nhu day01/bigram_lm.py.
     return X, y
 
 
@@ -300,7 +306,21 @@ def main():
         save_plot(res, plot_path)
         print(f"  loss cuoi = {res['final_loss']:.4f} | accuracy = {res['final_acc']*100:.1f}% "
               f"| {res['train_time']/args.epochs*1000:.1f} ms/epoch")
+        # [TRAINER] Them 2026-10-12: in TONG thoi gian train. Truong train_time
+        # da duoc ham train() tra ve nhung truoc day chua ai in ra. So tong giay
+        # SGD vs AdamW moi thay ro chi phi (nang luong) that su cua moi optimizer.
+        print(f"  tong thoi gian train = {res['train_time']:.2f} giay")
 
+    # [TRAINER] Nhan xet ve phep so sanh (2026-10-12):
+    # 1. Clip (max_norm=1.0) dang BAT cho CA HAI optimizer nen so sanh van cong
+    #    bang, nhung clip rut ngan buoc nhay cua ca hai -> co the che mo chenh
+    #    lech that giua 2 optimizer. Thi nghiem ablation dang gia: chay lai voi
+    #    clip TAT (comment dong clip_grad_norm_ o Buoc 6) roi lap lai bang nay
+    #    xem ket luan "AdamW thang" co con dung khong.
+    # 2. Du lieu tuan hoan hoan hao -> bai QUA DE (AdamW dat 95% ngay epoch 0).
+    #    Tren du lieu that, khoang cach giua cac optimizer moi co y nghia thong
+    #    ke. Muon nang do kho: them nhieu (dao 5% token ngau nhien) hoac
+    #    CONTEXT=8, roi xem bang so sanh co con "dep" nhu nay khong.
     # ---- Buoc 4: bang so sanh SGD vs AdamW (4 dong nhu bai yeu cau) ----
     if len(results) == 2:
         print("\n" + "=" * 64)
@@ -309,7 +329,9 @@ def main():
         print(f"{'optimizer':<10} | {'epoch dat acc 95%':<17} | {'loss cuoi':<10} | nhan xet")
         print("-" * 64)
         for r in results:
-            e95 = str(r["epoch_95"]) if r["epoch_95"] is not None else ">200 (chua dat)"
+            # [TRAINER] Fix 2026-10-12: dung args.epochs thay cho so cung 200.
+            # Neu chay --epochs 100 ma khong dat 95%, in ">200" se sai su that.
+            e95 = str(r["epoch_95"]) if r["epoch_95"] is not None else f">{args.epochs} (chua dat)"
             note = ("hoi tu nhanh (adaptive lr)" if r["optim"] == "adamw"
                     else "cham hon (lr co dinh)")
             print(f"{r['optim']:<10} | {e95:<17} | {r['final_loss']:<10.4f} | {note}")
