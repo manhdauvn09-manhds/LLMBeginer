@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ngày 2 — Tensor, autograd và tối ưu hóa: nhìn gradient bằng con số</title>
+<style>
+  :root{
+    --bg:#0b1020; --card:#141b33; --line:#26314f; --txt:#e8ecf7; --muted:#9aa6c7;
+    --gold:#fbbf24; --blue:#60a5fa; --green:#34d399; --red:#f87171; --violet:#a78bfa;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  body{margin:0; background:var(--bg); color:var(--txt);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    line-height:1.75; font-size:16.5px;}
+  .wrap{max-width:860px; margin:0 auto; padding:0 18px 80px;}
+  .kicker{display:inline-block; margin:26px 0 10px; padding:6px 14px; border:1px solid var(--line);
+    border-radius:999px; color:var(--muted); font-size:13px; letter-spacing:.4px;}
+  h1{font-size:clamp(26px,5.4vw,38px); line-height:1.3; margin:6px 0 8px;}
+  .sub{color:var(--muted); margin:0 0 6px;}
+  .meta{display:flex; gap:10px; flex-wrap:wrap; margin:14px 0 22px; color:var(--muted); font-size:14px;}
+  .meta span{background:var(--card); border:1px solid var(--line); border-radius:10px; padding:6px 12px;}
+  .hero{width:100%; border-radius:16px; border:1px solid var(--line); display:block;}
+  .goal{background:linear-gradient(135deg,#16213f,#101a36); border:1px solid var(--line);
+    border-radius:14px; padding:18px 20px; margin:26px 0;}
+  .goal h3{margin:0 0 10px; font-size:17px; color:var(--gold);}
+  .goal ul{margin:0; padding-left:20px;}
+  .goal li{margin:6px 0;}
+  section.card{background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:22px 20px; margin:22px 0;}
+  section.card h2{margin:0 0 4px; font-size:21px;}
+  section.card h2 .n{display:inline-flex; width:30px; height:30px; border-radius:9px;
+    background:var(--blue); color:#081226; font-size:16px; align-items:center; justify-content:center;
+    margin-right:8px; font-weight:800;}
+  figure{margin:18px 0 8px; background:#0d1428; border:1px solid var(--line);
+    border-radius:12px; padding:12px;}
+  figure svg{width:100%; height:auto; display:block;}
+  figcaption{color:var(--muted); font-size:13.5px; text-align:center; padding:8px 6px 2px;}
+  .formula{background:#0d1428; border:1px dashed var(--line); border-radius:10px;
+    padding:12px 16px; margin:14px 0; font-family:ui-monospace,Menlo,Consolas,monospace;
+    font-size:15px; overflow-x:auto; white-space:nowrap; color:var(--gold);}
+  .code{background:#0d1428; border:1px solid var(--line); border-radius:10px;
+    padding:12px 16px; margin:14px 0; font-family:ui-monospace,Menlo,Consolas,monospace;
+    font-size:14px; overflow-x:auto; color:var(--txt); line-height:1.7; white-space:pre;}
+  .code .c{color:var(--muted);} .code .k{color:var(--violet);} .code .s{color:var(--green);}
+  .tip{border-left:4px solid var(--green); background:rgba(52,211,153,.07);
+    border-radius:0 10px 10px 0; padding:12px 16px; margin:14px 0; font-size:15.5px;}
+  .tip b{color:var(--green);}
+  .warn{border-left:4px solid var(--red); background:rgba(248,113,113,.07);
+    border-radius:0 10px 10px 0; padding:12px 16px; margin:14px 0; font-size:15.5px;}
+  .warn b{color:var(--red);}
+  .energy{border:1px solid rgba(251,191,36,.4); background:rgba(251,191,36,.06);
+    border-radius:14px; padding:18px 20px; margin:22px 0;}
+  .energy h3{margin:0 0 8px; color:var(--gold); font-size:17px;}
+  .art{width:100%; border-radius:12px; border:1px solid var(--line); margin:14px 0 4px; display:block;}
+  .summary{background:linear-gradient(135deg,#12233d,#0e1a30); border:1px solid var(--line);
+    border-radius:14px; padding:18px 20px; margin:26px 0;}
+  .summary h3{margin:0 0 10px; color:var(--blue);}
+  .summary li{margin:6px 0;}
+  .next{display:flex; gap:12px; flex-wrap:wrap; margin-top:26px;}
+  .btn{flex:1 1 220px; text-align:center; text-decoration:none; color:#081226; font-weight:700;
+    background:var(--gold); border-radius:12px; padding:14px 18px; font-size:16px;}
+  .btn.ghost{background:transparent; color:var(--txt); border:1px solid var(--line);}
+  footer{color:var(--muted); font-size:13px; text-align:center; margin-top:44px;}
+  @media (max-width:520px){ body{font-size:15.5px;} section.card{padding:18px 14px;} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <span class="kicker">KHÓA AI ENGINEER &nbsp;•&nbsp; NGÀY 2 / 30</span>
+  <h1>Tensor, autograd và tối ưu hóa: nhìn gradient bằng con số</h1>
+  <p class="sub">Ngày 1 bạn biết model học bằng cách giảm loss. Hôm nay bạn mở nắp cỗ máy: dữ liệu chảy qua tensor thế nào, gradient được tính ra sao, và trọng số được cập nhật từng bước một.</p>
+  <div class="meta"><span>⏱ ~20 phút đọc</span><span>🎬 Video 5 phút: Day02_video.mp4</span><span>📝 Quiz: Day02_quiz.html</span></div>
+
+  <img class="hero" src="img/day02_hero.webp" alt="Minh họa tensor dạng khối lập phương phát sáng và phép nhân ma trận">
+
+  <div class="goal">
+    <h3>🎯 Mục tiêu buổi học</h3>
+    <ul>
+      <li>Đọc được <b>shape</b> của tensor và dự đoán kết quả phép tính qua <b>broadcasting</b>.</li>
+      <li>Tự tính tay được gradient qua <b>chain rule</b> và hiểu <b>backprop</b> là gì.</li>
+      <li>Phân biệt <b>SGD / Adam / AdamW</b> và biết vì sao phải <b>clip gradient</b>.</li>
+    </ul>
+  </div>
+
+  <section class="card" id="sec-tensor">
+    <h2><span class="n">1</span>Tensor và shape — đơn vị tiền tệ thứ hai</h2>
+    <p>Ngày 1 token là đơn vị tiền tệ của dữ liệu. <b>Tensor</b> là đơn vị tiền tệ của tính toán: một mảng nhiều chiều. Scalar là tensor 0 chiều, vector là 1 chiều, ma trận là 2 chiều. Trong LLM, bạn sống với tensor 2–4 chiều mỗi ngày.</p>
+    <div class="formula">x.shape = (batch, seq_len, dim) &nbsp;→&nbsp; ví dụ (8, 512, 4096)</div>
+    <p>Đọc shape như đọc "địa chỉ": 8 câu văn trong một mẻ (batch), mỗi câu 512 token, mỗi token là vector 4096 số. <b>Quy tắc vàng:</b> trước khi chạy bất kỳ phép tính nào, hãy đọc shape — 80% bug của người mới là shape không khớp.</p>
+    <figure>
+      <svg viewBox="0 0 600 260" role="img" aria-label="Tensor 3 chiều">
+        <defs><marker id="ta" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#60a5fa"/></marker></defs>
+        <g>
+          <rect x="60" y="60" width="180" height="140" rx="8" fill="#1b2547" stroke="#60a5fa" stroke-width="2"/>
+          <rect x="90" y="40" width="180" height="140" rx="8" fill="#1b2547" stroke="#60a5fa" stroke-width="2" opacity="0.65"/>
+          <rect x="120" y="20" width="180" height="140" rx="8" fill="#1b2547" stroke="#60a5fa" stroke-width="2" opacity="0.4"/>
+          <text x="150" y="115" fill="#9aa6c7" font-size="13" text-anchor="middle">seq_len</text>
+          <text x="150" y="210" fill="#60a5fa" font-size="14" text-anchor="middle">dim</text>
+        </g>
+        <text x="330" y="60" fill="#9aa6c7" font-size="14">batch = chồng nhiều "tờ" như vậy lên nhau</text>
+        <text x="330" y="90" fill="#9aa6c7" font-size="14">seq_len = số token trong câu</text>
+        <text x="330" y="120" fill="#9aa6c7" font-size="14">dim = độ dài vector mỗi token</text>
+        <line x1="300" y1="150" x2="420" y2="150" stroke="#60a5fa" stroke-width="2" marker-end="url(#ta)"/>
+        <text x="330" y="180" fill="#fbbf24" font-size="14">Ví dụ (8, 512, 4096): 8 × 512 × 4096 ≈ 16,7 triệu số</text>
+        <text x="300" y="232" fill="#9aa6c7" font-size="13" text-anchor="middle">Một tensor 3 chiều: tưởng tượng như chồng giấy, mỗi tờ là một ma trận</text>
+      </svg>
+      <figcaption>Tensor (batch, seq_len, dim) — hình dạng dữ liệu chuẩn chảy qua mọi Transformer</figcaption>
+    </figure>
+    <div class="tip"><b>💡 Hiểu nhanh:</b> phép nhân ma trận <b>X @ W</b> với X:(8,512,4096), W:(4096,4096) cho ra (8,512,4096). Chiều cuối của X phải bằng chiều đầu của W — đó là "khớp shape".</div>
+  </section>
+
+  <section class="card" id="sec-broadcast">
+    <h2><span class="n">2</span>Broadcasting — phép "căng" tensor tự động</h2>
+    <p>Khi cộng hai tensor shape khác nhau, PyTorch không báo lỗi ngay mà thử <b>broadcast</b>: "căng" tensor nhỏ ra cho khớp tensor lớn, theo quy tắc <b>căn phải</b> — so sánh từng chiều từ phải sang trái, chiều nào bằng 1 thì được lặp lại.</p>
+    <div class="formula">(4, 3) + (3,) → (4, 3) &nbsp;&nbsp;•&nbsp;&nbsp; (4, 1) + (4, 3) → (4, 3)</div>
+    <figure>
+      <svg viewBox="0 0 600 240" role="img" aria-label="Ví dụ broadcasting">
+        <text x="40" y="30" fill="#9aa6c7" font-size="14">Ma trận (4,3) cộng vector bias (3,):</text>
+        <g font-size="14" text-anchor="middle">
+          <rect x="40" y="45" width="200" height="130" rx="8" fill="#1b2547" stroke="#60a5fa" stroke-width="2"/>
+          <text x="140" y="115" fill="#e8ecf7">X (4×3)</text>
+          <text x="255" y="115" fill="#e8ecf7" font-size="22">+</text>
+          <rect x="280" y="45" width="70" height="130" rx="8" fill="#1b2547" stroke="#fbbf24" stroke-width="2"/>
+          <text x="315" y="100" fill="#fbbf24" font-size="12">bias</text>
+          <text x="315" y="118" fill="#fbbf24" font-size="12">(3,)</text>
+          <text x="315" y="136" fill="#9aa6c7" font-size="11">căng →</text>
+          <text x="365" y="115" fill="#e8ecf7" font-size="22">=</text>
+          <rect x="390" y="45" width="170" height="130" rx="8" fill="#1b2547" stroke="#34d399" stroke-width="2"/>
+          <text x="475" y="105" fill="#34d399">kết quả (4×3)</text>
+          <text x="475" y="130" fill="#9aa6c7" font-size="12">bias lặp lại 4 hàng</text>
+        </g>
+        <text x="300" y="215" fill="#9aa6c7" font-size="13" text-anchor="middle">Vector bias được "photocopy" cho mỗi hàng — không tốn thêm bộ nhớ thật</text>
+      </svg>
+      <figcaption>Broadcasting: chiều bằng 1 (hoặc thiếu) được lặp lại cho khớp — quy tắc căn phải</figcaption>
+    </figure>
+    <div class="warn"><b>⚠ Bẫy thường gặp:</b> (4,3) + (4,) sẽ <b>LỖI</b> vì căn phải: 3 vs 4 không khớp và không bên nào bằng 1. Muốn cộng theo hàng phải reshape thành (4,1) trước. Broadcasting sai lẳng lặng cho kết quả sai shape — luôn in shape ra kiểm tra.</div>
+  </section>
+
+  <section class="card" id="sec-chain">
+    <h2><span class="n">3</span>Chain rule — đạo hàm của hàm hợp</h2>
+    <p>Mọi mạng neural đều là hàm hợp: x → u → y. Muốn biết "tăng x một chút thì y đổi bao nhiêu", ta nhân các đạo hàm cục bộ lại — đó là <b>chain rule</b>:</p>
+    <div class="formula">dy/dx = (dy/du) × (du/dx)</div>
+    <p>Ví dụ cụ thể, tính tay được. Cho y = u², u = 3x + 1, tại x = 2:</p>
+    <div class="code">u = 3·2 + 1 = 7        →  du/dx = 3
+y = 7² = 49           →  dy/du = 2u = 14
+dy/dx = 14 × 3 = <span class="s">42</span>   <span class="c"># tăng x thêm 0.001 → y tăng ≈ 0.042</span></div>
+    <figure>
+      <svg viewBox="0 0 600 200" role="img" aria-label="Đồ thị tính toán chain rule">
+        <defs><marker id="ca" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#60a5fa"/></marker></defs>
+        <g font-size="16" text-anchor="middle">
+          <circle cx="90" cy="90" r="36" fill="#1b2547" stroke="#60a5fa" stroke-width="2"/><text x="90" y="97" fill="#e8ecf7">x=2</text>
+          <circle cx="300" cy="90" r="36" fill="#1b2547" stroke="#60a5fa" stroke-width="2"/><text x="300" y="97" fill="#e8ecf7">u=7</text>
+          <circle cx="510" cy="90" r="36" fill="#1b2547" stroke="#fbbf24" stroke-width="2"/><text x="510" y="97" fill="#e8ecf7">y=49</text>
+          <line x1="128" y1="90" x2="260" y2="90" stroke="#60a5fa" stroke-width="2" marker-end="url(#ca)"/>
+          <line x1="338" y1="90" x2="472" y2="90" stroke="#60a5fa" stroke-width="2" marker-end="url(#ca)"/>
+          <text x="194" y="70" fill="#9aa6c7" font-size="13">u = 3x+1, du/dx = 3</text>
+          <text x="405" y="70" fill="#9aa6c7" font-size="13">y = u², dy/du = 14</text>
+          <text x="300" y="165" fill="#fbbf24" font-size="15">dy/dx = 14 × 3 = 42 — nhân ngược từ phải sang trái</text>
+        </g>
+      </svg>
+      <figcaption>Chain rule: đạo hàm toàn cục = tích các đạo hàm cục bộ, tính ngược từ output về input</figcaption>
+    </figure>
+    <div class="tip"><b>💡 Trực giác:</b> mỗi nút trong đồ thị chỉ cần biết đạo hàm <i>cục bộ</i> của chính nó. Nhân dây chuyền các đạo hàm cục bộ lại → gradient toàn mạng. Đó chính là ý tưởng của backprop ở phần 4.</div>
+  </section>
+
+  <section class="card" id="sec-backprop">
+    <h2><span class="n">4</span>Backpropagation — cho máy tự làm chain rule</h2>
+    <p>Mạng neural có hàng tỷ tham số — không ai tính tay chain rule được. <b>Autograd</b> (PyTorch) ghi lại mọi phép tính thành đồ thị, rồi <b>backprop</b> lan truyền gradient của loss <b>ngược</b> từ output về input, mỗi nút nhân đạo hàm cục bộ của mình vào "tín hiệu lỗi" nhận được.</p>
+    <img class="art" src="img/day02_backprop.webp" alt="Minh họa tín hiệu gradient chảy ngược qua mạng neural">
+    <figure>
+      <svg viewBox="0 0 600 250" role="img" aria-label="Lan truyền xuôi và ngược">
+        <defs>
+          <marker id="fa" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#60a5fa"/></marker>
+          <marker id="ba" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#f87171"/></marker>
+        </defs>
+        <g font-size="15" text-anchor="middle">
+          <rect x="30" y="95" width="100" height="60" rx="10" fill="#1b2547" stroke="#60a5fa" stroke-width="2"/><text x="80" y="130" fill="#e8ecf7">input x</text>
+          <rect x="180" y="95" width="100" height="60" rx="10" fill="#1b2547" stroke="#60a5fa" stroke-width="2"/><text x="230" y="130" fill="#e8ecf7">layer 1</text>
+          <rect x="330" y="95" width="100" height="60" rx="10" fill="#1b2547" stroke="#60a5fa" stroke-width="2"/><text x="380" y="130" fill="#e8ecf7">layer 2</text>
+          <rect x="480" y="95" width="100" height="60" rx="10" fill="#1b2547" stroke="#fbbf24" stroke-width="2"/><text x="530" y="130" fill="#e8ecf7">loss</text>
+          <line x1="130" y1="115" x2="178" y2="115" stroke="#60a5fa" stroke-width="2" marker-end="url(#fa)"/>
+          <line x1="280" y1="115" x2="328" y2="115" stroke="#60a5fa" stroke-width="2" marker-end="url(#fa)"/>
+          <line x1="430" y1="115" x2="478" y2="115" stroke="#60a5fa" stroke-width="2" marker-end="url(#fa)"/>
+          <text x="305" y="100" fill="#60a5fa" font-size="13">forward: tính dự đoán →</text>
+          <line x1="478" y1="140" x2="432" y2="140" stroke="#f87171" stroke-width="2" stroke-dasharray="7 4" marker-end="url(#ba)"/>
+          <line x1="328" y1="140" x2="282" y2="140" stroke="#f87171" stroke-width="2" stroke-dasharray="7 4" marker-end="url(#ba)"/>
+          <line x1="178" y1="140" x2="132" y2="140" stroke="#f87171" stroke-width="2" stroke-dasharray="7 4" marker-end="url(#ba)"/>
+          <text x="305" y="175" fill="#f87171" font-size="13">← backward: gradient loss chảy ngược</text>
+        </g>
+        <text x="300" y="220" fill="#9aa6c7" font-size="13" text-anchor="middle">Mỗi layer nhận "lỗi" từ layer sau, nhân với đạo hàm cục bộ, rồi chuyển tiếp về trước</text>
+      </svg>
+      <figcaption>Hai lượt của huấn luyện: forward tính loss, backward tính gradient cho mọi tham số</figcaption>
+    </figure>
+    <div class="code"><span class="k">import</span> torch
+x = torch.tensor(2.0, requires_grad=<span class="k">True</span>)
+u = 3*x + 1; y = u**2
+y.backward()          <span class="c"># backprop tự động</span>
+<span class="k">print</span>(x.grad)         <span class="c"># → 42.0  (khớp tính tay phần 3!)</span></div>
+    <div class="tip"><b>💡 Điểm mấu chốt:</b> <span class="code" style="display:inline;padding:2px 8px;margin:0">loss.backward()</span> cho bạn gradient của loss theo <i>mọi</i> tham số — đó là "bản đồ" chỉ ra nên chỉnh mỗi trọng số theo hướng nào để loss giảm. Tối ưu hóa (phần 5) là bước đi theo bản đồ đó.</div>
+  </section>
+
+  <section class="card" id="sec-opt">
+    <h2><span class="n">5</span>SGD và AdamW — đi xuống dốc loss</h2>
+    <p>Có gradient rồi, cập nhật trọng số theo hướng <b>ngược</b> gradient (hướng loss giảm). <b>SGD</b> là bản đơn giản nhất:</p>
+    <div class="formula">w ← w − η · ∇w &nbsp;&nbsp;&nbsp;<span style="color:var(--muted);font-size:13px">η: learning rate (tốc độ học)</span></div>
+    <p><b>Adam</b> cải tiến SGD bằng cách cho mỗi tham số một "tốc độ riêng": tham số nào gradient ổn định thì đi nhanh, tham số nào gradient thất thường thì đi chậm (dựa vào trung bình và phương sai của gradient quá khứ). <b>AdamW</b> = Adam + <b>weight decay tách riêng</b>: thay vì trộn phạt trọng số lớn vào gradient (làm méo bước adaptive), AdamW trừ thẳng một lượng nhỏ khỏi trọng số sau mỗi bước — chống overfitting sạch hơn. Đây là optimizer chuẩn khi train LLM ngày nay.</p>
+    <figure>
+      <svg viewBox="0 0 600 240" role="img" aria-label="So sánh SGD và AdamW">
+        <line x1="60" y1="20" x2="60" y2="200" stroke="#26314f" stroke-width="2"/>
+        <line x1="60" y1="200" x2="570" y2="200" stroke="#26314f" stroke-width="2"/>
+        <text x="300" y="228" fill="#9aa6c7" font-size="13" text-anchor="middle">số bước cập nhật →</text>
+        <text x="14" y="110" fill="#9aa6c7" font-size="13" transform="rotate(-90 14 110)">loss</text>
+        <path d="M70,40 C180,60 300,120 560,170" fill="none" stroke="#60a5fa" stroke-width="3"/>
+        <text x="555" y="160" fill="#60a5fa" font-size="13" text-anchor="end">SGD: đi đều, chậm</text>
+        <path d="M70,40 C140,55 200,110 300,140 C400,160 500,168 560,172" fill="none" stroke="#fbbf24" stroke-width="3"/>
+        <text x="555" y="192" fill="#fbbf24" font-size="13" text-anchor="end">AdamW: nhanh đầu, ổn định cuối</text>
+        <text x="300" y="60" fill="#9aa6c7" font-size="13" text-anchor="middle">AdamW hội tụ nhanh hơn nhờ bước đi thích ứng từng tham số</text>
+      </svg>
+      <figcaption>SGD đi đều mọi tham số; AdamW tự điều chỉnh bước đi — hội tụ nhanh và ổn định hơn</figcaption>
+    </figure>
+    <div class="tip"><b>💡 Thực hành:</b> train LLM hầu như luôn dùng AdamW với learning rate warmup (tăng dần lúc đầu) rồi decay (giảm dần lúc cuối). Tối nay bạn sẽ log gradient norm để "nhìn" optimizer làm việc.</div>
+  </section>
+
+  <section class="card" id="sec-clip">
+    <h2><span class="n">6</span>Gradient clipping — phanh khẩn cấp</h2>
+    <p>Khi nhân hàng trăm đạo hàm cục bộ lại (chain rule qua nhiều layer), gradient có thể <b>phình to theo cấp số nhân</b> (exploding) hoặc <b>teo về 0</b> (vanishing). Exploding gradient làm trọng số nhảy loạn, loss thành NaN — model "chết" trong một bước.</p>
+    <p><b>Gradient clipping</b> là phanh khẩn cấp: nếu độ lớn (norm) của toàn bộ gradient vượt ngưỡng, co toàn bộ vector gradient lại cho vừa ngưỡng — giữ nguyên <i>hướng</i>, chỉ thu nhỏ <i>độ lớn</i>:</p>
+    <div class="formula">nếu ||g|| &gt; c: &nbsp; g ← g · (c / ||g||)</div>
+    <figure>
+      <svg viewBox="0 0 600 230" role="img" aria-label="Gradient clipping">
+        <line x1="60" y1="20" x2="60" y2="190" stroke="#26314f" stroke-width="2"/>
+        <line x1="60" y1="190" x2="570" y2="190" stroke="#26314f" stroke-width="2"/>
+        <text x="300" y="218" fill="#9aa6c7" font-size="13" text-anchor="middle">số bước train →</text>
+        <text x="14" y="105" fill="#9aa6c7" font-size="13" transform="rotate(-90 14 105)">gradient norm</text>
+        <line x1="60" y1="120" x2="570" y2="120" stroke="#fbbf24" stroke-width="2" stroke-dasharray="8 5"/>
+        <text x="565" y="110" fill="#fbbf24" font-size="13" text-anchor="end">ngưỡng clip c = 1.0</text>
+        <path d="M70,150 L120,140 L170,100 L220,60 L260,30 L300,120 L340,125 L390,118 L440,122 L490,119 L550,121" fill="none" stroke="#f87171" stroke-width="3"/>
+        <circle cx="260" cy="30" r="7" fill="#f87171"/>
+        <text x="260" y="58" fill="#f87171" font-size="13" text-anchor="middle">bùng nổ!</text>
+        <text x="420" y="150" fill="#34d399" font-size="13" text-anchor="middle">sau clip: norm bị "cắt ngọn", hướng giữ nguyên</text>
+      </svg>
+      <figcaption>Gradient norm bùng nổ mà không clip → loss NaN. Clip giữ hướng đi, chỉ thu nhỏ bước nhảy</figcaption>
+    </figure>
+    <div class="warn"><b>⚠ Dấu hiệu nhận biết:</b> loss đột ngột thành <span class="code" style="display:inline;padding:2px 8px;margin:0">nan</span> hoặc tăng vọt sau nhiều bước ổn định → 90% là exploding gradient. Việc đầu tiên: bật clip norm = 1.0 rồi mới debug tiếp.</div>
+  </section>
+
+  <div class="energy" id="sec-energy">
+    <h3>⚡ Góc tiết kiệm năng lượng</h3>
+    <p style="margin:0 0 10px">Optimizer cũng "ăn" điện và bộ nhớ. AdamW lưu <b>2 con số phụ cho mỗi tham số</b> (trung bình m và phương sai v của gradient) — với model 7 tỷ tham số ở FP32, riêng optimizer đã ngốn ~56 GB RAM, gấp đôi bản thân model! Vì vậy:</p>
+    <ul style="margin:0; padding-left:20px">
+      <li><b>Mixed precision (FP16/BF16):</b> tính forward/backward bằng số 16-bit (nhanh hơn, tốn nửa điện), chỉ giữ bản FP32 cho trọng số master. Chuẩn mặc định khi train LLM.</li>
+      <li><b>Gradient checkpointing:</b> không lưu toàn bộ activation của forward, tính lại khi cần ở backward — đổi thời gian lấy bộ nhớ.</li>
+      <li><b>Đọc gradient norm mỗi bước</b> (như lab tối nay): norm ổn định nghĩa là FP16 đủ dùng; norm dao động mạnh là tín hiệu cần xem lại precision hoặc clip.</li>
+    </ul>
+  </div>
+
+  <div class="summary">
+    <h3>📝 Tóm tắt ngày 2</h3>
+    <ul>
+      <li><b>Tensor + shape:</b> đọc shape trước mọi phép tính; (batch, seq_len, dim) là hình dạng chuẩn.</li>
+      <li><b>Broadcasting:</b> "căng" tensor theo quy tắc căn phải; sai shape thì lỗi hoặc lẳng lặng sai.</li>
+      <li><b>Chain rule:</b> dy/dx = tích các đạo hàm cục bộ — nền của mọi gradient.</li>
+      <li><b>Backprop:</b> autograd lan truyền gradient loss ngược từ output về input.</li>
+      <li><b>SGD → Adam → AdamW:</b> bước đi thích ứng từng tham số + weight decay tách riêng.</li>
+      <li><b>Gradient clipping:</b> phanh khẩn cấp chống exploding gradient (loss NaN).</li>
+    </ul>
+    <div class="next">
+      <a class="btn" href="Day02_quiz.html">Làm quiz ngày 2 →</a>
+      <a class="btn ghost" href="Day02_video.mp4">Xem video 5 phút 🎬</a>
+    </div>
+  </div>
+
+  <footer>Khóa "Trở thành AI Engineer (LLM)" • Ngày 2/30 • Bài tiếp theo: tối nay — gradient_check.py và log gradient norm</footer>
+</div>
+</body>
+</html>

@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quiz Ngày 2 — Tensor, autograd và tối ưu hóa</title>
+<style>
+  :root{
+    --bg:#0b1020; --card:#141b33; --line:#26314f; --txt:#e8ecf7; --muted:#9aa6c7;
+    --gold:#fbbf24; --blue:#60a5fa; --green:#34d399; --red:#f87171;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  body{margin:0; background:var(--bg); color:var(--txt);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    line-height:1.7; font-size:16px;}
+  .wrap{max-width:760px; margin:0 auto; padding:0 18px 80px;}
+  .kicker{display:inline-block; margin:26px 0 10px; padding:6px 14px; border:1px solid var(--line);
+    border-radius:999px; color:var(--muted); font-size:13px;}
+  h1{font-size:clamp(24px,5vw,32px); margin:6px 0 4px;}
+  .sub{color:var(--muted); margin:0 0 18px; font-size:14.5px;}
+  .q{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px; margin:16px 0;}
+  .q h3{margin:0 0 12px; font-size:16.5px;}
+  .q h3 .qn{display:inline-flex; width:28px; height:28px; border-radius:8px; background:var(--blue);
+    color:#081226; font-size:15px; align-items:center; justify-content:center; margin-right:8px; font-weight:800;}
+  label.opt{display:flex; gap:12px; align-items:flex-start; padding:11px 12px; margin:8px 0;
+    border:1px solid var(--line); border-radius:10px; cursor:pointer; font-size:15.5px;}
+  label.opt:hover{border-color:var(--blue);}
+  label.opt input{margin-top:5px; width:18px; height:18px; accent-color:var(--gold); flex-shrink:0;}
+  label.opt .k{font-weight:800; color:var(--gold); min-width:22px;}
+  .q.correct{border-color:rgba(52,211,153,.6);}
+  .q.wrong{border-color:rgba(248,113,113,.6);}
+  .explain{display:none; margin-top:12px; padding:12px 14px; border-radius:10px; font-size:14.5px;}
+  .q.correct .explain{display:block; background:rgba(52,211,153,.08); border:1px solid rgba(52,211,153,.35);}
+  .q.wrong .explain{display:block; background:rgba(248,113,113,.08); border:1px solid rgba(248,113,113,.35);}
+  .explain b.c{color:var(--green);} .explain b.w{color:var(--red);}
+  .actions{position:sticky; bottom:0; background:linear-gradient(transparent,var(--bg) 30%);
+    padding:18px 0 10px; display:flex; gap:10px; flex-wrap:wrap;}
+  button{flex:1 1 160px; border:none; border-radius:12px; padding:15px; font-size:16px; font-weight:700; cursor:pointer;}
+  #submit{background:var(--gold); color:#081226;}
+  #retry{background:transparent; color:var(--txt); border:1px solid var(--line);}
+  #copy{background:var(--blue); color:#081226; display:none;}
+  #result{display:none; background:var(--card); border:1px solid var(--line); border-radius:14px;
+    padding:18px; margin:18px 0; text-align:center;}
+  #result .score{font-size:34px; font-weight:800; color:var(--gold);}
+  #result .msg{color:var(--muted); margin-top:6px; font-size:14.5px;}
+  #resultStr{font-family:ui-monospace,Menlo,Consolas,monospace; background:#0d1428;
+    border:1px dashed var(--line); border-radius:8px; padding:10px; margin-top:12px;
+    font-size:14px; word-break:break-all;}
+  .note{color:var(--muted); font-size:13.5px; margin-top:14px;}
+  .back{display:inline-block; margin-top:20px; color:var(--blue); text-decoration:none;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <span class="kicker">QUIZ • NGÀY 2 / 30</span>
+  <h1>✅ Trắc nghiệm: Tensor, autograd và tối ưu hóa</h1>
+  <p class="sub">5 câu • Chọn đáp án rồi bấm <b>Nộp bài</b> để chấm điểm ngay. File này không tự gửi về được — sau khi nộp, bấm <b>Copy kết quả</b> rồi paste vào chat để tôi ghi nhận điểm số của bạn.</p>
+
+  <div id="quiz"></div>
+
+  <div id="result">
+    <div class="score" id="scoreTxt"></div>
+    <div class="msg" id="msgTxt"></div>
+    <div id="resultStr"></div>
+  </div>
+
+  <div class="actions">
+    <button id="submit">Nộp bài</button>
+    <button id="copy">📋 Copy kết quả</button>
+    <button id="retry">↺ Làm lại</button>
+  </div>
+  <p class="note">💡 Mẹo: sau khi bấm "Copy kết quả", mở chat với tôi và paste — tôi sẽ chấm lại, giải thích chỗ sai và ghi điểm vào tiến độ học của bạn.</p>
+  <a class="back" href="Day02_lesson.html">← Về bài học ngày 2</a>
+</div>
+
+<script>
+const QUESTIONS = [
+  { q:"Tensor A shape (4, 1), tensor B shape (4, 3). Kết quả của A + B có shape là gì?",
+    opts:["(4, 1) — giữ shape của A",
+          "Lỗi, vì 1 và 3 không khớp nhau",
+          "(4, 3) — cột của A được lặp lại cho khớp B",
+          "(4, 4) — cộng số chiều lại"],
+    a:2,
+    e:"Broadcasting so chiều từ phải sang: 1 vs 3 → chiều bằng 1 được 'căng' ra thành 3; 4 vs 4 khớp. Kết quả (4,3). Quy tắc căn phải: chiều nào bằng 1 (hoặc thiếu) thì lặp lại." },
+  { q:"Cho y = u², u = 3x + 1, tại x = 2. Theo chain rule, dy/dx bằng bao nhiêu?",
+    opts:["14",
+          "28",
+          "42",
+          "49"],
+    a:2,
+    e:"u = 3·2+1 = 7; dy/du = 2u = 14; du/dx = 3. dy/dx = 14 × 3 = 42. Chain rule: nhân các đạo hàm cục bộ từ output ngược về input." },
+  { q:"Backpropagation lan truyền cái gì, theo chiều nào?",
+    opts:["Lan truyền dự đoán từ input tới output (chiều xuôi)",
+          "Lan truyền gradient của loss từ output ngược về input, mỗi layer nhân thêm đạo hàm cục bộ của mình",
+          "Lan truyền trọng số từ layer cuối về layer đầu",
+          "Lan truyền learning rate qua các bước train"],
+    a:1,
+    e:"Forward tính loss; backward cho gradient của loss 'chảy ngược' qua đồ thị tính toán. Mỗi nút nhân tín hiệu lỗi nhận được với đạo hàm cục bộ rồi chuyển tiếp — chính là chain rule được tự động hóa." },
+  { q:"Điểm khác biệt cốt lõi của AdamW so với Adam là gì?",
+    opts:["AdamW dùng learning rate lớn hơn Adam",
+          "AdamW tách weight decay ra khỏi bước cập nhật thích ứng, trừ thẳng vào trọng số thay vì trộn vào gradient",
+          "AdamW không cần tính gradient",
+          "AdamW chỉ dùng được cho mô hình nhỏ"],
+    a:1,
+    e:"Trong Adam thường, weight decay bị trộn vào gradient nên bước adaptive làm méo hiệu quả chống overfitting. AdamW trừ thẳng λ·w khỏi trọng số sau mỗi bước — sạch và hiệu quả hơn, thành chuẩn khi train LLM." },
+  { q:"Gradient clipping (ví dụ ngưỡng norm = 1.0) có tác dụng gì?",
+    opts:["Tăng tốc độ học bằng cách khuếch đại gradient nhỏ",
+          "Cố định mọi gradient về đúng 1.0",
+          "Khi norm gradient vượt ngưỡng thì thu nhỏ toàn bộ vector về ngưỡng (giữ nguyên hướng) — chống exploding gradient gây loss NaN",
+          "Loại bỏ hoàn toàn các gradient âm"],
+    a:2,
+    e:"Clip là 'phanh khẩn cấp': g ← g·(c/||g||) khi ||g|| > c. Hướng đi (hướng loss giảm) được giữ nguyên, chỉ thu nhỏ độ lớn bước nhảy — ngăn trọng số nhảy loạn khi gradient bùng nổ." },
+];
+const LETTERS = ["A","B","C","D"];
+let answers = [];
+
+function render(){
+  const box = document.getElementById("quiz");
+  box.innerHTML = "";
+  QUESTIONS.forEach((it, i)=>{
+    const d = document.createElement("div");
+    d.className = "q"; d.id = "q"+i;
+    d.innerHTML = `<h3><span class="qn">${i+1}</span>${it.q}</h3>` +
+      it.opts.map((o,j)=>`<label class="opt"><input type="radio" name="q${i}" value="${j}"><span class="k">${LETTERS[j]}</span><span>${o}</span></label>`).join("") +
+      `<div class="explain"></div>`;
+    box.appendChild(d);
+  });
+  document.getElementById("result").style.display = "none";
+  document.getElementById("copy").style.display = "none";
+  document.getElementById("submit").style.display = "";
+}
+
+document.getElementById("submit").onclick = ()=>{
+  answers = [];
+  let score = 0, done = 0;
+  QUESTIONS.forEach((it, i)=>{
+    const sel = document.querySelector(`input[name=q${i}]:checked`);
+    const box = document.getElementById("q"+i);
+    const ex = box.querySelector(".explain");
+    if(!sel){ box.classList.remove("correct","wrong"); ex.innerHTML=""; return; }
+    done++;
+    const v = +sel.value; answers[i] = v;
+    if(v === it.a){ score++; box.classList.add("correct"); box.classList.remove("wrong");
+      ex.innerHTML = `<b class="c">✔ Đúng.</b> ${it.e}`;
+    } else { box.classList.add("wrong"); box.classList.remove("correct");
+      ex.innerHTML = `<b class="w">✘ Sai.</b> Đáp án đúng là <b>${LETTERS[it.a]}</b>. ${it.e}`;
+    }
+  });
+  if(done < QUESTIONS.length){ alert("Bạn còn " + (QUESTIONS.length-done) + " câu chưa chọn đáp án."); return; }
+  document.getElementById("scoreTxt").textContent = score + "/" + QUESTIONS.length;
+  const m = document.getElementById("msgTxt");
+  m.textContent = score===5 ? "Xuất sắc! Bạn đã nắm vững nền tảng ngày 2. 🎉"
+    : score>=4 ? "Rất tốt! Xem lại câu sai một lần nữa là chắc kiến thức."
+    : score>=3 ? "Ổn, nhưng còn hổng — đọc lại phần giải thích các câu sai nhé."
+    : "Cần ôn lại bài học ngày 2 rồi làm lại quiz nhé. Hổng chỗ nào cứ hỏi tôi.";
+  const str = "Day02 Quiz: " + answers.map((v,i)=>(i+1)+LETTERS[v]).join(" ") + " — " + score + "/" + QUESTIONS.length;
+  document.getElementById("resultStr").textContent = str;
+  document.getElementById("result").style.display = "block";
+  document.getElementById("copy").style.display = "";
+  document.getElementById("submit").style.display = "none";
+  document.getElementById("result").scrollIntoView({behavior:"smooth", block:"center"});
+};
+
+document.getElementById("copy").onclick = async ()=>{
+  const t = document.getElementById("resultStr").textContent;
+  try{ await navigator.clipboard.writeText(t); }
+  catch(e){ const ta=document.createElement("textarea"); ta.value=t; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove(); }
+  const b = document.getElementById("copy"); b.textContent = "✓ Đã copy! Paste vào chat nhé";
+  setTimeout(()=>b.textContent="📋 Copy kết quả", 2500);
+};
+
+document.getElementById("retry").onclick = render;
+render();
+</script>
+</body>
+</html>

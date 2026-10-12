@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ngày 2 · Buổi tối — Thực hành: Gradient Check & Huấn luyện MLP bằng Autograd</title>
+<style>
+  :root{
+    --bg:#0b1020; --card:#141b33; --card2:#0f1530; --line:#2a3560;
+    --txt:#e8ecf8; --muted:#9aa6c7; --acc:#6ea8fe; --acc2:#7ee2a8;
+    --warn:#ffcf6e; --bad:#ff8fa3; --code-bg:#0a0e1f;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);
+    font-family:-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    line-height:1.65;font-size:16px}
+  .wrap{max-width:820px;margin:0 auto;padding:20px 16px 64px}
+  header.top{border:1px solid var(--line);border-radius:14px;padding:22px;
+    background:linear-gradient(135deg,#101838,#0b1020);margin-bottom:18px}
+  .kicker{color:var(--acc);font-weight:700;font-size:13px;letter-spacing:.08em;text-transform:uppercase}
+  h1{margin:.3em 0 .2em;font-size:1.5rem;line-height:1.35}
+  h2{font-size:1.2rem;margin:1.6em 0 .5em;color:var(--acc)}
+  h3{font-size:1.02rem;margin:1.2em 0 .4em;color:var(--acc2)}
+  p{margin:.55em 0}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin:14px 0}
+  .card.green{border-color:#2f7d4f;background:#0e1f18}
+  .card.pitfall{border-color:#7d4f2f;background:#211509}
+  ul,ol{margin:.5em 0 .5em 1.2em;padding:0}
+  li{margin:.35em 0}
+  code{font-family:"SFMono-Regular",Consolas,"Liberation Mono",monospace;
+    background:var(--code-bg);padding:.1em .4em;border-radius:6px;font-size:.92em;color:#ffd9a0}
+  pre{background:var(--code-bg);border:1px solid var(--line);border-radius:10px;
+    padding:14px;overflow-x:auto;font-size:13.5px;line-height:1.55;color:#dfe6ff}
+  pre .todo{color:var(--warn);font-weight:700}
+  pre .hint-c{color:var(--muted)}
+  .step{background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:16px;margin:14px 0}
+  .step h3{margin-top:0}
+  .showhint{background:#1b2342;border:1px solid var(--line);color:var(--acc);
+    border-radius:8px;padding:8px 14px;font-size:14px;cursor:pointer;margin-top:8px}
+  .showhint:active{transform:scale(.97)}
+  .hintbox{display:none;background:#10162e;border:1px dashed var(--acc);
+    border-radius:10px;padding:12px;margin-top:10px;font-size:.95rem;color:var(--muted)}
+  .qa{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin:12px 0}
+  .qa .q{font-weight:700;margin-bottom:8px}
+  .ans{display:none;background:#10162e;border:1px dashed var(--acc2);
+    border-radius:10px;padding:12px;margin-top:8px;font-size:.95rem;color:var(--muted)}
+  .qa .btnrow{margin-top:6px}
+  .btn{background:#1b2342;border:1px solid var(--line);color:var(--acc2);
+    border-radius:8px;padding:8px 14px;font-size:14px;cursor:pointer}
+  .btn:active{transform:scale(.97)}
+  .check{list-style:none;margin-left:0;padding:0}
+  .check li{background:var(--card);border:1px solid var(--line);border-radius:10px;
+    padding:10px 12px;margin:8px 0}
+  .check li b{color:var(--acc2)}
+  footer{margin-top:32px;color:var(--muted);font-size:13px;text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <div class="kicker">Ngày 2 · Buổi tối — Thực hành (khớp bài sáng: Tensor, autograd & tối ưu hóa)</div>
+  <h1>Gradient Check & Huấn luyện MLP bằng Autograd</h1>
+  <p>Hôm nay ta <b>không tin tưởng mù quáng</b> PyTorch. Ta sẽ tự kiểm chứng rằng
+  autograd của nó cho gradient đúng (bằng sai phân hữu hạn), rồi huấn luyện một MLP
+  nhỏ dự đoán token kế tiếp — chính là "trái tim" của mọi LLM, ở dạng thu nhỏ.
+  Kết thúc buổi này bạn phải <b>đọc được</b> gradient norm và <b>bắt được lỗi</b> huấn luyện bằng số.</p>
+  <p><b>Đầu ra yêu cầu:</b> sai số gradient check &lt; 1e-4; có plot gradient norm qua các epoch.</p>
+</header>
+
+<h2>0 · Chuẩn bị môi trường</h2>
+<div class="step">
+  <h3>Môi trường</h3>
+  <p>Dùng chính môi trường đã cài buổi tối Ngày 1 (PyTorch + matplotlib). CPU cũng chạy được toàn bộ bài này —
+  GPU chỉ giúp bước Green checkpoint đo mixed precision chính xác hơn.</p>
+<pre><code>python -c "import torch, matplotlib; print(torch.__version__)"
+# Kỳ vọng: in ra version torch (vd 2.x.x), không báo lỗi</code></pre>
+  <p>Tạo file <code>gradient_check.py</code> cho bài 1, và <code>train_mlp.py</code> cho bài 2. Giữ lại cả hai —
+  đây là "phòng thí nghiệm mini" bạn sẽ dùng lại cả khóa.</p>
+</div>
+
+<h2>1 · Bài 1 — Gradient check: bắt autograd "khai gian"</h2>
+<div class="step">
+  <h3>Vì sao?</h3>
+  <p>Backprop là chain rule tự động. Nếu gradient sai ở đâu đó (bug mask, shape sai, custom op),
+  mô hình học ra toàn rác mà loss vẫn trông "bình thường". Sai phân hữu hạn là cách <b>độc lập</b>
+  để xác thực: <code>df/dx ≈ (f(x+ε) − f(x−ε)) / 2ε</code>.</p>
+  <h3>Bước 1 · Định nghĩa mô hình mini</h3>
+<pre><code><span class="hint-c"># gradient_check.py — bạn viết, khung gợi ý bên dưới</span>
+import torch
+torch.manual_seed(42)
+
+<span class="hint-c"># Một "mạng" 2 lớp tuyến tính + tanh, nhỏ vừa đủ để kiểm tra bằng tay</span>
+W1 = torch.randn(4, 3, requires_grad=True, dtype=torch.float64)
+b1 = torch.randn(4, requires_grad=True, dtype=torch.float64)
+W2 = torch.randn(1, 4, requires_grad=True, dtype=torch.float64)
+b2 = torch.randn(1, requires_grad=True, dtype=torch.float64)
+x = torch.randn(3, dtype=torch.float64)
+t = torch.randn(1, dtype=torch.float64)   <span class="hint-c"># target</span>
+
+<span class="todo">TODO 1:</span> <span class="hint-c"># viết hàm forward trả về loss scalar MSE, dùng đúng 4 tham số trên</span>
+
+<span class="todo">TODO 2:</span> <span class="hint-c"># chạy forward, gọi .backward(), lưu gradient autograd của từng param vào dict</span>
+
+<span class="todo">TODO 3:</span> <span class="hint-c"># với MỖI scalar trong W1, b1, W2, b2: perturb ±ε (ε=1e-6),
+              # forward lại 2 lần (KHÔNG .backward), tính gradient số,
+              # ghi max |grad_analytic − grad_numeric|</span>
+
+<span class="todo">TODO 4:</span> <span class="hint-c"># assert max_error &lt; 1e-4, in PASS/FAIL từng param</span></code></pre>
+  <button class="showhint" onclick="var b=this.nextElementSibling;b.style.display=b.style.display==='block'?'none':'block'">💡 Hiện gợi ý từng bước</button>
+  <div class="hintbox">
+    <ul>
+      <li><b>Dùng float64</b> cho gradient check (ε=1e-6 ở float32 bị nuốt bởi sai số làm tròn — đây là bẫy số 1, xem phần Bẫy).</li>
+      <li><code>forward</code>: <code>h = torch.tanh(x @ W1.t() + b1)</code>; <code>out = h @ W2.t() + b2</code>; loss = <code>((out - t)**2).mean()</code>.</li>
+      <li>Perturb: <code>p.data[i] += eps</code> … <code>p.data[i] -= 2*eps</code> … rồi <code>p.data[i] += eps</code> để trả về. Dùng <code>.data</code> hoặc <code>torch.no_grad()</code> để không làm bẩn graph.</li>
+      <li><b>Đừng gọi <code>.backward()</code> trong vòng lặp numeric</b> — chỉ forward 2 lần rồi tính hiệu.</li>
+    </ul>
+  </div>
+  <h3>✅ Bài 1 xong khi nào?</h3>
+  <ul>
+    <li>4/4 param báo <code>max_error &lt; 1e-4</code> (thường ~1e-9 ở float64).</li>
+    <li>Bạn trả lời được: <i>"Vì sao không chạy gradient check ở float32?"</i></li>
+  </ul>
+</div>
+
+<h2>2 · Bài 2 — MLP dự đoán token kế tiếp + log gradient norm</h2>
+<div class="step">
+  <h3>Vì sao?</h3>
+  <p>Mọi LLM đều là "dự đoán token kế tiếp". Ở đây ta làm phiên bản cực tiểu:
+  từ một context ngắn (vài token), MLP dự đoán token tiếp theo. Quan trọng nhất:
+  <b>log gradient norm mỗi epoch</b> — đây là "máy đo huyết áp" của quá trình huấn luyện.</p>
+  <h3>Bước 2 · Dữ liệu đồ chơi</h3>
+<pre><code><span class="hint-c"># train_mlp.py</span>
+import torch, torch.nn as nn
+import matplotlib.pyplot as plt
+torch.manual_seed(0)
+
+<span class="hint-c"># Chuỗi tuần hoàn đơn giản: 0 1 2 3 0 1 2 3 ... (vocab = 4, context = 3)</span>
+<span class="todo">TODO 1:</span> <span class="hint-c"># sinh 2000 token theo quy luật trên; tạo (x, y) với
+              # x = 3 token liên tiếp (dạng one-hot hoặc embedding index), y = token kế tiếp</span>
+
+<span class="todo">TODO 2:</span> <span class="hint-c"># định nghĩa MLP: Linear(12→32) → tanh → Linear(32→4) (4 = vocab size)
+              # loss = CrossEntropyLoss</span></code></pre>
+  <h3>Bước 3 · Vòng lặp huấn luyện + log gradient norm</h3>
+<pre><code>model = MLP(); opt = torch.optim.Adam(model.parameters(), lr=1e-2)
+grad_norms, losses = [], []
+
+for epoch in range(200):
+    opt.zero_grad()
+    loss = criterion(model(X), y)
+    loss.backward()
+
+    <span class="todo">TODO 3:</span> <span class="hint-c"># TÍNH total gradient norm = sqrt(sum ||g||²) TRƯỚC khi opt.step(),
+                  # append vào grad_norms (dùng torch.no_grad, detach từng p.grad)</span>
+    <span class="hint-c"># BONUS: in cảnh báo nếu norm == 0 (gradient chết) hoặc > 1e3 (sắp nổ)</span>
+
+    torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)  <span class="hint-c"># thử bật/tắt dòng này</span>
+    opt.step()
+    losses.append(loss.item())
+
+<span class="todo">TODO 4:</span> <span class="hint-c"># vẽ 2 subplot: (a) loss theo epoch, (b) gradient norm (log-scale) theo epoch</span></code></pre>
+  <button class="showhint" onclick="var b=this.nextElementSibling;b.style.display=b.style.display==='block'?'none':'block'">💡 Hiện gợi ý đọc plot</button>
+  <div class="hintbox">
+    <ul>
+      <li><b>Norm giảm dần về 0 trong khi loss vẫn cao</b> → vanishing gradient / học quá chậm → tăng lr hoặc kiểm tra init.</li>
+      <li><b>Norm vọt lên rồi loss NaN</b> → exploding → giảm lr, bật <code>clip_grad_norm_</code>.</li>
+      <li><b>Norm dao động đều, loss giảm mượt</b> → khỏe. Đây là "nhịp tim bình thường" bạn cần thuộc.</li>
+    </ul>
+  </div>
+  <h3>Bước 4 · Thí nghiệm SGD vs AdamW (gắn bài sáng)</h3>
+  <p>Chạy lại toàn bộ 2 lần, giữ nguyên seed & model init, chỉ đổi optimizer:
+  <code>SGD(lr=1e-2)</code> vs <code>AdamW(lr=1e-2)</code>. Ghi vào 4 dòng: <i>optimizer — epoch đạt accuracy 95% — loss cuối — nhận xét</i>.
+  Dự đoán trước khi chạy: cái nào hội tụ nhanh hơn trên bài toán nhỏ này? (Câu này có trong tự kiểm tra bên dưới.)</p>
+</div>
+
+<h2>3 · Bài 3 — Green checkpoint: float32 vs mixed precision ⚡</h2>
+<div class="card green">
+  <h3 style="margin-top:0">⚡ So sánh chất lượng + thời gian, không chỉ tốc độ</h3>
+  <p>Nếu có GPU (Colab/Kaggle): bọc vòng train bằng <code>torch.cuda.amp.autocast</code> + <code>GradScaler</code>,
+  chạy lại Bài 2, rồi báo cáo theo mẫu:</p>
+  <ul>
+    <li><b>float32:</b> loss cuối = ___, accuracy = ___, thời gian/epoch = ___ ms, peak VRAM = ___ MB</li>
+    <li><b>mixed precision:</b> loss cuối = ___, accuracy = ___, thời gian/epoch = ___ ms, peak VRAM = ___ MB</li>
+    <li><b>Kết luận 1 câu:</b> AMP có làm mất accuracy không? Tiết kiệm được bao nhiêu % thời gian/VRAM?</li>
+  </ul>
+  <p><i>Không có GPU?</i> Không sao — ghi rõ "chạy CPU, bỏ qua so sánh AMP", rồi thử thay:
+  <b>float32 vs float64</b> trên Bài 1 và báo thời gian gradient check của hai kiểu. Nguyên tắc green vẫn giữ:
+  <i>không tăng mô hình trước khi baseline đúng</i>.</p>
+</div>
+
+<h2>✅ 3 câu tự kiểm tra nhanh</h2>
+
+<div class="qa">
+  <div class="q">1. Vì sao gradient check phải chạy ở float64, không phải float32?</div>
+  <div class="btnrow"><button class="btn" onclick="var a=this.parentElement.nextElementSibling;a.style.display=a.style.display==='block'?'none':'block'">Hiện đáp án</button></div>
+  <div class="ans"><b>Đáp án:</b> Ở float32, sai số làm tròn (~1e-7) lấn át bước perturb ε=1e-6, nên hiệu
+  <code>f(x+ε)−f(x−ε)</code> bị nhiễu — gradient số không còn là "chuẩn vàng" để đối chiếu.
+  float64 cho sai số làm tròn ~1e-16 nên đo chính xác. Thực tế: chỉ check trên mô hình nhỏ, xong xuôi thì train float32/bf16 bình thường.</div>
+</div>
+
+<div class="qa">
+  <div class="q">2. Gradient norm giảm dần về 0 trong khi loss vẫn cao — chẩn đoán và cách xử lý?</div>
+  <div class="btnrow"><button class="btn" onclick="var a=this.parentElement.nextElementSibling;a.style.display=a.style.display==='block'?'none':'block'">Hiện đáp án</button></div>
+  <div class="ans"><b>Đáp án:</b> Dấu hiệu <b>vanishing gradient</b> hoặc learning rate quá nhỏ / khởi tạo tệ —
+  mô hình "ngừng học" dù chưa tới đích. Xử lý: tăng lr, kiểm tra weight init (vd Xavier/He cho tanh),
+  xem lại activation (tanh bão hòa khi |x| lớn), rút ngắn độ sâu, hoặc thêm residual/normalization.</div>
+</div>
+
+<div class="qa">
+  <div class="q">3. Trên bài toán MLP nhỏ này, bạn đoán SGD hay AdamW hội tụ nhanh hơn? Vì sao?</div>
+  <div class="btnrow"><button class="btn" onclick="var a=this.parentElement.nextElementSibling;a.style.display=a.style.display==='block'?'none':'block'">Hiện đáp án</button></div>
+  <div class="ans"><b>Đáp án:</b> <b>AdamW</b> thường thắng trên bài nhỏ: adaptive lr cho từng tham số giúp nó
+  "leo" nhanh qua các vùng loss dốc khác nhau, trong khi SGD với lr cố định dễ ì ở vùng phẳng.
+  Nhưng đừng suy ra AdamW luôn tốt nhất — trên LLM lớn, SGD/AdamW đều cần warmup + schedule;
+  và AdamW tốn gấp đôi bộ nhớ optimizer state (m, v) so với SGD. So sánh của bạn ở Bước 4 là bằng chứng thật.</div>
+</div>
+
+<h2>⚠️ Bẫy thường gặp</h2>
+<div class="card pitfall">
+  <ol>
+    <li><b>Quên <code>zero_grad()</code></b> → gradient cộng dồn qua các batch, norm phình to dần một cách "bí ẩn".
+      Dấu hiệu: loss giảm vài epoch đầu rồi vọt. Khắc phục: <code>opt.zero_grad()</code> đầu mỗi vòng lặp — luôn.</li>
+    <li><b>Tính gradient norm <i>sau</i> <code>clip_grad_norm_</code></b> → plot lúc nào cũng đẹp (bị kẹp ở 1.0) và bạn
+      mất tín hiệu chẩn đoán. Quy tắc: <b>log norm trước clip</b>, clip chỉ để cứu mạng, không để trang điểm số liệu.</li>
+    <li><b>Broadcasting âm thầm sai shape</b>: <code>(B,4) + (4,)</code> OK nhưng <code>(B,1,4) + (4,)</code> cũng "OK"
+      theo broadcast — ra tensor shape khác ý định mà không báo lỗi. Thói quen: in <code>.shape</code> sau mỗi phép
+      tính quan trọng trong lúc debug (bài sáng đã nhấn mạnh shape là "hợp đồng").</li>
+  </ol>
+</div>
+
+<h2>📦 Checklist nộp bài</h2>
+<ul class="check">
+  <li>✅ File <code>gradient_check.py</code> chạy ra <b>4/4 PASS, max_error &lt; 1e-4</b></li>
+  <li>✅ File <code>train_mlp.py</code> chạy được, accuracy trên tập toy ≥ 95%</li>
+  <li>✅ Plot 2 panel: loss + gradient norm (log-scale) theo epoch</li>
+  <li>✅ Bảng so sánh SGD vs AdamW (4 dòng như Bước 4)</li>
+  <li>✅ Green checkpoint: số liệu float32 vs AMP (hoặc float32 vs float64 nếu CPU)</li>
+  <li>📩 <b>Paste vào chat:</b> code 2 file (hoặc link repo) + ảnh plot + bảng so sánh + 2-3 dòng nhận xét
+      <i>"gradient norm của em trông như thế nào, em chẩn đoán gì"</i> → để được nhận xét chi tiết</li>
+</ul>
+
+<footer>Khóa "Trở thành AI Engineer (LLM)" · Ngày 2 · Buổi tối · gradient check → autograd đáng tin → MLP học được</footer>
+</div>
+</body>
+</html>

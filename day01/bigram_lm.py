@@ -136,7 +136,8 @@ class BigramLM(nn.Module):
         for _ in range(max_new_tokens):
             # 1. Tra bảng điểm của ký tự cuối cùng. Kết quả đã có shape (B, 1, V)
             #    nên lấy luôn [:, 0, :] cho gọn.
-            logits = self(idx[:, -1:])[:, 0, :] / temperature  # (B, V)
+            logits, _ = self(idx[:, -1:])
+            logits = logits[:, 0, :] / temperature  # (B, V)
 
             # 2. Softmax: biến điểm số thành xác suất (%). Tổng cả hàng = 100%.
             probabilities = F.softmax(logits, dim=-1)
