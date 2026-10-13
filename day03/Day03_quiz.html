@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quiz Ngày 3 — Tokenizer là một phần của mô hình</title>
+<style>
+  :root{
+    --bg:#0b1020; --card:#141b33; --line:#26314f; --txt:#e8ecf7; --muted:#9aa6c7;
+    --gold:#fbbf24; --blue:#60a5fa; --green:#34d399; --red:#f87171;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  body{margin:0; background:var(--bg); color:var(--txt);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    line-height:1.7; font-size:16px;}
+  .wrap{max-width:760px; margin:0 auto; padding:0 18px 80px;}
+  .kicker{display:inline-block; margin:26px 0 10px; padding:6px 14px; border:1px solid var(--line);
+    border-radius:999px; color:var(--muted); font-size:13px;}
+  h1{font-size:clamp(24px,5vw,32px); margin:6px 0 4px;}
+  .sub{color:var(--muted); margin:0 0 18px; font-size:14.5px;}
+  .q{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px; margin:16px 0;}
+  .q h3{margin:0 0 12px; font-size:16.5px;}
+  .q h3 .qn{display:inline-flex; width:28px; height:28px; border-radius:8px; background:var(--blue);
+    color:#081226; font-size:15px; align-items:center; justify-content:center; margin-right:8px; font-weight:800;}
+  label.opt{display:flex; gap:12px; align-items:flex-start; padding:11px 12px; margin:8px 0;
+    border:1px solid var(--line); border-radius:10px; cursor:pointer; font-size:15.5px;}
+  label.opt:hover{border-color:var(--blue);}
+  label.opt input{margin-top:5px; width:18px; height:18px; accent-color:var(--gold); flex-shrink:0;}
+  label.opt .k{font-weight:800; color:var(--gold); min-width:22px;}
+  .q.correct{border-color:rgba(52,211,153,.6);}
+  .q.wrong{border-color:rgba(248,113,113,.6);}
+  .explain{display:none; margin-top:12px; padding:12px 14px; border-radius:10px; font-size:14.5px;}
+  .q.correct .explain{display:block; background:rgba(52,211,153,.08); border:1px solid rgba(52,211,153,.35);}
+  .q.wrong .explain{display:block; background:rgba(248,113,113,.08); border:1px solid rgba(248,113,113,.35);}
+  .explain b.c{color:var(--green);} .explain b.w{color:var(--red);}
+  .actions{position:sticky; bottom:0; background:linear-gradient(transparent,var(--bg) 30%);
+    padding:18px 0 10px; display:flex; gap:10px; flex-wrap:wrap;}
+  button{flex:1 1 160px; border:none; border-radius:12px; padding:15px; font-size:16px; font-weight:700; cursor:pointer;}
+  #submit{background:var(--gold); color:#081226;}
+  #retry{background:transparent; color:var(--txt); border:1px solid var(--line);}
+  #copy{background:var(--blue); color:#081226; display:none;}
+  #result{display:none; background:var(--card); border:1px solid var(--line); border-radius:14px;
+    padding:18px; margin:18px 0; text-align:center;}
+  #result .score{font-size:34px; font-weight:800; color:var(--gold);}
+  #result .msg{color:var(--muted); margin-top:6px; font-size:14.5px;}
+  #resultStr{font-family:ui-monospace,Menlo,Consolas,monospace; background:#0d1428;
+    border:1px dashed var(--line); border-radius:8px; padding:10px; margin-top:12px;
+    font-size:14px; word-break:break-all;}
+  .note{color:var(--muted); font-size:13.5px; margin-top:14px;}
+  .back{display:inline-block; margin-top:20px; color:var(--blue); text-decoration:none;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <span class="kicker">QUIZ • NGÀY 3 / 30</span>
+  <h1>✅ Trắc nghiệm: Tokenizer là một phần của mô hình</h1>
+  <p class="sub">5 câu • Chọn đáp án rồi bấm <b>Nộp bài</b> để chấm điểm ngay. File này không tự gửi về được — sau khi nộp, bấm <b>Copy kết quả</b> rồi paste vào chat để tôi ghi nhận điểm số của bạn.</p>
+
+  <div id="quiz"></div>
+
+  <div id="result">
+    <div class="score" id="scoreTxt"></div>
+    <div class="msg" id="msgTxt"></div>
+    <div id="resultStr"></div>
+  </div>
+
+  <div class="actions">
+    <button id="submit">Nộp bài</button>
+    <button id="copy">📋 Copy kết quả</button>
+    <button id="retry">↺ Làm lại</button>
+  </div>
+
+  <p class="note">💡 Gợi ý: đáp án đều nằm trong bài học <a href="Day03_lesson.html" style="color:var(--blue)">Day03_lesson.html</a>. Dưới 70% (dưới 4/5) thì đọc lại bài trước khi học tiếp nhé.</p>
+  <a class="back" href="Day03_lesson.html">← Về bài học Ngày 3</a>
+</div>
+<script>
+const QUESTIONS = [
+  { q:"Ký tự \"ệ\" (U+1EC7) khi mã hóa UTF-8 chiếm bao nhiêu byte?",
+    opts:["1 byte — mọi ký tự đều 1 byte",
+          "2 byte — như các ký tự Latin có dấu",
+          "3 byte (E1 BB 87) — byte ≠ ký tự",
+          "4 byte — như emoji"],
+    a:2,
+    e:"UTF-8 mã hóa ký tự thành 1–4 byte tùy code point. Phần lớn ký tự tiếng Việt có dấu (U+1E00 trở lên) tốn 3 byte, trong khi chữ ASCII chỉ 1 byte. Kiểm chứng: \"ệ\".encode(\"utf-8\") cho 3 byte." },
+  { q:"Trong thuật toán train BPE, mỗi vòng lặp ta làm gì?",
+    opts:["Tách token dài nhất thành hai nửa",
+          "Đếm mọi cặp token kề nhau, ghép cặp xuất hiện nhiều nhất thành token mới",
+          "Xóa token hiếm nhất khỏi từ điển",
+          "Ghép ngẫu nhiên hai token để tăng đa dạng"],
+    a:1,
+    e:"BPE là thuật toán tham lam: mỗi vòng đếm tần suất các cặp kề nhau trên toàn corpus, ghép cặp 'hot' nhất, thêm token mới vào vocab, lặp lại đến khi đủ kích thước vocab mong muốn." },
+  { q:"Vì sao byte-level BPE gần như không bao giờ cần token [UNK]?",
+    opts:["Vì từ điển của nó có vô hạn token",
+          "Vì vocab cơ sở là 256 byte — mọi chuỗi byte Unicode nào cũng encode được, ký tự lạ nhất cũng chỉ bị chẻ thành byte lẻ",
+          "Vì nó tự đoán nghĩa của từ chưa gặp",
+          "Vì nó bỏ qua ký tự lạ thay vì encode"],
+    a:1,
+    e:"256 giá trị byte bao phủ mọi văn bản Unicode có thể. Ký tự chưa từng thấy vẫn encode được thành các byte đơn lẻ — không mất thông tin, chỉ bị chẻ vụn thành nhiều token (fertility cao)." },
+  { q:"Fertility = 3.0 của một tokenizer trên tiếng Việt nghĩa là gì?",
+    opts:["Mỗi token chứa trung bình 3 từ",
+          "Mỗi từ tốn trung bình 3 token — chuỗi dài gấp 3, attention O(L²) tốn kém hơn",
+          "Từ điển lớn gấp 3 lần bình thường",
+          "Tốc độ encode nhanh gấp 3 lần"],
+    a:1,
+    e:"fertility = số token / số từ, càng thấp càng tốt. Tokenizer train chủ yếu trên tiếng Anh có thể đạt fertility 2.5–3.5 cho tiếng Việt: cùng một ý tưởng, người Việt tốn nhiều token (và tiền API) hơn." },
+  { q:"Chọn vocab quá NHỎ gây hệ quả gì khi inference?",
+    opts:["Bảng embedding phình to, tốn VRAM",
+          "Không encode được văn bản tiếng Anh",
+          "Fertility tăng → chuỗi token dài hơn → attention O(L²) đốt nhiều FLOPs cho mọi request",
+          "Model quên hết kiến thức đã học"],
+    a:2,
+    e:"Cán cân hai đầu: vocab lớn → embedding V×d phình (tốn bộ nhớ); vocab nhỏ → chuỗi dài (tốn FLOPs attention). Green checkpoint: chọn vocab bằng tổng chi phí thực tế, không theo cảm tính." },
+];
+const LETTERS = ["A","B","C","D"];
+let answers = [];
+
+function render(){
+  const box = document.getElementById("quiz");
+  box.innerHTML = "";
+  QUESTIONS.forEach((it, i)=>{
+    const d = document.createElement("div");
+    d.className = "q"; d.id = "q"+i;
+    d.innerHTML = `<h3><span class="qn">${i+1}</span>${it.q}</h3>` +
+      it.opts.map((o,j)=>`<label class="opt"><input type="radio" name="q${i}" value="${j}"><span class="k">${LETTERS[j]}</span><span>${o}</span></label>`).join("") +
+      `<div class="explain"></div>`;
+    box.appendChild(d);
+  });
+  document.getElementById("result").style.display = "none";
+  document.getElementById("copy").style.display = "none";
+  document.getElementById("submit").style.display = "";
+}
+
+document.getElementById("submit").onclick = ()=>{
+  answers = [];
+  let score = 0, done = 0;
+  QUESTIONS.forEach((it, i)=>{
+    const sel = document.querySelector(`input[name=q${i}]:checked`);
+    const box = document.getElementById("q"+i);
+    const ex = box.querySelector(".explain");
+    if(!sel){ box.classList.remove("correct","wrong"); ex.innerHTML=""; return; }
+    done++;
+    const v = +sel.value; answers[i] = v;
+    if(v === it.a){ score++; box.classList.add("correct"); box.classList.remove("wrong");
+      ex.innerHTML = `<b class="c">✔ Đúng.</b> ${it.e}`;
+    } else { box.classList.add("wrong"); box.classList.remove("correct");
+      ex.innerHTML = `<b class="w">✘ Sai.</b> Đáp án đúng là <b>${LETTERS[it.a]}</b>. ${it.e}`;
+    }
+  });
+  if(done < QUESTIONS.length){ alert("Bạn còn " + (QUESTIONS.length-done) + " câu chưa chọn đáp án."); return; }
+  document.getElementById("scoreTxt").textContent = score + "/" + QUESTIONS.length;
+  const m = document.getElementById("msgTxt");
+  m.textContent = score===5 ? "Xuất sắc! Bạn đã nắm vững tokenizer. 🎉"
+    : score>=4 ? "Rất tốt! Xem lại câu sai một lần nữa là chắc kiến thức."
+    : score>=3 ? "Ổn, nhưng còn hổng — đọc lại phần giải thích các câu sai nhé."
+    : "Cần ôn lại bài học ngày 3 rồi làm lại quiz nhé. Hổng chỗ nào cứ hỏi tôi.";
+  const str = "Day03 Quiz: " + answers.map((v,i)=>(i+1)+LETTERS[v]).join(" ") + " — " + score + "/" + QUESTIONS.length;
+  document.getElementById("resultStr").textContent = str;
+  document.getElementById("result").style.display = "block";
+  document.getElementById("copy").style.display = "";
+  document.getElementById("submit").style.display = "none";
+  document.getElementById("result").scrollIntoView({behavior:"smooth", block:"center"});
+};
+
+document.getElementById("copy").onclick = async ()=>{
+  const t = document.getElementById("resultStr").textContent;
+  try{ await navigator.clipboard.writeText(t); }
+  catch(e){ const ta=document.createElement("textarea"); ta.value=t; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove(); }
+  const b = document.getElementById("copy"); b.textContent = "✓ Đã copy! Paste vào chat nhé";
+  setTimeout(()=>b.textContent="📋 Copy kết quả", 2500);
+};
+
+document.getElementById("retry").onclick = render;
+render();
+</script>
+</body>
+</html>

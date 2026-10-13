@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ngày 3 · Buổi tối — Thực hành: Tự viết BPE & đo fertility</title>
+<style>
+  :root{
+    --bg:#0b1020; --card:#141b33; --line:#26314f; --txt:#e8ecf7; --muted:#9aa6c7;
+    --gold:#fbbf24; --blue:#60a5fa; --green:#34d399; --red:#f87171; --purple:#a78bfa;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  body{margin:0; background:var(--bg); color:var(--txt);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    line-height:1.7; font-size:16px;}
+  .wrap{max-width:800px; margin:0 auto; padding:0 18px 90px;}
+  .kicker{display:inline-block; margin:26px 0 10px; padding:6px 14px; border:1px solid var(--line);
+    border-radius:999px; color:var(--muted); font-size:13px;}
+  h1{font-size:clamp(23px,5vw,30px); margin:6px 0 4px; line-height:1.35;}
+  h2{font-size:clamp(19px,4.2vw,23px); margin:30px 0 8px; color:var(--gold);}
+  h2 .n{display:inline-flex; min-width:30px; height:30px; border-radius:9px; background:var(--gold);
+    color:#081226; font-size:16px; align-items:center; justify-content:center; margin-right:8px; font-weight:800; padding:0 8px;}
+  h3{color:var(--blue); font-size:17px; margin:20px 0 8px;}
+  .sub{color:var(--muted); margin:0 0 18px; font-size:14.5px;}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px; margin:16px 0;}
+  .why{border-left:4px solid var(--blue); background:rgba(96,165,250,.07); border-radius:0 12px 12px 0;
+    padding:14px 16px; margin:14px 0; font-size:15px;}
+  .why b{color:var(--blue);}
+  pre{background:#0d1428; border:1px solid var(--line); border-radius:10px; padding:14px;
+    overflow-x:auto; font-size:13.5px; line-height:1.6; margin:12px 0;}
+  code{font-family:ui-monospace,Menlo,Consolas,monospace; color:var(--green);}
+  .todo{background:rgba(251,191,36,.06); border:1px dashed rgba(251,191,36,.5); border-radius:10px;
+    padding:12px 14px; margin:12px 0; font-size:14.5px;}
+  .todo b{color:var(--gold);}
+  .hint-btn{display:inline-block; margin:10px 0 4px; padding:9px 16px; border-radius:10px;
+    background:transparent; border:1px solid var(--blue); color:var(--blue); font-size:14.5px; font-weight:700; cursor:pointer;}
+  .hint{display:none; background:rgba(96,165,250,.07); border:1px solid rgba(96,165,250,.3);
+    border-radius:10px; padding:12px 14px; margin:10px 0; font-size:14.5px;}
+  .hint.show{display:block;}
+  .q{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px; margin:16px 0;}
+  .q h3{margin:0 0 10px; color:var(--txt);}
+  .q .ans{display:none; margin-top:12px; padding:12px 14px; border-radius:10px; font-size:14.5px;
+    background:rgba(52,211,153,.08); border:1px solid rgba(52,211,153,.35);}
+  .q .ans.show{display:block;}
+  .q .ans b{color:var(--green);}
+  .trap{background:rgba(248,113,113,.06); border:1px solid rgba(248,113,113,.35); border-radius:12px;
+    padding:14px 16px; margin:12px 0; font-size:14.5px;}
+  .trap b.t{color:var(--red);}
+  .check{background:var(--card); border:2px solid rgba(52,211,153,.4); border-radius:14px; padding:18px; margin:22px 0;}
+  .check h2{color:var(--green); margin-top:0;}
+  .check li{margin:8px 0; font-size:15px;}
+  .done{border-color:rgba(52,211,153,.6);}
+  .out{background:#0d1428; border:1px solid var(--line); border-radius:8px; padding:10px 12px;
+    font-family:ui-monospace,Menlo,Consolas,monospace; font-size:13px; color:var(--muted); margin:8px 0;}
+  .foot{color:var(--muted); font-size:13px; margin-top:26px; text-align:center;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <span class="kicker">KHÓA AI ENGINEER • NGÀY 3 / 30 · BUỔI TỐI</span>
+  <h1>🛠️ Thực hành: Tự viết BPE &amp; đo fertility</h1>
+  <p class="sub">Khớp bài sáng: <b>Tokenizer là một phần của mô hình</b>. Tối nay không tin vào lý thuyết suông —
+  bạn sẽ tự tay chạy thuật toán BPE, tự chẻ tiếng Việt thành token và tự đo con số fertility mà buổi sáng đã nói.</p>
+
+  <div class="card">
+    <b>🎯 Đầu ra yêu cầu</b>
+    <ul>
+      <li>Viết được BPE train từ đầu (thuần Python, không thư viện) trên corpus tí hon <code>"low low lower"</code> và tái hiện đúng 2 merge đầu: <code>(l,o)</code> rồi <code>(lo,w)</code>.</li>
+      <li>Encode được từ chưa từng gặp: <code>encode("lowest", merges[:2]) → low|e|s|t</code> (từ đã thấy <code>"low"</code> chỉ tốn 1 token).</li>
+      <li>Đo được fertility trên câu tiếng Việt và tiếng Anh của mình, trả lời được: vì sao cùng một ý mà tiếng Việt tốn token hơn.</li>
+    </ul>
+  </div>
+
+  <h2><span class="n">0</span>Chuẩn bị môi trường</h2>
+  <div class="card">
+    <p>Bài này chỉ cần <b>Python 3 thuần</b> — không cần PyTorch, không cần GPU, không cần cài gì thêm. Mở terminal và kiểm tra:</p>
+    <pre><code>python -c "print('ok')"</code></pre>
+    <p>Tạo một file duy nhất: <code>bpe.py</code>. Toàn bộ bài tập tối nay nằm trong đó — giữ lại file này, tuần sau ta sẽ quay lại khi nói về GPT-2.</p>
+  </div>
+
+  <h2><span class="n">1</span>Bài 1 — Sờ tận tay UTF-8: byte ≠ ký tự</h2>
+  <div class="why"><b>Vì sao?</b> Tokenizer byte-level làm việc ở mức byte, không phải ký tự. Nếu bạn chưa <i>cảm</i> được rằng <code>"ệ"</code> là 1 ký tự nhưng 3 byte, thì mọi con số fertility sau này chỉ là số khô.</div>
+
+  <div class="todo"><b>TODO 1:</b> Viết hàm <code>byte_info(ch)</code> in ra code point (dạng U+xxxx) và dãy byte UTF-8 (dạng hex) của một ký tự. Chạy với <code>"A"</code>, <code>"é"</code>, <code>"ệ"</code>, <code>"🤖"</code> và đối chiếu với bảng ở bài sáng (1 / 2 / 3 / 4 byte).</div>
+  <button class="hint-btn" onclick="toggle('h1')">💡 Hiện gợi ý</button>
+  <div class="hint" id="h1">
+    <pre><code>def byte_info(ch):
+    cp = ord(ch)
+    bs = ch.encode("utf-8")
+    print(f"{ch!r}: U+{cp:04X}, {len(bs)} byte ->", " ".join(f"{b:02X}" for b in bs))</code></pre>
+    Nếu <code>"ệ"</code> không ra <code>E1 BB 87</code> thì file của bạn đang lưu sai encoding — kiểm tra lại editor lưu UTF-8.
+  </div>
+
+  <div class="todo"><b>TODO 2:</b> Viết hàm <code>byte_ratio(s)</code> trả về cặp <code>(số ký tự, số byte)</code>. Chạy với cặp câu cùng ý nghĩa:
+  <br><code>"i love artificial intelligence"</code> vs <code>"tôi yêu trí tuệ nhân tạo"</code>.
+  Ghi lại tỉ lệ byte tiếng Việt / byte tiếng Anh — đây là "thuế byte" mà tiếng Việt phải trả <i>trước khi tokenizer làm bất cứ việc gì</i>.</div>
+  <button class="hint-btn" onclick="toggle('h2')">💡 Hiện gợi ý</button>
+  <div class="hint" id="h2">
+    <pre><code>def byte_ratio(s):
+    return len(s), len(s.encode("utf-8"))</code></pre>
+    Kết quả kỳ vọng: câu tiếng Việt ~2–3 lần số byte câu tiếng Anh, dù số <i>từ</i> bằng nhau (5 từ).
+  </div>
+
+  <h2><span class="n">2</span>Bài 2 — Viết BPE từ scratch</h2>
+  <div class="why"><b>Vì sao?</b> BPE là thuật toán tokenizer của GPT-2/3/4 và Llama. Viết được nó trong ~40 dòng Python nghĩa là bạn hiểu tận xương cách từ điển subword được sinh ra — không còn "ma thuật" nào ở đây.</div>
+
+  <h3>Bước A · Chuẩn bị corpus</h3>
+  <pre><code># bpe.py
+corpus = "low low lower"
+
+def to_vocab(corpus):
+    # mỗi từ -> tuple ký tự, thêm ký tự kết thúc từ "</w>"
+    # để merge không "tràn" qua ranh giới từ
+    return [tuple(w) + ("</w>",) for w in corpus.split()]
+
+vocab = to_vocab(corpus)
+print(vocab)
+# kỳ vọng: [('l','o','w','&lt;/w&gt;'), ('l','o','w','&lt;/w&gt;'), ('l','o','w','e','r','&lt;/w&gt;')]</code></pre>
+
+  <h3>Bước B · Đếm cặp kề (get_stats)</h3>
+  <div class="todo"><b>TODO 3:</b> Viết hàm <code>get_stats(vocab)</code> trả về dict <code>{(token_a, token_b): số lần xuất hiện}</code>, đếm mọi cặp token <b>kề nhau</b> trong mọi từ của vocab. Với corpus trên, kết quả phải là: <code>(l,o):3, (o,w):3, (w,e):1, (e,r):1</code>, các cặp có <code>"&lt;/w&gt;"</code> cũng đếm nhưng tần suất thấp.</div>
+  <button class="hint-btn" onclick="toggle('h3')">💡 Hiện gợi ý</button>
+  <div class="hint" id="h3">
+    <pre><code>def get_stats(vocab):
+    pairs = {}
+    for word in vocab:
+        for i in range(len(word) - 1):
+            p = (word[i], word[i+1])
+            pairs[p] = pairs.get(p, 0) + 1
+    return pairs</code></pre>
+  </div>
+
+  <h3>Bước C · Vòng lặp merge</h3>
+  <div class="todo"><b>TODO 4:</b> Viết hàm <code>merge_vocab(pair, vocab)</code>: với cặp <code>(a, b)</code>, duyệt từng từ trong vocab, hễ thấy <code>a</code> kề <code>b</code> thì gộp thành token mới <code>a+b</code>. Trả về vocab mới.
+  <br>Sau đó viết vòng lặp train: mỗi vòng — <code>get_stats</code> → lấy cặp tần suất cao nhất → <code>merge_vocab</code> → lưu cặp vào list <code>merges</code> → in ra cặp vừa merge. Dừng khi không còn cặp nào để merge (<code>if not stats: break</code> — corpus tí hon sẽ cạn cặp rất nhanh, đây là bình thường). Vòng 1 phải ra <code>('l','o')</code>, vòng 2 ra <code>('lo','w')</code>. Nếu vòng 1 của bạn ra <code>('o','w')</code> (cũng tần suất 3) thì xem phần Bẫy số 1.</div>
+  <button class="hint-btn" onclick="toggle('h4')">💡 Hiện gợi ý</button>
+  <div class="hint" id="h4">
+    <pre><code>def merge_vocab(pair, vocab):
+    a, b = pair
+    out = []
+    for word in vocab:
+        new_word, i = [], 0
+        while i &lt; len(word):
+            if i &lt; len(word) - 1 and word[i] == a and word[i+1] == b:
+                new_word.append(a + b); i += 2
+            else:
+                new_word.append(word[i]); i += 1
+        out.append(tuple(new_word))
+    return out
+
+merges = []
+for _ in range(30):
+    stats = get_stats(vocab)
+    if not stats:
+        break  # corpus tí hon: hết cặp để merge là bình thường
+    best = max(stats, key=stats.get)
+    merges.append(best)
+    vocab = merge_vocab(best, vocab)
+    print("merge:", best, "-&gt;", vocab[0])</code></pre>
+  </div>
+
+  <h3>Bước D · Encode từ mới bằng merges đã học</h3>
+  <div class="why"><b>Vì sao?</b> Sức mạnh thật của subword không nằm ở lúc train mà ở lúc encode: từ <i>chưa từng gặp</i> vẫn xử lý được. Đây là thứ khiến byte-level BPE giết chết word-level.</div>
+  <div class="todo"><b>TODO 5:</b> Viết hàm <code>encode(word, merges)</code>: bắt đầu từ tuple ký tự của từ (+ <code>"&lt;/w&gt;"</code>), áp dụng lần lượt từng merge trong <code>merges</code> theo đúng thứ tự đã học (dùng lại <code>merge_vocab</code> cho từng cặp). Test với 2 merge đầu: <code>encode("lowest", merges[:2])</code> phải cho <code>('low', 'e', 's', 't', '&lt;/w&gt;')</code>, còn <code>encode("low", merges[:2])</code> cho <code>('low', '&lt;/w&gt;')</code> — từ đã thấy chỉ tốn 1 token, từ mới bị chẻ thành mảnh đã học. Đây chính là sức mạnh của subword.</div>
+  <button class="hint-btn" onclick="toggle('h5')">💡 Hiện gợi ý</button>
+  <div class="hint" id="h5">
+    <pre><code>def encode(word, merges):
+    tokens = tuple(word) + ("&lt;/w&gt;",)
+    for pair in merges:
+        tokens = merge_vocab(pair, [tokens])[0]
+    return tokens</code></pre>
+    Vì sao chỉ dùng <code>merges[:2]</code> để test? Với corpus tí hon, các merge sau đã "học vẹt" cả từ <code>lower</code> (vd merge <code>('low','e')</code>), không còn đại diện cho BPE tổng quát. Trong thực tế, vocab có hàng chục nghìn merge nên từ mới luôn được chẻ thành các mảnh subword có nghĩa hơn.
+  </div>
+
+  <h2><span class="n">3</span>Bài 3 — Đo fertility: tiếng Việt vs tiếng Anh</h2>
+  <div class="why"><b>Vì sao?</b> Buổi sáng nói: tokenizer train trên corpus tiếng Anh có fertility ~1.3 với tiếng Anh nhưng 2.5–3.5 với tiếng Việt. Tối nay bạn tự đo con số này bằng BPE của chính mình.</div>
+  <div class="todo"><b>TODO 6:</b> Train BPE (30 merge) trên một corpus tiếng Anh nhỏ tự viết (10–15 câu đơn giản, vd về AI). Rồi dùng merges đó encode 5 câu tiếng Việt và 5 câu tiếng Anh (cùng chủ đề, độ dài tương đương). Tính <code>fertility = số token / số từ</code> cho từng câu, in bảng so sánh. Viết 2–3 câu nhận xét: fertility tiếng Việt cao hơn bao nhiêu lần? Điều đó có nghĩa gì cho (a) chi phí API, (b) độ dài context hiệu dụng?</div>
+  <button class="hint-btn" onclick="toggle('h6')">💡 Hiện gợi ý</button>
+  <div class="hint" id="h6">
+    <pre><code>def fertility(sentence, merges):
+    toks = []
+    for w in sentence.split():
+        toks.extend(encode(w, merges))
+    # trừ các token "&lt;/w&gt;" khi đếm token nội dung
+    content = [t for t in toks if t != "&lt;/w&gt;"]
+    return len(content) / len(sentence.split())</code></pre>
+    Corpus train gợi ý (tiếng Anh, viết tay 10 câu về AI là đủ). Nếu fertility tiếng Việt của bạn ra ~2.5–4× tiếng Anh là đúng hướng.
+    Nhận xét mẫu: (a) cùng một prompt, user Việt trả token gấp ~3 lần → hóa đơn API cao hơn; (b) context window "nhìn" được ít ý tưởng tiếng Việt hơn vì token bị chẻ vụn — đây chính là lý do bài sáng khuyên đo fertility trước khi chọn tokenizer cho sản phẩm Việt.
+  </div>
+
+  <h2>📝 Tự kiểm tra nhanh (3 câu — bấm để hiện đáp án)</h2>
+
+  <div class="q">
+    <h3>Câu 1. Vì sao BPE dùng ký tự kết thúc từ <code>"&lt;/w&gt;"</code>? Bỏ nó đi thì chuyện gì xảy ra?</h3>
+    <button class="hint-btn" onclick="toggle('a1')">Hiện đáp án</button>
+    <div class="ans" id="a1"><b>Để merge không "tràn" qua ranh giới từ.</b> Không có <code>&lt;/w&gt;</code>, cặp cuối từ này + đầu từ kia (vd <code>w</code> của "low" + <code>l</code> của "low") có thể bị merge thành token lai <code>wl</code> vô nghĩa, và khi encode từ đơn lẻ ta không biết token nào là cuối từ để tách từ đúng. <code>&lt;/w&gt;</code> đóng vai trò "hàng rào" — merge chỉ xảy ra <i>bên trong</i> một từ.</div>
+  </div>
+
+  <div class="q">
+    <h3>Câu 2. Byte-level BPE (vocab cơ sở 256 byte) xử lý ký tự lạ (chưa từng gặp khi train) như thế nào? Vì sao nó không bao giờ cần <code>[UNK]</code>?</h3>
+    <button class="hint-btn" onclick="toggle('a2')">Hiện đáp án</button>
+    <div class="ans" id="a2"><b>Ký tự lạ bị chẻ thành các byte UTF-8 của nó</b> — mà 256 byte cơ sở đã bao phủ mọi byte có thể xuất hiện, nên bất kỳ chuỗi nào cũng encode được, không bao giờ "bí". Đánh đổi: ký tự lạ bị chẻ vụn thành nhiều token 1-byte (fertility vọt lên) — không mất thông tin như <code>[UNK]</code> nhưng tốn token.</div>
+  </div>
+
+  <div class="q">
+    <h3>Câu 3. Đổi tokenizer mà giữ nguyên model (hoặc ngược lại) thì điều gì xảy ra? Liên hệ với câu "tokenizer là một phần của mô hình".</h3>
+    <button class="hint-btn" onclick="toggle('a3')">Hiện đáp án</button>
+    <div class="ans" id="a3"><b>Mọi id đều sai nghĩa.</b> Model học embedding cho id 512 = một token cụ thể của tokenizer cũ; tokenizer mới gán id 512 cho token khác → model "đọc" toàn văn bản sai, output thành rác. Giống như đổi bảng mã Morse giữa chừng — vì vậy tokenizer và model là một cặp không thể tách rời.</div>
+  </div>
+
+  <h2>⚠️ Bẫy thường gặp</h2>
+  <div class="trap"><b class="t">Bẫy 1 — Hòa tần suất (tie) cho merge khác nhau.</b> Ở vòng 1, <code>(l,o)</code> và <code>(o,w)</code> đều tần suất 3. <code>max(stats, key=stats.get)</code> trong Python trả về key gặp <i>đầu tiên</i> có giá trị max — thứ tự chèn dict quyết định. Hai người chạy có thể ra 2 dãy merge khác nhau mà đều "đúng". Trong thực tế, thư viện BPE chuẩn hóa bằng tie-break (vd theo thứ tự từ điển) để kết quả deterministic. Đừng hoảng nếu vòng 1 của bạn ra <code>(o,w)</code>.</div>
+  <div class="trap"><b class="t">Bẫy 2 — Merge theo ký tự Python ≠ merge theo byte.</b> Code tối nay merge theo <i>ký tự</i> Python để dễ nhìn. BPE thật (GPT-2) merge theo <i>byte</i>: <code>"ệ"</code> là 3 đơn vị <code>E1 BB 87</code> lúc khởi đầu, không phải 1. Hệ quả: cùng một câu tiếng Việt, BPE byte-level khởi đầu đã dài gấp ~3 lần ở mức đơn vị cơ sở — đó là một phần lý do fertility tiếng Việt cao.</div>
+  <div class="trap"><b class="t">Bẫy 3 — Quên <code>"&lt;/w&gt;"</code> khi encode từ đơn lẻ.</b> Nếu <code>encode()</code> không thêm <code>&lt;/w&gt;</code> vào cuối từ, các merge có chứa <code>&lt;/w&gt;</code> (học lúc train) sẽ không bao giờ khớp → encode ra kết quả khác hẳn lúc train. Quy tắc: train và encode phải dùng <i>cùng một</i> cách tiền xử lý, không có ngoại lệ.</div>
+
+  <div class="check">
+    <h2>✅ Checklist nộp bài</h2>
+    <ul>
+      <li>☐ <code>bpe.py</code> chạy không lỗi; in đúng 2 merge đầu <code>(l,o)</code> → <code>(lo,w)</code> (hoặc giải thích được vì sao tie cho kết quả khác).</li>
+      <li>☐ <code>encode("lowest", merges[:2])</code> ra <code>low|e|s|t</code> trong khi <code>encode("low", merges[:2])</code> chỉ 1 token — giải thích được vì sao.</li>
+      <li>☐ Bảng fertility: 5 câu Việt + 5 câu Anh, kèm 2–3 câu nhận xét của chính bạn.</li>
+    </ul>
+    <p><b>Paste vào chat:</b> toàn bộ code <code>bpe.py</code> (hoặc link file) + output 3 bài + câu trả lời 3 câu tự kiểm tra (viết bằng lời của bạn, không copy đáp án) — tôi sẽ nhận xét chi tiết từng phần, chỗ nào hổng sẽ dạy lại ngay buổi sáng mai.</p>
+  </div>
+
+  <div class="foot">Khóa AI Engineer · Ngày 3 buổi tối · Thực hành BPE — giữ file <code>bpe.py</code> lại, ta dùng tiếp ở Ngày 6 (GPT-2).</div>
+</div>
+<script>
+function toggle(id){
+  var el = document.getElementById(id);
+  el.classList.toggle('show');
+}
+</script>
+</body>
+</html>

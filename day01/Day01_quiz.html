@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quiz Ngày 1 — Dự đoán token</title>
+<style>
+  :root{
+    --bg:#0b1020; --card:#141b33; --line:#26314f; --txt:#e8ecf7; --muted:#9aa6c7;
+    --gold:#fbbf24; --blue:#60a5fa; --green:#34d399; --red:#f87171;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  body{margin:0; background:var(--bg); color:var(--txt);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    line-height:1.7; font-size:16px;}
+  .wrap{max-width:760px; margin:0 auto; padding:0 18px 80px;}
+  .kicker{display:inline-block; margin:26px 0 10px; padding:6px 14px; border:1px solid var(--line);
+    border-radius:999px; color:var(--muted); font-size:13px;}
+  h1{font-size:clamp(24px,5vw,32px); margin:6px 0 4px;}
+  .sub{color:var(--muted); margin:0 0 18px; font-size:14.5px;}
+  .q{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px; margin:16px 0;}
+  .q h3{margin:0 0 12px; font-size:16.5px;}
+  .q h3 .qn{display:inline-flex; width:28px; height:28px; border-radius:8px; background:var(--blue);
+    color:#081226; font-size:15px; align-items:center; justify-content:center; margin-right:8px; font-weight:800;}
+  label.opt{display:flex; gap:12px; align-items:flex-start; padding:11px 12px; margin:8px 0;
+    border:1px solid var(--line); border-radius:10px; cursor:pointer; font-size:15.5px;}
+  label.opt:hover{border-color:var(--blue);}
+  label.opt input{margin-top:5px; width:18px; height:18px; accent-color:var(--gold); flex-shrink:0;}
+  label.opt .k{font-weight:800; color:var(--gold); min-width:22px;}
+  .q.correct{border-color:rgba(52,211,153,.6);}
+  .q.wrong{border-color:rgba(248,113,113,.6);}
+  .explain{display:none; margin-top:12px; padding:12px 14px; border-radius:10px; font-size:14.5px;}
+  .q.correct .explain{display:block; background:rgba(52,211,153,.08); border:1px solid rgba(52,211,153,.35);}
+  .q.wrong .explain{display:block; background:rgba(248,113,113,.08); border:1px solid rgba(248,113,113,.35);}
+  .explain b.c{color:var(--green);} .explain b.w{color:var(--red);}
+  .actions{position:sticky; bottom:0; background:linear-gradient(transparent,var(--bg) 30%);
+    padding:18px 0 10px; display:flex; gap:10px; flex-wrap:wrap;}
+  button{flex:1 1 160px; border:none; border-radius:12px; padding:15px; font-size:16px; font-weight:700; cursor:pointer;}
+  #submit{background:var(--gold); color:#081226;}
+  #retry{background:transparent; color:var(--txt); border:1px solid var(--line);}
+  #copy{background:var(--blue); color:#081226; display:none;}
+  #result{display:none; background:var(--card); border:1px solid var(--line); border-radius:14px;
+    padding:18px; margin:18px 0; text-align:center;}
+  #result .score{font-size:34px; font-weight:800; color:var(--gold);}
+  #result .msg{color:var(--muted); margin-top:6px; font-size:14.5px;}
+  #resultStr{font-family:ui-monospace,Menlo,Consolas,monospace; background:#0d1428;
+    border:1px dashed var(--line); border-radius:8px; padding:10px; margin-top:12px;
+    font-size:14px; word-break:break-all;}
+  .note{color:var(--muted); font-size:13.5px; margin-top:14px;}
+  .back{display:inline-block; margin-top:20px; color:var(--blue); text-decoration:none;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <span class="kicker">QUIZ • NGÀY 1 / 30</span>
+  <h1>✅ Trắc nghiệm: Dự đoán token</h1>
+  <p class="sub">5 câu • Chọn đáp án rồi bấm <b>Nộp bài</b> để chấm điểm ngay. File này không tự gửi về được — sau khi nộp, bấm <b>Copy kết quả</b> rồi paste vào chat để tôi ghi nhận điểm số của bạn.</p>
+
+  <div id="quiz"></div>
+
+  <div id="result">
+    <div class="score" id="scoreTxt"></div>
+    <div class="msg" id="msgTxt"></div>
+    <div id="resultStr"></div>
+  </div>
+
+  <div class="actions">
+    <button id="submit">Nộp bài</button>
+    <button id="copy">📋 Copy kết quả</button>
+    <button id="retry">↺ Làm lại</button>
+  </div>
+  <p class="note">💡 Mẹo: sau khi bấm "Copy kết quả", mở chat với tôi và paste — tôi sẽ chấm lại, giải thích chỗ sai và ghi điểm vào tiến độ học của bạn.</p>
+  <a class="back" href="Day01_lesson.html">← Về bài học ngày 1</a>
+</div>
+
+<script>
+const QUESTIONS = [
+  { q:"Công thức P(w₁…w_T) = ∏ P(w_t | w₁…w_{t−1}) nói lên điều gì?",
+    opts:["Xác suất của câu bằng tổng xác suất từng từ",
+          "Xác suất của câu bằng tích các xác suất có điều kiện của từng token theo ngữ cảnh trước đó",
+          "Mỗi token trong câu là độc lập với nhau",
+          "Chỉ cần token đầu tiên là đoán được cả câu"],
+    a:1,
+    e:"Đây chính là chain rule: xác suất cả câu được phân rã thành tích các xác suất có điều kiện, mỗi token phụ thuộc vào toàn bộ token đứng trước nó." },
+  { q:"Vì sao model cần softmax thay vì dùng logits trực tiếp?",
+    opts:["Vì logits luôn âm nên không dùng được",
+          "Vì softmax làm tăng tốc độ tính toán",
+          "Vì softmax chuẩn hóa logits thành phân phối xác suất (mọi giá trị dương, tổng bằng 1)",
+          "Vì softmax giảm số chiều của vector"],
+    a:2,
+    e:"Logits là điểm số thô, có thể âm và không bị ràng buộc. Softmax (pᵢ = e^zᵢ / Σe^zⱼ) biến chúng thành phân phối xác suất hợp lệ để so sánh và lấy mẫu." },
+  { q:"Trong train, token đúng là “đẹp” và model gán p(“đẹp”) = 0.01. Cross-entropy loss bằng:",
+    opts:["0.01",
+          "−log(0.01) ≈ 4.6 (một giá trị lớn, thể hiện model đoán tệ)",
+          "log(0.01) ≈ −4.6",
+          "1 − 0.01 = 0.99"],
+    a:1,
+    e:"Với đáp án one-hot, L = −log(p_đúng) = −log(0.01) ≈ 4.6. Loss luôn dương; giá trị càng lớn nghĩa là model càng 'ngạc nhiên' (đoán càng tệ)." },
+  { q:"Khi tăng temperature T trong công thức softmax pᵢ ∝ e^(zᵢ/T), phân phối xác suất sẽ:",
+    opts:["Dồn mạnh hơn vào token có logit cao nhất",
+          "Phẳng ra, các token đều có xác suất gần nhau hơn → văn bản sinh ra đa dạng/ngẫu nhiên hơn",
+          "Không thay đổi gì",
+          "Tổng xác suất lớn hơn 1"],
+    a:1,
+    e:"Chia logits cho T lớn làm các điểm số 'gần nhau' hơn trước khi qua exp → phân phối phẳng ra. Ngược lại, T nhỏ (→0) làm phân phối dồn về token cao nhất (greedy)." },
+  { q:"Vai trò chính của validation set là:",
+    opts:["Tăng kích thước dữ liệu train",
+          "Phát hiện overfitting: đo xem model tổng quát được đến đâu trên dữ liệu chưa từng thấy",
+          "Tăng tốc quá trình train",
+          "Thay thế hoàn toàn train set khi dữ liệu ít"],
+    a:1,
+    e:"Validation set là 'giám khảo độc lập'. Train loss giảm mà val loss tăng = model đang học thuộc lòng thay vì học quy luật." },
+];
+const LETTERS = ["A","B","C","D"];
+let answers = [];
+
+function render(){
+  const box = document.getElementById("quiz");
+  box.innerHTML = "";
+  QUESTIONS.forEach((it, i)=>{
+    const d = document.createElement("div");
+    d.className = "q"; d.id = "q"+i;
+    d.innerHTML = `<h3><span class="qn">${i+1}</span>${it.q}</h3>` +
+      it.opts.map((o,j)=>`<label class="opt"><input type="radio" name="q${i}" value="${j}"><span class="k">${LETTERS[j]}</span><span>${o}</span></label>`).join("") +
+      `<div class="explain"></div>`;
+    box.appendChild(d);
+  });
+  document.getElementById("result").style.display = "none";
+  document.getElementById("copy").style.display = "none";
+  document.getElementById("submit").style.display = "";
+}
+
+document.getElementById("submit").onclick = ()=>{
+  answers = [];
+  let score = 0, done = 0;
+  QUESTIONS.forEach((it, i)=>{
+    const sel = document.querySelector(`input[name=q${i}]:checked`);
+    const box = document.getElementById("q"+i);
+    const ex = box.querySelector(".explain");
+    if(!sel){ box.classList.remove("correct","wrong"); ex.innerHTML=""; return; }
+    done++;
+    const v = +sel.value; answers[i] = v;
+    if(v === it.a){ score++; box.classList.add("correct"); box.classList.remove("wrong");
+      ex.innerHTML = `<b class="c">✔ Đúng.</b> ${it.e}`;
+    } else { box.classList.add("wrong"); box.classList.remove("correct");
+      ex.innerHTML = `<b class="w">✘ Sai.</b> Đáp án đúng là <b>${LETTERS[it.a]}</b>. ${it.e}`;
+    }
+  });
+  if(done < QUESTIONS.length){ alert("Bạn còn " + (QUESTIONS.length-done) + " câu chưa chọn đáp án."); return; }
+  document.getElementById("scoreTxt").textContent = score + "/" + QUESTIONS.length;
+  const m = document.getElementById("msgTxt");
+  m.textContent = score===5 ? "Xuất sắc! Bạn đã nắm vững nền tảng ngày 1. 🎉"
+    : score>=4 ? "Rất tốt! Xem lại câu sai một lần nữa là chắc kiến thức."
+    : score>=3 ? "Ổn, nhưng còn hổng — đọc lại phần giải thích các câu sai nhé."
+    : "Cần ôn lại bài học ngày 1 rồi làm lại quiz nhé. Hổng chỗ nào cứ hỏi tôi.";
+  const str = "Day01 Quiz: " + answers.map((v,i)=>(i+1)+LETTERS[v]).join(" ") + " — " + score + "/" + QUESTIONS.length;
+  document.getElementById("resultStr").textContent = str;
+  document.getElementById("result").style.display = "block";
+  document.getElementById("copy").style.display = "";
+  document.getElementById("submit").style.display = "none";
+  document.getElementById("result").scrollIntoView({behavior:"smooth", block:"center"});
+};
+
+document.getElementById("copy").onclick = async ()=>{
+  const t = document.getElementById("resultStr").textContent;
+  try{ await navigator.clipboard.writeText(t); }
+  catch(e){ const ta=document.createElement("textarea"); ta.value=t; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove(); }
+  const b = document.getElementById("copy"); b.textContent = "✓ Đã copy! Paste vào chat nhé";
+  setTimeout(()=>b.textContent="📋 Copy kết quả", 2500);
+};
+
+document.getElementById("retry").onclick = render;
+render();
+</script>
+</body>
+</html>

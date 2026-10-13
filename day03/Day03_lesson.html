@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ngày 3 — Tokenizer là một phần của mô hình</title>
+<style>
+  :root{
+    --bg:#0b1020; --card:#141b33; --line:#26314f; --txt:#e8ecf7; --muted:#9aa6c7;
+    --gold:#fbbf24; --blue:#60a5fa; --green:#34d399; --red:#f87171; --violet:#a78bfa;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  body{margin:0; background:var(--bg); color:var(--txt);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    line-height:1.75; font-size:16.5px;}
+  .wrap{max-width:860px; margin:0 auto; padding:0 18px 80px;}
+  .kicker{display:inline-block; margin:26px 0 10px; padding:6px 14px; border:1px solid var(--line);
+    border-radius:999px; color:var(--muted); font-size:13px; letter-spacing:.4px;}
+  h1{font-size:clamp(26px,5.4vw,38px); line-height:1.3; margin:6px 0 8px;}
+  .sub{color:var(--muted); margin:0 0 6px;}
+  .meta{display:flex; gap:10px; flex-wrap:wrap; margin:14px 0 22px; color:var(--muted); font-size:14px;}
+  .meta span{background:var(--card); border:1px solid var(--line); border-radius:10px; padding:6px 12px;}
+  .hero{width:100%; border-radius:16px; border:1px solid var(--line); display:block;}
+  .goal{background:linear-gradient(135deg,#16213f,#101a36); border:1px solid var(--line);
+    border-radius:14px; padding:18px 20px; margin:26px 0;}
+  .goal h3{margin:0 0 10px; font-size:17px; color:var(--gold);}
+  .goal ul{margin:0; padding-left:20px;}
+  .goal li{margin:6px 0;}
+  section.card{background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:22px 20px; margin:22px 0;}
+  section.card h2{margin:0 0 4px; font-size:21px;}
+  section.card h2 .n{display:inline-flex; width:30px; height:30px; border-radius:9px;
+    background:var(--blue); color:#081226; font-size:16px; align-items:center; justify-content:center;
+    margin-right:8px; font-weight:800;}
+  figure{margin:18px 0 8px; background:#0d1428; border:1px solid var(--line);
+    border-radius:12px; padding:12px;}
+  figure svg{width:100%; height:auto; display:block;}
+  figcaption{color:var(--muted); font-size:13.5px; text-align:center; padding:8px 6px 2px;}
+  .formula{background:#0d1428; border:1px dashed var(--line); border-radius:10px;
+    padding:12px 16px; margin:14px 0; font-family:ui-monospace,Menlo,Consolas,monospace;
+    font-size:15px; overflow-x:auto; white-space:nowrap; color:var(--gold);}
+  .code{background:#0d1428; border:1px solid var(--line); border-radius:10px;
+    padding:12px 16px; margin:14px 0; font-family:ui-monospace,Menlo,Consolas,monospace;
+    font-size:14px; overflow-x:auto; color:var(--txt); line-height:1.7; white-space:pre;}
+  .code .c{color:var(--muted);} .code .k{color:var(--violet);} .code .s{color:var(--green);}
+  .tip{border-left:4px solid var(--green); background:rgba(52,211,153,.07);
+    border-radius:0 10px 10px 0; padding:12px 16px; margin:14px 0; font-size:15.5px;}
+  .tip b{color:var(--green);}
+  .warn{border-left:4px solid var(--red); background:rgba(248,113,113,.07);
+    border-radius:0 10px 10px 0; padding:12px 16px; margin:14px 0; font-size:15.5px;}
+  .warn b{color:var(--red);}
+  .energy{border:1px solid rgba(251,191,36,.4); background:rgba(251,191,36,.06);
+    border-radius:14px; padding:18px 20px; margin:22px 0;}
+  .energy h3{margin:0 0 8px; color:var(--gold); font-size:17px;}
+  .art{width:100%; border-radius:12px; border:1px solid var(--line); margin:14px 0 4px; display:block;}
+  .summary{background:linear-gradient(135deg,#12233d,#0e1a30); border:1px solid var(--line);
+    border-radius:14px; padding:18px 20px; margin:26px 0;}
+  .summary h3{margin:0 0 10px; color:var(--blue);}
+  .summary li{margin:6px 0;}
+  .next{display:flex; gap:12px; flex-wrap:wrap; margin-top:26px;}
+  .btn{flex:1 1 220px; text-align:center; text-decoration:none; color:#081226; font-weight:700;
+    background:var(--gold); border-radius:12px; padding:14px 18px; font-size:16px;}
+  .btn.ghost{background:transparent; color:var(--txt); border:1px solid var(--line);}
+  footer{color:var(--muted); font-size:13px; text-align:center; margin-top:44px;}
+  table{width:100%; border-collapse:collapse; margin:14px 0; font-size:15px;}
+  th,td{border:1px solid var(--line); padding:10px 12px; text-align:left;}
+  th{background:#0d1428; color:var(--gold);}
+  td.num{font-family:ui-monospace,Menlo,Consolas,monospace; color:var(--blue);}
+  @media (max-width:520px){ body{font-size:15.5px;} section.card{padding:18px 14px;} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <span class="kicker">KHÓA AI ENGINEER &nbsp;•&nbsp; NGÀY 3 / 30</span>
+  <h1>Tokenizer là một phần của mô hình</h1>
+  <p class="sub">LLM không bao giờ "nhìn thấy" chữ cái. Nó chỉ thấy số. Tokenizer là cánh cửa duy nhất giữa thế giới chữ viết của con người và thế giới số của mô hình — và cánh cửa này quyết định trực tiếp chất lượng, tốc độ và hóa đơn điện của bạn.</p>
+  <div class="meta"><span>⏱ ~20 phút đọc</span><span>🎬 Video 5 phút: Day03_video.mp4</span><span>📝 Quiz: Day03_quiz.html</span></div>
+
+  <img class="hero" src="img/day03_hero.webp" alt="Minh họa dòng ký tự chảy vào máy cắt thành các khối token">
+
+  <div class="goal">
+    <h3>🎯 Mục tiêu buổi học</h3>
+    <ul>
+      <li>Hiểu <b>token</b> là gì và vì sao tokenizer được xem là "một phần của mô hình".</li>
+      <li>Phân biệt <b>byte vs ký tự</b> trong Unicode/UTF-8, đặc biệt với tiếng Việt.</li>
+      <li>Tự tay chạy được thuật toán <b>Byte Pair Encoding (BPE)</b> trên giấy.</li>
+      <li>Biết <b>special token</b>, <b>unknown token</b> và chỉ số <b>fertility</b>.</li>
+    </ul>
+  </div>
+
+  <section class="card" id="sec-pipeline">
+    <h2><span class="n">1</span>Mô hình không đọc chữ — nó đọc số</h2>
+    <p>Mọi LLM đều bắt đầu bằng một bước dịch duy nhất: biến chuỗi văn bản thành dãy số nguyên. Bước đó do <b>tokenizer</b> đảm nhiệm, và nó chạy <b>trước cả model</b>, ở mọi lần inference:</p>
+    <div class="formula">văn bản → tokenizer → [id₁, id₂, …, idₙ] → embedding → transformer</div>
+    <p>Tokenizer gồm 2 việc: (1) <b>cắt</b> văn bản thành các đơn vị gọi là <i>token</i> (có thể là từ, mảnh từ, ký tự, byte); (2) <b>tra từ điển</b> (vocabulary) để đổi mỗi token thành một id số nguyên. Khi sinh văn bản, model làm ngược lại: id → token → ghép thành chữ (<b>decode</b>).</p>
+    <figure>
+      <svg viewBox="0 0 640 200" role="img" aria-label="Pipeline tokenization">
+        <defs><marker id="pa" markerWidth="9" markerHeight="9" refX="4.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#60a5fa"/></marker></defs>
+        <g font-family="ui-monospace,Menlo,Consolas,monospace" font-size="13">
+          <rect x="10" y="70" width="150" height="60" rx="10" fill="#1b2547" stroke="#60a5fa" stroke-width="2"/>
+          <text x="85" y="95" fill="#e8ecf7" text-anchor="middle">Xin chào AI</text>
+          <text x="85" y="114" fill="#9aa6c7" text-anchor="middle" font-size="11">văn bản</text>
+          <rect x="205" y="70" width="150" height="60" rx="10" fill="#1b2547" stroke="#fbbf24" stroke-width="2"/>
+          <text x="280" y="95" fill="#e8ecf7" text-anchor="middle">Xin | chào | AI</text>
+          <text x="280" y="114" fill="#9aa6c7" text-anchor="middle" font-size="11">tokens</text>
+          <rect x="400" y="70" width="150" height="60" rx="10" fill="#1b2547" stroke="#34d399" stroke-width="2"/>
+          <text x="475" y="95" fill="#e8ecf7" text-anchor="middle">512 · 8831 · 64</text>
+          <text x="475" y="114" fill="#9aa6c7" text-anchor="middle" font-size="11">token ids</text>
+          <rect x="565" y="55" width="65" height="90" rx="10" fill="#232f55" stroke="#a78bfa" stroke-width="2"/>
+          <text x="597" y="90" fill="#e8ecf7" text-anchor="middle" font-size="11">trans-</text>
+          <text x="597" y="108" fill="#e8ecf7" text-anchor="middle" font-size="11">former</text>
+        </g>
+        <line x1="160" y1="100" x2="200" y2="100" stroke="#60a5fa" stroke-width="2" marker-end="url(#pa)"/>
+        <line x1="355" y1="100" x2="395" y2="100" stroke="#60a5fa" stroke-width="2" marker-end="url(#pa)"/>
+        <line x1="550" y1="100" x2="560" y2="100" stroke="#60a5fa" stroke-width="2" marker-end="url(#pa)"/>
+        <text x="180" y="88" fill="#9aa6c7" font-size="11" text-anchor="middle">cắt</text>
+        <text x="375" y="88" fill="#9aa6c7" font-size="11" text-anchor="middle">tra vocab</text>
+      </svg>
+      <figcaption>Pipeline tokenization: văn bản → token → id số → model. Decode làm ngược lại khi sinh.</figcaption>
+    </figure>
+    <div class="tip"><b>Điểm mấu chốt:</b> tokenizer và model là một cặp không thể tách rời. Đổi tokenizer mà giữ nguyên model (hoặc ngược lại) thì mọi id đều sai nghĩa — giống như đổi bảng mã Morse giữa chừng. Vì vậy người ta nói <b>tokenizer là một phần của mô hình</b>.</div>
+  </section>
+
+  <section class="card" id="sec-utf8">
+    <h2><span class="n">2</span>Unicode và UTF-8: byte ≠ ký tự</h2>
+    <p>Trước khi cắt token, máy phải hiểu "ký tự" là gì. <b>Unicode</b> gán cho mỗi ký tự một mã số (code point), ví dụ U+0041 là "A", U+1EC7 là "ệ". <b>UTF-8</b> là cách mã hóa mã số đó thành byte để lưu trữ — và độ dài byte <b>không cố định</b>:</p>
+    <table>
+      <tr><th>Ký tự</th><th>Code point</th><th>UTF-8 (hex)</th><th>Số byte</th></tr>
+      <tr><td>A</td><td class="num">U+0041</td><td class="num">41</td><td class="num">1</td></tr>
+      <tr><td>é</td><td class="num">U+00E9</td><td class="num">C3 A9</td><td class="num">2</td></tr>
+      <tr><td>ệ</td><td class="num">U+1EC7</td><td class="num">E1 BB 87</td><td class="num">3</td></tr>
+      <tr><td>🤖</td><td class="num">U+1F916</td><td class="num">F0 9F A4 96</td><td class="num">4</td></tr>
+    </table>
+    <p>Tiếng Việt nặng dấu nên phần lớn ký tự có dấu tốn <b>3 byte</b>, trong khi chữ cái tiếng Anh chỉ tốn 1 byte. Cùng một câu "tôi yêu AI" và "i love AI", bản tiếng Việt đã <b>dài gấp ~2–3 lần ở mức byte</b> trước khi tokenizer làm bất cứ việc gì.</p>
+    <div class="warn"><b>Bẫy thường gặp:</b> nhầm lẫn "độ dài chuỗi" (số ký tự) với "độ dài byte". Tokenizer hiện đại (như của GPT-2) làm việc ở <b>mức byte</b> — 256 byte cơ sở bao phủ mọi văn bản Unicode, nên về nguyên tắc <b>không bao giờ gặp ký tự lạ</b>. Đây chính là lý do byte-level BPE ra đời.</div>
+    <div class="code"><span class="c"># kiểm chứng ngay trong Python tối nay</span>
+<span class="s">"ệ"</span>.encode(<span class="s">"utf-8"</span>)   <span class="c"># b'\xe1\xbb\x87' → 3 byte</span>
+<span class="k">len</span>(<span class="s">"ệ"</span>)                <span class="c"># 1 ký tự — byte ≠ ký tự!</span></div>
+  </section>
+
+  <section class="card" id="sec-bpe">
+    <h2><span class="n">3</span>BPE: thuật toán "ghép đôi tham lam"</h2>
+    <p><b>Byte Pair Encoding</b> là thuật toán xây từ điển token phổ biến nhất trong LLM (GPT-2/3/4, Llama đều dùng biến thể của nó). Ý tưởng rất trực quan: bắt đầu từ các đơn vị nhỏ nhất (byte hoặc ký tự), rồi <b>lặp đi lặp lại việc ghép cặp xuất hiện nhiều nhất</b> thành token mới, cho đến khi đủ số lượng vocab mong muốn.</p>
+    <figure>
+      <img class="art" src="img/day03_bpe_tree.webp" alt="Minh họa trừu tượng cây ghép đôi BPE" style="margin-top:0">
+    </figure>
+    <p><b>Ví dụ chạy tay</b> với corpus tí hon: <span class="code" style="display:inline; padding:4px 10px; margin:0;">"low low lower"</span> (bỏ qua khoảng trắng để đơn giản). Bắt đầu mỗi ký tự là một token:</p>
+    <div class="code">bước 0: l o w | l o w | l o w e r
+<span class="c"># đếm cặp kề nhau: (l,o)=3, (o,w)=3, (w,e)=1, (e,r)=1</span>
+bước 1: ghép (l,o) → <span class="s">"lo"</span>:   lo w | lo w | lo w e r
+<span class="c"># đếm lại: (lo,w)=3 ← nhiều nhất</span>
+bước 2: ghép (lo,w) → <span class="s">"low"</span>:  low | low | low e r
+<span class="c"># tiếp: (e,r)=1 … cứ thế cho đến khi đủ vocab</span></div>
+    <p>Khi <b>encode</b> văn bản mới, tokenizer áp dụng các luật merge đã học theo đúng thứ tự ưu tiên đó: tham lam ghép từ cặp "già" nhất. Vì vậy từ "lowest" (chưa từng thấy) vẫn encode được thành <span class="code" style="display:inline; padding:4px 10px; margin:0;">low|est</span> — đây là sức mạnh của <b>subword</b>: cân bằng giữa từ điển gọn và khả năng xử lý từ mới.</p>
+    <figure>
+      <svg viewBox="0 0 640 230" role="img" aria-label="BPE merge từng bước">
+        <g font-family="ui-monospace,Menlo,Consolas,monospace" font-size="14">
+          <text x="20" y="30" fill="#9aa6c7" font-size="12">corpus: "low low lower" → merges đã học: (l,o) rồi (lo,w)</text>
+          <rect x="20" y="50" width="90" height="44" rx="8" fill="#1b2547" stroke="#26314f"/><text x="65" y="78" fill="#e8ecf7" text-anchor="middle">l</text>
+          <rect x="125" y="50" width="90" height="44" rx="8" fill="#1b2547" stroke="#26314f"/><text x="170" y="78" fill="#e8ecf7" text-anchor="middle">o</text>
+          <rect x="230" y="50" width="90" height="44" rx="8" fill="#1b2547" stroke="#26314f"/><text x="275" y="78" fill="#e8ecf7" text-anchor="middle">w</text>
+          <rect x="335" y="50" width="90" height="44" rx="8" fill="#1b2547" stroke="#26314f"/><text x="380" y="78" fill="#e8ecf7" text-anchor="middle">e</text>
+          <rect x="440" y="50" width="90" height="44" rx="8" fill="#1b2547" stroke="#26314f"/><text x="485" y="78" fill="#e8ecf7" text-anchor="middle">s</text>
+          <rect x="545" y="50" width="90" height="44" rx="8" fill="#1b2547" stroke="#26314f"/><text x="590" y="78" fill="#e8ecf7" text-anchor="middle">t</text>
+          <text x="20" y="118" fill="#9aa6c7" font-size="12">encode "lowest": áp dụng merge theo thứ tự ưu tiên</text>
+          <rect x="20" y="135" width="200" height="48" rx="8" fill="#16213f" stroke="#34d399" stroke-width="2"/><text x="120" y="165" fill="#34d399" text-anchor="middle">low</text>
+          <rect x="235" y="135" width="150" height="48" rx="8" fill="#16213f" stroke="#fbbf24" stroke-width="2"/><text x="310" y="165" fill="#fbbf24" text-anchor="middle">est</text>
+          <text x="400" y="165" fill="#9aa6c7" font-size="12">→ 2 token, từ mới vẫn xử lý được</text>
+        </g>
+      </svg>
+      <figcaption>BPE encode từ chưa gặp "lowest" bằng các mảnh đã học: low + est.</figcaption>
+    </figure>
+    <div class="formula">quy tắc train BPE: lặp lại — (1) đếm mọi cặp token kề nhau, (2) ghép cặp tần suất cao nhất, (3) thêm token mới vào vocab — cho đến khi |vocab| = V</div>
+  </section>
+
+  <section class="card" id="sec-special">
+    <h2><span class="n">4</span>Special token và unknown token</h2>
+    <p>Ngoài token "nội dung", mọi tokenizer đều dự trữ vài token <b>đặc biệt</b> để điều khiển mô hình:</p>
+    <table>
+      <tr><th>Token</th><th>Vai trò</th></tr>
+      <tr><td class="num">[BOS] / &lt;s&gt;</td><td>Bắt đầu chuỗi — "mồi" cho bước sinh đầu tiên</td></tr>
+      <tr><td class="num">[EOS] / &lt;/s&gt;</td><td>Kết thúc chuỗi — model học khi nào thì dừng sinh</td></tr>
+      <tr><td class="num">[PAD]</td><td>Độn cho các câu ngắn bằng nhau trong một batch</td></tr>
+      <tr><td class="num">[UNK]</td><td>Ký tự/từ lạ không có trong vocab (xem dưới)</td></tr>
+      <tr><td class="num">[MASK]</td><td>Che từ cần đoán trong mô hình kiểu BERT</td></tr>
+    </table>
+    <p><b>Unknown token [UNK]</b> là "hố đen" thông tin: tokenizer kiểu <b>word-level</b> (cắt theo từ, vocab cố định) sẽ ném mọi từ chưa gặp vào [UNK] — model mất trắng nghĩa của từ đó. Đây là lý do word-level gần như tuyệt chủng trong LLM hiện đại.</p>
+    <div class="tip"><b>Còn byte-level BPE thì sao?</b> Vì vocab cơ sở là 256 byte, <b>bất kỳ</b> chuỗi byte nào cũng encode được — ký tự lạ nhất cũng chỉ bị chẻ thành các byte lẻ, không bao giờ rơi vào [UNK]. Đánh đổi: văn bản "lạ" (ví dụ tiếng Việt với tokenizer train chủ yếu trên tiếng Anh) bị chẻ vụn thành nhiều token ngắn. Hiện tượng này có tên riêng — xem mục 5.</div>
+  </section>
+
+  <section class="card" id="sec-fertility">
+    <h2><span class="n">5</span>Fertility: thước đo "độ tốn token" của một ngôn ngữ</h2>
+    <div class="formula">fertility = (số token) / (số từ) &nbsp;&nbsp;— càng thấp càng tốt</div>
+    <p>Fertility = 1.0 nghĩa là mỗi từ đúng 1 token (lý tưởng). Fertility = 3.0 nghĩa là mỗi từ tốn 3 token — chuỗi dài gấp 3, mà <b>attention tốn O(L²)</b> theo độ dài chuỗi (bạn sẽ thấy ở Ngày 5). Tokenizer train trên corpus tiếng Anh thường có fertility ~1.3 cho tiếng Anh nhưng có thể lên <b>2.5–3.5 cho tiếng Việt</b>: người Việt trả tiền API đắt hơn cho cùng một ý tưởng, và model "nhìn" câu tiếng Việt qua lăng kính vụn vỡ hơn.</p>
+    <figure>
+      <svg viewBox="0 0 640 250" role="img" aria-label="So sánh fertility tiếng Anh và tiếng Việt">
+        <g font-size="14">
+          <text x="20" y="28" fill="#9aa6c7" font-size="13">fertility (token / từ) — cùng một tokenizer tiếng Anh</text>
+          <text x="20" y="80" fill="#e8ecf7">tiếng Anh</text>
+          <rect x="170" y="58" width="130" height="34" rx="6" fill="#34d399"/>
+          <text x="310" y="82" fill="#9aa6c7">≈ 1.3</text>
+          <text x="20" y="140" fill="#e8ecf7">tiếng Việt</text>
+          <rect x="170" y="118" width="330" height="34" rx="6" fill="#f87171"/>
+          <text x="510" y="142" fill="#9aa6c7">≈ 3.3</text>
+          <text x="20" y="200" fill="#fbbf24" font-size="13">câu "tôi yêu trí tuệ nhân tạo" → có thể tốn 12–15 token thay vì 5–6</text>
+        </g>
+      </svg>
+      <figcaption>Fertility minh họa: tokenizer thiên về tiếng Anh "chẻ vụn" tiếng Việt thành nhiều token.</figcaption>
+    </figure>
+    <p>Bài học thực tế: khi làm sản phẩm cho người Việt, <b>đo fertility trên corpus tiếng Việt thật</b> trước khi chọn tokenizer. Tối nay bạn sẽ tự viết BPE và đo con số này bằng tay.</p>
+  </section>
+
+  <div class="energy">
+    <h3>⚡ Góc tiết kiệm năng lượng</h3>
+    <p><b>Vocab to hay nhỏ — cái nào "xanh" hơn?</b> Tính thử hai đầu của cán cân:</p>
+    <ul>
+      <li><b>Vocab lớn</b> (ví dụ 200k): bảng embedding V × d phình to. Với d = 4096, float32: 200.000 × 4.096 × 4 byte ≈ <b>3,3 GB</b> chỉ cho embedding — tốn RAM/VRAM và điện năng load weight mỗi lần inference.</li>
+      <li><b>Vocab nhỏ</b> (ví dụ 8k): embedding gọn (~131 MB), nhưng fertility tăng → chuỗi dài hơn → attention O(L²) đốt nhiều FLOPs hơn cho <b>mọi</b> request.</li>
+    </ul>
+    <p><b>Green checkpoint:</b> đừng chọn vocab theo cảm tính ("càng to càng xịn"). Hãy ước tính <b>tổng chi phí = bộ nhớ embedding + FLOPs attention trên độ dài chuỗi thực tế</b> của workload bạn, rồi chọn điểm cân bằng. Tối nay bài lab yêu cầu so vocab 500 / 1.000 / 2.000 và báo cáo cả ba khía cạnh: số token, độ dài chuỗi, tốc độ — đó chính là bài toán tối ưu này ở quy mô nhỏ.</p>
+  </div>
+
+  <div class="summary">
+    <h3>📝 Tóm tắt</h3>
+    <ul>
+      <li>Tokenizer đổi văn bản → dãy id số; nó gắn chặt với model như một bộ phận của model.</li>
+      <li>UTF-8 mã hóa ký tự thành 1–4 byte; ký tự tiếng Việt có dấu thường tốn 3 byte.</li>
+      <li>BPE: lặp đi lặp lại việc ghép cặp token kề nhau xuất hiện nhiều nhất cho đến khi đủ vocab.</li>
+      <li>Special token ([BOS]/[EOS]/[PAD]/[UNK]/[MASK]) điều khiển hành vi model; byte-level BPE gần như loại bỏ [UNK].</li>
+      <li><b>fertility</b> = token/từ: thước đo độ hiệu quả của tokenizer trên từng ngôn ngữ.</li>
+      <li>⚡ Chọn vocab bằng tổng chi phí (embedding + attention), không theo cảm tính.</li>
+    </ul>
+  </div>
+
+  <div class="next">
+    <a class="btn" href="Day03_quiz.html">📝 Làm quiz Ngày 3</a>
+    <a class="btn ghost" href="Day03_video.mp4">🎬 Xem video giải thích</a>
+  </div>
+
+  <footer>Khóa "Trở thành AI Engineer (LLM)" — Ngày 3/30 · Buổi sáng lý thuyết</footer>
+</div>
+</body>
+</html>

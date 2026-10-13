@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ngày 1 — Mô hình ngôn ngữ là bài toán dự đoán token</title>
+<style>
+  :root{
+    --bg:#0b1020; --card:#141b33; --line:#26314f; --txt:#e8ecf7; --muted:#9aa6c7;
+    --gold:#fbbf24; --blue:#60a5fa; --green:#34d399; --red:#f87171; --violet:#a78bfa;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  body{margin:0; background:var(--bg); color:var(--txt);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    line-height:1.75; font-size:16.5px;}
+  .wrap{max-width:860px; margin:0 auto; padding:0 18px 80px;}
+  .kicker{display:inline-block; margin:26px 0 10px; padding:6px 14px; border:1px solid var(--line);
+    border-radius:999px; color:var(--muted); font-size:13px; letter-spacing:.4px;}
+  h1{font-size:clamp(26px,5.4vw,38px); line-height:1.3; margin:6px 0 8px;}
+  .sub{color:var(--muted); margin:0 0 6px;}
+  .meta{display:flex; gap:10px; flex-wrap:wrap; margin:14px 0 22px; color:var(--muted); font-size:14px;}
+  .meta span{background:var(--card); border:1px solid var(--line); border-radius:10px; padding:6px 12px;}
+  .hero{width:100%; border-radius:16px; border:1px solid var(--line); display:block;}
+  .goal{background:linear-gradient(135deg,#16213f,#101a36); border:1px solid var(--line);
+    border-radius:14px; padding:18px 20px; margin:26px 0;}
+  .goal h3{margin:0 0 10px; font-size:17px; color:var(--gold);}
+  .goal ul{margin:0; padding-left:20px;}
+  .goal li{margin:6px 0;}
+  section.card{background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:22px 20px; margin:22px 0;}
+  section.card h2{margin:0 0 4px; font-size:21px;}
+  section.card h2 .n{display:inline-flex; width:30px; height:30px; border-radius:9px;
+    background:var(--blue); color:#081226; font-size:16px; align-items:center; justify-content:center;
+    margin-right:8px; font-weight:800;}
+  figure{margin:18px 0 8px; background:#0d1428; border:1px solid var(--line);
+    border-radius:12px; padding:12px;}
+  figure svg{width:100%; height:auto; display:block;}
+  figcaption{color:var(--muted); font-size:13.5px; text-align:center; padding:8px 6px 2px;}
+  .formula{background:#0d1428; border:1px dashed var(--line); border-radius:10px;
+    padding:12px 16px; margin:14px 0; font-family:ui-monospace,Menlo,Consolas,monospace;
+    font-size:15px; overflow-x:auto; white-space:nowrap; color:var(--gold);}
+  .tip{border-left:4px solid var(--green); background:rgba(52,211,153,.07);
+    border-radius:0 10px 10px 0; padding:12px 16px; margin:14px 0; font-size:15.5px;}
+  .tip b{color:var(--green);}
+  .energy{border:1px solid rgba(251,191,36,.4); background:rgba(251,191,36,.06);
+    border-radius:14px; padding:18px 20px; margin:22px 0;}
+  .energy h3{margin:0 0 8px; color:var(--gold); font-size:17px;}
+  .art{width:100%; border-radius:12px; border:1px solid var(--line); margin:14px 0 4px; display:block;}
+  .summary{background:linear-gradient(135deg,#12233d,#0e1a30); border:1px solid var(--line);
+    border-radius:14px; padding:18px 20px; margin:26px 0;}
+  .summary h3{margin:0 0 10px; color:var(--blue);}
+  .summary li{margin:6px 0;}
+  .next{display:flex; gap:12px; flex-wrap:wrap; margin-top:26px;}
+  .btn{flex:1 1 220px; text-align:center; text-decoration:none; color:#081226; font-weight:700;
+    background:var(--gold); border-radius:12px; padding:14px 18px; font-size:16px;}
+  .btn.ghost{background:transparent; color:var(--txt); border:1px solid var(--line);}
+  footer{color:var(--muted); font-size:13px; text-align:center; margin-top:44px;}
+  @media (max-width:520px){ body{font-size:15.5px;} section.card{padding:18px 14px;} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <span class="kicker">KHÓA AI ENGINEER &nbsp;•&nbsp; NGÀY 1 / 30</span>
+  <h1>Mô hình ngôn ngữ là bài toán dự đoán token</h1>
+  <p class="sub">Mọi khả năng "viết như người" của LLM đều bắt nguồn từ một việc duy nhất: đoán token kế tiếp. Hiểu sâu điều này, bạn có nền móng cho cả 30 ngày phía trước.</p>
+  <div class="meta"><span>⏱ ~20 phút đọc</span><span>🎬 Video 5 phút: Day01_video.mp4</span><span>📝 Quiz: Day01_quiz.html</span></div>
+
+  <img class="hero" src="img/day01_hero.webp" alt="Minh họa mô hình ngôn ngữ dự đoán từ tiếp theo">
+
+  <div class="goal">
+    <h3>🎯 Mục tiêu buổi học</h3>
+    <ul>
+      <li>Hiểu LLM ở cấp sâu nhất: dự đoán token kế tiếp.</li>
+      <li>Nắm chuỗi kiến thức nền: vocabulary → logits → softmax → cross-entropy → train/validation split.</li>
+      <li>Đọc và viết được công thức xác suất của một câu hoàn chỉnh.</li>
+    </ul>
+  </div>
+
+  <section class="card">
+    <h2><span class="n">1</span>Token và Vocabulary</h2>
+    <p>LLM không "đọc chữ" như người. Văn bản được cắt thành các mảnh gọi là <b>token</b> — có thể là từ, âm tiết, hoặc vài ký tự. Toàn bộ token mà model biết nằm trong một bảng cố định gọi là <b>vocabulary</b> (kích thước V, thường 30.000 – 200.000).</p>
+    <figure>
+      <svg viewBox="0 0 600 170" role="img" aria-label="Câu được tách thành token">
+        <rect x="180" y="14" width="240" height="44" rx="10" fill="#1b2547" stroke="#60a5fa"/>
+        <text x="300" y="43" text-anchor="middle" fill="#e8ecf7" font-size="20">Hà Nội đẹp</text>
+        <line x1="300" y1="58" x2="300" y2="86" stroke="#60a5fa" stroke-width="2" marker-end="url(#ah)"/>
+        <defs><marker id="ah" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#60a5fa"/></marker></defs>
+        <g font-size="20" text-anchor="middle">
+          <rect x="60" y="92" width="130" height="52" rx="10" fill="#fbbf24"/><text x="125" y="126" fill="#081226" font-weight="700">Hà</text>
+          <rect x="235" y="92" width="130" height="52" rx="10" fill="#fbbf24"/><text x="300" y="126" fill="#081226" font-weight="700">Nội</text>
+          <rect x="410" y="92" width="130" height="52" rx="10" fill="#fbbf24"/><text x="475" y="126" fill="#081226" font-weight="700">đẹp</text>
+        </g>
+        <text x="300" y="163" text-anchor="middle" fill="#9aa6c7" font-size="13">3 token — mỗi token là 1 mảnh văn bản model "nhìn thấy"</text>
+      </svg>
+      <figcaption>Câu "Hà Nội đẹp" được token hóa thành 3 mảnh</figcaption>
+    </figure>
+    <div class="tip"><b>💡 Hiểu nhanh:</b> token là "đơn vị tiền tệ" của LLM — mọi tính toán, mọi chi phí đều đếm bằng token, không phải bằng chữ hay từ.</div>
+  </section>
+
+  <section class="card">
+    <h2><span class="n">2</span>Dự đoán token kế tiếp &amp; Chain rule</h2>
+    <p>Công việc duy nhất của model khi train: cho trước các token đã có w₁…w<sub>t−1</sub>, đoán w<sub>t</sub>. Xác suất của cả câu được phân rã bằng <b>xác suất có điều kiện</b>:</p>
+    <div class="formula">P(w₁, w₂, …, w<sub>T</sub>) = ∏<sub>t=1..T</sub> P(w<sub>t</sub> | w₁, …, w<sub>t−1</sub>)</div>
+    <figure>
+      <svg viewBox="0 0 600 150" role="img" aria-label="Chuỗi xác suất có điều kiện">
+        <g font-size="17" text-anchor="middle">
+          <circle cx="90" cy="60" r="34" fill="#1b2547" stroke="#60a5fa" stroke-width="2"/><text x="90" y="67" fill="#e8ecf7">Hà</text>
+          <circle cx="300" cy="60" r="34" fill="#1b2547" stroke="#60a5fa" stroke-width="2"/><text x="300" y="67" fill="#e8ecf7">Nội</text>
+          <circle cx="510" cy="60" r="34" fill="#1b2547" stroke="#a78bfa" stroke-width="2" stroke-dasharray="6 4"/><text x="510" y="67" fill="#e8ecf7">?</text>
+          <line x1="126" y1="60" x2="262" y2="60" stroke="#60a5fa" stroke-width="2" marker-end="url(#ah2)"/>
+          <line x1="336" y1="60" x2="472" y2="60" stroke="#a78bfa" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#ah3)"/>
+          <defs>
+            <marker id="ah2" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#60a5fa"/></marker>
+            <marker id="ah3" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#a78bfa"/></marker>
+          </defs>
+          <text x="194" y="42" fill="#9aa6c7" font-size="13">P(Nội | Hà) ≈ 0.7</text>
+          <text x="404" y="42" fill="#9aa6c7" font-size="13">P(? | Hà, Nội)</text>
+          <text x="300" y="128" fill="#9aa6c7" font-size="13">"Trí thông minh" = hàng tỷ xác suất có điều kiện học từ dữ liệu</text>
+        </g>
+      </svg>
+      <figcaption>Mỗi bước, model chỉ làm một việc: đoán token tiếp theo dựa trên toàn bộ quá khứ</figcaption>
+    </figure>
+  </section>
+
+  <section class="card">
+    <h2><span class="n">3</span>Logits → Softmax</h2>
+    <p>Model không xuất thẳng xác suất. Với mỗi vị trí, nó tính một vector <b>logits</b> z = (z₁, …, z<sub>V</sub>) — các điểm số thô, có thể âm. <b>Softmax</b> biến logits thành phân phối xác suất (tổng = 1):</p>
+    <div class="formula">p<sub>i</sub> = e<sup>z<sub>i</sub></sup> / Σ<sub>j</sub> e<sup>z<sub>j</sub></sup></div>
+    <img class="art" src="img/day01_concept.webp" alt="Minh họa phân phối xác suất trên các token">
+    <figure>
+      <svg viewBox="0 0 600 230" role="img" aria-label="Ví dụ softmax">
+        <text x="20" y="24" fill="#9aa6c7" font-size="14">Sau cụm "Thủ đô của Việt Nam là…", logits → xác suất:</text>
+        <g font-size="15">
+          <text x="20" y="66" fill="#e8ecf7">Hà&nbsp;&nbsp;(z = 8.0)</text>
+          <rect x="170" y="48" width="380" height="22" rx="6" fill="#fbbf24"/>
+          <text x="560" y="66" fill="#fbbf24" font-weight="700">99.5%</text>
+          <text x="20" y="112" fill="#e8ecf7">Sài&nbsp;&nbsp;(z = 2.5)</text>
+          <rect x="170" y="94" width="16" height="22" rx="6" fill="#60a5fa"/>
+          <text x="196" y="112" fill="#9aa6c7">0.4%</text>
+          <text x="20" y="158" fill="#e8ecf7">Huế (z = 1.0)</text>
+          <rect x="170" y="140" width="6" height="22" rx="6" fill="#60a5fa"/>
+          <text x="186" y="158" fill="#9aa6c7">0.1%</text>
+        </g>
+        <text x="20" y="200" fill="#9aa6c7" font-size="13">Token ít chắc chắn vẫn giữ xác suất nhỏ — đó là nguồn của sự đa dạng khi sinh văn bản.</text>
+      </svg>
+      <figcaption>Logits càng cao → xác suất càng cao, nhưng không bao giờ triệt tiêu hoàn toàn các lựa chọn khác</figcaption>
+    </figure>
+  </section>
+
+  <section class="card">
+    <h2><span class="n">4</span>Cross-entropy Loss</h2>
+    <p>Khi train, ta biết token đúng là gì. Loss đo "model ngạc nhiên đến mức nào". Với đáp án dạng one-hot, công thức rút gọn thành:</p>
+    <div class="formula">L = −log(p<sub>đúng</sub>)</div>
+    <p>p = 0.99 → L ≈ 0.01 (tốt) &nbsp;•&nbsp; p = 0.01 → L ≈ 4.6 (tệ). <b>Huấn luyện = điều chỉnh trọng số để giảm loss trung bình trên hàng tỷ token.</b></p>
+    <figure>
+      <svg viewBox="0 0 600 270" role="img" aria-label="Đồ thị cross-entropy">
+        <line x1="60" y1="20" x2="60" y2="230" stroke="#26314f" stroke-width="2"/>
+        <line x1="60" y1="230" x2="570" y2="230" stroke="#26314f" stroke-width="2"/>
+        <text x="14" y="130" fill="#9aa6c7" font-size="13" transform="rotate(-90 14 130)">Loss</text>
+        <text x="300" y="258" fill="#9aa6c7" font-size="13" text-anchor="middle">xác suất model gán cho đáp án đúng (p)</text>
+        <path d="M70,225 C150,190 220,120 300,80 C400,32 500,26 560,24" fill="none" stroke="#fbbf24" stroke-width="3"/>
+        <circle cx="150" cy="183" r="6" fill="#f87171"/><text x="150" y="208" fill="#f87171" font-size="13" text-anchor="middle">p=0.01 → 4.6</text>
+        <circle cx="330" cy="66" r="6" fill="#60a5fa"/><text x="330" y="52" fill="#60a5fa" font-size="13" text-anchor="middle">p=0.5 → 0.69</text>
+        <circle cx="520" cy="27" r="6" fill="#34d399"/><text x="505" y="52" fill="#34d399" font-size="13" text-anchor="middle">p=0.99 → 0.01</text>
+      </svg>
+      <figcaption>Loss phạt rất nặng khi model "tự tin sai" — đó là động lực để học</figcaption>
+    </figure>
+    <div class="tip"><b>💡 Gặp sau này:</b> <i>perplexity = e<sup>loss trung bình</sup></i> — hiểu nôm na là "model phân vân như đang chọn trong bao nhiêu token".</div>
+  </section>
+
+  <section class="card">
+    <h2><span class="n">5</span>Train / Validation split</h2>
+    <p>Dữ liệu chia 2 phần: <b>train set</b> để học, <b>validation set</b> (model chưa từng thấy) để kiểm tra. Nếu train loss giảm mà val loss tăng → model học thuộc lòng (<b>overfitting</b>) thay vì học quy luật.</p>
+    <figure>
+      <svg viewBox="0 0 600 270" role="img" aria-label="Overfitting">
+        <line x1="60" y1="20" x2="60" y2="230" stroke="#26314f" stroke-width="2"/>
+        <line x1="60" y1="230" x2="570" y2="230" stroke="#26314f" stroke-width="2"/>
+        <text x="300" y="258" fill="#9aa6c7" font-size="13" text-anchor="middle">thời gian train →</text>
+        <path d="M70,60 C200,80 350,110 560,150" fill="none" stroke="#60a5fa" stroke-width="3"/>
+        <text x="540" y="140" fill="#60a5fa" font-size="13" text-anchor="end">train loss ↓</text>
+        <path d="M70,60 C200,80 320,95 400,110 C480,150 520,190 560,215" fill="none" stroke="#f87171" stroke-width="3" stroke-dasharray="8 5"/>
+        <text x="545" y="232" fill="#f87171" font-size="13" text-anchor="end">val loss ↑ = overfitting!</text>
+        <circle cx="400" cy="110" r="7" fill="#fbbf24"/><text x="400" y="92" fill="#fbbf24" font-size="13" text-anchor="middle">điểm dừng tốt nhất</text>
+      </svg>
+      <figcaption>Nguyên tắc sống còn của mọi thí nghiệm trong 30 ngày tới</figcaption>
+    </figure>
+  </section>
+
+  <div class="energy">
+    <h3>⚡ Góc tiết kiệm năng lượng</h3>
+    <p style="margin:0">Softmax phải duyệt <b>toàn bộ vocabulary V</b> cho mỗi token (Σ<sub>j</sub> e<sup>z<sub>j</sub></sup> là phép tính tốn nhất). Vocabulary càng lớn, mỗi bước train càng tốn điện. Chọn kích thước vocab vì vậy không chỉ là quyết định kỹ thuật — mà là quyết định về <b>hiệu quả năng lượng</b>. Ngày 3 sẽ đào sâu.</p>
+  </div>
+
+  <div class="summary">
+    <h3>📝 Tóm tắt ngày 1</h3>
+    <ul>
+      <li>LLM = cỗ máy <b>dự đoán token kế tiếp</b>.</li>
+      <li>Văn bản → <b>token</b> → model tính <b>logits</b> → <b>softmax</b> thành xác suất.</li>
+      <li><b>Cross-entropy</b> L = −log(p<sub>đúng</sub>) đo sai số huấn luyện.</li>
+      <li><b>Validation set</b> bảo vệ khỏi overfitting.</li>
+    </ul>
+    <div class="next">
+      <a class="btn" href="Day01_quiz.html">Làm quiz ngày 1 →</a>
+      <a class="btn ghost" href="Day01_video.mp4">Xem video 5 phút 🎬</a>
+    </div>
+  </div>
+
+  <footer>Khóa "Trở thành AI Engineer (LLM)" • Ngày 1/30 • Bài tiếp theo: tối nay — thực hành code softmax &amp; cross-entropy</footer>
+</div>
+</body>
+</html>
