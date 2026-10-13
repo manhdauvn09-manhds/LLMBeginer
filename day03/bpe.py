@@ -21,7 +21,20 @@ Cach chay:
     #         (merge cang nhieu, tieng Viet cang ton gap ~3x tieng Anh).
 
 Giu lai file nay - tuan sau (Ngay 6, GPT-2) se quay lai dung no.
+
+Cach doc file (roadmap cho nguoi moi):
+    1. bai1(): UTF-8 - tai sao byte != ky tu, va "thue byte" tieng Viet phai tra.
+    2. to_vocab() -> get_stats() -> merge_vocab() -> train_bpe(): 4 ham core
+       cua BPE, doc theo dung thu tu nay vi ham sau dung ham truoc.
+    3. encode(): dung day merges da hoc de tach 1 tu moi (ke ca tu chua gap).
+    4. bai2(): chay thu BPE tren corpus "low low lower" (co assert tu kiem tra).
+    5. bai3(): do fertility Viet vs Anh + thi nghiem tang so merge.
 """
+
+# [TRAINER] 2026-10-13: bo sung comment chi tiet toan file theo yeu cau user.
+# Tat ca comment giai thich them trong dot nay deu nham muc dich "de hieu"
+# (vi du trace tay tung buoc) - logic code giu nguyen 100%, khong doi hanh vi.
+# Chi tiet them gi o tung ham xem bao cao truoc/sau trong chat.
 
 # ---------------------------------------------------------------------------
 # BAI 1 - So tan tay UTF-8: byte != ky tu
@@ -37,7 +50,12 @@ def byte_info(ch):
     """
     cp = ord(ch)
     bs = ch.encode("utf-8")
-    hexs = " ".join(f"{b:02X}" for b in bs)  # moi byte in 2 ky tu hex, cach nhau
+    # f"{b:02X}": dinh dang 1 byte thanh 2 ky tu HEX in hoa.
+    #   02 = luon du 2 ky tu, thieu thi them so 0 o truoc (vd byte 10 -> "0A").
+    #   X  = he co so 16, chu in hoa (vd byte 225 -> "E1").
+    # Vi du: 'ệ' -> 3 byte E1 BB 87 (kiem tra: neu may ban in ra khac 3 byte
+    # nay thi file dang luu sai encoding, xem ghi chu o bai1).
+    hexs = " ".join(f"{b:02X}" for b in bs)
     print(f"  {ch!r}: U+{cp:04X}, {len(bs)} byte -> {hexs}")
 
 
@@ -58,6 +76,10 @@ def bai1():
     print("Bai 1 - UTF-8: byte != ky tu")
     print("=" * 64)
     print("Code point va byte UTF-8 cua tung ky tu:")
+    # Chon 4 dai dien cho 4 "co" byte cua UTF-8: 1 byte (ASCII), 2 byte
+    # (Latin mo rong), 3 byte (Viet co dau), 4 byte (emoji). Khi doc output,
+    # de y cot "so byte" - do chinh la trong tam cua bai nay: cung la 1 ky tu
+    # nhung "gia byte" khac nhau, va tieng Viet toan phai tra gia 2-3 byte.
     for ch in ["A", "é", "ệ", "🤖"]:
         byte_info(ch)
     print("  (Ky vong: 1 / 2 / 3 / 4 byte. Neu 'ệ' khong ra E1 BB 87 thi file\n"
@@ -91,6 +113,17 @@ def to_vocab(corpus):
     Tai sao them END? De cap (w, l) cuoi tu nay + dau tu kia khong bao gio
     duoc dem/merge thanh token lai vo nghia nhu 'wl'.
     """
+    # Vi du chay tung buoc voi corpus "low low lower":
+    #   corpus.split() -> ["low", "low", "lower"]        (tach theo khoang trang)
+    #   "low" -> tuple("low") = ('l','o','w') -> them END -> ('l','o','w','</w>')
+    # Ket qua: [('l','o','w','</w>'), ('l','o','w','</w>'),
+    #           ('l','o','w','e','r','</w>')]
+    # Chu y 2 diem:
+    #   (1) Tu "low" lap lai 2 lan -> vocab co 2 phan tu giong het nhau.
+    #       Tan suat lap lai nay QUAN TRONG: BPE dem cap tren TOAN vocab nen
+    #       tu cang pho bien thi cap cua no cang duoc cong diem nhieu.
+    #   (2) Tai sao tuple ma khong phai list? Vi tuple la bat bien (immutable)
+    #       nen an toan khi dem, khong so bi sua nham giua chung.
     return [tuple(word) + (END,) for word in corpus.split()]
 
 
@@ -105,6 +138,13 @@ def get_stats(vocab):
     # (chi ghi "cac cap chua </w> cung duoc dem" trong ngoac don). Docstring
     # vi du phai khop 100% output that cua code - nguoi doc se copy-paste
     # de kiem tra.
+    # Vi du dem tay (vocab rut gon con 2 tu de de nhin):
+    #   Tu ('l','o','w','</w>'):         cap (l,o), (o,w), (w,</w>)
+    #   Tu ('l','o','w','e','r','</w>'): cap (l,o), (o,w), (w,e), (e,r), (r,</w>)
+    #   Cong don: (l,o):2, (o,w):2, (w,</w>):1, (w,e):1, (e,r):1, (r,</w>):1
+    # Voi du 3 tu "low low lower": tu "low" thu 2 gop them (l,o)+1, (o,w)+1,
+    # (w,</w>)+1 -> (l,o):3, (o,w):3, (w,</w>):2. Hai cap dau HOA 3-3 diem,
+    # merge dau tien se chon (l,o) nho thu tu chen dict (xem Bay 1 o train_bpe).
     pairs = {}
     for word in vocab:
         # Duyet tung cap ke nhau trong 1 tu: (word[0],word[1]), (word[1],word[2]), ...
@@ -122,6 +162,16 @@ def merge_vocab(pair, vocab):
     Tra ve vocab MOI (khong sua vocab cu).
     """
     a, b = pair
+    # Vi du trace TAY tung buoc: word = ('l','o','w','</w>'), pair = ('l','o'):
+    #   i=0: word[0]=='l' va word[1]=='o' -> KHOP -> ghi 'lo', nhay i=2
+    #   i=2: word[2]=='w' != 'l'          -> khong khop -> giu 'w', i=3
+    #   i=3: word[3]=='</w>'              -> giu nguyen, i=4 -> het vong
+    #   Ket qua: ('lo', 'w', '</w>')
+    # Tai sao khi khop phai "nhay 2 buoc" (i += 2)? De 2 token vua gop khong
+    # bi dem lai vao cap ke tiep. Moi luot merge chi gop DUNG 1 cap (a,b);
+    # token 'lo' vua tao ra se doi den luot merge sau (vd merge ('lo','w'))
+    # chu khong duoc gop tiep ngay trong luot nay. Dieu kien
+    # "i < len(word) - 1" la de word[i+1] khong bao gio vuot qua cuoi tuple.
     out = []
     for word in vocab:
         new_word, i = [], 0
@@ -150,8 +200,20 @@ def train_bpe(corpus, n_merges=30, verbose=True):
     co gia tri max (theo thu tu chen dict). Hai nguoi chay co the ra 2 day
     merge khac nhau ma deu "dung" - thu vien that dung tie-break de on dinh.
     """
+    # Buoc 0 - khoi tao: vocab la list cac tuple ky tu (xem to_vocab),
+    # merges la list rong, se ghi lai lich su cac cap da gop THEO THU TU.
+    # Thu tu nay cuc ky quan trong: luc encode phai ap dung merges dung
+    # thu tu da hoc thi ket qua moi khop (xem encode).
     vocab = to_vocab(corpus)
     merges = []
+    # Moi vong lap = dung 1 merge duy nhat: cap pho bien nhat TAI THOI DIEM
+    # hien tai (sau khi vocab da bi bien doi boi cac merge truoc). Vi du voi
+    # corpus "low low lower":
+    #   Vong 1: (l,o) 3 diem (hoa voi (o,w) nhung thang nho thu tu dict)
+    #           -> vocab: [('lo','w','</w>'), ..., ('lo','w','e','r','</w>')]
+    #   Vong 2: dem lai tren vocab MOI -> (lo,w) 3 diem -> gop tiep
+    #           -> tu "low" chi con ('low','</w>'): 1 token noi dung!
+    # Cu the, cang nhieu merge thi tu cang it manh vun.
     for step in range(n_merges):
         stats = get_stats(vocab)
         if not stats:
@@ -183,6 +245,15 @@ def encode(word, merges):
     # khac phuc bang cache (vd functools.lru_cache tren encode, doi merges
     # sang tuple cho hash duoc) hoac bien dich merges thanh trie. Bai tap
     # tu lam them: cache encode() roi do lai thoi gian vong thi nghiem.
+    # Vi du trace TAY tung buoc: encode("lowest", merges=[('l','o'),('lo','w')])
+    #   Khoi tao: ('l','o','w','e','s','t','</w>')  <- nho +END giong luc train!
+    #   Merge 1 ('l','o'):  -> ('lo','w','e','s','t','</w>')
+    #   Merge 2 ('lo','w'): -> ('low','e','s','t','</w>')
+    #   Ket qua: tu la "lowest" bi che thanh 4 manh da hoc + END.
+    # So sanh: encode("low", ...) -> ('low','</w>') chi 1 token noi dung, vi
+    # "low" nam nguyen trong corpus train. Day la suc manh that cua subword:
+    # tu moi khong bi bo roi ma duoc ghep tu manh quen thuoc (word-level ma
+    # gap tu la thi chi con cach danh dau <unk>).
     tokens = tuple(word) + (END,)
     for pair in merges:
         tokens = merge_vocab(pair, [tokens])[0]
@@ -203,12 +274,20 @@ def bai2():
     # In theo tan suat giam dan cho de doc.
     for p, c in sorted(stats.items(), key=lambda kv: -kv[1]):
         print(f"  {p}: {c}")
+    # Tu kiem tra: "low" x2 gop 2 diem cho (l,o) va (o,w); "lower" gop them
+    # 1 diem cho moi cap -> ca 2 cap deu = 3. Neu assert nay fail, loi nam o
+    # get_stats (dem sai), khong phai o merge - thu in stats ra so voi vi du
+    # trong docstring cua get_stats de debug.
     assert stats[("l", "o")] == 3 and stats[("o", "w")] == 3, "get_stats sai!"
 
     print("\nBuoc C - vong lap merge:")
     vocab, merges = train_bpe("low low lower", n_merges=30, verbose=True)
 
     # Kiem tra 2 merge dau phai dung nhu de bai yeu cau.
+    # Merge 1 PHAI la (l,o) chu khong phai (o,w) du hoa 3-3 diem: nho quy tac
+    # tie-break cua max() - cap nao duoc chen vao dict TRUOC thi thang
+    # (xem Bay 1 trong train_bpe). Merge 2 PHAI la (lo,w): sau khi gop (l,o),
+    # dem lai tren vocab moi thi cap (lo,w) xuat hien 3 lan, cao nhat.
     assert merges[0] == ("l", "o"), f"merge 1 sai: {merges[0]}"
     assert merges[1] == ("lo", "w"), f"merge 2 sai: {merges[1]}"
     print(f"\n  => 2 merge dau: {merges[0]} -> {merges[1]} (KHOP de bai)")
@@ -284,6 +363,11 @@ def fertility(sentence, merges):
     toks = []
     for w in words:
         toks.extend(encode(w, merges))
+    # Loc bo token END don le: no chi la "hang rao" phan cach tu, khong phai
+    # noi dung thuc. NHUNG token dinh kem END nhu 'w</w>' (chu w + hang rao
+    # dinh lien) van duoc tinh la 1 token noi dung - vi no mang thong tin
+    # chu 'w'. Ham tra ve tuple 3 gia tri de tien in bang dep o bai3:
+    # (fertility, so token noi dung, so tu).
     content = [t for t in toks if t != END]
     return len(content) / len(words), len(content), len(words)
 
@@ -331,6 +415,12 @@ def bai3():
     print("\nThi nghiem them - khoang cach Viet/Anh theo so merge:")
     print(f"  {'merges':>6} | {'EN':>5} | {'VI':>5} | ti le VI/EN")
     print("  " + "-" * 38)
+    # Chon 3 moc de thay RO xu huong (dung doan truoc khi chay roi doi chieu):
+    #   30  = tokenizer "ti hon": chua nen tot ca tieng Anh -> EN van cao.
+    #   100 = kha hon: EN giam ro, VI van vun.
+    #   200 = gan nhat voi tokenizer that (50k merge): EN tien ve ~1.0,
+    #         VI giu ~3.0 -> ti le VI/EN hien ro ~3x.
+    # Du doan: cot EN giam dan, cot VI it giam, cot ti le TANG dan.
     for n in (30, 100, 200):
         # [TRAINER] Dung lat cat merges200[:n] thay vi train lai (xem ghi chu
         # train-1-lan o tren) - ket qua so hoc giong het train rieng.
