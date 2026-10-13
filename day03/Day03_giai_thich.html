@@ -1,0 +1,1082 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 03 — Tự viết BPE & Đo Fertility: giải thích từ con số 0</title>
+<style>
+  :root{
+    --bg:#f6f5f0; --card:#ffffff; --ink:#23272f; --muted:#6b7280;
+    --accent:#0f766e; --accent-soft:#ccfbf1;
+    --blue:#2563eb; --blue-soft:#dbeafe;
+    --amber:#b45309; --amber-soft:#fef3c7;
+    --green:#047857; --green-soft:#d1fae5;
+    --rose:#be123c; --rose-soft:#ffe4e6;
+    --line:#e5e0d5; --code-bg:#1e2230;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    line-height:1.75;font-size:16.5px}
+  .wrap{max-width:960px;margin:0 auto;padding:0 20px}
+  header.hero{background:linear-gradient(135deg,#042f2e 0%,#0f766e 55%,#10b981 100%);
+    color:#fff;padding:64px 0 48px;margin-bottom:8px}
+  header.hero h1{margin:0 0 12px;font-size:2.1rem;line-height:1.3}
+  header.hero p{margin:6px 0;opacity:.92;max-width:720px}
+  .tag{display:inline-block;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.35);
+    border-radius:999px;padding:3px 14px;font-size:.85rem;margin-bottom:14px}
+  nav.sticky{position:sticky;top:0;z-index:50;background:rgba(246,245,240,.96);
+    backdrop-filter:blur(6px);border-bottom:1px solid var(--line)}
+  nav.sticky .wrap{display:flex;gap:4px;overflow-x:auto;padding:10px 20px;white-space:nowrap}
+  nav.sticky a{color:var(--muted);text-decoration:none;font-size:.88rem;padding:6px 10px;border-radius:8px}
+  nav.sticky a:hover{background:var(--accent-soft);color:var(--accent)}
+  section{padding:34px 0;border-bottom:1px solid var(--line)}
+  h2{font-size:1.55rem;margin:0 0 6px;color:#083f3b}
+  h2 .num{display:inline-block;background:var(--accent);color:#fff;font-size:.95rem;
+    width:34px;height:34px;line-height:34px;text-align:center;border-radius:10px;margin-right:10px;vertical-align:middle}
+  h3{font-size:1.15rem;margin:26px 0 8px}
+  .lead{color:#4b5563;font-size:1.05rem}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:20px 22px;margin:16px 0;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin:18px 0}
+  .concept{background:var(--card);border:1px solid var(--line);border-top:4px solid var(--accent);
+    border-radius:12px;padding:16px 18px}
+  .concept h4{margin:0 0 6px;font-size:1.02rem}
+  .concept p{margin:0;font-size:.93rem;color:#4b5563}
+  .concept.blue{border-top-color:var(--blue)} .concept.amber{border-top-color:var(--amber)}
+  .concept.green{border-top-color:var(--green)} .concept.rose{border-top-color:var(--rose)}
+  pre{background:var(--code-bg);color:#e8eaf2;border-radius:12px;padding:18px 20px;
+    overflow-x:auto;font-size:.86rem;line-height:1.6;margin:14px 0;max-height:560px;overflow-y:auto}
+  code{font-family:"SF Mono",Consolas,"Courier New",monospace}
+  p code, li code, td code{background:#d9f2ec;padding:1px 7px;border-radius:6px;font-size:.88em;color:#0b4f4a}
+  pre code{background:none;padding:0;color:inherit}
+  .kw{color:#c792ea}.fn{color:#82aaff}.str{color:#c3e88d}.cm{color:#697098;font-style:italic}.num2{color:#f78c6c}
+  .diagram{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px 10px;margin:18px 0;text-align:center;overflow-x:auto}
+  .diagram svg{max-width:100%;height:auto}
+  .caption{font-size:.9rem;color:var(--muted);margin-top:10px;font-style:italic}
+  .flow{display:flex;align-items:stretch;gap:0;overflow-x:auto;padding:18px 6px;margin:14px 0}
+  .fstep{background:#fff;border:2px solid var(--line);border-radius:12px;padding:12px 14px;
+    min-width:140px;text-align:center;font-size:.88rem;flex-shrink:0}
+  .fstep b{display:block;margin-bottom:4px;font-size:.95rem}
+  .fstep small{color:var(--muted)}
+  .fstep.d{background:var(--blue-soft);border-color:var(--blue)}
+  .fstep.m{background:var(--accent-soft);border-color:var(--accent)}
+  .fstep.e{background:var(--amber-soft);border-color:var(--amber)}
+  .fstep.g{background:var(--green-soft);border-color:var(--green)}
+  .fstep.r{background:var(--rose-soft);border-color:var(--rose)}
+  .farrow{align-self:center;font-size:1.6rem;color:var(--muted);padding:0 6px;flex-shrink:0}
+  .analogy{background:#f0fdfa;border:1px solid #5eead4;border-left:6px solid var(--accent);
+    border-radius:10px;padding:16px 20px;margin:16px 0}
+  .analogy b{color:#0b4f4a}
+  .warn{background:#fff1f2;border:1px solid #fda4af;border-left:6px solid var(--rose);
+    border-radius:10px;padding:16px 20px;margin:16px 0}
+  .warn b{color:#9f1239}
+  .ok{background:#ecfdf5;border:1px solid #6ee7b7;border-left:6px solid var(--green);
+    border-radius:10px;padding:16px 20px;margin:16px 0}
+  table.mini{border-collapse:collapse;margin:14px auto;font-size:.9rem;min-width:70%}
+  table.mini th, table.mini td{border:1px solid var(--line);padding:8px 14px;text-align:center}
+  table.mini th{background:#d9f2ec}
+  table.mini td.num{font-family:monospace}
+  .demo{background:#fff;border:2px solid var(--accent);border-radius:16px;padding:24px;margin:18px 0}
+  .demo h3{margin-top:0}
+  .demo input[type=text]{width:100%;padding:10px 14px;font-size:1rem;border:2px solid var(--line);
+    border-radius:10px;margin:6px 0;font-family:inherit}
+  .demo input[type=text]:focus{outline:none;border-color:var(--accent)}
+  input[type=range]{width:100%;accent-color:var(--accent);margin:8px 0}
+  .seg{display:flex;gap:8px;margin:10px 0;flex-wrap:wrap}
+  .seg button{border:2px solid var(--line);background:#fff;border-radius:10px;
+    padding:8px 18px;font-size:1rem;cursor:pointer}
+  .seg button.active{border-color:var(--accent);background:var(--accent-soft);font-weight:700}
+  .big-out{background:var(--code-bg);color:#e8eaf2;border-radius:12px;padding:18px 20px;
+    font-family:monospace;font-size:1rem;margin-top:12px;line-height:2;word-break:break-word}
+  .chip{display:inline-block;background:#5eead4;color:#083f3b;border-radius:8px;
+    padding:2px 10px;margin:2px;font-weight:700;font-size:.95rem}
+  .chip.end{background:#4b5563;color:#d1d5db;font-weight:400}
+  .btn{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:10px 22px;
+    font-size:1rem;cursor:pointer;margin:10px 8px 0 0}
+  .btn:hover{background:#0b5f59}
+  .formula{text-align:center;font-size:1.2rem;background:#f0fdfa;border-radius:10px;
+    padding:16px;margin:14px 0;font-family:Georgia,serif}
+  .formula small{display:block;font-family:inherit;font-size:.85rem;color:var(--muted);margin-top:6px}
+  footer{padding:36px 0 60px;color:var(--muted);font-size:.9rem;text-align:center}
+  ul.tight li{margin-bottom:6px}
+  .bar-row{display:flex;align-items:center;gap:10px;margin:7px 0;font-size:.92rem}
+  .bar-row .lbl{width:120px;text-align:right;font-family:monospace;font-weight:700}
+  .bar-track{flex:1;background:#f1ede3;border-radius:6px;height:22px;overflow:hidden}
+  .bar-fill{height:100%;background:linear-gradient(90deg,#2dd4bf,#0f766e);border-radius:6px}
+  .bar-row .pct{width:70px;font-family:monospace;color:var(--muted)}
+  @media(max-width:600px){header.hero h1{font-size:1.6rem}body{font-size:15.5px}}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="tag">📄 Phân tích: day03/bpe.py</span>
+    <h1>Day 03 — Tự viết BPE<br>&amp; Đo Fertility</h1>
+    <p>Trước khi LLM "đọc" được chữ, phải có một bộ phận <b>cắt chữ thành mảnh</b> gọi là <b>tokenizer</b>. Day 3 bạn tự viết thuật toán <b>BPE</b> từ con số 0 bằng Python thuần — rồi dùng nó để đo một sự thật "đau ví": <b>cùng một ý, tiếng Việt tốn token gấp ~3 lần tiếng Anh</b>.</p>
+    <p style="font-size:.9rem;opacity:.8">Số liệu trong bài đều là kết quả chạy thật của <code>bpe.py</code>.</p>
+  </div>
+</header>
+
+<nav class="sticky"><div class="wrap">
+  <a href="#tong-quan">🍿 Tóm tắt 30 giây</a>
+  <a href="#bai1">🔤 Bài 1: byte ≠ ký tự</a>
+  <a href="#bai2">✂️ Bài 2: BPE từ scratch</a>
+  <a href="#bai3">🍰 Bài 3: Fertility</a>
+  <a href="#bay">🪤 Bẫy thường gặp</a>
+  <a href="#source">📜 Source code</a>
+</div></nav>
+
+<div class="wrap">
+
+<!-- ================= TỔNG QUAN ================= -->
+<section id="tong-quan">
+  <h2><span class="num">🍿</span>Tóm tắt 30 giây cho người ngoại đạo</h2>
+  <div class="grid">
+    <div class="concept blue"><h4>🔤 Bài 1 — byte ≠ ký tự</h4><p>Cùng là "1 ký tự" nhưng chữ <code>A</code> chỉ tốn 1 byte, chữ <code>ệ</code> tốn 3 byte, emoji tốn 4 byte. Tiếng Việt phải trả <b>"thuế byte"</b> ngay từ vạch xuất phát — trước khi tokenizer làm bất cứ gì.</p></div>
+    <div class="concept"><h4>✂️ Bài 2 — BPE từ scratch</h4><p>Thuật toán <b>Byte Pair Encoding</b>: đếm xem cặp ký tự nào đứng cạnh nhau nhiều nhất → <b>dán chúng thành 1 token</b> → đếm lại → lặp. Như tự học "từ viết tắt" từ văn bản.</p></div>
+    <div class="concept amber"><h4>🍰 Bài 3 — Đo fertility</h4><p><b>Fertility</b> = 1 từ bị chẻ thành mấy mảnh token. Tokenizer học từ tiếng Anh chẻ tiếng Việt vụn ra: <b>~3 token/âm tiết</b> so với ~1 token/từ tiếng Anh → trả tiền API đắt gấp 3.</p></div>
+  </div>
+  <div class="analogy"><b>🧭 Vị trí của Day 3 trong khóa học:</b> Day 1–2 bạn cho model "ăn" số (token) mà chưa hỏi số đó từ đâu ra. Day 3 trả lời: từ <b>tokenizer</b> — bộ phận cắt văn bản thành mảnh, đứng <b>trước cả model</b>. Tokenizer dở → model phải "nhai" nhiều mảnh vụn hơn cho cùng một ý. File này sẽ được dùng lại ở Ngày 6 (GPT-2).</div>
+</section>
+
+<!-- ================= BÀI 1 ================= -->
+<section id="bai1">
+  <h2><span class="num">🔤</span>Bài 1 — UTF-8: byte không phải là ký tự</h2>
+  <p class="lead">Máy tính lưu chữ dưới dạng <b>byte</b> theo chuẩn <b>UTF-8</b> — nhưng UTF-8 có <b>độ dài biến đổi</b>: ký tự càng "hiếm" càng tốn nhiều byte. Bài này cho bạn sờ tận tay sự thật đó.</p>
+
+  <div class="analogy"><b>📦 Ví dụ — Đóng gói hàng hóa:</b> Mỗi ký tự là một món hàng cần gửi đi. Chữ <code>A</code> nhỏ gọn → <b>phong bì 1 byte</b>. Chữ <code>é</code> → <b>hộp 2 byte</b>. Chữ <code>ệ</code> → <b>thùng 3 byte</b>. Emoji → <b>kiện hàng 4 byte</b>. "Thuế byte" của tiếng Việt: gửi cùng một câu, ta phải trả <b>tiền ship (byte) nhiều hơn</b> dù số món hàng (ký tự) ít hơn!</div>
+
+  <h3>Từ điển khái niệm</h3>
+  <div class="grid">
+    <div class="concept blue"><h4>🪪 Code point</h4><p>"Số căn cước" của ký tự trong bảng Unicode: <code>A</code> → U+0041, <code>ệ</code> → U+1EC7. Mỗi ký tự có một số duy nhất, không đổi.</p></div>
+    <div class="concept blue"><h4>📦 Byte UTF-8</h4><p>Cách <b>đóng gói</b> code point thành byte để lưu/truyền: 1 byte cho ASCII, 2–3 byte cho chữ có dấu, 4 byte cho emoji.</p></div>
+    <div class="concept amber"><h4>💸 "Thuế byte"</h4><p>Chi phí byte phải trả thêm cho tiếng Việt: mỗi chữ có dấu tốn 2–3 byte, trong khi tiếng Anh luôn 1 byte/ký tự.</p></div>
+  </div>
+
+  <h3>Sơ đồ: 1 ký tự = mấy byte?</h3>
+  <div class="diagram">
+    <svg width="680" viewBox="0 0 680 250" font-family="inherit">
+      <text x="340" y="22" text-anchor="middle" font-size="15" font-weight="700">Cùng là 1 ký tự, "giá byte" khác nhau</text>
+      <g font-size="14" text-anchor="middle" font-family="monospace">
+        <text x="70" y="72" font-size="22">A</text>
+        <text x="70" y="95" font-size="11" fill="#6b7280">U+0041</text>
+        <rect x="130" y="52" width="56" height="40" rx="6" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/><text x="158" y="78" font-weight="700">41</text>
+        <text x="230" y="78" font-size="13" fill="#047857" font-weight="700">1 byte</text>
+
+        <text x="70" y="132" font-size="22">é</text>
+        <text x="70" y="155" font-size="11" fill="#6b7280">U+00E9</text>
+        <rect x="130" y="112" width="56" height="40" rx="6" fill="#fef3c7" stroke="#b45309" stroke-width="2"/><text x="158" y="138" font-weight="700">C3</text>
+        <rect x="190" y="112" width="56" height="40" rx="6" fill="#fef3c7" stroke="#b45309" stroke-width="2"/><text x="218" y="138" font-weight="700">A9</text>
+        <text x="290" y="138" font-size="13" fill="#047857" font-weight="700">2 byte</text>
+
+        <text x="70" y="192" font-size="22">ệ</text>
+        <text x="70" y="215" font-size="11" fill="#6b7280">U+1EC7</text>
+        <rect x="130" y="172" width="56" height="40" rx="6" fill="#ffe4e6" stroke="#be123c" stroke-width="2"/><text x="158" y="198" font-weight="700">E1</text>
+        <rect x="190" y="172" width="56" height="40" rx="6" fill="#ffe4e6" stroke="#be123c" stroke-width="2"/><text x="218" y="198" font-weight="700">BB</text>
+        <rect x="250" y="172" width="56" height="40" rx="6" fill="#ffe4e6" stroke="#be123c" stroke-width="2"/><text x="278" y="198" font-weight="700">87</text>
+        <text x="350" y="198" font-size="13" fill="#047857" font-weight="700">3 byte</text>
+
+        <text x="420" y="78" font-size="22">🤖</text>
+        <text x="420" y="100" font-size="11" fill="#6b7280">U+1F916</text>
+        <rect x="470" y="58" width="46" height="36" rx="6" fill="#ede9fe" stroke="#6d28d9" stroke-width="2"/><text x="493" y="82" font-size="12" font-weight="700">F0</text>
+        <rect x="520" y="58" width="46" height="36" rx="6" fill="#ede9fe" stroke="#6d28d9" stroke-width="2"/><text x="543" y="82" font-size="12" font-weight="700">9F</text>
+        <rect x="570" y="58" width="46" height="36" rx="6" fill="#ede9fe" stroke="#6d28d9" stroke-width="2"/><text x="593" y="82" font-size="12" font-weight="700">A4</text>
+        <rect x="620" y="58" width="46" height="36" rx="6" fill="#ede9fe" stroke="#6d28d9" stroke-width="2"/><text x="643" y="82" font-size="12" font-weight="700">96</text>
+        <text x="568" y="115" font-size="13" fill="#047857" font-weight="700">4 byte</text>
+      </g>
+    </svg>
+    <p class="caption">Kết quả chạy thật từ <code>byte_info()</code>. Mỗi ô là 1 byte (viết dạng hex).</p>
+  </div>
+
+  <h3>"Thuế byte": cùng 5 từ, ai tốn hơn?</h3>
+  <table class="mini">
+    <tr><th>câu (cùng ý nghĩa, 5 từ)</th><th>số ký tự</th><th>số byte</th></tr>
+    <tr><td><code>i love artificial intelligence</code></td><td class="num">30</td><td class="num">30</td></tr>
+    <tr><td><code>tôi yêu trí tuệ nhân tạo</code></td><td class="num">24 ⬇ ít hơn</td><td class="num">32 ⬆ nhiều hơn</td></tr>
+  </table>
+  <div class="ok"><b>💡 Nghịch lý:</b> câu tiếng Việt <b>ít ký tự hơn</b> (24 &lt; 30) nhưng lại <b>nhiều byte hơn</b> (32 &gt; 30) — vì mỗi chữ có dấu "ăn" 2–3 byte. Đây là chi phí phải trả ngay ở tầng byte, trước khi tokenizer làm bất cứ việc gì.</div>
+
+  <div class="demo">
+    <h3>🔬 Thử ngay: "soi" byte của bất kỳ ký tự nào</h3>
+    <p style="margin-top:0">Gõ một ký tự vào ô dưới (thử <code>ệ</code>, <code>ơ</code>, <code>😀</code>):</p>
+    <input type="text" id="byteInput" value="ệ" maxlength="8">
+    <div class="big-out" id="byteOut"></div>
+  </div>
+</section>
+
+<!-- ================= BÀI 2 ================= -->
+<section id="bai2">
+  <h2><span class="num">✂️</span>Bài 2 — Viết BPE từ scratch</h2>
+  <p class="lead"><b>BPE (Byte Pair Encoding)</b> là thuật toán đứng sau tokenizer của GPT: học cách "cắt chữ thành mảnh" bằng cách <b>đếm cặp đôi</b>. Bài này bạn viết lại nó từ con số 0 bằng Python thuần, trên corpus tí hon <code>"low low lower"</code>.</p>
+
+  <div class="analogy"><b>📝 Ví dụ — Tự học "từ viết tắt":</b> Tưởng tượng bạn làm biên tập viên, đọc một cuốn sách và nhận ra cụm <i>"không những... mà còn"</i> xuất hiện hàng trăm lần. Bạn quyết định tạo từ viết tắt <i>"knmc"</i> cho nó. Đọc tiếp, thấy <i>"knmc"</i> hay đi với <i>"rất"</i> → tạo tiếp <i>"knmcr"</i>. BPE làm đúng như vậy với ký tự: <b>cặp nào đứng cạnh nhau nhiều nhất → dán thành 1 token</b> → đếm lại từ đầu → lặp.</div>
+
+  <h3>Từ điển khái niệm</h3>
+  <div class="grid">
+    <div class="concept"><h4>🧩 Token</h4><p>Một "mảnh" văn bản sau khi cắt: có thể là 1 ký tự (<code>e</code>), 1 cụm (<code>low</code>), hay cả từ. Model chỉ "nhìn" được token, không nhìn được chữ.</p></div>
+    <div class="concept"><h4>🔗 Merge</h4><p>Một lần "dán" cặp token kề nhau thành token mới, ví dụ <code>(l,o) → "lo"</code>. Danh sách merges theo <b>thứ tự học được</b> chính là "bí kíp cắt chữ".</p></div>
+    <div class="concept amber"><h4>🚧 END (<code>&lt;/w&gt;</code>)</h4><p>"Hàng rào" cuối từ. Không có nó, cặp <code>(w,l)</code> cuối từ này + đầu từ kia sẽ bị gộp thành token lai vô nghĩa <code>"wl"</code> tràn qua ranh giới từ.</p></div>
+    <div class="concept green"><h4>🍰 Fertility</h4><p>Số token trung bình cho 1 từ. Fertility cao = văn bản bị chẻ vụn = tốn tiền (API tính theo token) + tốn context.</p></div>
+  </div>
+
+  <h3>Sơ đồ: 4 hàm core + 1 hàm dùng</h3>
+  <div class="card" style="overflow-x:auto">
+    <div class="flow">
+      <div class="fstep d"><b>to_vocab</b><small>từ → tuple ký tự + END</small></div><div class="farrow">→</div>
+      <div class="fstep e"><b>get_stats</b><small>đếm cặp kề nhau</small></div><div class="farrow">→</div>
+      <div class="fstep m"><b>merge_vocab</b><small>gộp cặp hot nhất</small></div><div class="farrow">↺</div>
+      <div class="fstep g"><b>train_bpe</b><small>lặp N vòng, lưu merges</small></div><div class="farrow">→</div>
+      <div class="fstep" style="background:var(--blue-soft);border-color:var(--blue)"><b>encode</b><small>cắt từ mới bằng merges</small></div>
+    </div>
+    <p class="caption">Đọc code theo đúng thứ tự này: hàm sau dùng hàm trước.</p>
+  </div>
+
+  <h3>Bước A — to_vocab: chẻ từ thành ký tự</h3>
+<pre><code><span class="cm"># "low low lower" -> [('l','o','w','&lt;/w&gt;'), ('l','o','w','&lt;/w&gt;'), ('l','o','w','e','r','&lt;/w&gt;')]</span>
+<span class="kw">def</span> <span class="fn">to_vocab</span>(corpus):
+    <span class="kw">return</span> [tuple(word) + (END,) <span class="kw">for</span> word <span class="kw">in</span> corpus.<span class="fn">split</span>()]</code></pre>
+  <div class="ok"><b>💡 2 điểm tinh tế:</b> (1) Từ <code>"low"</code> lặp 2 lần → vocab có 2 tuple giống hệt nhau — <b>tần suất lặp lại này quan trọng</b> vì BPE đếm cặp trên toàn vocab, từ càng phổ biến càng "cộng điểm" nhiều cho cặp của nó. (2) Dùng <code>tuple</code> (bất biến) thay vì list để không sợ bị sửa nhầm giữa chừng.</div>
+
+  <h3>Bước B — get_stats: đếm cặp kề nhau</h3>
+  <p>Quét từng từ, đếm mỗi cặp token đứng cạnh nhau. Với <code>"low low lower"</code>:</p>
+  <div class="diagram">
+    <div style="max-width:520px;margin:0 auto;text-align:left">
+      <div class="bar-row"><div class="lbl">(l, o)</div><div class="bar-track"><div class="bar-fill" style="width:100%"></div></div><div class="pct">3 ⭐</div></div>
+      <div class="bar-row"><div class="lbl">(o, w)</div><div class="bar-track"><div class="bar-fill" style="width:100%"></div></div><div class="pct">3 ⭐</div></div>
+      <div class="bar-row"><div class="lbl">(w, &lt;/w&gt;)</div><div class="bar-track"><div class="bar-fill" style="width:66%"></div></div><div class="pct">2</div></div>
+      <div class="bar-row"><div class="lbl">(w, e)</div><div class="bar-track"><div class="bar-fill" style="width:33%"></div></div><div class="pct">1</div></div>
+      <div class="bar-row"><div class="lbl">(e, r)</div><div class="bar-track"><div class="bar-fill" style="width:33%"></div></div><div class="pct">1</div></div>
+      <div class="bar-row"><div class="lbl">(r, &lt;/w&gt;)</div><div class="bar-track"><div class="bar-fill" style="width:33%"></div></div><div class="pct">1</div></div>
+    </div>
+    <p class="caption">Kết quả chạy thật. Hai cặp đầu <b>hòa 3–3</b> — merge đầu tiên chọn <code>(l,o)</code> nhờ luật "ai vào dict trước thắng" (xem Bẫy 1).</p>
+  </div>
+
+  <h3>Bước C — merge_vocab: dán cặp hot nhất (không chồng lấn)</h3>
+  <div class="diagram">
+    <svg width="680" viewBox="0 0 680 210" font-family="inherit">
+      <text x="340" y="22" text-anchor="middle" font-size="15" font-weight="700">Trace tay: gộp cặp ('l','o') trong từ ('l','o','w','&lt;/w&gt;')</text>
+      <g font-size="15" text-anchor="middle" font-family="monospace">
+        <rect x="120" y="55" width="52" height="52" rx="8" fill="#fef3c7" stroke="#b45309" stroke-width="3"/><text x="146" y="89" font-weight="700">l</text>
+        <rect x="180" y="55" width="52" height="52" rx="8" fill="#fef3c7" stroke="#b45309" stroke-width="3"/><text x="206" y="89" font-weight="700">o</text>
+        <rect x="240" y="55" width="52" height="52" rx="8" fill="#f3f0e8" stroke="#a8a29e"/><text x="266" y="89">w</text>
+        <rect x="300" y="55" width="72" height="52" rx="8" fill="#f3f0e8" stroke="#a8a29e"/><text x="336" y="89" font-size="12">&lt;/w&gt;</text>
+      </g>
+      <text x="246" y="135" text-anchor="middle" font-size="13" fill="#b45309" font-weight="700">khớp → dán thành "lo", NHẢY 2 BƯỚC</text>
+      <text x="340" y="162" text-anchor="middle" font-size="26">⬇</text>
+      <g font-size="15" text-anchor="middle" font-family="monospace">
+        <rect x="170" y="172" width="60" height="40" rx="8" fill="#d1fae5" stroke="#047857" stroke-width="2.5"/><text x="200" y="199" font-weight="700">lo</text>
+        <rect x="240" y="172" width="52" height="40" rx="8" fill="#f3f0e8" stroke="#a8a29e"/><text x="266" y="199">w</text>
+        <rect x="300" y="172" width="72" height="40" rx="8" fill="#f3f0e8" stroke="#a8a29e"/><text x="336" y="199" font-size="12">&lt;/w&gt;</text>
+      </g>
+      <text x="480" y="80" font-size="12" fill="#6b7280">"Nhảy 2 bước" để 2 token</text>
+      <text x="480" y="100" font-size="12" fill="#6b7280">vừa dán không bị gộp</text>
+      <text x="480" y="120" font-size="12" fill="#6b7280">tiếp ngay trong lượt này.</text>
+      <text x="480" y="150" font-size="12" fill="#6b7280">Token "lo" phải đợi đến</text>
+      <text x="480" y="170" font-size="12" fill="#6b7280">lượt merge sau mới được</text>
+      <text x="480" y="190" font-size="12" fill="#6b7280">gộp tiếp (→ "low").</text>
+    </svg>
+  </div>
+
+  <h3>Vòng lặp train: đếm → gộp → đếm lại</h3>
+  <div class="card" style="overflow-x:auto">
+    <div class="flow">
+      <div class="fstep e"><b>đếm cặp</b><small>get_stats</small></div><div class="farrow">→</div>
+      <div class="fstep m"><b>chọn max</b><small>cặp hot nhất</small></div><div class="farrow">→</div>
+      <div class="fstep m"><b>gộp khắp vocab</b><small>merge_vocab</small></div><div class="farrow">→</div>
+      <div class="fstep g"><b>lưu vào merges</b><small>giữ đúng thứ tự!</small></div><div class="farrow">↺</div>
+    </div>
+    <p class="caption">Mỗi vòng chỉ gộp <b>đúng 1 cặp</b> — cặp hot nhất <i>tại thời điểm hiện tại</i> (vocab đã bị biến đổi bởi các merge trước).</p>
+  </div>
+  <p>Kết quả chạy thật trên <code>"low low lower"</code> (dừng sau 6 vòng vì hết cặp để gộp):</p>
+  <table class="mini">
+    <tr><th>vòng</th><th>merge</th><th>từ "low" còn lại</th></tr>
+    <tr><td class="num">1</td><td><code>(l,o)</code></td><td class="num">('lo','w','&lt;/w&gt;')</td></tr>
+    <tr><td class="num">2</td><td><code>(lo,w)</code></td><td class="num">('low','&lt;/w&gt;') ← 1 token nội dung!</td></tr>
+    <tr><td class="num">3</td><td><code>(low,&lt;/w&gt;)</code></td><td class="num">('low&lt;/w&gt;',)</td></tr>
+    <tr><td class="num">4–6</td><td><code>(low,e)</code> → <code>(lowe,r)</code> → <code>(lower,&lt;/w&gt;)</code></td><td class="num">…</td></tr>
+  </table>
+
+  <h3>Bước D — encode: cắt từ mới bằng "bí kíp" đã học</h3>
+  <div class="diagram">
+    <svg width="680" viewBox="0 0 680 240" font-family="inherit">
+      <text x="340" y="22" text-anchor="middle" font-size="15" font-weight="700">encode("lowest") với 2 merge đầu: từ lạ bị "chẻ" thành mảnh quen</text>
+      <text x="340" y="52" text-anchor="middle" font-size="14" font-family="monospace">('l','o','w','e','s','t','&lt;/w&gt;') <tspan font-size="11" fill="#6b7280">← nhớ +END như lúc train!</tspan></text>
+      <text x="340" y="82" text-anchor="middle" font-size="26">⬇ <tspan font-size="12">merge ('l','o')</tspan></text>
+      <text x="340" y="112" text-anchor="middle" font-size="14" font-family="monospace">('<tspan fill="#047857" font-weight="700">lo</tspan>','w','e','s','t','&lt;/w&gt;')</text>
+      <text x="340" y="142" text-anchor="middle" font-size="26">⬇ <tspan font-size="12">merge ('lo','w')</tspan></text>
+      <g font-size="14" text-anchor="middle" font-family="monospace">
+        <rect x="180" y="160" width="60" height="44" rx="8" fill="#d1fae5" stroke="#047857" stroke-width="2.5"/><text x="210" y="189" font-weight="700">low</text>
+        <rect x="248" y="160" width="52" height="44" rx="8" fill="#fef3c7" stroke="#b45309" stroke-width="2"/><text x="274" y="189">e</text>
+        <rect x="308" y="160" width="52" height="44" rx="8" fill="#fef3c7" stroke="#b45309" stroke-width="2"/><text x="334" y="189">s</text>
+        <rect x="368" y="160" width="52" height="44" rx="8" fill="#fef3c7" stroke="#b45309" stroke-width="2"/><text x="394" y="189">t</text>
+        <rect x="428" y="160" width="70" height="44" rx="8" fill="#f3f0e8" stroke="#a8a29e"/><text x="463" y="189" font-size="12">&lt;/w&gt;</text>
+      </g>
+      <text x="340" y="228" text-anchor="middle" font-size="12" fill="#6b7280">"lowest" chưa từng gặp → vẫn cắt được nhờ mảnh quen "low" (khác word-level: gặp từ lạ chỉ biết đánh dấu &lt;unk&gt;)</text>
+    </svg>
+  </div>
+
+  <div class="demo">
+    <h3>🔬 Thử ngay: phòng thí nghiệm BPE mini</h3>
+    <p style="margin-top:0">Corpus <code>"low low lower"</code>. Kéo thanh merge, xem vocab biến đổi và tự encode thử từ mới:</p>
+    <label><b>Số merge đã áp dụng: <span id="mVal">0</span> / 6</b></label>
+    <input type="range" id="mSlider" min="0" max="6" step="1" value="0">
+    <div class="big-out" id="bpeOut"></div>
+    <p style="margin:10px 0 4px"><b>Encode thử từ mới</b> (với số merge hiện tại):</p>
+    <input type="text" id="encInput" value="lowest" maxlength="20">
+    <div class="big-out" id="encOut"></div>
+  </div>
+</section>
+
+<!-- ================= BÀI 3 ================= -->
+<section id="bai3">
+  <h2><span class="num">🍰</span>Bài 3 — Đo fertility: tiếng Việt vs tiếng Anh</h2>
+  <p class="lead">Train BPE trên 12 câu tiếng Anh (200 merge), rồi đo <b>fertility</b> trên câu tiếng Việt và tiếng Anh. Fertility càng cao → văn bản càng bị chẻ vụn → càng tốn token.</p>
+  <div class="formula">fertility = số token / số từ <small>mỗi "từ" (cách nhau bởi dấu cách) được encode riêng; token <code>&lt;/w&gt;</code> đơn lẻ không tính là nội dung</small></div>
+
+  <div class="analogy"><b>🍰 Ví dụ — Cắt bánh:</b> Cùng một chiếc bánh (một ý), tiệm Anh cắt thành <b>1 miếng lớn</b>/từ, tiệm Việt cắt thành <b>3 miếng vụn</b>/âm tiết. API tính tiền theo <b>miếng</b> (token), không theo bánh → người Việt trả đắt gấp 3 cho cùng một lượng ý tưởng. Chưa kể "hộp" (context window) đựng được ít bánh hơn.</div>
+
+  <h3>Sơ đồ: cùng 1 ý, độ vụn khác nhau (199 merges)</h3>
+  <div class="diagram">
+    <div style="text-align:left;max-width:640px;margin:0 auto">
+      <p style="margin:6px 0"><b>EN:</b> <code>ai models learn from data</code> → fertility <b>1.00</b></p>
+      <div style="margin-bottom:14px">
+        <span class="chip">ai&lt;/w&gt;</span> <span class="chip">models&lt;/w&gt;</span> <span class="chip">learn&lt;/w&gt;</span> <span class="chip">from&lt;/w&gt;</span> <span class="chip">data&lt;/w&gt;</span>
+      </div>
+      <p style="margin:6px 0"><b>VI:</b> <code>mô hình ai học dữ liệu</code> → fertility <b>2.83</b></p>
+      <div>
+        <span style="font-weight:700">mô→</span> <span class="chip">m</span><span class="chip">ô</span>
+        <span style="font-weight:700;margin-left:8px">hình→</span> <span class="chip">h</span><span class="chip">ì</span><span class="chip">n</span><span class="chip">h</span><br>
+        <span style="font-weight:700">ai→</span> <span class="chip">ai&lt;/w&gt;</span>
+        <span style="font-weight:700;margin-left:8px">học→</span> <span class="chip">h</span><span class="chip">ọ</span><span class="chip">c</span>
+        <span style="font-weight:700;margin-left:8px">dữ→</span> <span class="chip">d</span><span class="chip">ữ</span>
+        <span style="font-weight:700;margin-left:8px">liệu→</span> <span class="chip">l</span><span class="chip">i</span><span class="chip">ệ</span><span class="chip">u</span>
+      </div>
+    </div>
+    <p class="caption">Kết quả encode thật. Tokenizer "giỏi tiếng Anh" nên mỗi từ Anh = 1 token; tiếng Việt bị chẻ tới từng ký tự.</p>
+  </div>
+
+  <h3>Bảng fertility chi tiết (30 merges)</h3>
+  <table class="mini">
+    <tr><th>câu</th><th>token/từ</th><th>fertility</th></tr>
+    <tr><td><code>ai models learn from data</code></td><td class="num">12/5</td><td class="num">2.40</td></tr>
+    <tr><td><code>neural networks predict the next token</code></td><td class="num">25/6</td><td class="num">4.17</td></tr>
+    <tr><td><code>training a model needs time and energy</code></td><td class="num">20/7</td><td class="num">2.86</td></tr>
+    <tr><td><code>language models can write code</code></td><td class="num">18/5</td><td class="num">3.60</td></tr>
+    <tr><td><code>the future of ai is bright</code></td><td class="num">17/6</td><td class="num">2.83</td></tr>
+    <tr><td><code>mô hình ai học dữ liệu</code></td><td class="num">17/6</td><td class="num">2.83</td></tr>
+    <tr><td><code>mạng nơ ron đoán token tiếp</code></td><td class="num">19/6</td><td class="num">3.17</td></tr>
+    <tr><td><code>huấn luyện mô hình cần thời gian</code></td><td class="num">24/7</td><td class="num">3.43</td></tr>
+    <tr><td><code>mô hình ngôn ngữ viết được code</code></td><td class="num">24/7</td><td class="num">3.43</td></tr>
+    <tr><td><code>tương lai của ai rất sáng</code></td><td class="num">20/6</td><td class="num">3.33</td></tr>
+  </table>
+  <p class="caption" style="text-align:center">Trung bình EN <b>3.17</b> — VI <b>3.24</b> → tỉ lệ <b>1.0x</b>: tokenizer tí hon nên tiếng Anh <i>cũng</i> kém, khoảng cách chưa lộ.</p>
+
+  <h3>Thí nghiệm: tăng merge → khoảng cách lộ dần</h3>
+  <div class="diagram">
+    <svg width="680" viewBox="0 0 680 300" font-family="inherit">
+      <text x="340" y="22" text-anchor="middle" font-size="15" font-weight="700">Fertility trung bình theo số merge (số liệu chạy thật)</text>
+      <line x1="80" y1="250" x2="620" y2="250" stroke="#9ca3af" stroke-width="2"/>
+      <line x1="80" y1="250" x2="80" y2="50" stroke="#9ca3af" stroke-width="2"/>
+      <text x="70" y="255" text-anchor="end" font-size="11" fill="#6b7280">0</text>
+      <text x="70" y="190" text-anchor="end" font-size="11" fill="#6b7280">1</text>
+      <text x="70" y="125" text-anchor="end" font-size="11" fill="#6b7280">2</text>
+      <text x="70" y="60" text-anchor="end" font-size="11" fill="#6b7280">3</text>
+      <text x="70" y="40" text-anchor="end" font-size="11" fill="#6b7280">4</text>
+      <g font-size="12" text-anchor="middle" fill="#6b7280">
+        <text x="180" y="270">30 merges</text><text x="380" y="270">100 merges</text><text x="560" y="270">199 merges</text>
+      </g>
+      <polyline points="180,113 380,166 560,250" fill="none" stroke="#2563eb" stroke-width="3.5"/>
+      <polyline points="180,107 380,120 560,123" fill="none" stroke="#be123c" stroke-width="3.5" stroke-dasharray="9,5"/>
+      <g font-size="13" text-anchor="middle" font-family="monospace" font-weight="700">
+        <circle cx="180" cy="113" r="6" fill="#2563eb"/><text x="180" y="100" fill="#2563eb">3.17</text>
+        <circle cx="380" cy="166" r="6" fill="#2563eb"/><text x="380" y="153" fill="#2563eb">2.15</text>
+        <circle cx="560" cy="250" r="6" fill="#2563eb"/><text x="560" y="238" fill="#2563eb">1.00</text>
+        <circle cx="180" cy="107" r="6" fill="#be123c"/><text x="180" y="92" fill="#be123c">3.24</text>
+        <circle cx="380" cy="120" r="6" fill="#be123c"/><text x="380" y="107" fill="#be123c">3.04</text>
+        <circle cx="560" cy="123" r="6" fill="#be123c"/><text x="560" y="110" fill="#be123c">2.98</text>
+      </g>
+      <g font-size="12">
+        <rect x="560" y="30" width="90" height="24" rx="6" fill="#2563eb"/><text x="605" y="47" text-anchor="middle" fill="#fff">EN</text>
+      </g>
+      <text x="330" y="47" font-size="12" fill="#be123c" font-weight="700">- - VI</text>
+      <g font-size="12" text-anchor="middle" font-weight="700">
+        <text x="280" y="140" fill="#6b7280">tỉ lệ VI/EN: 1.0x → 1.4x → 3.0x</text>
+      </g>
+    </svg>
+    <p class="caption">Tokenizer càng "giỏi tiếng Anh" (nhiều merge), tiếng Anh càng tiến về ~1 token/từ, còn tiếng Việt dậm chân ~3 token/âm tiết → khoảng cách hiện rõ.</p>
+  </div>
+
+  <div class="ok"><b>💡 Hai hệ quả thực tế:</b><br>
+  (a) <b>Tiền:</b> trả API theo token → user Việt trả <b>đắt gấp ~3 lần</b> cho cùng lượng ý tưởng.<br>
+  (b) <b>Context:</b> cửa sổ ngữ cảnh "nhìn" được <b>ít ý tưởng tiếng Việt hơn</b> vì token bị chẻ vụn — lý do phải đo fertility trước khi chọn tokenizer cho sản phẩm tiếng Việt.</div>
+
+  <div class="warn"><b>⚠️ Chi tiết tinh tế:</b> tiếng Việt viết cách nhau theo <b>âm tiết</b> ("mô hình" = 2 đơn vị khi split), không phải theo từ. Nên con số trên là fertility <b>trên âm tiết</b> — tính trên <b>từ thật</b> thì tiếng Việt còn cao hơn nữa!</div>
+
+  <div class="demo">
+    <h3>🔬 Thử ngay: đo fertility câu của bạn</h3>
+    <p style="margin-top:0">Tokenizer thật (199 merges học từ corpus tiếng Anh) chạy ngay trên trình duyệt. Gõ câu tiếng Việt / tiếng Anh rồi bấm Đo:</p>
+    <label>Câu tiếng Anh:</label>
+    <input type="text" id="fEn" value="ai models learn from data" maxlength="80">
+    <label>Câu tiếng Việt:</label>
+    <input type="text" id="fVi" value="mô hình ai học dữ liệu" maxlength="80">
+    <label>Số merge dùng: <b><span id="fMVal">199</span></b></label>
+    <div class="seg" id="fMSeg">
+      <button data-m="30">30</button>
+      <button data-m="100">100</button>
+      <button data-m="199" class="active">199</button>
+    </div>
+    <button class="btn" id="fGo">📏 Đo fertility</button>
+    <div class="big-out" id="fOut">Bấm nút để đo…</div>
+  </div>
+</section>
+
+<!-- ================= BẪY ================= -->
+<section id="bay">
+  <h2><span class="num">🪤</span>Bẫy thường gặp</h2>
+  <div class="grid">
+    <div class="concept rose"><h4>1. Hòa điểm → ai thắng?</h4><p><code>(l,o)</code> và <code>(o,w)</code> cùng 3 điểm → <code>max()</code> chọn cái <b>gặp trước</b> trong dict. Hai người chạy có thể ra 2 dãy merge khác nhau mà đều "đúng" — thư viện thật dùng tie-break để ổn định.</p></div>
+    <div class="concept rose"><h4>2. Quên <code>+END</code> khi encode</h4><p>Train có <code>&lt;/w&gt;</code> mà encode không thêm → mọi merge chứa END <b>không bao giờ khớp</b>. Encode phải tiền xử lý <b>giống hệt</b> lúc train.</p></div>
+    <div class="concept amber"><h4>3. Code merge theo ký tự, BPE thật theo byte</h4><p>Bản này merge theo <b>ký tự</b> cho dễ nhìn. BPE thật (GPT) merge theo <b>byte</b> với vocab cơ sở 256 byte → <b>không bao giờ bó tay</b> trước ký tự lạ: cùng lắm chẻ về byte.</p></div>
+    <div class="concept amber"><h4>4. Câu rỗng → chia cho 0</h4><p><code>"".split()</code> ra list rỗng → fertility chia cho 0 → crash. Code đã có guard trả về 0 thay vì crash.</p></div>
+    <div class="concept"><h4>5. Encode chậm dần theo số merge</h4><p>Mỗi <code>encode()</code> quét lại <b>toàn bộ</b> dãy merges: O(M×T). Corpus tí hon thì không sao; tokenizer thật khắc phục bằng <b>cache</b> hoặc biên dịch merges thành trie.</p></div>
+    <div class="concept green"><h4>6. Mẹo train 1 lần, dùng nhiều lần</h4><p>BPE có tính <b>prefix-consistent</b>: 30 merge đầu của lần train 200 <b>trùng khít</b> lần train riêng 30 merge → chỉ cần train 1 lần rồi cắt lát <code>merges[:n]</code>, tiết kiệm ~2/3 thời gian.</p></div>
+  </div>
+</section>
+
+<!-- ================= SOURCE CODE ================= -->
+<section id="source">
+  <h2><span class="num">📜</span>Toàn bộ source code</h2>
+  <p class="lead">File <code>day03/bpe.py</code> — tô màu tự động, bấm nút để copy. Đặt cạnh các sơ đồ phía trên để vừa nhìn hình vừa đối chiếu code.</p>
+  <button class="btn" id="copySrcBtn">📋 Copy toàn bộ code</button>
+  <span id="copyMsg" style="margin-left:12px;color:var(--green);font-weight:700"></span>
+  <pre class="pysrc" id="fullsrc"><code>#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Day 03 - Buoi toi: TU VIET BPE &amp; DO FERTILITY
+=============================================
+Muc dich:
+    Bai 1: Cam nhan bang tay rang byte != ky tu (UTF-8).
+    Bai 2: Viet thuat toan BPE (Byte Pair Encoding) tu scratch bang Python
+           thuan - khong dung thu vien - tren corpus ti hon "low low lower",
+           tai hien dung 2 merge dau: (l,o) roi (lo,w).
+    Bai 3: Train BPE tren corpus tieng Anh nho tu viet, roi do
+           fertility (so token / so tu) tren cau tieng Viet vs tieng Anh,
+           kem thi nghiem them: khoang cach Viet-Anh thay doi ra sao khi
+           tang so merge (30 -&gt; 200).
+
+Cach chay:
+    python bpe.py
+    # Ky vong: in byte_info, 2 merge dau (l,o) -&gt; (lo,w),
+    #         encode("lowest", merges[:2]) -&gt; ('low','e','s','t','&lt;/w&gt;'),
+    #         bang fertility Viet vs Anh + bang ti le theo so merge
+    #         (merge cang nhieu, tieng Viet cang ton gap ~3x tieng Anh).
+
+Giu lai file nay - tuan sau (Ngay 6, GPT-2) se quay lai dung no.
+
+Cach doc file (roadmap cho nguoi moi):
+    1. bai1(): UTF-8 - tai sao byte != ky tu, va "thue byte" tieng Viet phai tra.
+    2. to_vocab() -&gt; get_stats() -&gt; merge_vocab() -&gt; train_bpe(): 4 ham core
+       cua BPE, doc theo dung thu tu nay vi ham sau dung ham truoc.
+    3. encode(): dung day merges da hoc de tach 1 tu moi (ke ca tu chua gap).
+    4. bai2(): chay thu BPE tren corpus "low low lower" (co assert tu kiem tra).
+    5. bai3(): do fertility Viet vs Anh + thi nghiem tang so merge.
+"""
+
+# [TRAINER] 2026-10-13: bo sung comment chi tiet toan file theo yeu cau user.
+# Tat ca comment giai thich them trong dot nay deu nham muc dich "de hieu"
+# (vi du trace tay tung buoc) - logic code giu nguyen 100%, khong doi hanh vi.
+# Chi tiet them gi o tung ham xem bao cao truoc/sau trong chat.
+
+# ---------------------------------------------------------------------------
+# BAI 1 - So tan tay UTF-8: byte != ky tu
+# ---------------------------------------------------------------------------
+def byte_info(ch):
+    """In code point (dang U+xxxx) va day byte UTF-8 (dang hex) cua 1 ky tu.
+
+    - ord(ch): code point - "so can cuoc" cua ky tu trong bang Unicode.
+      Vi du: 'A' -&gt; 65 (U+0041), 'ệ' -&gt; 7879 (U+1EC7).
+    - ch.encode("utf-8"): ma hoa ky tu thanh DAY BYTE theo chuan UTF-8.
+      UTF-8 la bien do dai: ky tu ASCII can 1 byte, Latin mo rong 2 byte,
+      chu Viet co dau thuong 3 byte, emoji 4 byte.
+    """
+    cp = ord(ch)
+    bs = ch.encode("utf-8")
+    # f"{b:02X}": dinh dang 1 byte thanh 2 ky tu HEX in hoa.
+    #   02 = luon du 2 ky tu, thieu thi them so 0 o truoc (vd byte 10 -&gt; "0A").
+    #   X  = he co so 16, chu in hoa (vd byte 225 -&gt; "E1").
+    # Vi du: 'ệ' -&gt; 3 byte E1 BB 87 (kiem tra: neu may ban in ra khac 3 byte
+    # nay thi file dang luu sai encoding, xem ghi chu o bai1).
+    hexs = " ".join(f"{b:02X}" for b in bs)
+    print(f"  {ch!r}: U+{cp:04X}, {len(bs)} byte -&gt; {hexs}")
+
+
+def byte_ratio(s):
+    """Tra ve cap (so ky tu, so byte) cua chuoi s.
+
+    LUU Y: len(s) dem theo KY TU Python (code point), con
+    len(s.encode("utf-8")) dem theo BYTE. Voi tieng Anh 2 con so bang nhau;
+    voi tieng Viet, byte nhieu hon ky tu vi chu co dau ton 2-3 byte/ky tu -
+    do la "thue byte" tieng Viet phai tra TRUOC KHI tokenizer lam bat cu
+    viec gi.
+    """
+    return len(s), len(s.encode("utf-8"))
+
+
+def bai1():
+    print("=" * 64)
+    print("Bai 1 - UTF-8: byte != ky tu")
+    print("=" * 64)
+    print("Code point va byte UTF-8 cua tung ky tu:")
+    # Chon 4 dai dien cho 4 "co" byte cua UTF-8: 1 byte (ASCII), 2 byte
+    # (Latin mo rong), 3 byte (Viet co dau), 4 byte (emoji). Khi doc output,
+    # de y cot "so byte" - do chinh la trong tam cua bai nay: cung la 1 ky tu
+    # nhung "gia byte" khac nhau, va tieng Viet toan phai tra gia 2-3 byte.
+    for ch in ["A", "é", "ệ", "🤖"]:
+        byte_info(ch)
+    print("  (Ky vong: 1 / 2 / 3 / 4 byte. Neu 'ệ' khong ra E1 BB 87 thi file\n"
+          "   dang luu sai encoding - kiem tra editor luu UTF-8.)")
+
+    en = "i love artificial intelligence"
+    vi = "tôi yêu trí tuệ nhân tạo"
+    en_chars, en_bytes = byte_ratio(en)
+    vi_chars, vi_bytes = byte_ratio(vi)
+    print("\n'Thue byte' - cung y nghia, cung 5 tu:")
+    print(f"  EN: {en_chars} ky tu, {en_bytes} byte")
+    print(f"  VI: {vi_chars} ky tu, {vi_bytes} byte")
+    print(f"  =&gt; Cau tieng Viet IT KY TU HON ({vi_chars} &lt; {en_chars}) nhung lai "
+          f"NHIEU BYTE HON ({vi_bytes} &gt; {en_bytes}):")
+    print( "     moi chu co dau 'e, o, a...' ton 2-3 byte. Day la 'thue' phai tra")
+    print( "     ngay tu muc byte, truoc khi tokenizer lam bat cu viec gi.")
+
+
+# ---------------------------------------------------------------------------
+# BAI 2 - Viet BPE tu scratch
+# ---------------------------------------------------------------------------
+# Ky tu ket thuc tu: "hang rao" de merge khong "tran" qua ranh gioi tu.
+# (Xem cau tu kiem tra 1.)
+END = "&lt;/w&gt;"
+
+
+def to_vocab(corpus):
+    """Bien corpus thanh vocab: moi tu -&gt; tuple cac ky tu + END o cuoi.
+
+    Vi du: "low" -&gt; ('l', 'o', 'w', '&lt;/w&gt;').
+    Tai sao them END? De cap (w, l) cuoi tu nay + dau tu kia khong bao gio
+    duoc dem/merge thanh token lai vo nghia nhu 'wl'.
+    """
+    # Vi du chay tung buoc voi corpus "low low lower":
+    #   corpus.split() -&gt; ["low", "low", "lower"]        (tach theo khoang trang)
+    #   "low" -&gt; tuple("low") = ('l','o','w') -&gt; them END -&gt; ('l','o','w','&lt;/w&gt;')
+    # Ket qua: [('l','o','w','&lt;/w&gt;'), ('l','o','w','&lt;/w&gt;'),
+    #           ('l','o','w','e','r','&lt;/w&gt;')]
+    # Chu y 2 diem:
+    #   (1) Tu "low" lap lai 2 lan -&gt; vocab co 2 phan tu giong het nhau.
+    #       Tan suat lap lai nay QUAN TRONG: BPE dem cap tren TOAN vocab nen
+    #       tu cang pho bien thi cap cua no cang duoc cong diem nhieu.
+    #   (2) Tai sao tuple ma khong phai list? Vi tuple la bat bien (immutable)
+    #       nen an toan khi dem, khong so bi sua nham giua chung.
+    return [tuple(word) + (END,) for word in corpus.split()]
+
+
+def get_stats(vocab):
+    """Dem tan suat moi cap token KE NHAU trong toan bo vocab.
+
+    Tra ve dict {(token_a, token_b): so lan xuat hien}.
+    Voi corpus "low low lower" phai ra:
+      (l,o):3, (o,w):3, (w,&lt;/w&gt;):2, (w,e):1, (e,r):1, (r,&lt;/w&gt;):1.
+    """
+    # [TRAINER] 2026-10-13: docstring cu thieu (w,&lt;/w&gt;):2 va (r,&lt;/w&gt;):1
+    # (chi ghi "cac cap chua &lt;/w&gt; cung duoc dem" trong ngoac don). Docstring
+    # vi du phai khop 100% output that cua code - nguoi doc se copy-paste
+    # de kiem tra.
+    # Vi du dem tay (vocab rut gon con 2 tu de de nhin):
+    #   Tu ('l','o','w','&lt;/w&gt;'):         cap (l,o), (o,w), (w,&lt;/w&gt;)
+    #   Tu ('l','o','w','e','r','&lt;/w&gt;'): cap (l,o), (o,w), (w,e), (e,r), (r,&lt;/w&gt;)
+    #   Cong don: (l,o):2, (o,w):2, (w,&lt;/w&gt;):1, (w,e):1, (e,r):1, (r,&lt;/w&gt;):1
+    # Voi du 3 tu "low low lower": tu "low" thu 2 gop them (l,o)+1, (o,w)+1,
+    # (w,&lt;/w&gt;)+1 -&gt; (l,o):3, (o,w):3, (w,&lt;/w&gt;):2. Hai cap dau HOA 3-3 diem,
+    # merge dau tien se chon (l,o) nho thu tu chen dict (xem Bay 1 o train_bpe).
+    pairs = {}
+    for word in vocab:
+        # Duyet tung cap ke nhau trong 1 tu: (word[0],word[1]), (word[1],word[2]), ...
+        for i in range(len(word) - 1):
+            p = (word[i], word[i + 1])
+            pairs[p] = pairs.get(p, 0) + 1
+    return pairs
+
+
+def merge_vocab(pair, vocab):
+    """Gop moi lan xuat hien cua cap (a, b) thanh token moi 'a+b'.
+
+    Quet tu trai sang phai, KHONG de cac merge chong lan nhau:
+    gap (a,b) -&gt; ghi 'ab', nhay 2 buoc; khong gap -&gt; giu nguyen, nhay 1 buoc.
+    Tra ve vocab MOI (khong sua vocab cu).
+    """
+    a, b = pair
+    # Vi du trace TAY tung buoc: word = ('l','o','w','&lt;/w&gt;'), pair = ('l','o'):
+    #   i=0: word[0]=='l' va word[1]=='o' -&gt; KHOP -&gt; ghi 'lo', nhay i=2
+    #   i=2: word[2]=='w' != 'l'          -&gt; khong khop -&gt; giu 'w', i=3
+    #   i=3: word[3]=='&lt;/w&gt;'              -&gt; giu nguyen, i=4 -&gt; het vong
+    #   Ket qua: ('lo', 'w', '&lt;/w&gt;')
+    # Tai sao khi khop phai "nhay 2 buoc" (i += 2)? De 2 token vua gop khong
+    # bi dem lai vao cap ke tiep. Moi luot merge chi gop DUNG 1 cap (a,b);
+    # token 'lo' vua tao ra se doi den luot merge sau (vd merge ('lo','w'))
+    # chu khong duoc gop tiep ngay trong luot nay. Dieu kien
+    # "i &lt; len(word) - 1" la de word[i+1] khong bao gio vuot qua cuoi tuple.
+    out = []
+    for word in vocab:
+        new_word, i = [], 0
+        while i &lt; len(word):
+            if i &lt; len(word) - 1 and word[i] == a and word[i + 1] == b:
+                new_word.append(a + b)
+                i += 2  # da "an" 2 token -&gt; nhay qua ca cap
+            else:
+                new_word.append(word[i])
+                i += 1
+        out.append(tuple(new_word))
+    return out
+
+
+def train_bpe(corpus, n_merges=30, verbose=True):
+    """Vong lap train BPE: lap di lap lai (dem cap -&gt; merge cap pho bien nhat).
+
+    Moi vong:
+      1. get_stats: dem cap ke nhau hien tai.
+      2. Chon cap tan suat CAO NHAT (best).
+      3. merge_vocab: gop cap do khap vocab.
+      4. Luu cap vao list `merges` (thu tu nay QUAN TRONG khi encode).
+    Dung khi het cap de merge (corpus ti hon can rat nhanh - binh thuong).
+
+    LUU Y (Bay 1): neu 2 cap hoa tan suat, max() tra ve cap gap DAU TIEN
+    co gia tri max (theo thu tu chen dict). Hai nguoi chay co the ra 2 day
+    merge khac nhau ma deu "dung" - thu vien that dung tie-break de on dinh.
+    """
+    # Buoc 0 - khoi tao: vocab la list cac tuple ky tu (xem to_vocab),
+    # merges la list rong, se ghi lai lich su cac cap da gop THEO THU TU.
+    # Thu tu nay cuc ky quan trong: luc encode phai ap dung merges dung
+    # thu tu da hoc thi ket qua moi khop (xem encode).
+    vocab = to_vocab(corpus)
+    merges = []
+    # Moi vong lap = dung 1 merge duy nhat: cap pho bien nhat TAI THOI DIEM
+    # hien tai (sau khi vocab da bi bien doi boi cac merge truoc). Vi du voi
+    # corpus "low low lower":
+    #   Vong 1: (l,o) 3 diem (hoa voi (o,w) nhung thang nho thu tu dict)
+    #           -&gt; vocab: [('lo','w','&lt;/w&gt;'), ..., ('lo','w','e','r','&lt;/w&gt;')]
+    #   Vong 2: dem lai tren vocab MOI -&gt; (lo,w) 3 diem -&gt; gop tiep
+    #           -&gt; tu "low" chi con ('low','&lt;/w&gt;'): 1 token noi dung!
+    # Cu the, cang nhieu merge thi tu cang it manh vun.
+    for step in range(n_merges):
+        stats = get_stats(vocab)
+        if not stats:
+            if verbose:
+                print(f"  (het cap de merge sau {step} vong - dung)")
+            break
+        best = max(stats, key=stats.get)  # cap pho bien nhat
+        merges.append(best)
+        vocab = merge_vocab(best, vocab)
+        if verbose:
+            print(f"  merge {step + 1:&gt;2}: {best} -&gt; {vocab[0]}")
+    return vocab, merges
+
+
+def encode(word, merges):
+    """Encode 1 tu (ke ca tu CHUA TUNG GAP) bang day merges da hoc.
+
+    - Bat dau tu tuple ky tu cua tu + END (GIONG HET tien xu ly luc train -
+      quen END la Bay 3: cac merge chua END se khong bao gio khop).
+    - Ap dung LAN LUOT tung merge theo dung thu tu da hoc.
+    Ket qua: tu quen -&gt; it token (da hoc san), tu la -&gt; bi che thanh cac
+    manh subword da hoc. Day la suc manh that cua subword (Bay 2:
+    code nay merge theo KY TU de de nhin; BPE that merge theo BYTE).
+    """
+    # [TRAINER] Nhan xet hieu nang 2026-10-13 (KHONG doi code - muc dich su
+    # pham): moi encode() quet lai TOAN BO day merges, do phuc tap O(M*T)
+    # voi M = so merge, T = so token. Corpus ti hon thi khong sao, nhung
+    # day la ly do thi nghiem 200 merge chay cham dan. Tokenizer that
+    # khac phuc bang cache (vd functools.lru_cache tren encode, doi merges
+    # sang tuple cho hash duoc) hoac bien dich merges thanh trie. Bai tap
+    # tu lam them: cache encode() roi do lai thoi gian vong thi nghiem.
+    # Vi du trace TAY tung buoc: encode("lowest", merges=[('l','o'),('lo','w')])
+    #   Khoi tao: ('l','o','w','e','s','t','&lt;/w&gt;')  &lt;- nho +END giong luc train!
+    #   Merge 1 ('l','o'):  -&gt; ('lo','w','e','s','t','&lt;/w&gt;')
+    #   Merge 2 ('lo','w'): -&gt; ('low','e','s','t','&lt;/w&gt;')
+    #   Ket qua: tu la "lowest" bi che thanh 4 manh da hoc + END.
+    # So sanh: encode("low", ...) -&gt; ('low','&lt;/w&gt;') chi 1 token noi dung, vi
+    # "low" nam nguyen trong corpus train. Day la suc manh that cua subword:
+    # tu moi khong bi bo roi ma duoc ghep tu manh quen thuoc (word-level ma
+    # gap tu la thi chi con cach danh dau &lt;unk&gt;).
+    tokens = tuple(word) + (END,)
+    for pair in merges:
+        tokens = merge_vocab(pair, [tokens])[0]
+    return tokens
+
+
+def bai2():
+    print("\n" + "=" * 64)
+    print("Bai 2 - Viet BPE tu scratch (corpus: 'low low lower')")
+    print("=" * 64)
+
+    print("\nBuoc A - to_vocab:")
+    vocab = to_vocab("low low lower")
+    print(f"  {vocab}")
+
+    print("\nBuoc B - get_stats (tan suat cap ke nhau):")
+    stats = get_stats(vocab)
+    # In theo tan suat giam dan cho de doc.
+    for p, c in sorted(stats.items(), key=lambda kv: -kv[1]):
+        print(f"  {p}: {c}")
+    # Tu kiem tra: "low" x2 gop 2 diem cho (l,o) va (o,w); "lower" gop them
+    # 1 diem cho moi cap -&gt; ca 2 cap deu = 3. Neu assert nay fail, loi nam o
+    # get_stats (dem sai), khong phai o merge - thu in stats ra so voi vi du
+    # trong docstring cua get_stats de debug.
+    assert stats[("l", "o")] == 3 and stats[("o", "w")] == 3, "get_stats sai!"
+
+    print("\nBuoc C - vong lap merge:")
+    vocab, merges = train_bpe("low low lower", n_merges=30, verbose=True)
+
+    # Kiem tra 2 merge dau phai dung nhu de bai yeu cau.
+    # Merge 1 PHAI la (l,o) chu khong phai (o,w) du hoa 3-3 diem: nho quy tac
+    # tie-break cua max() - cap nao duoc chen vao dict TRUOC thi thang
+    # (xem Bay 1 trong train_bpe). Merge 2 PHAI la (lo,w): sau khi gop (l,o),
+    # dem lai tren vocab moi thi cap (lo,w) xuat hien 3 lan, cao nhat.
+    assert merges[0] == ("l", "o"), f"merge 1 sai: {merges[0]}"
+    assert merges[1] == ("lo", "w"), f"merge 2 sai: {merges[1]}"
+    print(f"\n  =&gt; 2 merge dau: {merges[0]} -&gt; {merges[1]} (KHOP de bai)")
+
+    print("\nBuoc D - encode tu moi (chi dung 2 merge dau de test):")
+    r1 = encode("lowest", merges[:2])
+    r2 = encode("low", merges[:2])
+    print(f"  encode('lowest') -&gt; {'|'.join(r1)}")
+    print(f"  encode('low')    -&gt; {'|'.join(r2)}")
+    assert r1 == ("low", "e", 's', 't', END), f"encode('lowest') sai: {r1}"
+    assert r2 == ("low", END), f"encode('low') sai: {r2}"
+    print("  =&gt; 'lowest' (tu la) bi che thanh manh da hoc; 'low' (tu quen) "
+          "chi ton 1 token.")
+
+
+# ---------------------------------------------------------------------------
+# BAI 3 - Do fertility: tieng Viet vs tieng Anh
+# ---------------------------------------------------------------------------
+# Corpus train: 12 cau tieng Anh don gian ve AI (viet tay, chu thuong,
+# khong dau cau de don gian).
+EN_CORPUS = """\
+artificial intelligence is changing the world
+machine learning models learn from data
+neural networks have many layers
+deep learning needs a lot of data
+language models predict the next token
+training a model takes time and energy
+data is the fuel of ai systems
+tokens are pieces of words
+attention helps models focus on context
+open models are free for everyone to use
+ai can write code and answer questions
+the future of ai is bright and exciting"""
+
+# 5 cau test tieng Anh: CHI DUNG tu da xuat hien trong corpus train (de phan anh
+# dung fertility cua tokenizer tren ngon ngu no duoc train - tu la tieng Anh
+# khac nao tu la tieng Viet: deu bi che vun nhu nhau).
+EN_TEST = [
+    "ai models learn from data",
+    "neural networks predict the next token",
+    "training a model needs time and energy",
+    "language models can write code",
+    "the future of ai is bright",
+]
+
+# 5 cau test tieng Viet, cung chu de, do dai tuong duong (6-7 am tiet/cau).
+VI_TEST = [
+    "mô hình ai học dữ liệu",
+    "mạng nơ ron đoán token tiếp",
+    "huấn luyện mô hình cần thời gian",
+    "mô hình ngôn ngữ viết được code",
+    "tương lai của ai rất sáng",
+]
+
+
+def fertility(sentence, merges):
+    """Fertility = so token / so "tu" cua 1 cau.
+
+    - Moi "tu" (tach bang split()) duoc encode rieng (kem END nhu luc train).
+    - Token "&lt;/w&gt;" don le khong dem vao token noi dung (no chi la dau
+      phan cach); token nhu 'w&lt;/w&gt;' van dem la 1 token noi dung.
+    - Fertility cao = cau bi che vun -&gt; ton token.
+
+    LUU Y TINH TE: tieng Viet viet cach nhau theo AM TIET ("mô hình" = 2
+    don vi khi split), khong phai theo tu. Nen con so duoi la fertility
+    tren am tiet; tinh tren TU that thi tieng Viet con cao hon nua.
+    """
+    words = sentence.split()
+    # [TRAINER] Guard 2026-10-13: cau rong -&gt; split() ra [], chia cho
+    # len(words)=0 se gay ZeroDivisionError. Tra ve 0 thay vi crash.
+    if not words:
+        return 0.0, 0, 0
+    toks = []
+    for w in words:
+        toks.extend(encode(w, merges))
+    # Loc bo token END don le: no chi la "hang rao" phan cach tu, khong phai
+    # noi dung thuc. NHUNG token dinh kem END nhu 'w&lt;/w&gt;' (chu w + hang rao
+    # dinh lien) van duoc tinh la 1 token noi dung - vi no mang thong tin
+    # chu 'w'. Ham tra ve tuple 3 gia tri de tien in bang dep o bai3:
+    # (fertility, so token noi dung, so tu).
+    content = [t for t in toks if t != END]
+    return len(content) / len(words), len(content), len(words)
+
+
+def bai3():
+    print("\n" + "=" * 64)
+    print("Bai 3 - Do fertility: tieng Viet vs tieng Anh")
+    print("=" * 64)
+
+    # [TRAINER] Toi uu 2026-10-13: chi train 1 LAN (200 merge) roi cat lat
+    # merges[:30], [:100] khi can, thay vi train rieng 4 lan. Hop le nho
+    # tinh prefix-consistent cua BPE: merge thu k chi phu thuoc vao k-1
+    # merge truoc no, nen 30 merge dau cua lan train 200 TRUNG KHIT voi
+    # lan train rieng 30 merge (cung seed logic, cung tie-break). Ket qua
+    # so hoc khong doi, tiet kiem ~2/3 thoi gian train o thi nghiem duoi.
+    print("\nTrain BPE 1 lan duy nhat (200 merge) tren corpus tieng Anh nho...")
+    _, merges200 = train_bpe(EN_CORPUS, n_merges=200, verbose=False)
+    merges = merges200[:30]
+    print(f"  Hoc duoc {len(merges200)} merge (dung {len(merges)} dau cho bang "
+          f"fertility). 5 merge dau: {merges[:5]}")
+
+    print("\nFertility (so token / so tu) - merges hoc tu tieng Anh:")
+    print(f"  {'cau':&lt;45} {'token/tu':&gt;9}  fertility")
+    print("  " + "-" * 66)
+    en_f, vi_f = [], []
+    for s in EN_TEST:
+        f, nt, nw = fertility(s, merges)
+        en_f.append(f)
+        print(f"  EN {s:&lt;42} {nt:&gt;2}/{nw:&lt;2}     {f:.2f}")
+    for s in VI_TEST:
+        f, nt, nw = fertility(s, merges)
+        vi_f.append(f)
+        print(f"  VI {s:&lt;42} {nt:&gt;2}/{nw:&lt;2}     {f:.2f}")
+
+    avg_en = sum(en_f) / len(en_f)
+    avg_vi = sum(vi_f) / len(vi_f)
+    print("  " + "-" * 66)
+    print(f"  Trung binh EN: {avg_en:.2f} | Trung binh VI: {avg_vi:.2f} "
+          f"=&gt; tieng Viet ton gap {avg_vi / avg_en:.1f} lan token")
+
+    # --- Thi nghiem them: tang so merge thi khoang cach thay doi ra sao? ---
+    # Y tuong: 30 merge la tokenizer "ti hon" - no nen tieng Anh cung kem
+    # (chua nen tot). Tang merge ~ cho tokenizer "gioi tieng Anh" dan len,
+    # tien gan ve tokenizer that (50k merge). Xem khoang cach Viet-Anh?
+    print("\nThi nghiem them - khoang cach Viet/Anh theo so merge:")
+    print(f"  {'merges':&gt;6} | {'EN':&gt;5} | {'VI':&gt;5} | ti le VI/EN")
+    print("  " + "-" * 38)
+    # Chon 3 moc de thay RO xu huong (dung doan truoc khi chay roi doi chieu):
+    #   30  = tokenizer "ti hon": chua nen tot ca tieng Anh -&gt; EN van cao.
+    #   100 = kha hon: EN giam ro, VI van vun.
+    #   200 = gan nhat voi tokenizer that (50k merge): EN tien ve ~1.0,
+    #         VI giu ~3.0 -&gt; ti le VI/EN hien ro ~3x.
+    # Du doan: cot EN giam dan, cot VI it giam, cot ti le TANG dan.
+    for n in (30, 100, 200):
+        # [TRAINER] Dung lat cat merges200[:n] thay vi train lai (xem ghi chu
+        # train-1-lan o tren) - ket qua so hoc giong het train rieng.
+        m = merges200[:n]
+        e = sum(fertility(s, m)[0] for s in EN_TEST) / len(EN_TEST)
+        v = sum(fertility(s, m)[0] for s in VI_TEST) / len(VI_TEST)
+        print(f"  {len(m):&gt;6} | {e:&gt;5.2f} | {v:&gt;5.2f} | {v / e:.1f}x")
+
+    print("\nNhan xet (goi y - hay viet lai bang loi cua ban khi nop bai):")
+    print("  O 30 merge, khoang cach Viet-Anh chua ro: tokenizer ti hon nen")
+    print("  tieng Anh CUNG kem (chua nen tot), tieng Viet cung bi che vun.")
+    print("  Cang tang merge (tokenizer cang 'gioi tieng Anh', tien gan ve")
+    print("  tokenizer that 50k merge), tieng Anh cang tien ve ~1 token/tu")
+    print("  trong khi tieng Viet giu ~3 token/am tiet -&gt; gap ~3x, khop con so")
+    print("  2.5-3.5x cua bai sang. Nghia la:")
+    print("  (a) Cung mot y, prompt tieng Viet ton token gap ~3 lan -&gt; tra tien")
+    print("      API theo token thi user Viet tra dat hon cho cung luong y tuong.")
+    print("  (b) Context window 'nhin' duoc it y tuong tieng Viet hon vi token bi")
+    print("      che vun - day la ly do phai do fertility truoc khi chon tokenizer")
+    print("      cho san pham tieng Viet (va vi sao can tokenizer hieu tieng Viet).")
+
+
+# ---------------------------------------------------------------------------
+# MAIN
+# ---------------------------------------------------------------------------
+def main():
+    bai1()
+    bai2()
+    bai3()
+    print("\n" + "=" * 64)
+    print("XONG - Checklist: 2 merge dau (l,o)-&gt;(lo,w) OK; encode OK;")
+    print("        bang fertility Viet vs Anh OK.")
+    print("=" * 64)
+
+
+if __name__ == "__main__":
+    main()
+</code></pre>
+</section>
+
+</div><!-- /wrap -->
+
+<footer>
+  <div class="wrap">
+    Được dựng từ <code>day03/bpe.py</code> — giải thích bằng tiếng Việt, vẽ thành sơ đồ cho người ngoại đạo.<br>
+    Số liệu bảng biểu là kết quả chạy thật. Sơ đồ là minh họa ý tưởng.
+  </div>
+</footer>
+
+<script>
+/* Dữ liệu merges thật (199 cặp, học từ corpus tiếng Anh) cho demo fertility */
+const MERGES199 = [["s","</w>"],["e","</w>"],["i","n"],["e","l"],["a","n"],["a","r"],["e","n"],["o","d"],["in","g"],["ing","</w>"],["m","od"],["mod","el"],["a","</w>"],["t","</w>"],["o","n"],["t","i"],["t","h"],["th","e</w>"],["o","r"],["d","</w>"],["model","s</w>"],["a","t"],["n","e"],["e","r"],["o","f"],["of","</w>"],["i","s</w>"],["w","or"],["l","e"],["le","ar"],["lear","n"],["d","at"],["dat","a</w>"],["t","o"],["an","d</w>"],["a","i"],["ai","</w>"],["i","c"],["a","l"],["al","</w>"],["i","g"],["c","h"],["an","g"],["learn","ing</w>"],["f","r"],["u","r"],["y","</w>"],["e","d"],["x","t</w>"],["to","k"],["tok","en"],["e","s</w>"],["f","u"],["t","e"],["ar","e</w>"],["ti","on"],["i","t"],["ar","ti"],["arti","f"],["artif","ic"],["artific","i"],["artifici","al</w>"],["in","t"],["int","el"],["intel","l"],["intell","ig"],["intellig","en"],["intelligen","c"],["intelligenc","e</w>"],["ch","ang"],["chang","ing</w>"],["wor","l"],["worl","d</w>"],["m","a"],["ma","ch"],["mach","in"],["machin","e</w>"],["learn","</w>"],["fr","o"],["fro","m"],["from","</w>"],["ne","ur"],["neur","al</w>"],["ne","t"],["net","wor"],["networ","k"],["network","s</w>"],["h","a"],["ha","v"],["hav","e</w>"],["m","an"],["man","y</w>"],["l","a"],["la","y"],["lay","er"],["layer","s</w>"],["d","e"],["de","e"],["dee","p"],["deep","</w>"],["ne","ed"],["need","s</w>"],["l","o"],["lo","t</w>"],["l","ang"],["lang","u"],["langu","a"],["langua","g"],["languag","e</w>"],["p","r"],["pr","ed"],["pred","ic"],["predic","t</w>"],["ne","xt</w>"],["token","</w>"],["t","r"],["tr","a"],["tra","in"],["train","ing</w>"],["model","</w>"],["t","a"],["ta","k"],["tak","es</w>"],["ti","m"],["tim","e</w>"],["en","er"],["ener","g"],["energ","y</w>"],["fu","el"],["fuel","</w>"],["s","y"],["sy","s"],["sys","te"],["syste","m"],["system","s</w>"],["token","s</w>"],["p","i"],["pi","e"],["pie","c"],["piec","es</w>"],["wor","d"],["word","s</w>"],["at","t"],["att","en"],["atten","tion"],["attention","</w>"],["h","el"],["hel","p"],["help","s</w>"],["f","o"],["fo","c"],["foc","u"],["focu","s</w>"],["on","</w>"],["c","on"],["con","te"],["conte","xt</w>"],["o","p"],["op","en"],["open","</w>"],["fr","e"],["fre","e</w>"],["f","or"],["for","</w>"],["e","v"],["ev","er"],["ever","y"],["every","on"],["everyon","e</w>"],["to","</w>"],["u","s"],["us","e</w>"],["c","an"],["can","</w>"],["w","r"],["wr","it"],["writ","e</w>"],["c","od"],["cod","e</w>"],["an","s"],["ans","w"],["answ","er"],["answer","</w>"],["q","u"],["qu","e"],["que","s"],["ques","tion"],["question","s</w>"],["fu","t"],["fut","ur"],["futur","e</w>"],["b","r"],["br","ig"],["brig","h"],["brigh","t</w>"],["e","x"],["ex","c"],["exc","it"],["excit","ing</w>"]];
+</script>
+<script>
+// --- Tiện ích chung ---
+function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function mergeOnce(toks, a, b){
+  const out = []; let i = 0;
+  while(i < toks.length){
+    if(i < toks.length - 1 && toks[i] === a && toks[i+1] === b){ out.push(a + b); i += 2; }
+    else { out.push(toks[i]); i += 1; }
+  }
+  return out;
+}
+function applyMerges(tokens, merges){
+  let t = tokens.slice();
+  for(const [a,b] of merges) t = mergeOnce(t, a, b);
+  return t;
+}
+// --- Demo 1: soi byte ---
+(function(){
+  const input = document.getElementById("byteInput");
+  const out = document.getElementById("byteOut");
+  const enc = new TextEncoder();
+  function render(){
+    const chars = [...input.value];
+    if(!chars.length){ out.textContent = "Gõ một ký tự vào ô trên…"; return; }
+    const ch = chars[0];
+    const cp = ch.codePointAt(0);
+    const bytes = Array.from(enc.encode(ch));
+    const hex = bytes.map(b => b.toString(16).toUpperCase().padStart(2,"0")).join(" ");
+    out.innerHTML = "ký tự: <b>" + esc(ch) + "</b><br>" +
+      "code point: U+" + cp.toString(16).toUpperCase().padStart(4,"0") + " (" + cp + ")<br>" +
+      "UTF-8: <b>" + bytes.length + " byte</b> → " + hex;
+  }
+  input.addEventListener("input", render);
+  render();
+})();
+// --- Demo 2: phòng thí nghiệm BPE mini ---
+(function(){
+  const END = "</w>";
+  const MERGES = [["l","o"],["lo","w"],["low","</w>"],["low","e"],["lowe","r"],["lower","</w>"]];
+  const VOCAB0 = [["l","o","w",END],["l","o","w",END],["l","o","w","e","r",END]];
+  let k = 0;
+  const out = document.getElementById("bpeOut");
+  const encOut = document.getElementById("encOut");
+  const encInput = document.getElementById("encInput");
+  function pairStats(vocab){
+    const d = {};
+    for(const w of vocab) for(let i = 0; i < w.length - 1; i++){
+      const key = w[i] + "" + w[i+1];
+      d[key] = (d[key] || 0) + 1;
+    }
+    return Object.entries(d).map(([kk,c]) => {
+      const p = kk.split(""); return {a:p[0], b:p[1], c:c};
+    }).sort((x,y) => y.c - x.c);
+  }
+  function fmtWord(w){ return "('" + w.map(esc).join("','") + "')"; }
+  function render(){
+    document.getElementById("mVal").textContent = k;
+    const vocab = VOCAB0.map(w => applyMerges(w, MERGES.slice(0, k)));
+    const stats = pairStats(vocab).slice(0, 3);
+    let html = "<b>vocab sau " + k + " merge:</b><br>" +
+      vocab.map(fmtWord).join("<br>") + "<br><br>" +
+      "<b>top cặp hot nhất hiện tại:</b> " +
+      (stats.length ? stats.map(s => "(" + esc(s.a) + "," + esc(s.b) + "):" + s.c).join(" · ") : "(hết cặp)");
+    if(k > 0) html += "<br><b>merge vừa áp dụng:</b> (" + esc(MERGES[k-1][0]) + "," + esc(MERGES[k-1][1]) + ")";
+    out.innerHTML = html;
+    renderEnc();
+  }
+  function renderEnc(){
+    const w = encInput.value.trim();
+    if(!w){ encOut.textContent = "Gõ một từ vào ô trên…"; return; }
+    const toks = applyMerges([...w, END], MERGES.slice(0, k));
+    encOut.innerHTML = "encode(<b>" + esc(w) + "</b>) với " + k + " merge →<br>" +
+      toks.map(t => '<span class="chip' + (t === END ? " end" : "") + '">' + esc(t) + "</span>").join("");
+  }
+  document.getElementById("mSlider").addEventListener("input", function(e){
+    k = parseInt(e.target.value, 10); render();
+  });
+  encInput.addEventListener("input", renderEnc);
+  render();
+})();
+// --- Demo 3: đo fertility ---
+(function(){
+  const END = "</w>";
+  let nm = 199;
+  function encodeWord(w, merges){
+    let t = [...w, END];
+    for(const [a,b] of merges) t = mergeOnce(t, a, b);
+    return t;
+  }
+  function fertility(sent, merges){
+    const words = sent.trim().split(/\s+/).filter(Boolean);
+    if(!words.length) return {f:0, nt:0, nw:0, tokens:[]};
+    let toks = [];
+    for(const w of words) toks.push(...encodeWord(w, merges));
+    const content = toks.filter(t => t !== END);
+    return {f: content.length / words.length, nt: content.length, nw: words.length, tokens: content};
+  }
+  const out = document.getElementById("fOut");
+  function render(){
+    document.getElementById("fMVal").textContent = nm;
+    document.querySelectorAll("#fMSeg button").forEach(b =>
+      b.classList.toggle("active", b.getAttribute("data-m") == String(nm)));
+    const m = MERGES199.slice(0, nm);
+    const en = fertility(document.getElementById("fEn").value, m);
+    const vi = fertility(document.getElementById("fVi").value, m);
+    function block(label, r){
+      return "<b>" + label + ":</b> " + r.nt + "/" + r.nw + " = <b>" + r.f.toFixed(2) + "</b><br>" +
+        r.tokens.map(t => '<span class="chip">' + esc(t) + "</span>").join("") + "<br>";
+    }
+    out.innerHTML = block("EN", en) + block("VI", vi) +
+      "<br>→ tiếng Việt tốn gấp <b>" + (en.f > 0 ? (vi.f / en.f).toFixed(1) : "–") + " lần</b> token";
+  }
+  document.querySelectorAll("#fMSeg button").forEach(b =>
+    b.addEventListener("click", function(){ nm = parseInt(b.getAttribute("data-m"), 10); render(); }));
+  document.getElementById("fGo").addEventListener("click", render);
+  render();
+})();
+// --- Copy + highlight source ---
+(function(){
+  const btn = document.getElementById("copySrcBtn");
+  btn.addEventListener("click", function(){
+    const raw = document.getElementById("fullsrc").textContent;
+    const msg = document.getElementById("copyMsg");
+    const done = function(){ msg.textContent = "Đã copy ✓"; setTimeout(function(){ msg.textContent = ""; }, 2000); };
+    if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(raw).then(done, done); }
+    else { const ta = document.createElement("textarea"); ta.value = raw; document.body.appendChild(ta); ta.select(); try{ document.execCommand("copy"); }catch(e){} document.body.removeChild(ta); done(); }
+  });
+})();
+</script>
+<script>
+// Tô màu cú pháp Python
+(function(){
+  function escHtml(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+  function highlightPython(src){
+    var re = /(#[^\n]*)|("""[\s\S]*?"""|"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*')|\b(import|from|def|class|return|if|elif|else|for|while|in|is|not|and|or|None|True|False|lambda|with|as|try|except|finally|raise|global|pass|break|continue)\b|(\b\d+(?:\.\d+)?\b)|(@[\w.]+)/g;
+    var out = "", last = 0, m;
+    while((m = re.exec(src))){
+      out += escHtml(src.slice(last, m.index));
+      var tok = m[0], cls = m[1] ? "cm" : m[2] ? "str" : m[3] ? "kw" : m[4] ? "num2" : "fn";
+      out += '<span class="' + cls + '">' + escHtml(tok) + "</span>";
+      last = m.index + tok.length;
+      if(tok.length === 0) re.lastIndex++;
+    }
+    return out + escHtml(src.slice(last));
+  }
+  document.querySelectorAll("pre.pysrc").forEach(function(pre){
+    var raw = pre.textContent;
+    pre.innerHTML = "<code>" + highlightPython(raw) + "</code>";
+  });
+})();
+</script>
+</body>
+</html>
