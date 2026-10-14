@@ -37,6 +37,11 @@ def cos_sim(u, v):
     Doc nhanh: 1 = cung huong (giong nhau), 0 = vuong goc (khong lien quan),
     -1 = nguoc huong (doi lap).
     """
+    # [TRAINER] Luu y 2026-10-14 (khong doi code): neu u hoac v la vector 0
+    # thi mau so = 0 -> ket qua NaN. Trong bai nay khong xay ra vi embedding
+    # khoi tao ngau nhien (xac suat ra dung vector 0 coi nhu = 0). Neu tai
+    # dung ham nay o noi khac (vd so sanh vector sau khi mask), hay cong eps
+    # vao mau so hoac kiem tra norm > 0 truoc khi chia.
     return torch.dot(u, v) / (torch.norm(u) * torch.norm(v))
 
 
@@ -104,6 +109,10 @@ def sinusoidal_pe(max_len, d):
       PE(1) = [sin(1.0), cos(1.0), sin(0.01), cos(0.01)]
     Thay ngay: cap dau quay nhanh (tan so cao), cap sau quay cham.
     """
+    # [TRAINER] Guard 2026-10-14: d PHAI CHAN - moi cap chieu (2i, 2i+1) can
+    # dung 1 tan so. Neu d le, pe[:, 0::2] se co nhieu cot hon angle dan den
+    # loi shape kho hieu. That bai SOM voi thong bao ro rang de debug hon.
+    assert d % 2 == 0, f"sinusoidal_pe yeu cau d chan, nhan d={d}"
     pos = torch.arange(max_len).unsqueeze(1)   # (L,1): cot vi tri 0..L-1
     i = torch.arange(d // 2)                   # (d/2,): chi so cap chieu
     div = 10000 ** (2 * i / d)                 # (d/2,): mau so 10000^(2i/d)
@@ -125,6 +134,11 @@ def bai_a2():
     # Kiem chung 1 - tinh duy nhat: khong 2 vi tri nao trung vector PE.
     # torch.cdist(pe, pe)[a, b] = khoang cach Euclid giua PE(a) va PE(b).
     # Duong cheo = 0 (tu so voi chinh no) -> chi xet ngoai duong cheo.
+    # [TRAINER] Nhan xet mo rong 2026-10-14 (khong doi code): cdist o day tao
+    # ma tran 100x100 = 10k so, re. Nhung dung cach nay voi max_len that
+    # (vd 128k) thi ma tran LxL can ~64GB RAM - khong kha thi. Tinh duy nhat
+    # cua PE duoc chung minh bang ly thuyet (cac tan so vo ti voi nhau), nen
+    # o quy mo that khong ai kiem chung bang "suc manh co bap" nhu nay.
     dists = torch.cdist(pe, pe)
     mask = ~torch.eye(max_len, dtype=torch.bool)  # True o moi o ngoai cheo
     min_off_diag = dists[mask].min().item()
@@ -172,6 +186,11 @@ def apply_rope(x, pos, omegas):
     # [e0',o0',e1',o1',...] - dung thu tu ban dau cua x.
     # (Bay 2: dao thu tu o day la loi pho bien nhat - test pos=0 phai tra
     # ve dung vector goc vi goc xoay = 0.)
+    # [TRAINER] Guard 2026-10-14: so chieu PHAI CHAN de chia cap (chan, le)
+    # deu nhau (giong guard o sinusoidal_pe). Neu le, new_even dai hon
+    # new_odd 1 phan tu -> stack() crash voi thong bao shape kho doc.
+    assert x.numel() % 2 == 0, \
+        f"apply_rope yeu cau so chieu chan, nhan {x.numel()}"
     return torch.stack([new_even, new_odd], dim=-1).reshape(-1)
 
 
@@ -218,7 +237,13 @@ def rmsnorm(x, gamma, eps=1e-6):
     binh). Re hon, va du tot cho LLM (Llama dung RMSNorm). gamma hoc duoc,
     khoi tao toan 1 (luc dau = phep chuan hoa thuan tuy).
     """
-    return x / torch.sqrt(x.pow(2).mean() + eps) * gamma
+    # [TRAINER] Cai tien 2026-10-14: mean(-1, keepdim=True) thay cho mean().
+    # Voi vector 1D (demo nay) ket qua GIONG HET 100%, nhung ban cu se SAI
+    # LANG LE neu ai do tai dung ham cho batch 2D (no se chuan hoa ca batch
+    # chung lai voi nhau thay vi chuan hoa tung token doc lap). Chuan hoa
+    # luon phai theo chieu dac trung (chieu cuoi, moi token 1 RMS rieng) -
+    # day la loi rat pho bien khi copy code norm tu demo sang model that.
+    return x / torch.sqrt(x.pow(2).mean(-1, keepdim=True) + eps) * gamma
 
 
 def bai_a4():
