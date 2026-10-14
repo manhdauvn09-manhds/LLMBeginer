@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ngày 4 — Embedding và vị trí tạo nên không gian biểu diễn</title>
+<style>
+  :root{
+    --bg:#0b1020; --card:#141b33; --line:#26314f; --txt:#e8ecf7; --muted:#9aa6c7;
+    --gold:#fbbf24; --blue:#60a5fa; --green:#34d399; --red:#f87171; --violet:#a78bfa;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  body{margin:0; background:var(--bg); color:var(--txt);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    line-height:1.75; font-size:16.5px;}
+  .wrap{max-width:860px; margin:0 auto; padding:0 18px 80px;}
+  .kicker{display:inline-block; margin:26px 0 10px; padding:6px 14px; border:1px solid var(--line);
+    border-radius:999px; color:var(--muted); font-size:13px; letter-spacing:.4px;}
+  h1{font-size:clamp(26px,5.4vw,38px); line-height:1.3; margin:6px 0 8px;}
+  .sub{color:var(--muted); margin:0 0 6px;}
+  .meta{display:flex; gap:10px; flex-wrap:wrap; margin:14px 0 22px; color:var(--muted); font-size:14px;}
+  .meta span{background:var(--card); border:1px solid var(--line); border-radius:10px; padding:6px 12px;}
+  .hero{width:100%; border-radius:16px; border:1px solid var(--line); display:block;}
+  .cap{color:var(--muted); font-size:13.5px; margin:8px 2px 0;}
+  .goal{background:linear-gradient(135deg,#16213f,#101a36); border:1px solid var(--line);
+    border-radius:14px; padding:18px 20px; margin:26px 0;}
+  .goal h3{margin:0 0 10px; font-size:17px; color:var(--gold);}
+  .goal ul{margin:0; padding-left:20px;}
+  .goal li{margin:6px 0;}
+  section.card{background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:22px 20px; margin:22px 0;}
+  section.card h2{margin:0 0 4px; font-size:21px;}
+  section.card h2 .n{display:inline-flex; width:30px; height:30px; border-radius:9px;
+    background:var(--blue); color:#081226; font-size:16px; align-items:center; justify-content:center;
+    margin-right:8px; font-weight:800;}
+  section.card p.lead{color:var(--muted); margin:0 0 12px;}
+  .formula{background:#0b1226; border:1px dashed #33406b; border-radius:12px;
+    padding:14px 16px; margin:14px 0; font-family:"SF Mono",Consolas,Menlo,monospace;
+    font-size:15.5px; overflow-x:auto; white-space:nowrap;}
+  .formula b{color:var(--gold);}
+  .note{border-left:4px solid var(--green); background:#0f2233; border-radius:0 12px 12px 0;
+    padding:12px 16px; margin:14px 0;}
+  .warn{border-left:4px solid var(--red); background:#2a1420; border-radius:0 12px 12px 0;
+    padding:12px 16px; margin:14px 0;}
+  .green{border:1px solid #14532d; background:linear-gradient(135deg,#0c2b1a,#0a1f14);
+    border-radius:14px; padding:18px 20px; margin:22px 0;}
+  .green h3{margin:0 0 8px; color:var(--green); font-size:18px;}
+  .code{background:#070d1c; border:1px solid var(--line); border-radius:12px; padding:14px 16px;
+    font-family:"SF Mono",Consolas,Menlo,monospace; font-size:14px; overflow-x:auto; margin:14px 0;}
+  .code .c{color:#7c8db5;} .code .k{color:var(--violet);} .code .s{color:var(--green);} .code .n{color:var(--gold);}
+  svg.diagram{width:100%; height:auto; display:block; margin:12px 0; border-radius:12px;}
+  table.tbl{width:100%; border-collapse:collapse; margin:12px 0; font-size:15px;}
+  table.tbl th, table.tbl td{border:1px solid var(--line); padding:9px 12px; text-align:left;}
+  table.tbl th{background:#0f1730; color:var(--gold);}
+  .tldr{background:#151a2e; border:1px solid var(--line); border-radius:14px; padding:18px 20px; margin:22px 0;}
+  .tldr h3{margin:0 0 8px; color:var(--blue);}
+  .tldr li{margin:6px 0;}
+  .nav{display:flex; gap:12px; flex-wrap:wrap; margin:28px 0 0;}
+  .nav a{flex:1 1 200px; text-align:center; text-decoration:none; font-weight:700;
+    padding:15px 18px; border-radius:14px; border:1px solid var(--line);}
+  .nav a.q{background:linear-gradient(135deg,#3b82f6,#1d4ed8); color:#fff;}
+  .nav a.v{background:linear-gradient(135deg,#f59e0b,#b45309); color:#1a1205;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <span class="kicker">Khóa AI Engineer (LLM) · Phase 1 — Ngày 4/30</span>
+  <h1>Embedding và vị trí tạo nên không gian biểu diễn</h1>
+  <p class="sub">Token là những con số khô khan. Embedding biến chúng thành vector giàu ý nghĩa — và vị trí cho mô hình biết "ai đứng trước ai".</p>
+  <div class="meta">
+    <span>☀️ Buổi sáng · Lý thuyết + quiz</span>
+    <span>⏱ ~35 phút đọc</span>
+    <span>🧩 5 câu trắc nghiệm</span>
+  </div>
+
+  <img class="hero" src="img/day04_hero.webp" alt="Không gian embedding">
+  <p class="cap">Mỗi token là một điểm trong không gian embedding nhiều chiều — những từ giống nghĩa tụ lại gần nhau.</p>
+
+  <div class="goal">
+    <h3>🎯 Mục tiêu buổi học</h3>
+    <ul>
+      <li>Hiểu cách token id và vị trí đi vào Transformer.</li>
+      <li>Nắm embedding lookup, weight tying, sinusoidal position, trực giác RoPE và normalization.</li>
+      <li>Tính được số tham số của bảng embedding và lượng bộ nhớ tiết kiệm được nhờ weight tying.</li>
+    </ul>
+  </div>
+
+  <section class="card" id="s-noi-tiep">
+    <h2><span class="n">0</span>Nối tiếp từ Ngày 3</h2>
+    <p class="lead">Hôm qua, tokenizer đã biến văn bản thành dãy số nguyên — các token id.</p>
+    <p>Hôm nay ta trả lời câu hỏi: <b>mô hình nhìn thấy gì khi nó nhận id = 5123?</b> Nó không "đọc" số 5123. Nó tra cứu số 5123 trong một bảng khổng lồ gọi là <b>ma trận embedding</b>, và lấy ra một vector số thực. Toàn bộ kiến thức ngôn ngữ của mô hình bắt đầu từ chính cái bảng tra cứu này.</p>
+  </section>
+
+  <section class="card" id="s-lookup">
+    <h2><span class="n">1</span>Embedding lookup — tra cứu thay vì tính toán</h2>
+    <p class="lead">Embedding là một ma trận có thể học: E ∈ ℝ<sup>V×d</sup>, với V là kích thước từ vựng, d là chiều vector.</p>
+    <p>Vector của token id i chính là <b>hàng thứ i</b> của ma trận: x = E[i]. Trong PyTorch, <span class="formula" style="display:inline;padding:6px 10px;">nn.Embedding(V, d)</span> làm đúng việc này, và nó có gradient — nghĩa là các vector embedding <b>được học</b> trong quá trình huấn luyện, ban đầu chỉ là số ngẫu nhiên.</p>
+    <svg class="diagram" viewBox="0 0 720 300" role="img" aria-label="Sơ đồ embedding lookup">
+      <defs>
+        <linearGradient id="g1" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#3b82f6"/><stop offset="1" stop-color="#1d4ed8"/>
+        </linearGradient>
+        <linearGradient id="g2" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#f59e0b"/><stop offset="1" stop-color="#b45309"/>
+        </linearGradient>
+      </defs>
+      <text x="60" y="30" fill="#9aa6c7" font-size="15">token ids</text>
+      <rect x="20" y="42" width="90" height="46" rx="10" fill="none" stroke="#60a5fa" stroke-width="2"/>
+      <text x="65" y="71" fill="#e8ecf7" font-size="17" text-anchor="middle">5123</text>
+      <rect x="20" y="96" width="90" height="46" rx="10" fill="none" stroke="#60a5fa" stroke-width="2"/>
+      <text x="65" y="125" fill="#e8ecf7" font-size="17" text-anchor="middle">208</text>
+      <rect x="20" y="150" width="90" height="46" rx="10" fill="none" stroke="#60a5fa" stroke-width="2"/>
+      <text x="65" y="179" fill="#e8ecf7" font-size="17" text-anchor="middle">9917</text>
+      <rect x="20" y="204" width="90" height="46" rx="10" fill="none" stroke="#60a5fa" stroke-width="2"/>
+      <text x="65" y="233" fill="#e8ecf7" font-size="17" text-anchor="middle">77</text>
+      <text x="330" y="30" fill="#9aa6c7" font-size="15" text-anchor="middle">ma trận embedding E (V × d)</text>
+      <g font-size="12" text-anchor="middle">
+        <rect x="230" y="42" width="200" height="24" rx="6" fill="#16213f" stroke="#26314f"/>
+        <rect x="230" y="68" width="200" height="24" rx="6" fill="#16213f" stroke="#26314f"/>
+        <rect x="230" y="94" width="200" height="24" rx="6" fill="url(#g1)" stroke="#60a5fa"/>
+        <text x="330" y="111" fill="#081226">hàng 208 — "học"</text>
+        <rect x="230" y="120" width="200" height="24" rx="6" fill="#16213f" stroke="#26314f"/>
+        <rect x="230" y="146" width="200" height="24" rx="6" fill="#16213f" stroke="#26314f"/>
+        <rect x="230" y="172" width="200" height="24" rx="6" fill="#16213f" stroke="#26314f"/>
+        <rect x="230" y="198" width="200" height="24" rx="6" fill="#16213f" stroke="#26314f"/>
+        <rect x="230" y="224" width="200" height="24" rx="6" fill="#16213f" stroke="#26314f"/>
+        <text x="330" y="270" fill="#9aa6c7">⋮ V hàng</text>
+      </g>
+      <line x1="110" y1="119" x2="225" y2="106" stroke="#60a5fa" stroke-width="2" marker-end="url(#ar)"/>
+      <defs><marker id="ar" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+        <path d="M0,0 L8,3 L0,6 Z" fill="#60a5fa"/></marker></defs>
+      <text x="150" y="92" fill="#60a5fa" font-size="14">tra cứu</text>
+      <text x="560" y="30" fill="#9aa6c7" font-size="15" text-anchor="middle">vector x ∈ ℝᵈ</text>
+      <line x1="432" y1="106" x2="508" y2="106" stroke="#f59e0b" stroke-width="2" marker-end="url(#ar2)"/>
+      <defs><marker id="ar2" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+        <path d="M0,0 L8,3 L0,6 Z" fill="#f59e0b"/></marker></defs>
+      <rect x="520" y="80" width="150" height="52" rx="10" fill="url(#g2)"/>
+      <text x="595" y="112" fill="#1a1205" font-size="16" text-anchor="middle" font-weight="700">[0.21, −0.87, …]</text>
+      <text x="595" y="152" fill="#9aa6c7" font-size="13" text-anchor="middle">d số thực</text>
+    </svg>
+    <div class="note">💡 <b>Ví dụ:</b> với V = 32.000 và d = 4.096 (cỡ Llama 7B), bảng embedding có <b>32.000 × 4.096 ≈ 131 triệu tham số</b> — khoảng 2% tổng tham số của mô hình. Không hề rẻ!</div>
+  </section>
+
+  <section class="card" id="s-cosine">
+    <h2><span class="n">2</span>Vì sao phải là vector liên tục?</h2>
+    <p class="lead">Vì số nguyên không có khái niệm "giống nhau", còn vector thì có — nhờ <b>cosine similarity</b>.</p>
+    <div class="formula">cos(u, v) = (u · v) / (‖u‖ ‖v‖) &nbsp;∈ [−1, 1]</div>
+    <p>Hai token có nghĩa gần nhau (như "vua" và "hoàng đế") sẽ có vector chỉ gần cùng hướng — cosine gần 1. Chính hình học này cho phép những phép tính "kinh điển":</p>
+    <div class="formula"><b>v("vua")</b> − v("đàn ông") + v("phụ nữ") ≈ <b>v("nữ hoàng")</b></div>
+    <p>Đây không phải phép màu: trong quá trình huấn luyện, gradient liên tục kéo các từ xuất hiện trong ngữ cảnh giống nhau lại gần nhau trong không gian vector. Embedding học được <b>cấu trúc ngữ nghĩa</b> từ dữ liệu.</p>
+  </section>
+
+  <section class="card" id="s-tie">
+    <h2><span class="n">3</span>Weight tying — dùng chung một bảng cho vào và ra</h2>
+    <p class="lead">Đầu ra của mô hình cũng cần một ma trận V × d để biến vector thành xác suất trên từ vựng. Sao không tái sử dụng?</p>
+    <p>Ở đầu ra, mô hình tính logits = h · W<sub>out</sub><sup>T</sup> rồi softmax. <b>Weight tying</b> đặt W<sub>out</sub> = E — tức ma trận dự đoán token <b>chính là</b> ma trận embedding đầu vào. Trực giác: nếu vector của "mèo" đã học được nghĩa "mèo" ở đầu vào, thì dùng chính nó để "chấm điểm" ứng viên "mèo" ở đầu ra là hợp lý.</p>
+    <svg class="diagram" viewBox="0 0 720 240" role="img" aria-label="Sơ đồ weight tying">
+      <rect x="60" y="80" width="180" height="70" rx="12" fill="none" stroke="#60a5fa" stroke-width="2"/>
+      <text x="150" y="108" fill="#e8ecf7" font-size="16" text-anchor="middle">embedding E</text>
+      <text x="150" y="132" fill="#9aa6c7" font-size="13" text-anchor="middle">đầu vào: id → vector</text>
+      <rect x="480" y="80" width="180" height="70" rx="12" fill="none" stroke="#f59e0b" stroke-width="2"/>
+      <text x="570" y="108" fill="#e8ecf7" font-size="16" text-anchor="middle">W_out = Eᵀ</text>
+      <text x="570" y="132" fill="#9aa6c7" font-size="13" text-anchor="middle">đầu ra: vector → logits</text>
+      <line x1="245" y1="115" x2="475" y2="115" stroke="#34d399" stroke-width="2.5" stroke-dasharray="8 6"/>
+      <text x="360" y="100" fill="#34d399" font-size="15" text-anchor="middle">dùng chung 🔗</text>
+      <text x="360" y="180" fill="#9aa6c7" font-size="14" text-anchor="middle">tiết kiệm V × d tham số</text>
+      <text x="360" y="206" fill="#fbbf24" font-size="14" text-anchor="middle">vd: 32.000 × 4.096 ≈ 131M ≈ 262 MB (fp16)</text>
+    </svg>
+    <div class="note">💡 Weight tying gần như luôn có lợi: ít tham số hơn, train nhanh hơn, và thực nghiệm cho thấy perplexity còn tốt hơn một chút. GPT-2, Llama đều dùng.</div>
+  </section>
+
+  <section class="card" id="s-sinusoidal">
+    <h2><span class="n">4</span>Vị trí tuyệt đối: sinusoidal position encoding</h2>
+    <p class="lead">Attention tự nó không biết thứ tự — "mèo đuổi chuột" và "chuột đuổi mèo" có cùng tập token. Phải cộng thêm thông tin vị trí.</p>
+    <p>Cách kinh điển của paper "Attention Is All You Need": cộng vào embedding một vector vị trí <b>tính bằng công thức</b> (không cần học), dùng sin/cos với tần số giảm dần theo chiều:</p>
+    <div class="formula">PE(pos, 2i) = sin(pos / 10000<sup>2i/d</sup>) &nbsp;&nbsp; PE(pos, 2i+1) = cos(pos / 10000<sup>2i/d</sup>)</div>
+    <p>Điểm hay: với mỗi độ lệch k cố định, PE(pos+k) là <b>hàm tuyến tính</b> của PE(pos) — mô hình dễ học được quan hệ "cách nhau k bước". Các chiều tần số thấp thay đổi chậm theo vị trí (vị trí thô), tần số cao thay đổi nhanh (vị trí tinh).</p>
+    <img class="hero" src="img/day04_rope.webp" alt="Sóng sin mã hóa vị trí">
+    <p class="cap">Mỗi chiều của vector vị trí là một sóng sin với tần số riêng — vị trí pos được "vẽ" thành một dấu vân tay sóng duy nhất.</p>
+  </section>
+
+  <section class="card" id="s-rope">
+    <h2><span class="n">5</span>Trực giác RoPE — xoay vector theo vị trí</h2>
+    <p class="lead">Sinusoidal cộng vị trí "tuyệt đối". RoPE (Rotary Position Embedding) làm điều tinh tế hơn: mã hóa vị trí <b>tương đối</b>.</p>
+    <p>Ý tưởng: thay vì cộng vector vị trí, ta <b>xoay</b> vector query/key một góc tỉ lệ với vị trí của nó. Với cặp chiều (x<sub>2i</sub>, x<sub>2i+1</sub>), áp dụng ma trận xoay góc θ = pos · ω<sub>i</sub>:</p>
+    <div class="formula">RoPE(x, pos): &nbsp;[x<sub>2i</sub>, x<sub>2i+1</sub>] → xoay góc <b>pos · ω<sub>i</sub></b></div>
+    <svg class="diagram" viewBox="0 0 720 260" role="img" aria-label="Minh họa RoPE">
+      <g font-size="14">
+        <circle cx="180" cy="140" r="70" fill="none" stroke="#26314f" stroke-width="2"/>
+        <line x1="180" y1="140" x2="240" y2="140" stroke="#60a5fa" stroke-width="3"/>
+        <circle cx="240" cy="140" r="6" fill="#60a5fa"/>
+        <text x="180" y="235" fill="#9aa6c7" text-anchor="middle">query ở vị trí m: xoay góc m·ω</text>
+        <circle cx="540" cy="140" r="70" fill="none" stroke="#26314f" stroke-width="2"/>
+        <line x1="540" y1="140" x2="590" y2="90" stroke="#f59e0b" stroke-width="3"/>
+        <circle cx="590" cy="90" r="6" fill="#f59e0b"/>
+        <path d="M 600 140 A 70 70 0 0 0 590 90" fill="none" stroke="#34d399" stroke-width="2"/>
+        <text x="620" y="120" fill="#34d399" font-size="15">n·ω</text>
+        <text x="540" y="235" fill="#9aa6c7" text-anchor="middle">key ở vị trí n: xoay góc n·ω</text>
+      </g>
+      <text x="360" y="60" fill="#e8ecf7" font-size="16" text-anchor="middle">tích trong q·k chỉ phụ thuộc <tspan fill="#34d399">(n − m)</tspan></text>
+      <text x="360" y="88" fill="#9aa6c7" font-size="14" text-anchor="middle">= khoảng cách tương đối, không cần vị trí tuyệt đối</text>
+    </svg>
+    <p>Vì xoay cả q và k, tích vô hướng q·k sau xoay chỉ còn phụ thuộc vào <b>hiệu (n − m)</b> — tức khoảng cách tương đối giữa hai token. Đây chính là thứ attention cần: "token này cách token kia bao xa", chứ không phải "token này ở vị trí tuyệt đối số mấy". RoPE là chuẩn mặc định của Llama, Qwen, Mistral ngày nay.</p>
+    <div class="warn">⚠️ <b>Giới hạn cần biết:</b> RoPE ngoại suy kém khi chuỗi dài hơn lúc train (góc xoay vượt miền đã thấy) — đó là lý do có các kỹ thuật như NTK scaling, YaRN để kéo dài context.</div>
+  </section>
+
+  <section class="card" id="s-norm">
+    <h2><span class="n">6</span>Normalization — giữ vector "ngoan ngoãn"</h2>
+    <p class="lead">Embedding cộng vị trí xong có thể có thang giá trị lộn xộn. Normalization chuẩn hóa lại trước khi đưa vào attention.</p>
+    <p><b>LayerNorm</b> chuẩn hóa theo từng token: trừ trung bình, chia độ lệch chuẩn (trên d chiều), rồi scale/shift bằng tham số học được γ, β. <b>RMSNorm</b> (Llama dùng) bỏ bước trừ trung bình — rẻ hơn mà hiệu quả tương đương:</p>
+    <div class="formula">RMSNorm(x) = x / √(mean(x²) + ε) · γ</div>
+    <p>Nhờ normalization, gradient ổn định, train được learning rate lớn hơn, và mô hình sâu hàng chục block không bị "loạn số". Ngày mai (self-attention) ta sẽ thấy nó xuất hiện trong mỗi Transformer block.</p>
+    <div class="code"><span class="k">class</span> <span class="n">RMSNorm</span>(nn.Module):
+    <span class="k">def</span> <span class="n">forward</span>(self, x):
+        <span class="c"># x: (..., d) — chuẩn hóa trên chiều cuối</span>
+        <span class="k">return</span> x * torch.rsqrt(x.pow(<span class="n">2</span>).mean(-<span class="n">1</span>, keepdim=<span class="k">True</span>) + <span class="n">1e-6</span>) * self.weight</div>
+  </section>
+
+  <div class="green">
+    <h3>⚡ Góc tiết kiệm năng lượng</h3>
+    <p>Bảng embedding là "kẻ ngốn bộ nhớ thầm lặng": V × d tham số, mỗi lần forward chỉ tra cứu vài hàng nhưng toàn bộ bảng vẫn nằm trên VRAM và vẫn nhận gradient. Ba cách tiết kiệm:</p>
+    <ul>
+      <li><b>Weight tying</b> — xóa luôn ma trận đầu ra V × d: với V=32k, d=4096, fp16 → tiết kiệm <b>~262 MB VRAM</b> và chừng ấy gradient + optimizer state (Adam giữ 2 bản copy → thực tế tiết kiệm ~786 MB).</li>
+      <li><b>Thu nhỏ từ vựng</b> khi có thể: V=32k thay vì 128k giảm 4× bộ nhớ embedding — đánh đổi bằng chuỗi token dài hơn một chút.</li>
+      <li><b>Đo trước khi train:</b> <span class="formula" style="display:inline;padding:4px 8px;">V × d × bytes × 3</span> (weights + Adam m,v) cho biết embedding "tốn" bao nhiêu VRAM trước khi bấm nút train.</li>
+    </ul>
+    <p style="margin-bottom:0">🧪 <b>Green checkpoint tối nay:</b> tính số tham số embedding của config V=32000, d=2048; thử weight tying và báo số MB tiết kiệm được (fp16).</p>
+  </div>
+
+  <div class="tldr">
+    <h3>📝 Tóm tắt 30 giây</h3>
+    <ul>
+      <li>Token id → <b>tra cứu hàng</b> trong ma trận embedding E (V×d) được học bằng gradient.</li>
+      <li>Vector liên tục cho phép đo <b>độ giống nghĩa</b> bằng cosine similarity.</li>
+      <li><b>Weight tying</b> (W<sub>out</sub> = E) tiết kiệm V×d tham số.</li>
+      <li>Vị trí tuyệt đối: <b>sinusoidal PE</b> (công thức, không cần học).</li>
+      <li>Vị trí tương đối: <b>RoPE</b> xoay vector theo góc ∝ vị trí; q·k chỉ phụ thuộc khoảng cách (n−m).</li>
+      <li><b>RMSNorm/LayerNorm</b> giữ thang giá trị ổn định trước attention.</li>
+    </ul>
+  </div>
+
+  <div class="nav">
+    <a class="q" href="Day04_quiz.html">📝 Làm quiz 5 câu →</a>
+    <a class="v" href="Day04_video.mp4">🎬 Xem video giải thích →</a>
+  </div>
+
+</div>
+</body>
+</html>

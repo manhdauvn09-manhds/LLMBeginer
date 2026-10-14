@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ngày 4 — Buổi tối: Thực hành Embedding &amp; Vị trí</title>
+<style>
+:root{--bg:#0b1020;--card:#141b33;--line:#26314f;--txt:#e8ecf7;--muted:#9aa6c7;
+--gold:#fbbf24;--blue:#60a5fa;--green:#34d399;--red:#f87171;--violet:#a78bfa;}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:var(--bg);color:var(--txt);
+font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+line-height:1.75;font-size:16.5px}
+.wrap{max-width:860px;margin:0 auto;padding:0 18px 90px}
+.kicker{display:inline-block;margin:26px 0 10px;padding:6px 14px;border:1px solid var(--line);
+border-radius:999px;color:var(--muted);font-size:13px}
+h1{font-size:clamp(25px,5.4vw,36px);line-height:1.3;margin:6px 0 8px}
+.sub{color:var(--muted);margin:0 0 6px}
+.meta{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0 22px;color:var(--muted);font-size:14px}
+.meta span{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:6px 12px}
+section.card{background:var(--card);border:1px solid var(--line);border-radius:16px;
+padding:22px 20px;margin:22px 0}
+section.card h2{margin:0 0 10px;font-size:21px}
+section.card h2 .n{display:inline-flex;width:30px;height:30px;border-radius:9px;
+background:var(--green);color:#081226;font-size:16px;align-items:center;justify-content:center;
+margin-right:8px;font-weight:800}
+.goal{background:linear-gradient(135deg,#0c2b1a,#0a1f14);border:1px solid #14532d;
+border-radius:14px;padding:18px 20px;margin:22px 0}
+.goal h3{margin:0 0 8px;color:var(--green);font-size:17px}
+.goal ul{margin:0;padding-left:20px}
+.goal li{margin:6px 0}
+.task{background:#0f1730;border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin:16px 0}
+.task h4{margin:0 0 8px;color:var(--blue);font-size:17px}
+.task ol,.task ul{margin:8px 0;padding-left:20px}
+.task li{margin:7px 0}
+.hint{background:#101a36;border-left:4px solid var(--violet);border-radius:0 12px 12px 0;
+padding:10px 14px;margin:12px 0;font-size:15px;color:var(--muted)}
+.hint b{color:var(--violet)}
+.code{background:#070d1c;border:1px solid var(--line);border-radius:12px;padding:14px 16px;
+font-family:"SF Mono",Consolas,Menlo,monospace;font-size:14px;overflow-x:auto;margin:14px 0;white-space:pre}
+.code .c{color:#7c8db5}.code .k{color:var(--violet)}.code .s{color:var(--green)}.code .n{color:var(--gold)}
+.blank{color:var(--red);font-weight:700}
+.formula{background:#0b1226;border:1px dashed #33406b;border-radius:12px;padding:14px 16px;
+margin:14px 0;font-family:"SF Mono",Consolas,Menlo,monospace;font-size:15px;overflow-x:auto}
+.note{border-left:4px solid var(--green);background:#0f2233;border-radius:0 12px 12px 0;
+padding:12px 16px;margin:14px 0}
+.warn{border-left:4px solid var(--red);background:#2a1420;border-radius:0 12px 12px 0;
+padding:12px 16px;margin:14px 0}
+.warn b{color:var(--red)}
+.q{background:#0f1730;border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin:14px 0}
+.q p{margin:0 0 10px;font-weight:600}
+.q button{background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;border:none;
+border-radius:10px;padding:10px 18px;font-size:15px;font-weight:700;cursor:pointer}
+.q .ans{display:none;margin-top:12px;color:var(--green)}
+.q .ans.show{display:block}
+.check{background:#151a2e;border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin:22px 0}
+.check h3{margin:0 0 10px;color:var(--gold)}
+.check li{margin:8px 0}
+.tldr{color:var(--muted);font-size:15px}
+.foot{text-align:center;color:var(--muted);font-size:14px;margin-top:40px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<span class="kicker">Khóa AI Engineer (LLM) · Phase 1 — Ngày 4/30 · Buổi tối 🛠️</span>
+<h1>Thực hành: dựng Embedding + mã hóa vị trí bằng tay</h1>
+<p class="sub">Buổi tối không có video — chỉ có code. Bài tối nay gắn trực tiếp với bài sáng:
+embedding lookup, độ tương đồng cosine, sinusoidal position encoding, RoPE và RMSNorm.</p>
+<div class="meta">
+<span>⏱️ ~40 phút</span><span>🐍 PyTorch (CPU là đủ)</span><span>🎯 4 bài tập code</span><span>📝 3 câu tự kiểm tra</span>
+</div>
+
+<div class="goal">
+<h3>🎯 Kết thúc buổi tối, bạn làm được</h3>
+<ul>
+<li>Cài <b>nn.Embedding</b> và đo độ tương đồng cosine giữa các từ (phép tính "vua − đàn ông + phụ nữ").</li>
+<li>Lập trình <b>sinusoidal position encoding</b> từ công thức và kiểm chứng tính chất "dịch vị trí".</li>
+<li>Lập trình <b>RoPE</b> (xoay từng cặp chiều theo vị trí) và thấy vì sao nó mã hóa <i>vị trí tương đối</i>.</li>
+<li>Lập trình <b>RMSNorm</b> và tính được embedding "tốn" bao nhiêu VRAM trước khi bấm nút train.</li>
+</ul>
+</div>
+
+<section class="card">
+<h2><span class="n">A1</span>Embedding lookup &amp; cosine similarity</h2>
+<p><b>Mục đích:</b> hiểu vì sao <span class="code" style="display:inline;padding:2px 8px;margin:0">nn.Embedding(V, d)</span>
+chỉ là "tra cứu bảng" — và độ tương đồng cosine đo được ý nghĩa ngữ nghĩa.</p>
+<div class="task">
+<h4>📝 Nhiệm vụ</h4>
+<ol>
+<li>Tạo một <code>nn.Embedding</code> với vocab = 6 từ: <code>["vua","nữ_hoàng","đàn_ông","phụ_nữ","mèo","ô_tô"]</code>, d = 8. Dùng <code>torch.manual_seed(4)</code> để kết quả tái lập được.</li>
+<li>Viết hàm <code>cos_sim(u, v)</code> trả về độ tương đồng cosine trong [−1, 1].</li>
+<li>Tính cos_sim của mọi cặp từ, in ra cặp giống nhau nhất và khác nhau nhất.</li>
+<li>Thực hiện phép tính số học từ: <code>v("vua") − v("đàn_ông") + v("phụ_nữ")</code> rồi tìm từ nào gần nhất với vector kết quả theo cosine.</li>
+</ol>
+<div class="hint">💡 <b>Gợi ý từng bước:</b> (1) <code>emb = nn.Embedding(6, 8)</code> rồi <code>emb.weight</code> là bảng tra cứu — không cần train gì cả, vector ngẫu nhiên vẫn minh họa được ý tưởng.
+(2) Công thức: <code>cos(u,v) = (u·v) / (‖u‖‖v‖)</code> — dùng <code>torch.dot</code>, <code>torch.norm</code>.
+(3) Hai vòng lặp <code>for i in range(6): for j in range(i+1, 6)</code>.
+(4) Với embedding ngẫu nhiên chưa train, kết quả sẽ KHÔNG ra "nữ_hoàng" — đó chính là điểm cần nhận ra ở câu hỏi Q1.</div>
+<div class="code"><span class="k">import</span> torch
+<span class="k">from</span> torch <span class="k">import</span> nn
+
+torch.manual_seed(<span class="n">4</span>)
+words = [<span class="s">"vua"</span>, <span class="s">"nữ_hoàng"</span>, <span class="s">"đàn_ông"</span>, <span class="s">"phụ_nữ"</span>, <span class="s">"mèo"</span>, <span class="s">"ô_tô"</span>]
+emb = nn.Embedding(<span class="blank">___</span>, <span class="blank">___</span>)   <span class="c"># V = ?, d = ?</span>
+
+<span class="k">def</span> <span class="n">cos_sim</span>(u, v):
+    <span class="k">return</span> <span class="blank">___</span>   <span class="c"># điền công thức cosine</span>
+
+<span class="c"># ... tính và in kết quả, bạn tự viết tiếp</span></div>
+</div>
+</section>
+
+<section class="card">
+<h2><span class="n">A2</span>Sinusoidal position encoding — lập trình từ công thức</h2>
+<p><b>Mục đích:</b> thấy PE không phải "phép màu" mà là công thức sin/cos chạy được, và kiểm chứng
+tính chất quan trọng nhất: <b>PE(pos + k) là hàm tuyến tính của PE(pos)</b> — nên model học được khoảng cách tương đối.</p>
+<div class="formula">PE(pos, 2i) = sin(pos / 10000<sup>2i/d</sup>) &nbsp;&nbsp; PE(pos, 2i+1) = cos(pos / 10000<sup>2i/d</sup>)</div>
+<div class="task">
+<h4>📝 Nhiệm vụ</h4>
+<ol>
+<li>Viết hàm <code>sinusoidal_pe(max_len, d)</code> trả về tensor <code>(max_len, d)</code> theo đúng công thức trên (chỉ dùng <code>torch.arange</code>, <code>torch.sin</code>, <code>torch.cos</code> — không dùng thư viện có sẵn).</li>
+<li>Kiểm chứng 1 — <b>tính duy nhất:</b> với <code>d = 64, max_len = 100</code>, không có 2 vị trí nào có vector PE trùng nhau (so sánh từng cặp, dung sai 1e-6).</li>
+<li>Kiểm chứng 2 — <b>tính tuyến tính của phép dịch:</b> với k = 7 cố định, tìm ma trận <code>M</code> (d×d) bằng bình phương tối thiểu sao cho <code>PE(pos+k) ≈ PE(pos) @ M</code> với mọi pos; in sai số lớn nhất. (Gợi ý: <code>torch.linalg.lstsq(A, B)</code>.)</li>
+</ol>
+<div class="hint">💡 <b>Gợi ý từng bước:</b> (1) Tạo <code>pos = torch.arange(max_len).unsqueeze(1)</code> (cột),
+<code>i = torch.arange(d//2)</code>, <code>div = 10000 ** (2*i/d)</code>, rồi <code>angle = pos / div</code>;
+gán cột chẵn = sin, cột lẻ = cos. (2) Dùng <code>torch.cdist(pe, pe)</code> rồi kiểm tra phần tử
+nhỏ nhất ngoài đường chéo &gt; 0. (3) Xếp <code>A = PE[:-k]</code>, <code>B = PE[k:]</code>,
+giải <code>M</code> rồi tính <code>(A @ M - B).abs().max()</code> — sai số ~1e-6 nghĩa là tính chất đúng.</div>
+</div>
+</section>
+
+<section class="card">
+<h2><span class="n">A3</span>RoPE — xoay từng cặp chiều theo vị trí</h2>
+<p><b>Mục đích:</b> lập trình trực tiếp ý tưởng RoPE: mỗi cặp chiều (x<sub>2i</sub>, x<sub>2i+1</sub>) bị xoay
+một góc <code>pos · ω<sub>i</sub></code>; nhờ đó <b>chỉ khoảng cách tương đối</b> mới ảnh hưởng tới tích vô hướng giữa query và key.</p>
+<div class="task">
+<h4>📝 Nhiệm vụ</h4>
+<ol>
+<li>Viết hàm <code>apply_rope(x, pos, omegas)</code>: <code>x</code> có shape <code>(d,)</code>, <code>omegas</code> shape <code>(d//2,)</code>. Với mỗi cặp, áp dụng ma trận xoay 2×2 góc <code>θ = pos * ω<sub>i</sub></code>:
+<code>[x', y'] = [x·cosθ − y·sinθ, x·sinθ + y·cosθ]</code>.</li>
+<li>Kiểm chứng <b>tính tương đối:</b> lấy 2 vector ngẫu nhiên <code>q, k</code> (d = 8, seed 4), với
+<code>pos_q = 10, pos_k = 4</code>: tính <code>dot(rope(q,10), rope(k,4))</code>; rồi dịch cả hai
+thêm +100 vị trí: <code>dot(rope(q,110), rope(k,104))</code>. In 2 giá trị — chúng phải gần bằng nhau (sai số &lt; 1e-5).</li>
+<li>Giải thích bằng 1–2 câu trong comment: vì sao tính chất này giúp model "hiểu" thứ tự từ mà không cần biết vị trí tuyệt đối?</li>
+</ol>
+<div class="hint">💡 <b>Gợi ý từng bước:</b> (1) Tách <code>x_even = x[0::2]</code>, <code>x_odd = x[1::2]</code>;
+tính <code>theta = pos * omegas</code>; rồi ghép lại bằng <code>torch.stack([x_new_even, x_new_odd], dim=-1).reshape(-1)</code>.
+Lấy <code>omegas = 1.0 / (10000 ** (torch.arange(d//2) * 2.0 / d))</code> giống A2. (2) Đây là phép kiểm chứng
+định tính quan trọng nhất của RoPE — nếu 2 số lệch nhau, bug nằm ở công thức xoay.</div>
+</div>
+</section>
+
+<section class="card">
+<h2><span class="n">A4</span>RMSNorm + tính VRAM cho embedding</h2>
+<p><b>Mục đích:</b> tự tay chuẩn hóa một vector và tính được "giá phải trả" của embedding trước khi train —
+đúng như công thức ⚡ trong bài sáng.</p>
+<div class="formula">RMSNorm(x) = x / √(mean(x²) + ε) · γ &nbsp;&nbsp;·&nbsp;&nbsp; VRAM ≈ V × d × bytes × 3 <span style="color:var(--muted)">(weights + Adam m, v)</span></div>
+<div class="task">
+<h4>📝 Nhiệm vụ</h4>
+<ol>
+<li>Viết hàm <code>rmsnorm(x, gamma, eps=1e-6)</code> đúng công thức (gamma khởi tạo toàn 1).</li>
+<li>Kiểm chứng: với vector ngẫu nhiên <code>x</code> (d = 64, seed 4), sau RMSNorm thì <code>mean(y²)</code> ≈ 1 (sai số &lt; 1e-5). In giá trị ra.</li>
+<li>Tính VRAM cho embedding của một model giả định: <code>V = 128_000, d = 4096</code>, dùng <b>bf16</b> (2 bytes) + Adam (×3). Đổi ra GB (1 GB = 1024³ bytes). In kết quả và nhận xét 1 câu: con số này nói gì về việc train trên GPU 24GB?</li>
+</ol>
+<div class="hint">💡 <b>Gợi ý từng bước:</b> (1) <code>mean_sq = x.pow(2).mean()</code> rồi
+<code>x / torch.sqrt(mean_sq + eps) * gamma</code>. (2) <code>y.pow(2).mean().item()</code>.
+(3) <code>vram = 128_000 * 4096 * 2 * 3 / 1024**3</code> — chỉ riêng bảng embedding đã hơn chục GB,
+chưa tính phần còn lại của model.</div>
+</div>
+</section>
+
+<section class="card">
+<h2><span class="n">B</span>3 câu tự kiểm tra nhanh</h2>
+<p class="tldr">Không chấm điểm — bấm "Hiện đáp án" để tự đối chiếu, hiểu sai chỗ nào thì quay lại bài sáng Ngày 4.</p>
+<div class="q">
+<p>Q1. Ở bài A1, phép tính <code>v("vua") − v("đàn_ông") + v("phụ_nữ")</code> với embedding ngẫu nhiên
+chưa train KHÔNG cho ra "nữ_hoàng". Vì sao?</p>
+<button onclick="this.nextElementSibling.classList.toggle('show')">Hiện đáp án</button>
+<div class="ans">Vì quan hệ ngữ nghĩa trong embedding không có sẵn — nó được <b>học</b> từ dữ liệu
+trong quá trình huấn luyện (gradient cập nhật các vector sao cho từ xuất hiện trong ngữ cảnh giống nhau
+thì gần nhau). Vector ngẫu nhiên chỉ là điểm khởi đầu. Muốn thấy "vua − đàn ông + phụ nữ ≈ nữ hoàng"
+thì phải train trên corpus đủ lớn (như word2vec đã làm).</div>
+</div>
+<div class="q">
+<p>Q2. Sinusoidal PE và RoPE đều mã hóa vị trí, nhưng khác nhau ở điểm cốt lõi nào?</p>
+<button onclick="this.nextElementSibling.classList.toggle('show')">Hiện đáp án</button>
+<div class="ans">Sinusoidal PE là <b>vị trí tuyệt đối</b>: cộng một vector phụ thuộc pos vào embedding đầu vào,
+mọi token sau đó "mang theo" thông tin vị trí tuyệt đối của mình. RoPE là <b>vị trí tương đối</b>:
+xoay query/key theo pos ngay trong attention, nên tích vô hướng q·k chỉ còn phụ thuộc vào
+<b>khoảng cách pos_q − pos_k</b> (đúng như bạn đã kiểm chứng ở A3), không phụ thuộc vị trí tuyệt đối.</div>
+</div>
+<div class="q">
+<p>Q3. Vì sao bài sáng nói "weight tying" (dùng chung bảng embedding cho đầu vào và đầu ra)
+lại tiết kiệm được VRAM đáng kể?</p>
+<button onclick="this.nextElementSibling.classList.toggle('show')">Hiện đáp án</button>
+<div class="ans">Vì bảng embedding thường là ma trận lớn nhất của model nhỏ/vừa
+(V × d — ở A3 bạn tính ra nó đã chiếm hơn chục GB với Adam).
+Không tying = giữ <b>2 bản copy</b> (một cho embedding đầu vào, một cho lớp linear đầu ra) +
+Adam lưu m, v cho cả hai → tốn gấp đôi. Tying gộp thành một bảng duy nhất, vừa tiết kiệm
+vừa thường cho kết quả tốt hơn vì 2 đầu "nhất quán" với nhau.</div>
+</div>
+</section>
+
+<section class="card">
+<h2><span class="n">C</span>⚠️ Bẫy thường gặp</h2>
+<div class="warn"><b>Bẫy 1 — Quên seed khi kiểm chứng.</b> Các phép kiểm chứng ở A2/A3 so sánh sai số nhỏ
+(1e-5, 1e-6). Nếu không <code>torch.manual_seed(...)</code> hoặc để mặc định dtype khác nhau giữa các lần chạy,
+bạn sẽ đuổi theo "bug" không tồn tại. Quy tắc: seed cố định trước mọi thí nghiệm kiểm chứng.</div>
+<div class="warn"><b>Bẫy 2 — Nhầm chiều khi ghép cặp RoPE.</b> Lỗi phổ biến nhất ở A3 là ghép lại sai thứ tự
+(x_new_even/x_new_odd bị đảo) — kiểm chứng tính tương đối sẽ lệch ngay. Cách bắt bug: test với
+<code>pos = 0</code> trước — RoPE ở pos 0 phải trả về đúng vector gốc (góc xoay = 0).</div>
+<div class="warn"><b>Bẫy 3 — Tính VRAM quên hệ số Adam.</b> Nhiều người chỉ tính <code>V × d × bytes</code>
+rồi kết luận "vừa GPU". Thực tế Adam lưu thêm <code>m</code> và <code>v</code> (mỗi cái bằng đúng kích thước weights)
+→ nhân 3. Bài A3 ép bạn tính cả hệ số này — đó là con số quyết định mua/thuê GPU nào.</div>
+</section>
+
+<div class="check">
+<h3>✅ Checklist nộp bài</h3>
+<ul>
+<li>☐ Đã chạy được cả 4 bài A1–A4, in kết quả kiểm chứng ra màn hình.</li>
+<li>☐ Đã tự trả lời 3 câu Q1–Q3 trước khi bấm "Hiện đáp án".</li>
+<li>☐ Ghi lại 1 điều bất ngờ nhất tối nay (vd: "RoPE dịch cả 2 vị trí mà dot không đổi").</li>
+<li>📩 <b>Paste code + output kết quả vào chat</b> để được nhận xét chi tiết từng bài.</li>
+</ul>
+<p class="tldr">Gợi ý khi nộp: paste cả file .py (hoặc từng hàm bạn tự viết) kèm output terminal.
+Nếu bài nào chưa chạy được, paste luôn lỗi — chữa bug cũng là một phần của buổi học.</p>
+</div>
+
+<div class="note"><b>🔗 Chuỗi bài Ngày 4:</b> bài sáng (lý thuyết) → bài tối nay (thực hành).
+Ngày mai (Ngày 5) sẽ đi tiếp vào kiến trúc Transformer — embedding và vị trí tối nay
+chính là "nguyên liệu đầu vào" của nó.</div>
+
+<p class="foot">Khóa "Trở thành AI Engineer (LLM)" · Ngày 4 — Buổi tối · 🛠️ Thực hành</p>
+
+</div>
+<script>
+// no-op: answers toggled inline via onclick
+</script>
+</body>
+</html>

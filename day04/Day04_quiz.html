@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quiz Ngày 4 — Embedding và vị trí</title>
+<style>
+  :root{--bg:#0b1020;--card:#141b33;--line:#26314f;--txt:#e8ecf7;--muted:#9aa6c7;
+    --gold:#fbbf24;--blue:#60a5fa;--green:#34d399;--red:#f87171;}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  body{margin:0;background:var(--bg);color:var(--txt);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;line-height:1.7;font-size:16px;}
+  .wrap{max-width:760px;margin:0 auto;padding:0 18px 80px;}
+  .kicker{display:inline-block;margin:26px 0 10px;padding:6px 14px;border:1px solid var(--line);
+    border-radius:999px;color:var(--muted);font-size:13px;}
+  h1{font-size:clamp(24px,5vw,32px);margin:6px 0 4px;}
+  .sub{color:var(--muted);margin:0 0 18px;}
+  .q{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin:16px 0;}
+  .q h3{margin:0 0 10px;font-size:17px;}
+  .q h3 .qn{color:var(--gold);margin-right:6px;}
+  label.opt{display:block;padding:10px 12px;border:1px solid var(--line);border-radius:10px;
+    margin:8px 0;cursor:pointer;}
+  label.opt:hover{border-color:var(--blue);}
+  label.opt input{margin-right:10px;transform:scale(1.2);}
+  .exp{display:none;margin-top:10px;padding:10px 12px;border-radius:10px;font-size:15px;}
+  .exp.ok{display:block;background:#0c2b1a;border:1px solid #14532d;}
+  .exp.no{display:block;background:#2a1420;border:1px solid #7f1d1d;}
+  .btnrow{display:flex;gap:12px;flex-wrap:wrap;margin:24px 0;}
+  button{flex:1 1 200px;padding:15px;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer;}
+  #submit{background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;}
+  #copy{background:linear-gradient(135deg,#34d399,#047857);color:#06281c;display:none;}
+  #score{font-size:19px;font-weight:800;margin:14px 0;display:none;}
+  .note{color:var(--muted);font-size:14px;border:1px dashed var(--line);border-radius:12px;padding:12px 14px;margin-top:18px;}
+  .back{display:inline-block;margin-top:10px;color:var(--blue);text-decoration:none;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <span class="kicker">Khóa AI Engineer (LLM) · Quiz Ngày 4/30</span>
+  <h1>📝 Quiz — Embedding và vị trí</h1>
+  <p class="sub">5 câu trắc nghiệm. Chọn đáp án rồi bấm <b>Nộp bài</b> để chấm điểm ngay trong file.</p>
+
+  <div id="quiz"></div>
+
+  <div class="btnrow">
+    <button id="submit" onclick="grade()">Nộp bài</button>
+    <button id="copy" onclick="copyResult()">📋 Copy kết quả</button>
+  </div>
+  <div id="score"></div>
+
+  <div class="note">ℹ️ File HTML này chạy offline, <b>không tự gửi kết quả về được</b>. Sau khi bấm "Copy kết quả", bạn paste chuỗi kết quả vào chat để trợ lý ghi điểm và theo dõi tiến độ nhé.</div>
+  <a class="back" href="Day04_lesson.html">← Quay lại bài học</a>
+</div>
+
+<script>
+const QUESTIONS = [
+  {q:"Trong nn.Embedding(V, d), vector của token có id = 208 được lấy bằng cách nào?",
+   opts:["Tính trung bình cộng của 208 hàng đầu tiên của ma trận","Lấy đúng hàng thứ 208 của ma trận embedding","Nhân one-hot vector với ma trận rồi cộng bias","Áp dụng softmax lên hàng thứ 208"],
+   ans:1,
+   exp:"Embedding lookup chính là tra cứu: x = E[208], tức lấy nguyên hàng thứ 208. One-hot nhân ma trận cũng cho kết quả tương đương về mặt toán học, nhưng implementation thực tế là index trực tiếp, không qua phép nhân ma trận."},
+  {q:"Với V = 32.000, d = 4.096, dùng weight tying (W_out = E) thì tiết kiệm được bao nhiêu tham số so với không tying?",
+   opts:["32.000 tham số","4.096 tham số","Khoảng 131 triệu tham số (V × d)","Không tiết kiệm vì E vẫn phải lưu"],
+   ans:2,
+   exp:"Không tying cần thêm ma trận đầu ra V × d = 32.000 × 4.096 ≈ 131 triệu tham số. Weight tying xóa hẳn ma trận này, lại còn giúp perplexity tốt hơn một chút trong thực nghiệm."},
+  {q:"Trong sinusoidal position encoding, PE(pos, 2i) và PE(pos, 2i+1) được tính bằng:",
+   opts:["sin cho chiều chẵn, cos cho chiều lẻ","cos cho chiều chẵn, sin cho chiều lẻ","Cả hai đều dùng sin nhưng tần số khác nhau","Học bằng gradient như embedding thường"],
+   ans:0,
+   exp:"Công thức gốc: PE(pos,2i) = sin(pos/10000^(2i/d)), PE(pos,2i+1) = cos(pos/10000^(2i/d)). Nó được tính bằng công thức cố định, không cần học — khác với learned positional embedding."},
+  {q:"Điểm cốt lõi của RoPE so với sinusoidal position encoding là gì?",
+   opts:["RoPE cộng vector vị trí tuyệt đối có biên độ lớn hơn","RoPE xoay vector query/key theo góc tỉ lệ với vị trí, khiến q·k chỉ phụ thuộc khoảng cách tương đối","RoPE loại bỏ hoàn toàn nhu cầu về vị trí vì attention đã có thứ tự","RoPE chỉ áp dụng cho token đầu tiên của chuỗi"],
+   ans:1,
+   exp:"RoPE xoay cặp chiều (x_2i, x_2i+1) một góc pos·ω_i. Vì cả q và k đều bị xoay, tích vô hướng của chúng chỉ còn phụ thuộc hiệu (n−m) — tức khoảng cách tương đối, đúng thứ attention cần."},
+  {q:"Vì sao cần RMSNorm/LayerNorm sau khi cộng embedding với vector vị trí?",
+   opts:["Để tăng số chiều của vector lên gấp đôi","Để chuẩn hóa thang giá trị, giúp gradient ổn định và train được learning rate lớn hơn","Để biến vector thành one-hot trước khi vào attention","Để giảm số tham số của mô hình"],
+   ans:1,
+   exp:"Embedding cộng vị trí có thể cho thang giá trị lộn xộn. Normalization (trừ mean/chia std hoặc chia RMS) đưa vector về thang ổn định, giúp gradient không bùng nổ và mô hình sâu train được ổn định."}
+];
+let result = "";
+
+function render(){
+  const box = document.getElementById("quiz");
+  box.innerHTML = QUESTIONS.map((it,i)=>`
+    <div class="q" id="q${i}">
+      <h3><span class="qn">Câu ${i+1}.</span>${it.q}</h3>
+      ${it.opts.map((o,j)=>`
+        <label class="opt"><input type="radio" name="q${i}" value="${j}">${"ABCD"[j]}. ${o}</label>`).join("")}
+      <div class="exp" id="exp${i}"></div>
+    </div>`).join("");
+}
+
+function grade(){
+  let correct = 0; const picks = [];
+  QUESTIONS.forEach((it,i)=>{
+    const sel = document.querySelector(`input[name=q${i}]:checked`);
+    const exp = document.getElementById(`exp${i}`);
+    const box = document.getElementById(`q${i}`);
+    if(!sel){ exp.className="exp no"; exp.textContent="⚠️ Bạn chưa chọn đáp án câu này."; picks.push("–"); return; }
+    const v = +sel.value; picks.push("ABCD"[v]);
+    if(v===it.ans){ correct++; exp.className="exp ok"; exp.innerHTML="✅ <b>Đúng.</b> "+it.exp; }
+    else{ exp.className="exp no"; exp.innerHTML=`❌ <b>Sai.</b> Đáp án đúng là <b>${"ABCD"[it.ans]}</b>. `+it.exp; }
+    box.scrollIntoView({block:"nearest"});
+  });
+  result = `Day04 Quiz: ${picks.map((p,i)=>`${i+1}${p}`).join(" ")} — ${correct}/${QUESTIONS.length}`;
+  const s = document.getElementById("score");
+  s.style.display="block";
+  s.innerHTML = `Kết quả: <span style="color:${correct>=4?"var(--green)":correct>=3?"var(--gold)":"var(--red)"}">${correct}/${QUESTIONS.length}</span>` +
+    (correct<4 ? ` — dưới 80%, nên đọc lại phần lý thuyết tương ứng nhé.` : ` — xuất sắc! 🎉`);
+  document.getElementById("copy").style.display="block";
+  window.scrollTo({top:document.body.scrollHeight,behavior:"smooth"});
+}
+
+function copyResult(){
+  navigator.clipboard.writeText(result).then(
+    ()=>{ document.getElementById("copy").textContent="✅ Đã copy! Paste vào chat nhé"; },
+    ()=>{ prompt("Copy thủ công chuỗi kết quả:", result); });
+}
+
+render();
+</script>
+</body>
+</html>
