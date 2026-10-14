@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 04 — Embedding + Mã hóa vị trí: giải thích từ con số 0</title>
+<style>
+  :root{
+    --bg:#faf8f3; --card:#ffffff; --ink:#23272f; --muted:#6b7280;
+    --accent:#ea580c; --accent-soft:#ffedd5;
+    --blue:#2563eb; --blue-soft:#dbeafe;
+    --amber:#b45309; --amber-soft:#fef3c7;
+    --green:#047857; --green-soft:#d1fae5;
+    --rose:#be123c; --rose-soft:#ffe4e6;
+    --teal:#0f766e; --teal-soft:#ccfbf1;
+    --line:#e8e0d2; --code-bg:#1e2230;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    line-height:1.75;font-size:16.5px}
+  .wrap{max-width:960px;margin:0 auto;padding:0 20px}
+  header.hero{background:linear-gradient(135deg,#431407 0%,#c2410c 55%,#f59e0b 100%);
+    color:#fff;padding:64px 0 48px;margin-bottom:8px}
+  header.hero h1{margin:0 0 12px;font-size:2.1rem;line-height:1.3}
+  header.hero p{margin:6px 0;opacity:.92;max-width:720px}
+  .tag{display:inline-block;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.35);
+    border-radius:999px;padding:3px 14px;font-size:.85rem;margin-bottom:14px}
+  nav.sticky{position:sticky;top:0;z-index:50;background:rgba(250,248,243,.96);
+    backdrop-filter:blur(6px);border-bottom:1px solid var(--line)}
+  nav.sticky .wrap{display:flex;gap:4px;overflow-x:auto;padding:10px 20px;white-space:nowrap}
+  nav.sticky a{color:var(--muted);text-decoration:none;font-size:.88rem;padding:6px 10px;border-radius:8px}
+  nav.sticky a:hover{background:var(--accent-soft);color:var(--accent)}
+  section{padding:34px 0;border-bottom:1px solid var(--line)}
+  h2{font-size:1.55rem;margin:0 0 6px;color:#4a1e05}
+  h2 .num{display:inline-block;background:var(--accent);color:#fff;font-size:.95rem;
+    width:34px;height:34px;line-height:34px;text-align:center;border-radius:10px;margin-right:10px;vertical-align:middle}
+  h3{font-size:1.15rem;margin:26px 0 8px}
+  .lead{color:#4b5563;font-size:1.05rem}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:20px 22px;margin:16px 0;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin:18px 0}
+  .concept{background:var(--card);border:1px solid var(--line);border-top:4px solid var(--accent);
+    border-radius:12px;padding:16px 18px}
+  .concept h4{margin:0 0 6px;font-size:1.02rem}
+  .concept p{margin:0;font-size:.93rem;color:#4b5563}
+  .concept.blue{border-top-color:var(--blue)} .concept.teal{border-top-color:var(--teal)}
+  .concept.green{border-top-color:var(--green)} .concept.rose{border-top-color:var(--rose)}
+  pre{background:var(--code-bg);color:#e8eaf2;border-radius:12px;padding:18px 20px;
+    overflow-x:auto;font-size:.86rem;line-height:1.6;margin:14px 0;max-height:560px;overflow-y:auto}
+  code{font-family:"SF Mono",Consolas,"Courier New",monospace}
+  p code, li code, td code{background:#fde8d7;padding:1px 7px;border-radius:6px;font-size:.88em;color:#9a3412}
+  pre code{background:none;padding:0;color:inherit}
+  .kw{color:#c792ea}.fn{color:#82aaff}.str{color:#c3e88d}.cm{color:#697098;font-style:italic}.num2{color:#f78c6c}
+  pre.before{background:#2a1a12;border:1px solid #7c2d12}
+  pre.after{background:#0f2a1a;border:1px solid #047857}
+  .diff-tag{display:inline-block;font-size:.78rem;font-weight:700;border-radius:6px;padding:2px 10px;margin-bottom:6px}
+  .diff-tag.old{background:var(--rose-soft);color:var(--rose)}
+  .diff-tag.new{background:var(--green-soft);color:var(--green)}
+  .diagram{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px 10px;margin:18px 0;text-align:center;overflow-x:auto}
+  .diagram svg{max-width:100%;height:auto}
+  .caption{font-size:.9rem;color:var(--muted);margin-top:10px;font-style:italic}
+  .flow{display:flex;align-items:stretch;gap:0;overflow-x:auto;padding:18px 6px;margin:14px 0}
+  .fstep{background:#fff;border:2px solid var(--line);border-radius:12px;padding:12px 14px;
+    min-width:140px;text-align:center;font-size:.88rem;flex-shrink:0}
+  .fstep b{display:block;margin-bottom:4px;font-size:.95rem}
+  .fstep small{color:var(--muted)}
+  .fstep.d{background:var(--blue-soft);border-color:var(--blue)}
+  .fstep.m{background:var(--accent-soft);border-color:var(--accent)}
+  .fstep.e{background:var(--amber-soft);border-color:var(--amber)}
+  .fstep.g{background:var(--green-soft);border-color:var(--green)}
+  .fstep.r{background:var(--rose-soft);border-color:var(--rose)}
+  .fstep.t{background:var(--teal-soft);border-color:var(--teal)}
+  .farrow{align-self:center;font-size:1.6rem;color:var(--muted);padding:0 6px;flex-shrink:0}
+  .analogy{background:#fff7ed;border:1px solid #fdba74;border-left:6px solid var(--accent);
+    border-radius:10px;padding:16px 20px;margin:16px 0}
+  .analogy b{color:#9a3412}
+  .warn{background:#fff1f2;border:1px solid #fda4af;border-left:6px solid var(--rose);
+    border-radius:10px;padding:16px 20px;margin:16px 0}
+  .warn b{color:#9f1239}
+  .ok{background:#ecfdf5;border:1px solid #6ee7b7;border-left:6px solid var(--green);
+    border-radius:10px;padding:16px 20px;margin:16px 0}
+  table.mini{border-collapse:collapse;margin:14px auto;font-size:.9rem;min-width:70%}
+  table.mini th, table.mini td{border:1px solid var(--line);padding:8px 14px;text-align:center}
+  table.mini th{background:#fde8d7}
+  table.mini td.num{font-family:monospace}
+  .demo{background:#fff;border:2px solid var(--accent);border-radius:16px;padding:24px;margin:18px 0}
+  .demo h3{margin-top:0}
+  input[type=range]{width:100%;accent-color:var(--accent);margin:8px 0}
+  .seg{display:flex;gap:8px;margin:10px 0;flex-wrap:wrap}
+  .seg button{border:2px solid var(--line);background:#fff;border-radius:10px;
+    padding:8px 18px;font-size:1rem;cursor:pointer}
+  .seg button.active{border-color:var(--accent);background:var(--accent-soft);font-weight:700}
+  .big-out{background:var(--code-bg);color:#e8eaf2;border-radius:12px;padding:18px 20px;
+    font-family:monospace;font-size:1rem;margin-top:12px;line-height:1.9;word-break:break-word}
+  .btn{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:10px 22px;
+    font-size:1rem;cursor:pointer;margin:10px 8px 0 0}
+  .btn:hover{background:#c2410c}
+  .formula{text-align:center;font-size:1.2rem;background:#fff7ed;border-radius:10px;
+    padding:16px;margin:14px 0;font-family:Georgia,serif}
+  .formula small{display:block;font-family:inherit;font-size:.85rem;color:var(--muted);margin-top:6px}
+  footer{padding:36px 0 60px;color:var(--muted);font-size:.9rem;text-align:center}
+  ul.tight li{margin-bottom:6px}
+  .pebar{display:flex;align-items:flex-end;gap:3px;height:110px;justify-content:center;margin:10px 0}
+  .pebar .bcol{flex:1;max-width:34px;border-radius:4px 4px 0 0;min-height:3px}
+  .pebar .bcol.pos{background:linear-gradient(180deg,#fb923c,#ea580c)}
+  .pebar .bcol.neg{background:linear-gradient(0deg,#93c5fd,#2563eb)}
+  .pebar-wrap{display:flex;gap:2px;justify-content:center}
+  .pebar-lbl{text-align:center;font-family:monospace;font-size:.8rem;color:var(--muted)}
+  @media(max-width:600px){header.hero h1{font-size:1.6rem}body{font-size:15.5px}}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="tag">📄 Phân tích: day04/embedding_pe.py</span>
+    <h1>Day 04 — Embedding<br>+ Mã hóa vị trí bằng tay</h1>
+    <p>Model không "hiểu" chữ — nó chỉ hiểu <b>vector</b> (dãy số). Day 4 bạn tự tay dựng 4 viên gạch nền của mọi Transformer: <b>(A1)</b> bảng embedding + độ tương đồng cosine, <b>(A2)</b> mã hóa vị trí hình sin, <b>(A3)</b> RoPE (xoay theo vị trí), <b>(A4)</b> RMSNorm + tính "giá" VRAM của embedding.</p>
+    <p style="font-size:.9rem;opacity:.8">Số liệu trong bài đều là kết quả chạy thật của <code>embedding_pe.py</code> (chỉ cần CPU).</p>
+  </div>
+</header>
+
+<nav class="sticky"><div class="wrap">
+  <a href="#tong-quan">🍿 Tóm tắt 30 giây</a>
+  <a href="#a1">🔤 A1: Embedding</a>
+  <a href="#a2">🕐 A2: Sinusoidal PE</a>
+  <a href="#a3">🌀 A3: RoPE</a>
+  <a href="#a4">📏 A4: RMSNorm + VRAM</a>
+  <a href="#trainer">🛠️ Trainer đã sửa gì</a>
+  <a href="#source">📜 Source code</a>
+</div></nav>
+
+<div class="wrap">
+
+<!-- ================= TỔNG QUAN ================= -->
+<section id="tong-quan">
+  <h2><span class="num">🍿</span>Tóm tắt 30 giây cho người ngoại đạo</h2>
+  <div class="grid">
+    <div class="concept"><h4>🔤 A1 — Từ → vector</h4><p><code>nn.Embedding</code> chỉ là <b>bảng tra cứu</b>: mỗi từ một hàng vector. <b>Cosine</b> đo góc giữa 2 vector để biết 2 từ "giống nhau" cỡ nào — nền tảng của phép tính <i>vua − đàn ông + phụ nữ</i>.</p></div>
+    <div class="concept blue"><h4>🕐 A2 — Dấu vân tay vị trí</h4><p>Transformer không biết thứ tự từ → phải "đóng dấu" vị trí vào vector. Công thức sin/cos tạo cho mỗi vị trí một <b>dấu vân tay duy nhất</b>, lại có tính chất: dịch vị trí = phép biến đổi tuyến tính.</p></div>
+    <div class="concept teal"><h4>🌀 A3 — RoPE: xoay theo vị trí</h4><p>Thay vì cộng dấu vị trí, <b>xoay</b> từng cặp chiều của vector một góc tỉ lệ với vị trí. Kết quả: attention chỉ "cảm nhận" được <b>khoảng cách tương đối</b> giữa 2 token — đúng cái model cần.</p></div>
+    <div class="concept green"><h4>📏 A4 — Chuẩn hóa + tính tiền</h4><p><b>RMSNorm</b> đưa vector về "âm lượng" chuẩn (RMS=1). Và bài toán thực tế: bảng embedding của model lớn <b>ngốn ~3GB VRAM</b> — chưa tính gì khác!</p></div>
+  </div>
+  <div class="analogy"><b>🧭 Vị trí Day 4 trong khóa học:</b> Day 1–3 bạn làm việc với <b>token</b> (số nguyên). Từ Day 4, token được "thổi hồn" thành <b>vector</b> — và mọi phép màu của Transformer (attention, vị trí, chuẩn hóa) đều diễn ra trên vector. Đây là 4 viên gạch đầu tiên của GPT (Ngày 6 sẽ dùng lại).</div>
+</section>
+
+<!-- ================= A1 ================= -->
+<section id="a1">
+  <h2><span class="num">🔤</span>A1 — Embedding: bảng tra cứu + thước đo góc cosine</h2>
+  <p class="lead"><code>nn.Embedding(V, d)</code> nghe "sang" nhưng bản chất chỉ là <b>một bảng số</b> kích thước V×d: muốn vector của từ thứ <i>i</i> thì lật đúng hàng <i>i</i>. Giống hệt bảng điểm V×V ở Day 1 — chỉ khác số cột!</p>
+
+  <div class="analogy"><b>🗺️ Ví dụ — Bản đồ các từ:</b> Tưởng tượng mỗi từ là một <b>mũi tên</b> bắn ra từ gốc tọa độ trong không gian 8 chiều. Từ gần nghĩa → 2 mũi tên <b>chĩa gần cùng hướng</b>. <b>Cosine similarity</b> chính là thước đo <b>góc</b> giữa 2 mũi tên: góc 0° → cos = 1 (giống hệt), góc 90° → cos = 0 (không liên quan), góc 180° → cos = −1 (đối lập). Chia cho độ dài vector để chỉ đo <i>hướng</i>, không đo <i>độ dài</i>.</div>
+
+  <h3>Sơ đồ: embedding = tra cứu hàng trong bảng</h3>
+  <div class="diagram">
+    <svg width="680" viewBox="0 0 680 240" font-family="inherit">
+      <text x="340" y="22" text-anchor="middle" font-size="15" font-weight="700">nn.Embedding(6, 8): 6 từ, mỗi từ 1 vector 8 chiều</text>
+      <g font-size="13" text-anchor="middle" font-family="monospace">
+        <text x="90" y="80" fill="#9ca3af">vua</text><text x="90" y="115" fill="#9ca3af">nữ_hoàng</text><text x="90" y="150" fill="#9ca3af">đàn_ông</text><text x="90" y="185" fill="#9ca3af">…</text>
+        <g opacity="0.4">
+          <rect x="140" y="62" width="300" height="26" fill="#f3f0e8"/><rect x="140" y="97" width="300" height="26" fill="#f3f0e8"/><rect x="140" y="132" width="300" height="26" fill="#f3f0e8"/><rect x="140" y="167" width="300" height="26" fill="#f3f0e8"/>
+        </g>
+        <rect x="140" y="62" width="300" height="26" fill="none" stroke="#ea580c" stroke-width="3"/>
+        <text x="470" y="80" font-size="12" fill="#ea580c" font-weight="700">← hàng 0 = vector("vua")</text>
+        <text x="470" y="102" font-size="12" fill="#6b7280">emb([0]) phải == hàng này</text>
+        <text x="470" y="124" font-size="12" fill="#6b7280">→ chạy thật: True ✅</text>
+      </g>
+      <text x="340" y="215" text-anchor="middle" font-size="13" fill="#6b7280">Chưa train gì cả — vector đang ngẫu nhiên, chỉ minh họa <i>ý tưởng</i> tra cứu (ý nghĩa ngữ nghĩa chỉ xuất hiện <b>sau khi train</b>)</text>
+    </svg>
+  </div>
+
+  <div class="formula">cos(u, v) = (u·v) / (||u|| · ||v||)
+    <small>Tích vô hướng chia cho tích độ dài → chỉ còn lại "góc", mất "độ dài"</small>
+  </div>
+
+  <h3>Kết quả chạy thật (embedding ngẫu nhiên, seed=4)</h3>
+  <table class="mini">
+    <tr><th>cặp từ</th><th>cosine</th><th>đọc nhanh</th></tr>
+    <tr><td><code>nữ_hoàng – phụ_nữ</code></td><td class="num">+0.6034</td><td>🏆 giống nhau nhất (ngẫu nhiên!)</td></tr>
+    <tr><td><code>vua – ô_tô</code></td><td class="num">+0.5676</td><td>❓ "giống" một cách vô nghĩa</td></tr>
+    <tr><td><code>vua – mèo</code></td><td class="num">+0.0340</td><td>gần vuông góc</td></tr>
+    <tr><td><code>nữ_hoàng – đàn_ông</code></td><td class="num">−0.6833</td><td>💔 khác nhau nhất (ngẫu nhiên!)</td></tr>
+  </table>
+  <div class="warn"><b>⚠️ Đừng hiểu lầm bảng số này!</b> Vì embedding <b>chưa train</b> nên mọi con số đều ngẫu nhiên — <code>vua – ô_tô = +0.57</code> không có nghĩa "vua giống ô tô". Phép tính kinh điển <code>v(vua) − v(đàn_ông) + v(phụ_nữ)</code> ở đây ra từ <code>'vua'</code> (+0.83) cũng là <b>ngẫu nhiên</b>. Quan hệ ngữ nghĩa thật chỉ xuất hiện <b>sau khi train</b> (như word2vec) — bài này chỉ dạy <i>cách đo</i>.</div>
+
+  <div class="demo">
+    <h3>🎛️ Thử ngay: vặn góc xem cosine đổi thế nào</h3>
+    <p style="margin-top:0">Hai mũi tên 2D, kéo thanh trượt để xoay mũi tên cam:</p>
+    <label><b>Góc giữa 2 vector = <span id="cosAng">45</span>°</b></label>
+    <input type="range" id="cosSlider" min="0" max="180" step="1" value="45">
+    <div class="diagram" style="border:none;margin:8px 0;padding:8px">
+      <svg width="400" viewBox="0 0 400 220" font-family="inherit" id="cosSvg">
+        <line x1="200" y1="190" x2="200" y2="30" stroke="#e5e0d5" stroke-width="1"/>
+        <line x1="40" y1="190" x2="360" y2="190" stroke="#e5e0d5" stroke-width="1"/>
+        <line id="vecA" x1="200" y1="190" x2="320" y2="190" stroke="#2563eb" stroke-width="4"/>
+        <polygon id="arrA" points="320,190 308,184 308,196" fill="#2563eb"/>
+        <line id="vecB" x1="200" y1="190" x2="200" y2="190" stroke="#ea580c" stroke-width="4"/>
+        <polygon id="arrB" points="200,190 188,184 188,196" fill="#ea580c"/>
+        <text x="330" y="195" font-size="13" fill="#2563eb" font-weight="700">u</text>
+        <text id="lblB" x="210" y="195" font-size="13" fill="#ea580c" font-weight="700">v</text>
+        <text id="angLbl" x="200" y="175" font-size="12" fill="#6b7280" text-anchor="middle"></text>
+      </svg>
+    </div>
+    <div class="big-out" id="cosOut"></div>
+  </div>
+</section>
+
+<!-- ================= A2 ================= -->
+<section id="a2">
+  <h2><span class="num">🕐</span>A2 — Sinusoidal PE: "dấu vân tay" của vị trí</h2>
+  <p class="lead">Transformer xử lý mọi token <b>cùng lúc</b> nên nó <b>mù thứ tự</b> — "mèo đuổi chuột" và "chuột đuổi mèo" trông giống hệt nhau! Giải pháp: <b>đóng dấu vị trí</b> vào mỗi vector bằng công thức sin/cos, để mỗi vị trí có một "dấu vân tay" duy nhất.</p>
+
+  <div class="analogy"><b>🕐 Ví dụ — Dàn kim đồng hồ:</b> Mỗi <b>cặp chiều</b> <code>(2i, 2i+1)</code> là một <b>kim đồng hồ</b> quay với tốc độ riêng: cặp đầu quay <b>nhanh</b> (kim giây), cặp sau quay <b>chậm dần</b> (kim phút, kim giờ…). Tại mỗi vị trí <code>pos</code>, chụp ảnh vị trí của cả dàn kim → được một "dấu vân tay" không đụng hàng với vị trí nào khác. Công thức <code>10000^(2i/d)</code> chính là hộp số điều chỉnh tốc độ từng kim.</div>
+
+  <div class="formula">PE(pos, 2i) = sin(pos / 10000<sup>2i/d</sup>) &nbsp;&nbsp;·&nbsp;&nbsp; PE(pos, 2i+1) = cos(pos / 10000<sup>2i/d</sup>)
+    <small>Cặp chẵn = sin, cặp lẻ = cos, cùng một góc → mỗi cặp là một "kim đồng hồ"</small>
+  </div>
+
+  <h3>Sơ đồ: dấu vân tay của 3 vị trí (d=8, số thật)</h3>
+  <div class="diagram">
+    <div style="display:flex;gap:24px;justify-content:center;flex-wrap:wrap">
+      <div><div class="pebar-lbl"><b>PE(0)</b></div><div class="pebar" id="peBar0"></div><div class="pebar-lbl">[0, 1, 0, 1, …]</div></div>
+      <div><div class="pebar-lbl"><b>PE(1)</b></div><div class="pebar" id="peBar1"></div><div class="pebar-lbl">[0.84, 0.54, 0.10, 0.995, …]</div></div>
+      <div><div class="pebar-lbl"><b>PE(5)</b></div><div class="pebar" id="peBar5"></div><div class="pebar-lbl">[−0.96, 0.28, 0.48, 0.88, …]</div></div>
+    </div>
+    <p class="caption">Cột cam = giá trị dương, cột xanh = âm. Cặp đầu (trái) nhảy múa loạn xạ theo vị trí; cặp cuối (phải) gần như đứng yên — đúng như "kim giây vs kim giờ". Số liệu chạy thật.</p>
+  </div>
+
+  <h3>2 tính chất được kiểm chứng bằng code</h3>
+  <div class="grid">
+    <div class="concept blue"><h4>1️⃣ Tính duy nhất</h4><p>Tính khoảng cách Euclid giữa <b>mọi cặp vị trí</b> (100×100). Khoảng cách nhỏ nhất ngoài đường chéo = <b>1.471843</b> — không có 2 vị trí nào trùng vân tay ✅</p></div>
+    <div class="concept"><h4>2️⃣ Dịch vị trí = tuyến tính</h4><p>Giải ma trận M bằng bình phương tối thiểu sao cho <code>PE(pos+7) ≈ PE(pos) @ M</code>: sai số max chỉ <b>4.65e-06</b> ✅. Nhờ vậy model học được <b>khoảng cách tương đối</b>, không cần nhớ vị trí tuyệt đối.</p></div>
+  </div>
+  <div class="diagram">
+    <svg width="680" viewBox="0 0 680 190" font-family="inherit">
+      <text x="340" y="22" text-anchor="middle" font-size="15" font-weight="700">Vì sao "dịch là tuyến tính" lại quan trọng?</text>
+      <g font-size="13" text-anchor="middle">
+        <rect x="40" y="60" width="150" height="60" rx="10" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+        <text x="115" y="86" font-weight="700">PE(pos)</text><text x="115" y="106" fill="#6b7280">vân tay vị trí pos</text>
+        <rect x="265" y="60" width="150" height="60" rx="10" fill="#ffedd5" stroke="#ea580c" stroke-width="2"/>
+        <text x="340" y="86" font-weight="700">nhân M</text><text x="340" y="106" fill="#6b7280">ma trận xoay khối</text>
+        <rect x="490" y="60" width="150" height="60" rx="10" fill="#d1fae5" stroke="#047857" stroke-width="2"/>
+        <text x="565" y="86" font-weight="700">≈ PE(pos+7)</text><text x="565" y="106" fill="#6b7280">sai số 4.65e-06</text>
+      </g>
+      <g stroke="#9ca3af" stroke-width="2.5">
+        <line x1="190" y1="90" x2="261" y2="90"/><polygon points="261,90 251,84 251,96" fill="#9ca3af"/>
+        <line x1="415" y1="90" x2="486" y2="90"/><polygon points="486,90 476,84 476,96" fill="#9ca3af"/>
+      </g>
+      <text x="340" y="155" text-anchor="middle" font-size="13" fill="#6b7280">Mỗi cặp (sin,cos) dịch đi k đơn vị chính là <b>phép xoay</b> một góc — nên cả vector chỉ là phép biến đổi tuyến tính</text>
+    </svg>
+  </div>
+
+  <div class="demo">
+    <h3>🔬 Thử ngay: "máy soi" dấu vân tay vị trí</h3>
+    <p style="margin-top:0">Kéo thanh vị trí, xem 16 chiều của PE thay đổi — để ý cặp đầu quay tít, cặp cuối ì ạch:</p>
+    <label><b>Vị trí pos = <span id="pePos">1</span></b> (d = 16)</label>
+    <input type="range" id="peSlider" min="0" max="99" step="1" value="1">
+    <div class="pebar" id="peExplorer" style="height:130px"></div>
+    <div class="pebar-lbl" id="peVals" style="font-size:.75rem;max-width:640px;margin:6px auto;word-break:break-all"></div>
+    <p style="color:var(--muted);font-size:.93rem" id="peNote"></p>
+  </div>
+</section>
+
+<!-- ================= A3 ================= -->
+<section id="a3">
+  <h2><span class="num">🌀</span>A3 — RoPE: xoay vector theo vị trí</h2>
+  <p class="lead">Sinusoidal PE <b>cộng</b> dấu vị trí vào vector. <b>RoPE</b> (dùng trong Llama) làm khác: <b>xoay</b> từng cặp chiều của vector một góc <code>θ = pos × ω</code> — vị trí càng xa, xoay càng nhiều. Kết quả: attention score chỉ phụ thuộc <b>khoảng cách tương đối</b> giữa 2 token.</p>
+
+  <div class="analogy"><b>🧭 Ví dụ — Hai người cùng xoay la bàn:</b> Bạn (q) đứng ở km số 10, tôi (k) đứng ở km số 4 — khoảng cách giữa ta là 6km. Giờ cả hai cùng tiến thêm 100km (110 và 104): khoảng cách <b>vẫn 6km</b>. RoPE cũng vậy: xoay cả q lẫn k thêm cùng một lượng → <b>góc lệch giữa chúng không đổi</b> → tích vô hướng (attention score) giữ nguyên. Model "cảm nhận" được <i>cách nhau bao xa</i> mà không cần biết <i>đang ở đâu</i>.</div>
+
+  <div class="formula">
+    <table style="margin:0 auto;font-size:1.05rem"><tr>
+      <td>[x′]<br>[y′]</td><td>=</td>
+      <td>[cos θ &nbsp;−sin θ]<br>[sin θ &nbsp;&nbsp;cos θ]</td><td>·</td><td>[x]<br>[y]</td>
+      <td style="padding-left:18px;font-size:.9rem;color:var(--muted)">θ = pos × ω<sub>i</sub><br>mỗi cặp chiều có ω riêng</td>
+    </tr></table>
+    <small>Ma trận xoay 2×2 quen thuộc — áp cho từng cặp (chẵn, lẻ), ghép lại đúng thứ tự xen kẽ</small>
+  </div>
+
+  <h3>Kiểm chứng tính tương đối (số chạy thật)</h3>
+  <div class="diagram">
+    <svg width="680" viewBox="0 0 680 220" font-family="inherit">
+      <text x="340" y="22" text-anchor="middle" font-size="15" font-weight="700">Dịch cả q và k đi +100: tích vô hướng không đổi</text>
+      <g font-size="13" text-anchor="middle" font-family="monospace">
+        <rect x="60" y="60" width="240" height="64" rx="10" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+        <text x="180" y="86">dot(rope(q,<b>10</b>), rope(k,<b>4</b>))</text>
+        <text x="180" y="108" font-weight="700">+4.770475</text>
+        <rect x="380" y="60" width="240" height="64" rx="10" fill="#ffedd5" stroke="#ea580c" stroke-width="2"/>
+        <text x="500" y="86">dot(rope(q,<b>110</b>), rope(k,<b>104</b>))</text>
+        <text x="500" y="108" font-weight="700">+4.770474</text>
+      </g>
+      <line x1="300" y1="92" x2="376" y2="92" stroke="#9ca3af" stroke-width="2.5"/><polygon points="376,92 366,86 366,98" fill="#9ca3af"/>
+      <text x="340" y="80" text-anchor="middle" font-size="12" fill="#6b7280">cùng +100</text>
+      <text x="340" y="160" text-anchor="middle" font-size="14" font-weight="700" fill="#047857">|chênh lệch| = 4.77e-07 ≈ 0 ✅</text>
+      <text x="340" y="185" text-anchor="middle" font-size="12" fill="#6b7280">khoảng cách tương đối đều là 6 (10−4 = 110−104) → attention score như nhau</text>
+      <text x="340" y="207" text-anchor="middle" font-size="12" fill="#6b7280">Sanity check: RoPE(pos=0) trả về đúng vector gốc (góc xoay = 0) ✅</text>
+    </svg>
+  </div>
+
+  <div class="demo">
+    <h3>🎛️ Thử ngay: xoay cả hai, tích vô hướng đứng yên</h3>
+    <p style="margin-top:0">Vector q (xanh) và k (cam) trong mặt phẳng 2D. Kéo thanh <b>xuất phát</b> để dịch cả hai đi cùng một lượng — để ý tích vô hướng:</p>
+    <label><b>Dịch cả q, k đi +<span id="ropeShift">0</span> vị trí</b> (ω = 0.15)</label>
+    <input type="range" id="ropeSlider" min="0" max="40" step="1" value="0">
+    <div class="diagram" style="border:none;margin:8px 0;padding:8px">
+      <svg width="420" viewBox="0 0 420 240" font-family="inherit" id="ropeSvg">
+        <line x1="210" y1="200" x2="210" y2="20" stroke="#e5e0d5" stroke-width="1"/>
+        <line x1="30" y1="200" x2="390" y2="200" stroke="#e5e0d5" stroke-width="1"/>
+        <circle cx="210" cy="200" r="4" fill="#9ca3af"/>
+        <line id="rq" x1="210" y1="200" x2="330" y2="200" stroke="#2563eb" stroke-width="4"/>
+        <polygon id="rqArr" points="330,200 318,194 318,206" fill="#2563eb"/>
+        <line id="rk" x1="210" y1="200" x2="210" y2="200" stroke="#ea580c" stroke-width="4"/>
+        <polygon id="rkArr" points="210,200 198,194 198,206" fill="#ea580c"/>
+        <text x="340" y="195" font-size="13" fill="#2563eb" font-weight="700">q</text>
+        <text id="rkLbl" x="220" y="195" font-size="13" fill="#ea580c" font-weight="700">k</text>
+      </svg>
+    </div>
+    <div class="big-out" id="ropeOut"></div>
+    <p style="color:var(--muted);font-size:.93rem">Góc lệch giữa q và k luôn 40° dù cả hai đã xoay đi bao nhiêu vòng → <code>q·k = |q||k|cos(40°)</code> không đổi. Đó chính là "tính tương đối" của RoPE.</p>
+  </div>
+</section>
+
+<!-- ================= A4 ================= -->
+<section id="a4">
+  <h2><span class="num">📏</span>A4 — RMSNorm + "hóa đơn" VRAM của embedding</h2>
+  <p class="lead">Hai việc tưởng không liên quan: <b>chuẩn hóa vector</b> cho train ổn định, và <b>tính tiền VRAM</b> — để thấy vì sao train LLM tốn kém.</p>
+
+  <div class="analogy"><b>🔊 Ví dụ — Chuẩn hóa âm lượng:</b> Mỗi vector như một bản nhạc với "âm lượng" (RMS) khác nhau. <b>RMSNorm</b> vặn mọi bản nhạc về cùng một mức âm lượng chuẩn (RMS = 1) mà <b>không đổi giai điệu</b> (hướng vector giữ nguyên). Khác LayerNorm ở chỗ <b>không trừ mean</b> — chỉ chia cho căn bậc 2 trung bình bình phương → rẻ hơn, và đủ tốt cho LLM (Llama dùng RMSNorm).</div>
+
+  <div class="formula">RMSNorm(x) = x / √(mean(x²) + ε) · γ
+    <small>γ học được, khởi tạo toàn 1 (lúc đầu = chuẩn hóa thuần túy)</small>
+  </div>
+
+  <div class="diagram">
+    <svg width="680" viewBox="0 0 680 180" font-family="inherit">
+      <text x="340" y="22" text-anchor="middle" font-size="15" font-weight="700">RMSNorm: cùng hướng, khác "âm lượng"</text>
+      <line x1="120" y1="150" x2="280" y2="60" stroke="#2563eb" stroke-width="5"/>
+      <polygon points="280,60 264,62 270,76" fill="#2563eb"/>
+      <text x="200" y="165" font-size="12" fill="#2563eb">x (RMS = 3.2)</text>
+      <line x1="400" y1="150" x2="480" y2="105" stroke="#047857" stroke-width="5"/>
+      <polygon points="480,105 466,104 471,117" fill="#047857"/>
+      <text x="440" y="165" font-size="12" fill="#047857">y (RMS = 1.0)</text>
+      <text x="340" y="90" font-size="22">→</text>
+      <text x="340" y="120" font-size="12" fill="#6b7280">÷ RMS</text>
+      <text x="620" y="100" font-size="12" fill="#6b7280">chạy thật:</text>
+      <text x="620" y="120" font-size="12" font-family="monospace" fill="#6b7280">mean(y²)=0.999999 ✅</text>
+    </svg>
+  </div>
+
+  <h3>"Hóa đơn" VRAM: riêng bảng embedding đã ngốn ~3GB</h3>
+  <div class="diagram">
+    <svg width="680" viewBox="0 0 680 230" font-family="inherit">
+      <text x="340" y="22" text-anchor="middle" font-size="15" font-weight="700">128k token × 4096 chiều × 2 byte (bf16) × 3 (Adam) = ?</text>
+      <g font-size="13" text-anchor="middle">
+        <rect x="40" y="60" width="130" height="70" rx="10" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+        <text x="105" y="88" font-weight="700">524M param</text><text x="105" y="110" fill="#6b7280">128k × 4096</text>
+        <rect x="200" y="60" width="130" height="70" rx="10" fill="#fef3c7" stroke="#b45309" stroke-width="2"/>
+        <text x="265" y="88" font-weight="700">× 2 byte</text><text x="265" y="110" fill="#6b7280">bf16</text>
+        <rect x="360" y="60" width="130" height="70" rx="10" fill="#ffe4e6" stroke="#be123c" stroke-width="2"/>
+        <text x="425" y="88" font-weight="700">× 3</text><text x="425" y="110" fill="#6b7280">Adam: w + m + v</text>
+        <rect x="520" y="60" width="120" height="70" rx="10" fill="#047857"/>
+        <text x="580" y="88" font-weight="700" fill="#fff">≈ 2.93 GB</text><text x="580" y="110" fill="#d1fae5" font-size="11">~1/8 GPU 24GB</text>
+      </g>
+      <g stroke="#9ca3af" stroke-width="2.5" fill="#9ca3af">
+        <line x1="170" y1="95" x2="196" y2="95"/><polygon points="196,95 188,90 188,100"/>
+        <line x1="330" y1="95" x2="356" y2="95"/><polygon points="356,95 348,90 348,100"/>
+        <line x1="490" y1="95" x2="516" y2="95"/><polygon points="516,95 508,90 508,100"/>
+      </g>
+      <text x="340" y="165" text-anchor="middle" font-size="13" fill="#6b7280">Chưa tính các layer Transformer, activation, gradient… — train model cỡ lớn trên 1 GPU 24GB là <b>bất khả thi</b></text>
+      <text x="340" y="190" text-anchor="middle" font-size="13" fill="#6b7280">nếu không dùng kỹ thuật tiết kiệm bộ nhớ (weight tying, checkpointing, ZeRO…)</text>
+      <text x="340" y="212" text-anchor="middle" font-size="12" fill="#be123c" font-weight="700">Bẫy 3: quên ×3 (Adam lưu thêm m, v) là sai to!</text>
+    </svg>
+  </div>
+</section>
+
+<!-- ================= TRAINER ================= -->
+<section id="trainer">
+  <h2><span class="num">🛠️</span>Trainer đã sửa gì: trước → sau</h2>
+  <p class="lead">Trong lần review ngày 14/10, trainer đã chỉnh <code>embedding_pe.py</code> ở 5 điểm. Có 1 chỗ <b>sửa code thật</b>, 2 chỗ <b>thêm guard</b>, 2 chỗ <b>ghi chú</b> — xem từng cái dưới đây.</p>
+
+  <h3>1. ⭐ Sửa code thật: <code>rmsnorm</code> chuẩn hóa sai chiều</h3>
+  <div class="card">
+    <span class="diff-tag old">TRƯỚC (bản cũ)</span>
+<pre class="before"><code><span class="kw">return</span> x / torch.<span class="fn">sqrt</span>(x.<span class="fn">pow</span>(<span class="num2">2</span>).<span class="fn">mean</span>() + eps) * gamma</code></pre>
+    <span class="diff-tag new">SAU (bản đã sửa)</span>
+<pre class="after"><code><span class="cm"># mean(-1, keepdim=True): trung bình theo CHIỀU CUỐI (chiều đặc trưng),</span>
+<span class="cm"># mỗi token có 1 RMS riêng - thay vì gộp cả batch lại với nhau</span>
+<span class="kw">return</span> x / torch.<span class="fn">sqrt</span>(x.<span class="fn">pow</span>(<span class="num2">2</span>).<span class="fn">mean</span>(-<span class="num2">1</span>, keepdim=<span class="kw">True</span>) + eps) * gamma</code></pre>
+    <div class="warn"><b>⚠️ Vì sao bản cũ nguy hiểm?</b> Với vector 1D (demo này) hai bản cho kết quả <b>giống hệt 100%</b> — nhưng nếu ai đó tái dùng hàm cho batch 2D, <code>.mean()</code> sẽ gộp <b>cả batch</b> lại tính 1 RMS chung, thay vì mỗi token 1 RMS riêng. Lỗi <b>câm lặng</b>: không crash, chỉ cho số sai. Đây là lỗi rất phổ biến khi copy code norm từ demo sang model thật.</div>
+    <div class="demo" style="border-color:var(--rose)">
+      <h3>🔬 Thử ngay: thấy bug "câm lặng" bằng mắt</h3>
+      <p style="margin-top:0">Batch 2 token: <code>[1,2,3]</code> và <code>[10,20,30]</code>. So sánh bản cũ vs mới:</p>
+      <div class="seg">
+        <button id="rmsOld" class="active">bản cũ: .mean()</button>
+        <button id="rmsNew">bản mới: .mean(-1)</button>
+      </div>
+      <div class="big-out" id="rmsOut"></div>
+      <p style="color:var(--muted);font-size:.93rem" id="rmsNote"></p>
+    </div>
+  </div>
+
+  <h3>2. 🛡️ Thêm guard: <code>sinusoidal_pe</code> bắt buộc d chẵn</h3>
+  <div class="card">
+    <span class="diff-tag old">TRƯỚC — không kiểm tra gì</span>
+<pre class="before"><code><span class="kw">def</span> <span class="fn">sinusoidal_pe</span>(max_len, d):
+    pos = torch.<span class="fn">arange</span>(max_len).<span class="fn">unsqueeze</span>(<span class="num2">1</span>)
+    ...</code></pre>
+    <span class="diff-tag new">SAU — thất bại SỚM với thông báo rõ ràng</span>
+<pre class="after"><code><span class="kw">def</span> <span class="fn">sinusoidal_pe</span>(max_len, d):
+    <span class="kw">assert</span> d % <span class="num2">2</span> == <span class="num2">0</span>, <span class="str">f"sinusoidal_pe yeu cau d chan, nhan d=</span>{d}<span class="str">"</span>
+    pos = torch.<span class="fn">arange</span>(max_len).<span class="fn">unsqueeze</span>(<span class="num2">1</span>)
+    ...</code></pre>
+    <p><b>Lý do:</b> mỗi cặp chiều <code>(2i, 2i+1)</code> cần đúng 1 tần số. Nếu <code>d</code> lẻ, <code>pe[:, 0::2]</code> sẽ nhiều cột hơn <code>angle</code> → lỗi shape khó hiểu ở tít dưới. Guard này "chết sớm, chết rõ" để debug nhanh.</p>
+  </div>
+
+  <h3>3. 🛡️ Thêm guard: <code>apply_rope</code> bắt buộc số chiều chẵn</h3>
+  <div class="card">
+    <span class="diff-tag old">TRƯỚC — không kiểm tra gì</span>
+<pre class="before"><code>    new_even = x_even * cos_t - x_odd * sin_t
+    new_odd = x_even * sin_t + x_odd * cos_t
+    <span class="kw">return</span> torch.<span class="fn">stack</span>([new_even, new_odd], dim=-<span class="num2">1</span>).<span class="fn">reshape</span>(-<span class="num2">1</span>)</code></pre>
+    <span class="diff-tag new">SAU — assert trước khi stack</span>
+<pre class="after"><code>    <span class="kw">assert</span> x.<span class="fn">numel</span>() % <span class="num2">2</span> == <span class="num2">0</span>, \
+        <span class="str">f"apply_rope yeu cau so chieu chan, nhan </span>{x.<span class="fn">numel</span>()}<span class="str">"</span>
+    <span class="kw">return</span> torch.<span class="fn">stack</span>([new_even, new_odd], dim=-<span class="num2">1</span>).<span class="fn">reshape</span>(-<span class="num2">1</span>)</code></pre>
+    <p><b>Lý do:</b> số chiều lẻ → <code>new_even</code> dài hơn <code>new_odd</code> 1 phần tử → <code>stack()</code> crash với thông báo shape khó đọc. Cùng một triết lý: <b>thất bại sớm, thông báo rõ</b>.</p>
+  </div>
+
+  <h3>4. 📝 Hai ghi chú không đổi code (nhưng đáng giá)</h3>
+  <div class="grid">
+    <div class="concept rose"><h4>cos_sim: coi chừng vector 0</h4><p>Nếu <code>u</code> hoặc <code>v</code> là vector 0 → mẫu số = 0 → kết quả <b>NaN</b>. Bài này không gặp (embedding khởi tạo ngẫu nhiên), nhưng tái dùng ở nơi khác (ví dụ so sánh vector sau khi mask) thì phải cộng <code>eps</code> vào mẫu số hoặc kiểm tra <code>norm &gt; 0</code> trước.</p></div>
+    <div class="concept amber"><h4>cdist: đừng "cơ bắp" ở quy mô thật</h4><p>Kiểm chứng tính duy nhất bằng ma trận khoảng cách 100×100 (10k số) thì rẻ. Nhưng với <code>max_len</code> thật (ví dụ 128k) ma trận L×L cần <b>~64GB RAM</b> — bất khả thi. Tính duy nhất của PE được chứng minh bằng <b>lý thuyết</b> (các tần số vô tỉ với nhau), không ai check bằng sức mạnh cơ bắp ở quy mô thật.</p></div>
+  </div>
+  <div class="ok"><b>💡 Triết lý chung của trainer:</b> (1) <b>Thất bại sớm, thông báo rõ</b> — assert ngay đầu hàm thay vì để lỗi shape bí ẩn nổ ở tít dưới; (2) <b>Chuẩn hóa đúng chiều</b> — mọi phép norm trong Transformer đều tính theo chiều đặc trưng (mỗi token riêng), không bao giờ gộp batch; (3) <b>Biết giới hạn của demo</b> — cái đúng ở quy mô mini chưa chắc đúng ở quy mô thật.</div>
+</section>
+
+<!-- ================= SOURCE CODE ================= -->
+<section id="source">
+  <h2><span class="num">📜</span>Toàn bộ source code</h2>
+  <p class="lead">File <code>day04/embedding_pe.py</code> — tô màu tự động, bấm nút để copy. Đặt cạnh các sơ đồ phía trên để vừa nhìn hình vừa đối chiếu code.</p>
+  <button class="btn" id="copySrcBtn">📋 Copy toàn bộ code</button>
+  <span id="copyMsg" style="margin-left:12px;color:var(--green);font-weight:700"></span>
+  <pre class="pysrc" id="fullsrc"><code>#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Day 04 - Buoi toi: DUNG EMBEDDING + MA HOA VI TRI BANG TAY
+==========================================================
+Muc dich:
+    A1: Hieu nn.Embedding(V, d) chi la "tra cuu bang", va do tuong dong
+        cosine do duoc y nghia ngu nghia (phep tinh "vua - dan ong + phu nu").
+    A2: Lap trinh sinusoidal position encoding tu cong thuc, kiem chung
+        tinh duy nhat va tinh "PE(pos+k) la ham tuyen tinh cua PE(pos)".
+    A3: Lap trinh RoPE (xoay tung cap chieu theo vi tri), kiem chung tich
+        vo huong chi phu thuoc khoang cach TUONG DOI.
+    A4: Lap trinh RMSNorm va tinh "gia phai tra" cua embedding theo VRAM.
+
+Cach chay:
+    python embedding_pe.py
+    # Ky vong: in ket qua + kiem chung ca 4 bai, khong bao loi assert.
+
+Chi can PyTorch (CPU la du), khong can GPU.
+"""
+
+import torch
+from torch import nn
+
+# ---------------------------------------------------------------------------
+# A1 - Embedding lookup &amp; cosine similarity
+# ---------------------------------------------------------------------------
+WORDS = ["vua", "nữ_hoàng", "đàn_ông", "phụ_nữ", "mèo", "ô_tô"]
+
+
+def cos_sim(u, v):
+    """Do tuong dong cosine trong [-1, 1]: goc cang nho -&gt; cang gan 1.
+
+    Cong thuc: cos(u,v) = (u.v) / (||u|| * ||v||).
+    Chia cho norm de do GOC (huong) chu khong do do dai vector - 2 vector
+    cung huong nhung dai ngan khac nhau van cho cos = 1.
+    Doc nhanh: 1 = cung huong (giong nhau), 0 = vuong goc (khong lien quan),
+    -1 = nguoc huong (doi lap).
+    """
+    # [TRAINER] Luu y 2026-10-14 (khong doi code): neu u hoac v la vector 0
+    # thi mau so = 0 -&gt; ket qua NaN. Trong bai nay khong xay ra vi embedding
+    # khoi tao ngau nhien (xac suat ra dung vector 0 coi nhu = 0). Neu tai
+    # dung ham nay o noi khac (vd so sanh vector sau khi mask), hay cong eps
+    # vao mau so hoac kiem tra norm &gt; 0 truoc khi chia.
+    return torch.dot(u, v) / (torch.norm(u) * torch.norm(v))
+
+
+def bai_a1():
+    print("=" * 64)
+    print("A1 - Embedding lookup &amp; cosine similarity")
+    print("=" * 64)
+    torch.manual_seed(4)  # co dinh seed: ket qua tai lap duoc (Bay 1)
+
+    # nn.Embedding(V, d): don gian la 1 BANG TRA CUU kich thuoc (V, d).
+    # emb.weight[i] = vector cua tu thu i. Chua train gi ca - vector ngau
+    # nhien van minh hoa duoc Y TUONG (nhung chua co y nghia ngu nghia).
+    emb = nn.Embedding(len(WORDS), 8)
+    vecs = emb.weight  # shape (6, 8): 6 tu, moi tu 1 vector 8 chieu
+
+    # Minh hoa "tra cuu bang": muon vector cua tu "vua" (index 0) thi go
+    # emb(torch.tensor([0])) - ket qua phai DUNG BANG hang 0 cua bang.
+    lookup = emb(torch.tensor([0]))[0]
+    print(f"  Demo lookup: emb([0]) co phai vector cua 'vua' khong? "
+          f"{torch.equal(lookup, vecs[0])} (day chinh la 'tra cuu bang')")
+
+    print("\nDo tuong dong cosine tung cap tu:")
+    best, worst = (None, -2.0), (None, 2.0)  # (cap tu, gia tri)
+    for i in range(len(WORDS)):
+        for j in range(i + 1, len(WORDS)):
+            s = cos_sim(vecs[i], vecs[j]).item()
+            print(f"  {WORDS[i]:&lt;8} - {WORDS[j]:&lt;8}: {s:+.4f}")
+            if s &gt; best[1]:
+                best = ((WORDS[i], WORDS[j]), s)
+            if s &lt; worst[1]:
+                worst = ((WORDS[i], WORDS[j]), s)
+    print(f"\n  Cap GIONG nhau nhat : {best[0][0]} - {best[0][1]} ({best[1]:+.4f})")
+    print(f"  Cap KHAC nhau nhat : {worst[0][0]} - {worst[0][1]} ({worst[1]:+.4f})")
+
+    # Phep tinh so hoc tu: "vua - dan ong + phu nu = ?"
+    # (kinh dien tu word2vec; o day embedding CHUA TRAIN nen dung CHO DOI
+    #  no ra "nu_hoang" - chinh diem can nhan ra o cau Q1.)
+    target = vecs[0] - vecs[2] + vecs[3]
+    nearest, nearest_s = None, -2.0
+    for i, w in enumerate(WORDS):
+        s = cos_sim(target, vecs[i]).item()
+        if s &gt; nearest_s:
+            nearest, nearest_s = w, s
+    print(f"\n  v(vua) - v(dan_ong) + v(phu_nu) gan nhat voi: "
+          f"'{nearest}' ({nearest_s:+.4f})")
+    print("  (Embedding ngau nhien chua train -&gt; ket qua la 1 tu bat ky.\n"
+          "   Quan he ngu nghia chi XUAT HIEN sau khi train - xem Q1.)")
+
+
+# ---------------------------------------------------------------------------
+# A2 - Sinusoidal position encoding (lap trinh tu cong thuc)
+# ---------------------------------------------------------------------------
+def sinusoidal_pe(max_len, d):
+    """Tra ve tensor (max_len, d) theo cong thuc:
+        PE(pos, 2i)   = sin(pos / 10000^(2i/d))
+        PE(pos, 2i+1) = cos(pos / 10000^(2i/d))
+
+    Y tuong: moi cap chieu (2i, 2i+1) la 1 "kim dong ho" quay voi tan so
+    rieng (chieu i cang cao -&gt; quay cang cham). To hop d/2 kim voi tan so
+    khac nhau cho moi vi tri 1 "dau van tay" duy nhat.
+    Chi dung arange/sin/cos - khong dung thu vien co san.
+
+    Vi du cu the (d=4): i=[0,1] -&gt; div=[10000^0, 10000^(2/4)]=[1, 100].
+    Voi pos=1: angle=[1/1, 1/100]=[1.0, 0.01] -&gt;
+      PE(1) = [sin(1.0), cos(1.0), sin(0.01), cos(0.01)]
+    Thay ngay: cap dau quay nhanh (tan so cao), cap sau quay cham.
+    """
+    # [TRAINER] Guard 2026-10-14: d PHAI CHAN - moi cap chieu (2i, 2i+1) can
+    # dung 1 tan so. Neu d le, pe[:, 0::2] se co nhieu cot hon angle dan den
+    # loi shape kho hieu. That bai SOM voi thong bao ro rang de debug hon.
+    assert d % 2 == 0, f"sinusoidal_pe yeu cau d chan, nhan d={d}"
+    pos = torch.arange(max_len).unsqueeze(1)   # (L,1): cot vi tri 0..L-1
+    i = torch.arange(d // 2)                   # (d/2,): chi so cap chieu
+    div = 10000 ** (2 * i / d)                 # (d/2,): mau so 10000^(2i/d)
+    angle = pos / div                          # (L, d/2): broadcast cot x hang
+    pe = torch.zeros(max_len, d)
+    pe[:, 0::2] = torch.sin(angle)             # cot chan = sin
+    pe[:, 1::2] = torch.cos(angle)             # cot le  = cos
+    return pe
+
+
+def bai_a2():
+    print("\n" + "=" * 64)
+    print("A2 - Sinusoidal position encoding")
+    print("=" * 64)
+    d, max_len = 64, 100
+    pe = sinusoidal_pe(max_len, d)
+    print(f"  pe.shape = {tuple(pe.shape)}")
+
+    # Kiem chung 1 - tinh duy nhat: khong 2 vi tri nao trung vector PE.
+    # torch.cdist(pe, pe)[a, b] = khoang cach Euclid giua PE(a) va PE(b).
+    # Duong cheo = 0 (tu so voi chinh no) -&gt; chi xet ngoai duong cheo.
+    # [TRAINER] Nhan xet mo rong 2026-10-14 (khong doi code): cdist o day tao
+    # ma tran 100x100 = 10k so, re. Nhung dung cach nay voi max_len that
+    # (vd 128k) thi ma tran LxL can ~64GB RAM - khong kha thi. Tinh duy nhat
+    # cua PE duoc chung minh bang ly thuyet (cac tan so vo ti voi nhau), nen
+    # o quy mo that khong ai kiem chung bang "suc manh co bap" nhu nay.
+    dists = torch.cdist(pe, pe)
+    mask = ~torch.eye(max_len, dtype=torch.bool)  # True o moi o ngoai cheo
+    min_off_diag = dists[mask].min().item()
+    print(f"  Khoang cach NHO NHAT giua 2 vi tri khac nhau: {min_off_diag:.6f}")
+    assert min_off_diag &gt; 1e-6, "Co 2 vi tri trung PE!"
+    print("  =&gt; Khong vi tri nao trung nhau (tinh duy nhat OK).")
+
+    # Kiem chung 2 - tinh tuyen tinh cua phep dich:
+    # PE(pos+k) ~ PE(pos) @ M  (M la ma tran xoay khoi, ton tai that vi
+    # moi cap (sin,cos) dich k don vi chinh la phep xoay goc k*omega).
+    # Giai M bang binh phuong toi thieu: A @ M ~ B.
+    k = 7
+    A, B = pe[:-k], pe[k:]                      # (L-k, d) moi ben
+    M = torch.linalg.lstsq(A, B).solution       # (d, d)
+    err = (A @ M - B).abs().max().item()
+    print(f"  Sai so lon nhat cua PE(pos+{k}) ~ PE(pos) @ M: {err:.2e}")
+    assert err &lt; 1e-4, "Tinh tuyen tinh cua phep dich KHONG dung!"
+    print("  =&gt; Dich k vi tri la phep bien doi TUYEN TINH cua vector PE.\n"
+          "     Nho vay model hoc duoc KHOANG CACH tuong doi giua cac token.")
+
+
+# ---------------------------------------------------------------------------
+# A3 - RoPE: xoay tung cap chieu theo vi tri
+# ---------------------------------------------------------------------------
+def apply_rope(x, pos, omegas):
+    """Xoay moi cap chieu (x[2i], x[2i+1]) mot goc theta = pos * omega_i.
+
+    x: (d,), omegas: (d//2,). Ma tran xoay 2x2:
+        [x'] = [cos t  -sin t] [x]
+        [y']   [sin t   cos t] [y]
+
+    Vi du cu the: x=[1,2,3,4], omegas=[w0,w1], pos=p -&gt;
+      cap (1,2) xoay goc p*w0, cap (3,4) xoay goc p*w1.
+    Moi cap co omega rieng -&gt; goc xoay rieng (giong cac "kim dong ho"
+    quay toc do khac nhau o A2).
+    """
+    x_even = x[0::2]          # cac chieu chan:  x0, x2, x4, ...
+    x_odd = x[1::2]           # cac chieu le :  x1, x3, x5, ...
+    theta = pos * omegas      # (d/2,): goc xoay rieng tung cap
+    cos_t, sin_t = torch.cos(theta), torch.sin(theta)
+    new_even = x_even * cos_t - x_odd * sin_t
+    new_odd = x_even * sin_t + x_odd * cos_t
+    # Ghep lai dung thu tu xen ke. torch.stack(..., dim=-1) tao ra
+    # [[e0',o0'], [e1',o1'], ...] roi .reshape(-1) duoi thang thanh
+    # [e0',o0',e1',o1',...] - dung thu tu ban dau cua x.
+    # (Bay 2: dao thu tu o day la loi pho bien nhat - test pos=0 phai tra
+    # ve dung vector goc vi goc xoay = 0.)
+    # [TRAINER] Guard 2026-10-14: so chieu PHAI CHAN de chia cap (chan, le)
+    # deu nhau (giong guard o sinusoidal_pe). Neu le, new_even dai hon
+    # new_odd 1 phan tu -&gt; stack() crash voi thong bao shape kho doc.
+    assert x.numel() % 2 == 0, \
+        f"apply_rope yeu cau so chieu chan, nhan {x.numel()}"
+    return torch.stack([new_even, new_odd], dim=-1).reshape(-1)
+
+
+def bai_a3():
+    print("\n" + "=" * 64)
+    print("A3 - RoPE (rotary position embedding)")
+    print("=" * 64)
+    torch.manual_seed(4)
+    d = 8
+    # Tan so goc tung cap - giong cong thuc sinusoidal o A2.
+    omegas = 1.0 / (10000 ** (torch.arange(d // 2) * 2.0 / d))
+
+    q = torch.randn(d)
+    k = torch.randn(d)
+
+    # Sanity check (Bay 2): pos=0 -&gt; goc xoay = 0 -&gt; phai tra ve vector goc.
+    assert torch.allclose(apply_rope(q, 0, omegas), q, atol=1e-6)
+    print("  Sanity: RoPE(pos=0) tra ve dung vector goc (OK).")
+
+    # Kiem chung tinh TUONG DOI: dich ca q va k di +100 vi tri,
+    # tich vo huong phai GIU NGUYEN (chi phu thuoc pos_q - pos_k = 6).
+    dot1 = torch.dot(apply_rope(q, 10, omegas), apply_rope(k, 4, omegas))
+    dot2 = torch.dot(apply_rope(q, 110, omegas), apply_rope(k, 104, omegas))
+    diff = abs(dot1 - dot2).item()
+    print(f"  dot(rope(q,10),  rope(k,4))   = {dot1.item():+.6f}")
+    print(f"  dot(rope(q,110), rope(k,104)) = {dot2.item():+.6f}")
+    print(f"  |chenh lech| = {diff:.2e}")
+    assert diff &lt; 1e-5, "RoPE mat tinh tuong doi - kiem tra cong thuc xoay!"
+    print("  =&gt; Dich ca 2 vi tri di +100 ma tich vo huong KHONG DOI.")
+    # Giai thich (1-2 cau, theo yeu cau de bai):
+    # Phep xoay bao toan tich vo huong theo goc LECH (pos_q - pos_k); dich
+    # dong deu ca 2 pos giu nguyen goc lech do. Nho vay attention score giua
+    # q va k chi "cam nhan" duoc KHOANG CACH tuong doi giua 2 token, model
+    # hieu duoc THU TU tu ma khong can biet vi tri tuyet doi cua chung.
+
+
+# ---------------------------------------------------------------------------
+# A4 - RMSNorm + tinh VRAM cho embedding
+# ---------------------------------------------------------------------------
+def rmsnorm(x, gamma, eps=1e-6):
+    """RMSNorm(x) = x / sqrt(mean(x^2) + eps) * gamma.
+
+    Khac LayerNorm o cho: KHONG tru mean, chi chia cho RMS (can bac 2 trung
+    binh). Re hon, va du tot cho LLM (Llama dung RMSNorm). gamma hoc duoc,
+    khoi tao toan 1 (luc dau = phep chuan hoa thuan tuy).
+    """
+    # [TRAINER] Cai tien 2026-10-14: mean(-1, keepdim=True) thay cho mean().
+    # Voi vector 1D (demo nay) ket qua GIONG HET 100%, nhung ban cu se SAI
+    # LANG LE neu ai do tai dung ham cho batch 2D (no se chuan hoa ca batch
+    # chung lai voi nhau thay vi chuan hoa tung token doc lap). Chuan hoa
+    # luon phai theo chieu dac trung (chieu cuoi, moi token 1 RMS rieng) -
+    # day la loi rat pho bien khi copy code norm tu demo sang model that.
+    return x / torch.sqrt(x.pow(2).mean(-1, keepdim=True) + eps) * gamma
+
+
+def bai_a4():
+    print("\n" + "=" * 64)
+    print("A4 - RMSNorm + tinh VRAM cho embedding")
+    print("=" * 64)
+    torch.manual_seed(4)
+    d = 64
+    x = torch.randn(d)
+    gamma = torch.ones(d)  # khoi tao gamma = 1
+    y = rmsnorm(x, gamma)
+    ms = y.pow(2).mean().item()
+    print(f"  mean(y^2) sau RMSNorm = {ms:.6f} (ky vong ~1)")
+    assert abs(ms - 1.0) &lt; 1e-5, "RMSNorm sai cong thuc!"
+    print("  =&gt; Vector ra co RMS ~ 1 (chuan hoa OK).")
+
+    # Tinh VRAM cho bang embedding cua model gia dinh:
+    # V=128k token, d=4096, bf16 (2 bytes). Adam luu them m va v - moi cai
+    # bang dung kich thuoc weights -&gt; tong x3 (Bay 3: quen x3 la sai to).
+    # Tinh nham bang tay: 128k x 4096 = 524 trieu param (~524M);
+    #   weights bf16: 524M x 2B ~ 1 GB; + Adam (m, v): x3 ~ 3 GB.
+    V, dim, bytes_per = 128_000, 4096, 2
+    n_params = V * dim
+    vram_gb = n_params * bytes_per * 3 / 1024**3
+    print(f"\n  So param bang embedding: {n_params:,} (~{n_params/1e6:.0f}M)")
+    print(f"  VRAM embedding = {V:,} x {dim} x {bytes_per}B x 3 (Adam) "
+          f"= {vram_gb:.2f} GB")
+    print("  Nhan xet: chi RIENG bang embedding da ngot ~3 GB (~1/8 VRAM cua\n"
+          "  GPU 24GB) - chua tinh cac layer Transformer, activation va\n"
+          "  gradient. Train model co lon tren 1 GPU 24GB la khong kha thi\n"
+          "  neu khong dung cac ky thuat tiet kiem bo nho (weight tying,\n"
+          "  gradient checkpointing, ZeRO, ...).")
+
+
+# ---------------------------------------------------------------------------
+# MAIN
+# ---------------------------------------------------------------------------
+def main():
+    bai_a1()
+    bai_a2()
+    bai_a3()
+    bai_a4()
+    print("\n" + "=" * 64)
+    print("XONG - Checklist: A1 (cosine + word arithmetic) OK;")
+    print("        A2 (tinh duy nhat + dich tuyen tinh) OK;")
+    print("        A3 (tinh tuong doi cua RoPE) OK;")
+    print("        A4 (RMSNorm + VRAM) OK.")
+    print("=" * 64)
+
+
+if __name__ == "__main__":
+    main()
+</code></pre>
+</section>
+
+</div><!-- /wrap -->
+
+<footer>
+  <div class="wrap">
+    Được dựng từ <code>day04/embedding_pe.py</code> — giải thích bằng tiếng Việt, vẽ thành sơ đồ cho người ngoại đạo.<br>
+    Số liệu bảng biểu là kết quả chạy thật trên CPU. Sơ đồ là minh họa ý tưởng.
+  </div>
+</footer>
+
+<script>
+// --- Tiện ích ---
+function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+// --- Demo A1: góc cosine ---
+(function(){
+  const slider = document.getElementById("cosSlider");
+  const out = document.getElementById("cosOut");
+  function render(){
+    const deg = parseFloat(slider.value);
+    document.getElementById("cosAng").textContent = deg;
+    const rad = deg * Math.PI / 180, L = 130, cx = 200, cy = 190;
+    const bx = cx + L * Math.cos(rad), by = cy - L * Math.sin(rad);
+    const v = document.getElementById("vecB");
+    v.setAttribute("x2", bx.toFixed(1)); v.setAttribute("y2", by.toFixed(1));
+    const ux = Math.cos(rad), uy = -Math.sin(rad), px = -uy, py = ux, s = 13;
+    document.getElementById("arrB").setAttribute("points",
+      bx.toFixed(1) + "," + by.toFixed(1) + " " +
+      (bx - ux*s + px*s*0.55).toFixed(1) + "," + (by - uy*s + py*s*0.55).toFixed(1) + " " +
+      (bx - ux*s - px*s*0.55).toFixed(1) + "," + (by - uy*s - py*s*0.55).toFixed(1));
+    const lbl = document.getElementById("lblB");
+    lbl.setAttribute("x", (bx + 14).toFixed(1)); lbl.setAttribute("y", (by + 6).toFixed(1));
+    document.getElementById("angLbl").textContent = deg + "°";
+    const c = Math.cos(rad);
+    const interp = deg === 0 ? "trùng hướng — giống hệt nhau"
+      : deg === 90 ? "vuông góc — không liên quan gì nhau"
+      : deg === 180 ? "ngược hướng — đối lập nhau"
+      : deg < 90 ? "góc nhọn — hơi giống nhau" : "góc tù — hơi đối lập";
+    out.innerHTML = "cos(" + deg + "°) = <b>" + c.toFixed(4) + "</b> → " + interp;
+  }
+  slider.addEventListener("input", render);
+  render();
+})();
+// --- Vẽ cột PE tĩnh (số thật) ---
+(function(){
+  const data = {
+    peBar0: [0,1,0,1,0,1,0,1],
+    peBar1: [0.841,0.54,0.1,0.995,0.01,1.0,0.001,1.0],
+    peBar5: [-0.959,0.284,0.479,0.878,0.05,0.999,0.005,1.0]
+  };
+  Object.keys(data).forEach(function(id){
+    const el = document.getElementById(id);
+    data[id].forEach(function(v){
+      const d = document.createElement("div");
+      d.className = "bcol " + (v >= 0 ? "pos" : "neg");
+      d.style.height = Math.max(3, Math.abs(v) * 100) + "px";
+      d.title = v.toFixed(3);
+      el.appendChild(d);
+    });
+  });
+})();
+// --- Demo A2: máy soi PE ---
+(function(){
+  const slider = document.getElementById("peSlider");
+  const bar = document.getElementById("peExplorer");
+  const vals = document.getElementById("peVals");
+  const note = document.getElementById("peNote");
+  const D = 16;
+  function peVec(pos){
+    const out = [];
+    for(let i = 0; i < D; i++){
+      const ang = pos / Math.pow(10000, 2 * Math.floor(i / 2) / D);
+      out.push(i % 2 === 0 ? Math.sin(ang) : Math.cos(ang));
+    }
+    return out;
+  }
+  function render(){
+    const pos = parseInt(slider.value, 10);
+    document.getElementById("pePos").textContent = pos;
+    const v = peVec(pos);
+    bar.innerHTML = "";
+    v.forEach(function(x){
+      const d = document.createElement("div");
+      d.className = "bcol " + (x >= 0 ? "pos" : "neg");
+      d.style.height = Math.max(3, Math.abs(x) * 120) + "px";
+      d.title = x.toFixed(3);
+      bar.appendChild(d);
+    });
+    vals.textContent = "PE(" + pos + ") = [" + v.map(x => x.toFixed(2)).join(", ") + "]";
+    note.textContent = pos === 0
+      ? "pos=0: mọi sin = 0, mọi cos = 1 — 'vân tay gốc', các vị trí khác đều xoay đi từ đây."
+      : "Để ý 2 cột đầu (kim giây) nhảy múa theo từng vị trí, còn 2 cột cuối (kim giờ) gần như đứng yên ở ±1.";
+  }
+  slider.addEventListener("input", render);
+  render();
+})();
+// --- Demo A3: RoPE xoay cả hai ---
+(function(){
+  const slider = document.getElementById("ropeSlider");
+  const out = document.getElementById("ropeOut");
+  const q = [1, 0], kAng = 40 * Math.PI / 180, k = [Math.cos(kAng), Math.sin(kAng)];
+  const W = 0.15, CX = 210, CY = 200, S = 120;
+  function setVec(id, arrId, v){
+    const x2 = CX + S * v[0], y2 = CY - S * v[1];
+    const ln = document.getElementById(id);
+    ln.setAttribute("x2", x2.toFixed(1)); ln.setAttribute("y2", y2.toFixed(1));
+    const n = Math.hypot(v[0], v[1]) || 1, ux = v[0]/n, uy = v[1]/n, s = 13;
+    const sx = ux, sy = -uy, px = -sy, py = sx;
+    document.getElementById(arrId).setAttribute("points",
+      x2.toFixed(1) + "," + y2.toFixed(1) + " " +
+      (x2 - sx*s + px*s*0.55).toFixed(1) + "," + (y2 - sy*s + py*s*0.55).toFixed(1) + " " +
+      (x2 - sx*s - px*s*0.55).toFixed(1) + "," + (y2 - sy*s - py*s*0.55).toFixed(1));
+    return [x2, y2];
+  }
+  function render(){
+    const shift = parseFloat(slider.value);
+    document.getElementById("ropeShift").textContent = shift;
+    const th = shift * W;
+    const rot = v => [v[0]*Math.cos(th) - v[1]*Math.sin(th), v[0]*Math.sin(th) + v[1]*Math.cos(th)];
+    const qr = rot(q), kr = rot(k);
+    setVec("rq", "rqArr", qr);
+    const kp = setVec("rk", "rkArr", kr);
+    const lbl = document.getElementById("rkLbl");
+    lbl.setAttribute("x", (kp[0] + 12).toFixed(1)); lbl.setAttribute("y", (kp[1] + 6).toFixed(1));
+    const dot = qr[0]*kr[0] + qr[1]*kr[1];
+    out.innerHTML = "q·k sau khi xoay cả hai đi " + shift + " vị trí = <b>" + dot.toFixed(6) + "</b><br>" +
+      "luôn = cos(40°) ≈ 0.7660 — góc lệch không đổi nên tích vô hướng đứng yên ✅";
+  }
+  slider.addEventListener("input", render);
+  render();
+})();
+// --- Demo Trainer: rmsnorm cũ vs mới ---
+(function(){
+  const batch = [[1,2,3],[10,20,30]];
+  const out = document.getElementById("rmsOut");
+  const note = document.getElementById("rmsNote");
+  const bOld = document.getElementById("rmsOld");
+  const bNew = document.getElementById("rmsNew");
+  let mode = "old";
+  function rms(a){ return Math.sqrt(a.reduce((s,x) => s + x*x, 0) / a.length); }
+  function oldNorm(b){
+    const flat = b.flat(), m = flat.reduce((s,x) => s + x*x, 0) / flat.length, r = Math.sqrt(m + 1e-6);
+    return b.map(row => row.map(x => x / r));
+  }
+  function newNorm(b){
+    return b.map(row => { const r = rms(row); return row.map(x => x / r); });
+  }
+  function fmt(a){ return "[" + a.map(x => x.toFixed(3)).join(", ") + "]"; }
+  function render(){
+    bOld.classList.toggle("active", mode === "old");
+    bNew.classList.toggle("active", mode === "new");
+    const res = mode === "old" ? oldNorm(batch) : newNorm(batch);
+    let html = "input: [1,2,3] và [10,20,30]<br><br>";
+    res.forEach((row, i) => {
+      html += "token " + i + " → " + fmt(row) + " &nbsp; (RMS = " + rms(row).toFixed(3) + ")<br>";
+    });
+    out.innerHTML = html;
+    note.textContent = mode === "old"
+      ? "❌ Bản cũ: 1 RMS chung cho cả batch → token [1,2,3] bị 'vặn nhỏ' (RMS=0.14), token [10,20,30] bị 'vặn to' (RMS=1.41). Hai token không còn ngang hàng!"
+      : "✅ Bản mới: mỗi token có RMS riêng = 1.000 — đúng ý nghĩa 'chuẩn hóa từng token độc lập'.";
+  }
+  bOld.addEventListener("click", function(){ mode = "old"; render(); });
+  bNew.addEventListener("click", function(){ mode = "new"; render(); });
+  render();
+})();
+// --- Copy source ---
+(function(){
+  const btn = document.getElementById("copySrcBtn");
+  btn.addEventListener("click", function(){
+    const raw = document.getElementById("fullsrc").textContent;
+    const msg = document.getElementById("copyMsg");
+    const done = function(){ msg.textContent = "Đã copy ✓"; setTimeout(function(){ msg.textContent = ""; }, 2000); };
+    if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(raw).then(done, done); }
+    else { const ta = document.createElement("textarea"); ta.value = raw; document.body.appendChild(ta); ta.select(); try{ document.execCommand("copy"); }catch(e){} document.body.removeChild(ta); done(); }
+  });
+})();
+</script>
+<script>
+// Tô màu cú pháp Python
+(function(){
+  function escHtml(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+  function highlightPython(src){
+    var re = /(#[^\n]*)|("""[\s\S]*?"""|"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*')|\b(import|from|def|class|return|if|elif|else|for|while|in|is|not|and|or|None|True|False|lambda|with|as|try|except|finally|raise|global|pass|break|continue)\b|(\b\d+(?:\.\d+)?\b)|(@[\w.]+)/g;
+    var out = "", last = 0, m;
+    while((m = re.exec(src))){
+      out += escHtml(src.slice(last, m.index));
+      var tok = m[0], cls = m[1] ? "cm" : m[2] ? "str" : m[3] ? "kw" : m[4] ? "num2" : "fn";
+      out += '<span class="' + cls + '">' + escHtml(tok) + "</span>";
+      last = m.index + tok.length;
+      if(tok.length === 0) re.lastIndex++;
+    }
+    return out + escHtml(src.slice(last));
+  }
+  document.querySelectorAll("pre.pysrc").forEach(function(pre){
+    var raw = pre.textContent;
+    pre.innerHTML = "<code>" + highlightPython(raw) + "</code>";
+  });
+})();
+</script>
+</body>
+</html>
