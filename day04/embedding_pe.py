@@ -32,8 +32,10 @@ def cos_sim(u, v):
     """Do tuong dong cosine trong [-1, 1]: goc cang nho -> cang gan 1.
 
     Cong thuc: cos(u,v) = (u.v) / (||u|| * ||v||).
-    Chia cho norm de do goc (huong) chu khong do do dai vector - 2 vector
+    Chia cho norm de do GOC (huong) chu khong do do dai vector - 2 vector
     cung huong nhung dai ngan khac nhau van cho cos = 1.
+    Doc nhanh: 1 = cung huong (giong nhau), 0 = vuong goc (khong lien quan),
+    -1 = nguoc huong (doi lap).
     """
     return torch.dot(u, v) / (torch.norm(u) * torch.norm(v))
 
@@ -48,7 +50,13 @@ def bai_a1():
     # emb.weight[i] = vector cua tu thu i. Chua train gi ca - vector ngau
     # nhien van minh hoa duoc Y TUONG (nhung chua co y nghia ngu nghia).
     emb = nn.Embedding(len(WORDS), 8)
-    vecs = emb.weight  # shape (6, 8)
+    vecs = emb.weight  # shape (6, 8): 6 tu, moi tu 1 vector 8 chieu
+
+    # Minh hoa "tra cuu bang": muon vector cua tu "vua" (index 0) thi go
+    # emb(torch.tensor([0])) - ket qua phai DUNG BANG hang 0 cua bang.
+    lookup = emb(torch.tensor([0]))[0]
+    print(f"  Demo lookup: emb([0]) co phai vector cua 'vua' khong? "
+          f"{torch.equal(lookup, vecs[0])} (day chinh la 'tra cuu bang')")
 
     print("\nDo tuong dong cosine tung cap tu:")
     best, worst = (None, -2.0), (None, 2.0)  # (cap tu, gia tri)
@@ -90,6 +98,11 @@ def sinusoidal_pe(max_len, d):
     rieng (chieu i cang cao -> quay cang cham). To hop d/2 kim voi tan so
     khac nhau cho moi vi tri 1 "dau van tay" duy nhat.
     Chi dung arange/sin/cos - khong dung thu vien co san.
+
+    Vi du cu the (d=4): i=[0,1] -> div=[10000^0, 10000^(2/4)]=[1, 100].
+    Voi pos=1: angle=[1/1, 1/100]=[1.0, 0.01] ->
+      PE(1) = [sin(1.0), cos(1.0), sin(0.01), cos(0.01)]
+    Thay ngay: cap dau quay nhanh (tan so cao), cap sau quay cham.
     """
     pos = torch.arange(max_len).unsqueeze(1)   # (L,1): cot vi tri 0..L-1
     i = torch.arange(d // 2)                   # (d/2,): chi so cap chieu
@@ -142,6 +155,11 @@ def apply_rope(x, pos, omegas):
     x: (d,), omegas: (d//2,). Ma tran xoay 2x2:
         [x'] = [cos t  -sin t] [x]
         [y']   [sin t   cos t] [y]
+
+    Vi du cu the: x=[1,2,3,4], omegas=[w0,w1], pos=p ->
+      cap (1,2) xoay goc p*w0, cap (3,4) xoay goc p*w1.
+    Moi cap co omega rieng -> goc xoay rieng (giong cac "kim dong ho"
+    quay toc do khac nhau o A2).
     """
     x_even = x[0::2]          # cac chieu chan:  x0, x2, x4, ...
     x_odd = x[1::2]           # cac chieu le :  x1, x3, x5, ...
@@ -149,8 +167,11 @@ def apply_rope(x, pos, omegas):
     cos_t, sin_t = torch.cos(theta), torch.sin(theta)
     new_even = x_even * cos_t - x_odd * sin_t
     new_odd = x_even * sin_t + x_odd * cos_t
-    # Ghep lai dung thu tu xen ke: [e0, o0, e1, o1, ...] (Bay 2: dao thu tu
-    # o day la loi pho bien nhat - test pos=0 phai tra ve dung vector goc).
+    # Ghep lai dung thu tu xen ke. torch.stack(..., dim=-1) tao ra
+    # [[e0',o0'], [e1',o1'], ...] roi .reshape(-1) duoi thang thanh
+    # [e0',o0',e1',o1',...] - dung thu tu ban dau cua x.
+    # (Bay 2: dao thu tu o day la loi pho bien nhat - test pos=0 phai tra
+    # ve dung vector goc vi goc xoay = 0.)
     return torch.stack([new_even, new_odd], dim=-1).reshape(-1)
 
 
@@ -217,9 +238,13 @@ def bai_a4():
     # Tinh VRAM cho bang embedding cua model gia dinh:
     # V=128k token, d=4096, bf16 (2 bytes). Adam luu them m va v - moi cai
     # bang dung kich thuoc weights -> tong x3 (Bay 3: quen x3 la sai to).
+    # Tinh nham bang tay: 128k x 4096 = 524 trieu param (~524M);
+    #   weights bf16: 524M x 2B ~ 1 GB; + Adam (m, v): x3 ~ 3 GB.
     V, dim, bytes_per = 128_000, 4096, 2
-    vram_gb = V * dim * bytes_per * 3 / 1024**3
-    print(f"\n  VRAM embedding = {V:,} x {dim} x {bytes_per}B x 3 (Adam) "
+    n_params = V * dim
+    vram_gb = n_params * bytes_per * 3 / 1024**3
+    print(f"\n  So param bang embedding: {n_params:,} (~{n_params/1e6:.0f}M)")
+    print(f"  VRAM embedding = {V:,} x {dim} x {bytes_per}B x 3 (Adam) "
           f"= {vram_gb:.2f} GB")
     print("  Nhan xet: chi RIENG bang embedding da ngot ~3 GB (~1/8 VRAM cua\n"
           "  GPU 24GB) - chua tinh cac layer Transformer, activation va\n"
