@@ -112,6 +112,12 @@ def bai1():
 def bai2():
     """Chay 4 heads song song roi ghep lai, in pattern nhin cua moi head."""
     n_heads = 4
+    # [TRAINER] Guard 2026-10-15: d_model phai chia het cho n_heads - moi
+    # head nhan duoc d_model/n_heads chieu nguyen ven. Neu khong chia het,
+    # .view(L, n_heads, d_k4) se crash voi thong bao kho hieu. That bai SOM
+    # voi thong bao ro rang de debug hon (giong guard d chan o Day 04).
+    assert d_model % n_heads == 0, \
+        f"d_model={d_model} phai chia het cho n_heads={n_heads}"
     d_k4 = d_model // n_heads  # = 4: moi head nhin 1 "lat" 4 chieu
 
     # 3 ma tran chieu 16->16 (giong kich thuoc nhu single-head d_k=16) + Wo
@@ -145,6 +151,11 @@ def bai2():
     # TODO 6: ghep heads + chieu output.
     # (n_heads, L, d_k) -> transpose -> (L, n_heads, d_k) -> duoi thang
     # (L, d_model): noi 4 lat 4 chieu thanh vector 16 chieu -> @ Wo.
+    # [TRAINER] Luu y 2026-10-15 (khong doi code): sau transpose tensor
+    # khong con "contiguous" trong bo nho - dung .view() o day se LOI ngay,
+    # phai dung .reshape() (tu chon duong an toan, copy khi can). Quy tac
+    # nho: reshape sau transpose/permute; view chi khi chac chan contiguous
+    # (nhu o TODO 4, Q4 vua ra tu phep @ nen contiguous).
     concat = head_out.transpose(0, 1).reshape(L, d_model)  # (4, 16)
     final = concat @ Wo                                   # (4, 16)
 
@@ -185,9 +196,24 @@ def bai3():
     prev_dt, prev_lx = None, None
     for Lx in [64, 128, 256, 512]:
         x = torch.randn(Lx, d_model)
-        t0 = time.perf_counter()
-        _ = single_head(x)
-        dt = time.perf_counter() - t0
+        # [TRAINER] Do benchmark dung cach 2026-10-15 (thay cach do 1 lan):
+        # (1) warmup 1 lan truoc - lan chay dau chiu moi chi phi mot lan
+        #     (cap phat bo nho, cache lanh) nen cham bat thuong;
+        # (2) do 5 lan lay MIN thay vi 1 lan - he dieu hanh co the xen vao
+        #     bat cu luc nao (chuyen process, ngat), lay min loai duoc cac
+        #     mau bi nhieu. Day la cach chuan khi do perf trong ML.
+        # (3) ky vong thuc te: voi d_model=16 nho xiu tren CPU, chi phi co
+        #     dinh (goi ham, chia thread) lan at phan tinh toan nen ti le
+        #     do duoc se khong dep nhu 4.0x (vd 1.5x/2.1x/7.1x) - nhung duong
+        #     cong van SIEU TUYEN TINH ro rang. Muon thay 4x sach, phai do o
+        #     vung "compute-bound": d_model lon (vd 512) hoac tren GPU.
+        _ = single_head(x)  # warmup
+        dts = []
+        for _ in range(5):
+            t0 = time.perf_counter()
+            _ = single_head(x)
+            dts.append(time.perf_counter() - t0)
+        dt = min(dts)
         ratio = f"(gap {dt / prev_dt:.1f}x khi L gap {Lx / prev_lx:.0f}x)" \
             if prev_dt else ""
         print(f"{Lx:>6}  {dt * 1000:10.2f} ms  {ratio}")
