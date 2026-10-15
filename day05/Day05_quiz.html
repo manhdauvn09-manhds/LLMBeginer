@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quiz Ngày 5 — Self-attention</title>
+<style>
+  :root{--bg:#0b1020;--card:#141b33;--line:#26314f;--txt:#e8ecf7;--muted:#9aa6c7;
+    --gold:#fbbf24;--blue:#60a5fa;--green:#34d399;--red:#f87171;}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  body{margin:0;background:var(--bg);color:var(--txt);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;line-height:1.7;font-size:16px;}
+  .wrap{max-width:760px;margin:0 auto;padding:0 18px 80px;}
+  .kicker{display:inline-block;margin:26px 0 10px;padding:6px 14px;border:1px solid var(--line);
+    border-radius:999px;color:var(--muted);font-size:13px;}
+  h1{font-size:clamp(24px,5vw,32px);margin:6px 0 4px;}
+  .sub{color:var(--muted);margin:0 0 18px;}
+  .q{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin:16px 0;}
+  .q h3{margin:0 0 10px;font-size:17px;}
+  .q h3 .qn{color:var(--gold);margin-right:6px;}
+  label.opt{display:block;padding:10px 12px;border:1px solid var(--line);border-radius:10px;
+    margin:8px 0;cursor:pointer;}
+  label.opt:hover{border-color:var(--blue);}
+  label.opt input{margin-right:10px;transform:scale(1.2);}
+  .exp{display:none;margin-top:10px;padding:10px 12px;border-radius:10px;font-size:15px;}
+  .exp.ok{display:block;background:#0c2b1a;border:1px solid #14532d;}
+  .exp.no{display:block;background:#2a1420;border:1px solid #7f1d1d;}
+  .btnrow{display:flex;gap:12px;flex-wrap:wrap;margin:24px 0;}
+  button{flex:1 1 200px;padding:15px;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer;}
+  #submit{background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;}
+  #copy{background:linear-gradient(135deg,#34d399,#047857);color:#06281c;display:none;}
+  #score{font-size:19px;font-weight:800;margin:14px 0;display:none;}
+  .note{color:var(--muted);font-size:14px;border:1px dashed var(--line);border-radius:12px;padding:12px 14px;margin-top:18px;}
+  .back{display:inline-block;margin-top:10px;color:var(--blue);text-decoration:none;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <span class="kicker">Khóa AI Engineer (LLM) · Quiz Ngày 5/30</span>
+  <h1>📝 Quiz — Self-attention</h1>
+  <p class="sub">5 câu trắc nghiệm. Chọn đáp án rồi bấm <b>Nộp bài</b> để chấm điểm ngay trong file.</p>
+
+  <div id="quiz"></div>
+
+  <div class="btnrow">
+    <button id="submit" onclick="grade()">Nộp bài</button>
+    <button id="copy" onclick="copyResult()">📋 Copy kết quả</button>
+  </div>
+  <div id="score"></div>
+
+  <div class="note">ℹ️ File HTML này chạy offline, <b>không tự gửi kết quả về được</b>. Sau khi bấm "Copy kết quả", bạn paste chuỗi kết quả vào chat để trợ lý ghi điểm và theo dõi tiến độ nhé.</div>
+  <a class="back" href="Day05_lesson.html">← Quay lại bài học</a>
+</div>
+
+<script>
+const QUESTIONS = [
+  {q:"Trong self-attention, vai trò của query, key, value là gì?",
+   opts:["Query so với key để tính trọng số, rồi lấy trung bình có trọng số của value","Query nhân trực tiếp với value, key chỉ dùng để chuẩn hóa","Key quyết định output, query và value chỉ là bản sao của embedding","Cả ba đều nhân với nhau rồi lấy max theo chiều token"],
+   ans:0,
+   exp:"Đúng quy trình: điểm khớp = query·key, softmax thành trọng số, output = trọng số × value cộng lại. Key là 'nhãn để so', value là 'nội dung để lấy' — hai vai trò tách biệt."},
+  {q:"Vì sao công thức attention phải chia cho √d_k?",
+   opts:["Để giảm số tham số của mô hình đi √d_k lần","Để điểm số không quá lớn khiến softmax bão hòa và gradient biến mất","Để ma trận QKᵀ có cỡ nhỏ hơn, tiết kiệm bộ nhớ","Để chuẩn hóa output về đúng phân phối chuẩn N(0,1)"],
+   ans:1,
+   exp:"q·k có độ lệch chuẩn ≈ √d_k. Không chia, softmax nhận đầu vào quá lớn → gần one-hot → đạo hàm ≈ 0, mô hình không học được. Chia √d_k giữ softmax 'mềm' và gradient chảy."},
+  {q:"Với causal mask, token ở vị trí i được phép 'nhìn' những token nào?",
+   opts:["Tất cả token trong chuỗi, kể cả tương lai","Chỉ các token ở vị trí j ≤ i (quá khứ và hiện tại)","Chỉ token đứng ngay trước nó (j = i−1)","Chỉ các token ở vị trí j ≥ i (hiện tại và tương lai)"],
+   ans:1,
+   exp:"Causal mask cộng −∞ vào các vị trí j > i trước softmax → trọng số bằng 0. Token i chỉ trộn thông tin từ quá khứ và chính nó — đúng bản chất dự đoán token tiếp theo."},
+  {q:"Trong multi-head attention với d = 768 và h = 12 head, mỗi head làm việc trên chiều d_k bằng bao nhiêu, và lợi ích chính là gì?",
+   opts:["d_k = 768; lợi ích là tăng gấp 12 lần số tham số","d_k = 64; mỗi head học một kiểu quan hệ khác nhau trong không gian con riêng","d_k = 12; lợi ích là giảm 12 lần chi phí tính toán","d_k = 64; lợi ích duy nhất là train song song nhanh hơn"],
+   ans:1,
+   exp:"d_k = d/h = 768/12 = 64. Mỗi head có bộ W^Q, W^K, W^V riêng nên tự chuyên môn hóa (ngữ pháp, quy chiếu đại từ, vị trí kề...). Tổng tham số 4d² bằng đúng single-head cỡ d — không tốn thêm."},
+  {q:"Với L = 8192, ma trận điểm attention của 1 head ở fp16 tốn khoảng bao nhiêu bộ nhớ?",
+   opts:["Khoảng 0.5 MB","Khoảng 8 MB","Khoảng 134 MB","Khoảng 2 GB"],
+   ans:2,
+   exp:"Ma trận L×L = 8192² ≈ 67 triệu ô × 2 byte (fp16) ≈ 134 MB — cho 1 head, 1 layer. Đây chính là nút thắt O(L²) khiến context dài đắt đỏ, và là lý do của FlashAttention, KV-cache, GQA."}
+];
+let result = "";
+
+function render(){
+  const box = document.getElementById("quiz");
+  box.innerHTML = QUESTIONS.map((it,i)=>`
+    <div class="q" id="q${i}">
+      <h3><span class="qn">Câu ${i+1}.</span>${it.q}</h3>
+      ${it.opts.map((o,j)=>`
+        <label class="opt"><input type="radio" name="q${i}" value="${j}">${"ABCD"[j]}. ${o}</label>`).join("")}
+      <div class="exp" id="exp${i}"></div>
+    </div>`).join("");
+}
+
+function grade(){
+  let correct = 0; const picks = [];
+  QUESTIONS.forEach((it,i)=>{
+    const sel = document.querySelector(`input[name=q${i}]:checked`);
+    const exp = document.getElementById(`exp${i}`);
+    const box = document.getElementById(`q${i}`);
+    if(!sel){ exp.className="exp no"; exp.textContent="⚠️ Bạn chưa chọn đáp án câu này."; picks.push("–"); return; }
+    const v = +sel.value; picks.push("ABCD"[v]);
+    if(v===it.ans){ correct++; exp.className="exp ok"; exp.innerHTML="✅ <b>Đúng.</b> "+it.exp; }
+    else{ exp.className="exp no"; exp.innerHTML=`❌ <b>Sai.</b> Đáp án đúng là <b>${"ABCD"[it.ans]}</b>. `+it.exp; }
+    box.scrollIntoView({block:"nearest"});
+  });
+  result = `Day05 Quiz: ${picks.map((p,i)=>`${i+1}${p}`).join(" ")} — ${correct}/${QUESTIONS.length}`;
+  const s = document.getElementById("score");
+  s.style.display="block";
+  s.innerHTML = `Kết quả: <span style="color:${correct>=4?"var(--green)":correct>=3?"var(--gold)":"var(--red)"}">${correct}/${QUESTIONS.length}</span>` +
+    (correct<4 ? ` — dưới 80%, nên đọc lại phần lý thuyết tương ứng nhé.` : ` — xuất sắc! 🎉`);
+  document.getElementById("copy").style.display="block";
+  window.scrollTo({top:document.body.scrollHeight,behavior:"smooth"});
+}
+
+function copyResult(){
+  navigator.clipboard.writeText(result).then(
+    ()=>{ document.getElementById("copy").textContent="✅ Đã copy! Paste vào chat nhé"; },
+    ()=>{ prompt("Copy thủ công chuỗi kết quả:", result); });
+}
+
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ngày 5 — Self-attention: tự code một lần, hiểu cả đời</title>
+<style>
+  :root{
+    --bg:#0b1020; --card:#141b33; --line:#26314f; --txt:#e8ecf7; --muted:#9aa6c7;
+    --gold:#fbbf24; --blue:#60a5fa; --green:#34d399; --red:#f87171; --violet:#a78bfa;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  body{margin:0; background:var(--bg); color:var(--txt);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    line-height:1.75; font-size:16.5px;}
+  .wrap{max-width:860px; margin:0 auto; padding:0 18px 80px;}
+  .kicker{display:inline-block; margin:26px 0 10px; padding:6px 14px; border:1px solid var(--line);
+    border-radius:999px; color:var(--muted); font-size:13px; letter-spacing:.4px;}
+  h1{font-size:clamp(26px,5.4vw,38px); line-height:1.3; margin:6px 0 8px;}
+  .sub{color:var(--muted); margin:0 0 6px;}
+  .meta{display:flex; gap:10px; flex-wrap:wrap; margin:14px 0 22px; color:var(--muted); font-size:14px;}
+  .meta span{background:var(--card); border:1px solid var(--line); border-radius:10px; padding:6px 12px;}
+  .hero{width:100%; border-radius:16px; border:1px solid var(--line); display:block;}
+  .cap{color:var(--muted); font-size:13.5px; margin:8px 2px 0;}
+  .goal{background:linear-gradient(135deg,#16213f,#101a36); border:1px solid var(--line);
+    border-radius:14px; padding:18px 20px; margin:26px 0;}
+  .goal h3{margin:0 0 10px; font-size:17px; color:var(--gold);}
+  .goal ul{margin:0; padding-left:20px;}
+  .goal li{margin:6px 0;}
+  section.card{background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:22px 20px; margin:22px 0;}
+  section.card h2{margin:0 0 4px; font-size:21px;}
+  section.card h2 .n{display:inline-flex; width:30px; height:30px; border-radius:9px;
+    background:var(--blue); color:#081226; font-size:16px; align-items:center; justify-content:center;
+    margin-right:8px; font-weight:800;}
+  section.card p.lead{color:var(--muted); margin:0 0 12px;}
+  .formula{background:#0b1226; border:1px dashed #33406b; border-radius:12px;
+    padding:14px 16px; margin:14px 0; font-family:"SF Mono",Consolas,Menlo,monospace;
+    font-size:15.5px; overflow-x:auto; white-space:nowrap;}
+  .formula b{color:var(--gold);}
+  .note{border-left:4px solid var(--green); background:#0f2233; border-radius:0 12px 12px 0;
+    padding:12px 16px; margin:14px 0;}
+  .warn{border-left:4px solid var(--red); background:#2a1420; border-radius:0 12px 12px 0;
+    padding:12px 16px; margin:14px 0;}
+  .green{border:1px solid #14532d; background:linear-gradient(135deg,#0c2b1a,#0a1f14);
+    border-radius:14px; padding:18px 20px; margin:22px 0;}
+  .green h3{margin:0 0 8px; color:var(--green); font-size:18px;}
+  .code{background:#070d1c; border:1px solid var(--line); border-radius:12px; padding:14px 16px;
+    font-family:"SF Mono",Consolas,Menlo,monospace; font-size:14px; overflow-x:auto; margin:14px 0; white-space:pre;}
+  .code .c{color:#7c8db5;} .code .k{color:var(--violet);} .code .s{color:var(--green);} .code .n{color:var(--gold);}
+  svg.diagram{width:100%; height:auto; display:block; margin:12px 0; border-radius:12px;}
+  table.tbl{width:100%; border-collapse:collapse; margin:12px 0; font-size:15px;}
+  table.tbl th, table.tbl td{border:1px solid var(--line); padding:9px 12px; text-align:left;}
+  table.tbl th{background:#0f1730; color:var(--gold);}
+  .tldr{background:#151a2e; border:1px solid var(--line); border-radius:14px; padding:18px 20px; margin:22px 0;}
+  .tldr h3{margin:0 0 8px; color:var(--blue);}
+  .tldr li{margin:6px 0;}
+  .nav{display:flex; gap:12px; flex-wrap:wrap; margin:28px 0 0;}
+  .nav a{flex:1 1 200px; text-align:center; text-decoration:none; font-weight:700;
+    padding:15px 18px; border-radius:14px; border:1px solid var(--line);}
+  .nav a.q{background:linear-gradient(135deg,#3b82f6,#1d4ed8); color:#fff;}
+  .nav a.v{background:linear-gradient(135deg,#f59e0b,#b45309); color:#1a1205;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <span class="kicker">Khóa AI Engineer (LLM) · Phase 1 — Ngày 5/30</span>
+  <h1>Self-attention: tự code một lần, hiểu cả đời</h1>
+  <p class="sub">Mỗi token quyết định mình nên "nghe" token nào bao nhiêu — bằng một phép toán ma trận duy nhất. Đó là toàn bộ bí mật của Transformer.</p>
+  <div class="meta">
+    <span>☀️ Buổi sáng · Lý thuyết + quiz</span>
+    <span>⏱ ~35 phút đọc</span>
+    <span>🧩 5 câu trắc nghiệm</span>
+  </div>
+
+  <img class="hero" src="img/day05_hero.webp" alt="Minh họa attention: một token phát tia sáng tới các token khác">
+  <p class="cap">Mỗi token phát ra "tia chú ý" tới mọi token khác — tia càng sáng, thông tin lấy về càng nhiều.</p>
+
+  <div class="goal">
+    <h3>🎯 Mục tiêu buổi học</h3>
+    <ul>
+      <li>Tự cài được <b>scaled dot-product attention</b> và <b>causal mask</b> bằng PyTorch thuần.</li>
+      <li>Hiểu vai trò của Q/K/V, softmax, và vì sao phải chia cho √d<sub>k</sub>.</li>
+      <li>Hiểu multi-head attention và causal masking.</li>
+      <li>Tính được độ phức tạp O(L²) và biết tại sao nó là nút thắt của context dài.</li>
+    </ul>
+  </div>
+
+  <section class="card" id="s-noi-tiep">
+    <h2><span class="n">0</span>Nối tiếp từ Ngày 4</h2>
+    <p class="lead">Embedding đã cho mỗi token một vector giàu ý nghĩa — nhưng mỗi vector vẫn đang "đứng một mình".</p>
+    <p>Xét hai câu: <b>"mèo đuổi chuột"</b> và <b>"chuột đuổi mèo"</b>. Cùng một tập token, thứ tự khác nhau, nghĩa đảo ngược. Nếu mỗi token chỉ nhìn vector của chính nó, mô hình không bao giờ phân biệt nổi hai câu này. Token cần <b>nhìn sang các token khác</b>, "hỏi han" ngữ cảnh, rồi trộn thông tin đó vào vector của mình. Cơ chế làm việc đó có tên <b>self-attention</b> — "tự chú ý", vì chuỗi tự chú ý lẫn nhau.</p>
+  </section>
+
+  <section class="card" id="s-truc-giac">
+    <h2><span class="n">1</span>Trực giác: attention là "tra cứu mềm"</h2>
+    <p class="lead">Hãy tưởng tượng mỗi token là một người trong phòng họp, muốn thu thập thông tin từ mọi người.</p>
+    <p>Mỗi token đóng <b>3 vai</b> cùng lúc:</p>
+    <ul>
+      <li><b>Query (truy vấn)</b> — "tôi đang tìm thông tin gì?" (ví dụ token <i>"nó"</i> hỏi: <i>đại từ này chỉ ai?</i>)</li>
+      <li><b>Key (khóa)</b> — "tôi chứa thông tin gì?" (mỗi token treo một tấm bảng mô tả nội dung của mình)</li>
+      <li><b>Value (giá trị)</b> — "nội dung thật sự của tôi là gì?" (thứ sẽ được lấy đi nếu tôi được chọn)</li>
+    </ul>
+    <p>Cách chơi: lấy query của token i <b>so khớp</b> với key của mọi token j → được điểm số "độ liên quan". Chuẩn hóa điểm số thành trọng số (cộng lại = 1), rồi lấy <b>trung bình có trọng số</b> của các value. Token nào khớp nhất thì nội dung của nó được "rót" nhiều nhất vào token i.</p>
+    <img class="hero" src="img/day05_qkv.webp" alt="Minh họa query tìm key phù hợp">
+    <p class="cap">Query như chiếc chìa khóa đi tìm ổ khóa (key) vừa khớp — khớp càng chuẩn, value lấy về càng nhiều.</p>
+    <svg class="diagram" viewBox="0 0 720 360" role="img" aria-label="Ví dụ attention với đại từ nó">
+      <text x="360" y="26" fill="#e8ecf7" font-size="17" text-anchor="middle" font-weight="700">"con mèo không qua đường vì <tspan fill="#fbbf24">nó</tspan> quá mệt" — <tspan fill="#fbbf24">nó</tspan> đang hỏi: tôi chỉ ai?</text>
+      <g font-size="15" text-anchor="middle">
+        <rect x="30" y="50" width="100" height="46" rx="10" fill="#16213f" stroke="#60a5fa" stroke-width="2"/>
+        <text x="80" y="79" fill="#e8ecf7">con mèo</text>
+        <rect x="150" y="50" width="100" height="46" rx="10" fill="#16213f" stroke="#26314f"/>
+        <text x="200" y="79" fill="#9aa6c7">không</text>
+        <rect x="270" y="50" width="100" height="46" rx="10" fill="#16213f" stroke="#26314f"/>
+        <text x="320" y="79" fill="#9aa6c7">qua đường</text>
+        <rect x="390" y="50" width="100" height="46" rx="10" fill="#16213f" stroke="#26314f"/>
+        <text x="440" y="79" fill="#9aa6c7">vì</text>
+        <rect x="510" y="50" width="100" height="46" rx="10" fill="none" stroke="#fbbf24" stroke-width="2.5"/>
+        <text x="560" y="79" fill="#fbbf24" font-weight="700">nó (query)</text>
+      </g>
+      <g stroke-linecap="round">
+        <line x1="560" y1="100" x2="120" y2="180" stroke="#fbbf24" stroke-width="9" opacity="0.9"/>
+        <line x1="560" y1="100" x2="270" y2="180" stroke="#fbbf24" stroke-width="2.5" opacity="0.35"/>
+        <line x1="560" y1="100" x2="400" y2="180" stroke="#fbbf24" stroke-width="1.5" opacity="0.25"/>
+        <line x1="560" y1="100" x2="520" y2="180" stroke="#fbbf24" stroke-width="3.5" opacity="0.45"/>
+      </g>
+      <g font-size="15" text-anchor="middle">
+        <rect x="60" y="160" width="120" height="46" rx="10" fill="#16213f" stroke="#fbbf24"/>
+        <text x="120" y="189" fill="#e8ecf7">key: mèo 🐱</text>
+        <rect x="220" y="160" width="120" height="46" rx="10" fill="#16213f" stroke="#26314f"/>
+        <text x="280" y="189" fill="#9aa6c7">key: qua…</text>
+        <rect x="360" y="160" width="120" height="46" rx="10" fill="#16213f" stroke="#26314f"/>
+        <text x="420" y="189" fill="#9aa6c7">key: vì…</text>
+        <rect x="500" y="160" width="120" height="46" rx="10" fill="#16213f" stroke="#26314f"/>
+        <text x="560" y="189" fill="#9aa6c7">key: nó</text>
+      </g>
+      <text x="360" y="245" fill="#9aa6c7" font-size="14" text-anchor="middle">độ dày tia = trọng số attention (sau softmax)</text>
+      <rect x="120" y="262" width="480" height="56" rx="12" fill="#0b1226" stroke="#33406b" stroke-dasharray="6 4"/>
+      <text x="360" y="297" fill="#e8ecf7" font-size="15" text-anchor="middle">output("nó") = <tspan fill="#fbbf24" font-weight="700">0.72</tspan>·v(mèo) + 0.08·v(qua…) + 0.05·v(vì…) + 0.15·v(nó)</text>
+    </svg>
+    <div class="note">💡 <b>Điểm mấu chốt:</b> trọng số attention <b>không cố định</b> — nó được tính lại cho mỗi cặp (query, key) tùy ngữ cảnh. Cùng token <i>"nó"</i> trong câu khác sẽ chú ý sang token khác. Đó là lý do attention mạnh hơn hẳn các cơ chế "trộn cứng" như convolution.</div>
+  </section>
+
+  <section class="card" id="s-cong-thuc">
+    <h2><span class="n">2</span>Công thức: scaled dot-product attention</h2>
+    <p class="lead">Toàn bộ ý tưởng trên gói gọn trong một công thức duy nhất — công thức nổi tiếng nhất của deep learning hiện đại.</p>
+    <div class="formula">Attention(<b>Q</b>, <b>K</b>, <b>V</b>) = softmax( <b>QK<sup>T</sup></b> / √d<sub>k</sub> ) <b>V</b></div>
+    <p>Đọc công thức từ trong ra ngoài, với Q, K, V là các ma trận cỡ (L × d<sub>k</sub>), L là độ dài chuỗi:</p>
+    <ul>
+      <li><b>QK<sup>T</sup></b> — ma trận điểm "khớp nhau" cỡ (L × L): hàng i là điểm query i chấm với mọi key j. Đây chính là phép <b>tích vô hướng (dot product)</b> đo độ giống nhau — giống như cosine similarity ở Ngày 4 nhưng chưa chuẩn hóa.</li>
+      <li><b>softmax theo hàng</b> — biến điểm số thành trọng số: mỗi hàng cộng lại bằng 1, trọng số nào cũng ≥ 0. Hàng i cho biết token i "rót" bao nhiêu phần từ mỗi token j.</li>
+      <li><b>nhân với V</b> — mỗi hàng output là tổ hợp lồi (trung bình có trọng số) của các value.</li>
+    </ul>
+    <p>Vậy Q, K, V từ đâu ra? Từ chính vector embedding X (L × d) nhân với <b>3 ma trận học được</b>:</p>
+    <div class="formula"><b>Q</b> = X<b>W<sup>Q</sup></b> &nbsp;&nbsp; <b>K</b> = X<b>W<sup>K</sup></b> &nbsp;&nbsp; <b>V</b> = X<b>W<sup>V</sup></b></div>
+    <div class="note">💡 <b>Vì sao cần 3 vai thay vì dùng X trực tiếp?</b> Vì "cái tôi đang tìm" (query) và "cái tôi chứa" (key) là hai khái niệm khác nhau. Tách thành 3 phép chiếu tuyến tính cho mô hình tự do học: khi làm query thì nhấn mạnh đặc trưng A, khi làm key thì nhấn mạnh đặc trưng B. Nếu dùng chung X, điểm khớp chỉ đo "hai token giống nhau không" — mất đi sự linh hoạt của quan hệ có hướng (như <i>nó → mèo</i> nhưng <i>mèo ↛ nó</i>).</div>
+  </section>
+
+  <section class="card" id="s-scale">
+    <h2><span class="n">3</span>Vì sao phải chia cho √d<sub>k</sub>?</h2>
+    <p class="lead">Đây là chi tiết trông như "phụ" nhưng quyết định mô hình train được hay không.</p>
+    <p>Giả sử các thành phần của q và k độc lập, trung bình 0, phương sai 1. Tích vô hướng q·k là tổng của d<sub>k</sub> số hạng như vậy, nên <b>phương sai của nó = d<sub>k</sub></b>, độ lệch chuẩn = √d<sub>k</sub>. Với d<sub>k</sub> = 64, điểm số dao động trong khoảng ±8 — softmax của những số này gần như <b>one-hot</b> (một trọng số ≈ 1, còn lại ≈ 0):</p>
+    <svg class="diagram" viewBox="0 0 720 250" role="img" aria-label="So sánh softmax có và không có chia căn d">
+      <text x="180" y="30" fill="#f87171" font-size="16" text-anchor="middle" font-weight="700">không chia: softmax bão hòa</text>
+      <g>
+        <rect x="60" y="200" width="40" height="20" fill="#26314f"/><rect x="110" y="205" width="40" height="15" fill="#26314f"/>
+        <rect x="160" y="60" width="40" height="160" fill="#f87171"/><rect x="210" y="208" width="40" height="12" fill="#26314f"/>
+        <rect x="260" y="212" width="40" height="8" fill="#26314f"/>
+      </g>
+      <text x="180" y="240" fill="#9aa6c7" font-size="13" text-anchor="middle">1 trọng số ≈ 1, còn lại ≈ 0 → gradient ≈ 0 ☠️</text>
+      <text x="540" y="30" fill="#34d399" font-size="16" text-anchor="middle" font-weight="700">chia √d<sub>k</sub>: softmax "mềm"</text>
+      <g>
+        <rect x="420" y="150" width="40" height="70" fill="#34d399" opacity="0.9"/><rect x="470" y="180" width="40" height="40" fill="#34d399" opacity="0.7"/>
+        <rect x="520" y="130" width="40" height="90" fill="#34d399"/><rect x="570" y="190" width="40" height="30" fill="#34d399" opacity="0.6"/>
+        <rect x="620" y="165" width="40" height="55" fill="#34d399" opacity="0.8"/>
+      </g>
+      <text x="540" y="240" fill="#9aa6c7" font-size="13" text-anchor="middle">trọng số phân bố đều → gradient chảy ✅</text>
+    </svg>
+    <p>Khi softmax bão hòa, đạo hàm của nó tiến về 0 — <b>gradient "chết"</b>, mô hình không học được gì dù loss vẫn tính. Chia cho √d<sub>k</sub> đưa độ lệch chuẩn của điểm số về ≈ 1, softmax mềm ra, gradient chảy bình thường.</p>
+    <div class="note">💡 <b>Con số để nhớ:</b> với d<sub>k</sub> = 64, điểm số chưa chia có độ lệch chuẩn ≈ 8, tỉ số e<sup>8</sup>/e<sup>−8</sup> ≈ 9 triệu lần — softmax gần như one-hot cứng. Hệ số 1/√d<sub>k</sub> đóng vai trò như <b>"nhiệt độ" cố định</b> làm mềm phân bố. Paper gốc "Attention Is All You Need" gọi đây là <i>scaled</i> dot-product attention chính vì chi tiết này.</div>
+  </section>
+
+  <section class="card" id="s-multihead">
+    <h2><span class="n">4</span>Multi-head: một hội đồng thay vì một chuyên gia</h2>
+    <p class="lead">Một attention duy nhất chỉ học được một kiểu quan hệ. Thực tế, token cần nhiều kiểu quan hệ cùng lúc.</p>
+    <p>Ý tưởng <b>multi-head attention</b>: thay vì một phép attention trên d chiều, chạy <b>h phép attention song song</b> ("h cái đầu"), mỗi head làm việc trên không gian nhỏ d<sub>k</sub> = d/h với bộ W<sup>Q</sup>, W<sup>K</sup>, W<sup>V</sup> <b>riêng</b>, rồi nối kết quả lại và chiếu qua W<sup>O</sup>:</p>
+    <div class="formula">head<sub>i</sub> = Attention(XW<sup>Q</sup><sub>i</sub>, XW<sup>K</sup><sub>i</sub>, XW<sup>V</sup><sub>i</sub>)<br>MultiHead = Concat(head<sub>1</sub>, …, head<sub>h</sub>)<b>W<sup>O</sup></b></div>
+    <img class="hero" src="img/day05_multihead.webp" alt="Minh họa nhiều head attention song song">
+    <p class="cap">Mỗi head là một "luồng chú ý" độc lập — có head soi ngữ pháp, head soi quy chiếu đại từ, head soi vị trí kề nhau.</p>
+    <p>Thực nghiệm phân tích mô hình đã train cho thấy các head <b>tự chuyên môn hóa</b>: head này học quan hệ chủ–vị, head kia học "đại từ → danh từ nó thay thế", head khác chỉ chú ý token đứng ngay trước. Không ai "lập trình" điều này — nó nổi lên từ gradient.</p>
+    <div class="note">💡 <b>Tính nhẩm nhanh:</b> GPT-2 small có h = 12 head, d = 768 → d<sub>k</sub> = 64 mỗi head. Tổng tham số của 4 ma trận chiếu (W<sup>Q</sup>, W<sup>K</sup>, W<sup>V</sup>, W<sup>O</sup>) là 4d² — <b>bằng đúng</b> một attention "đầu đơn" cỡ d. Multi-head không tốn thêm tham số, chỉ tổ chức lại cách dùng chúng thông minh hơn!</div>
+  </section>
+
+  <section class="card" id="s-causal">
+    <h2><span class="n">5</span>Causal masking — cấm nhìn trộm tương lai</h2>
+    <p class="lead">Mô hình ngôn ngữ dự đoán token <b>tiếp theo</b>. Khi train song song cả chuỗi, token ở vị trí i tuyệt đối không được thấy token ở vị trí &gt; i.</p>
+    <p>Vì sao? Nếu token i được "nhìn" đáp án ở vị trí i+1, mô hình sẽ học mánh khóe <b>copy đáp án</b> thay vì học ngôn ngữ — loss tụt đẹp như mơ trên train, nhưng khi sinh thật (lúc đó không có tương lai để nhìn) thì sụp đổ hoàn toàn. Đây là dạng <b>data leakage</b> kinh điển.</p>
+    <p>Cách chặn rất gọn: <b>trước khi softmax</b>, cộng −∞ (thực tế dùng −1e9) vào mọi vị trí j &gt; i của ma trận điểm:</p>
+    <div class="formula">scores<sub>i,j</sub> += <b>−∞</b> &nbsp;với mọi j &gt; i &nbsp;&nbsp;→&nbsp;&nbsp; softmax cho trọng số <b>0</b></div>
+    <svg class="diagram" viewBox="0 0 720 300" role="img" aria-label="Ma trận causal mask tam giác dưới">
+      <text x="200" y="30" fill="#e8ecf7" font-size="16" text-anchor="middle" font-weight="700">causal mask (L = 5)</text>
+      <text x="200" y="52" fill="#9aa6c7" font-size="13" text-anchor="middle">hàng i = query i ······ cột j = key j</text>
+      <g font-size="14" text-anchor="middle">
+        <rect x="80" y="70" width="48" height="40" rx="6" fill="#34d399" opacity="0.85"/><text x="104" y="95" fill="#06281c">✓</text>
+        <rect x="132" y="70" width="48" height="40" rx="6" fill="#1a2338" stroke="#26314f"/><text x="156" y="95" fill="#f87171">−∞</text>
+        <rect x="184" y="70" width="48" height="40" rx="6" fill="#1a2338" stroke="#26314f"/><text x="208" y="95" fill="#f87171">−∞</text>
+        <rect x="236" y="70" width="48" height="40" rx="6" fill="#1a2338" stroke="#26314f"/><text x="260" y="95" fill="#f87171">−∞</text>
+        <rect x="288" y="70" width="48" height="40" rx="6" fill="#1a2338" stroke="#26314f"/><text x="312" y="95" fill="#f87171">−∞</text>
+        <rect x="80" y="114" width="48" height="40" rx="6" fill="#34d399" opacity="0.85"/><text x="104" y="139" fill="#06281c">✓</text>
+        <rect x="132" y="114" width="48" height="40" rx="6" fill="#34d399" opacity="0.85"/><text x="156" y="139" fill="#06281c">✓</text>
+        <rect x="184" y="114" width="48" height="40" rx="6" fill="#1a2338" stroke="#26314f"/><text x="208" y="139" fill="#f87171">−∞</text>
+        <rect x="236" y="114" width="48" height="40" rx="6" fill="#1a2338" stroke="#26314f"/><text x="260" y="139" fill="#f87171">−∞</text>
+        <rect x="288" y="114" width="48" height="40" rx="6" fill="#1a2338" stroke="#26314f"/><text x="312" y="139" fill="#f87171">−∞</text>
+        <rect x="80" y="158" width="48" height="40" rx="6" fill="#34d399" opacity="0.85"/><text x="104" y="183" fill="#06281c">✓</text>
+        <rect x="132" y="158" width="48" height="40" rx="6" fill="#34d399" opacity="0.85"/><text x="156" y="183" fill="#06281c">✓</text>
+        <rect x="184" y="158" width="48" height="40" rx="6" fill="#34d399" opacity="0.85"/><text x="208" y="183" fill="#06281c">✓</text>
+        <rect x="236" y="158" width="48" height="40" rx="6" fill="#1a2338" stroke="#26314f"/><text x="260" y="183" fill="#f87171">−∞</text>
+        <rect x="288" y="158" width="48" height="40" rx="6" fill="#1a2338" stroke="#26314f"/><text x="312" y="183" fill="#f87171">−∞</text>
+        <rect x="80" y="202" width="48" height="40" rx="6" fill="#34d399" opacity="0.85"/><text x="104" y="227" fill="#06281c">✓</text>
+        <rect x="132" y="202" width="48" height="40" rx="6" fill="#34d399" opacity="0.85"/><text x="156" y="227" fill="#06281c">✓</text>
+        <rect x="184" y="202" width="48" height="40" rx="6" fill="#34d399" opacity="0.85"/><text x="208" y="227" fill="#06281c">✓</text>
+        <rect x="236" y="202" width="48" height="40" rx="6" fill="#34d399" opacity="0.85"/><text x="260" y="227" fill="#06281c">✓</text>
+        <rect x="288" y="202" width="48" height="40" rx="6" fill="#1a2338" stroke="#26314f"/><text x="312" y="227" fill="#f87171">−∞</text>
+        <rect x="80" y="246" width="48" height="40" rx="6" fill="#34d399" opacity="0.85"/><text x="104" y="271" fill="#06281c">✓</text>
+        <rect x="132" y="246" width="48" height="40" rx="6" fill="#34d399" opacity="0.85"/><text x="156" y="271" fill="#06281c">✓</text>
+        <rect x="184" y="246" width="48" height="40" rx="6" fill="#34d399" opacity="0.85"/><text x="208" y="271" fill="#06281c">✓</text>
+        <rect x="236" y="246" width="48" height="40" rx="6" fill="#34d399" opacity="0.85"/><text x="260" y="271" fill="#06281c">✓</text>
+        <rect x="288" y="246" width="48" height="40" rx="6" fill="#34d399" opacity="0.85"/><text x="312" y="271" fill="#06281c">✓</text>
+      </g>
+      <text x="540" y="120" fill="#e8ecf7" font-size="15" text-anchor="middle">tam giác dưới: được nhìn ✓</text>
+      <text x="540" y="150" fill="#9aa6c7" font-size="15" text-anchor="middle">tam giác trên: bị che (−∞)</text>
+      <text x="540" y="190" fill="#9aa6c7" font-size="14" text-anchor="middle">softmax(−∞) = 0</text>
+      <text x="540" y="218" fill="#9aa6c7" font-size="14" text-anchor="middle">→ token i chỉ "nghe" token ≤ i</text>
+    </svg>
+    <div class="warn">⚠️ <b>Bẫy kinh điển khi tự code:</b> quên bật causal mask trong decoder. Dấu hiệu: loss train tụt cực nhanh và đẹp bất thường, nhưng model sinh ra toàn rác. Tối nay khi viết <span class="formula" style="display:inline;padding:4px 8px;">attention.py</span> nhớ test: cho model thấy tương lai bị che thì dự đoán token cuối phải <b>thay đổi</b> so với khi không che.</div>
+    <div class="code"><span class="k">import</span> math
+<span class="k">import</span> torch
+
+<span class="k">def</span> <span class="n">attention</span>(q, k, v, causal=<span class="k">False</span>):
+    <span class="c"># q, k, v: (..., L, d) — tự code, không dùng nn.MultiheadAttention</span>
+    d = q.size(-<span class="n">1</span>)
+    scores = q @ k.transpose(-<span class="n">2</span>, -<span class="n">1</span>) / math.sqrt(d)  <span class="c"># (..., L, L)</span>
+    <span class="k">if</span> causal:
+        L = q.size(-<span class="n">2</span>)
+        mask = torch.ones(L, L, dtype=torch.bool).tril()  <span class="c"># tam giác dưới</span>
+        scores = scores.masked_fill(~mask, -<span class="n">1e9</span>)
+    w = scores.softmax(dim=-<span class="n">1</span>)
+    <span class="k">return</span> w @ v  <span class="c"># (..., L, d)</span></div>
+  </section>
+
+  <section class="card" id="s-o2">
+    <h2><span class="n">6</span>Cái giá phải trả: độ phức tạp O(L²)</h2>
+    <p class="lead">Attention cho mỗi token nhìn <b>tất cả</b> token — và "tất cả × tất cả" chính là vấn đề.</p>
+    <p>Ma trận điểm QK<sup>T</sup> có cỡ (L × L). Bộ nhớ để lưu nó là <b>O(L²)</b>, số phép nhân để tính nó là <b>O(L²·d)</b>. Tăng gấp đôi độ dài chuỗi → tốn gấp 4 lần:</p>
+    <table class="tbl">
+      <tr><th>Độ dài L</th><th>Ma trận attention (1 head)</th><th>Bộ nhớ fp16</th></tr>
+      <tr><td>512</td><td>512 × 512 = 262 nghìn ô</td><td>0.5 MB</td></tr>
+      <tr><td>2.048</td><td>4.2 triệu ô</td><td>8 MB</td></tr>
+      <tr><td>8.192</td><td>67 triệu ô</td><td>134 MB</td></tr>
+      <tr><td>32.768</td><td>1.07 tỉ ô</td><td>~2 GB 😱</td></tr>
+    </table>
+    <p>Con số cuối là cho <b>1 head, 1 layer</b>. Nhân với 32 head và hàng chục layer, cộng thêm gradient và optimizer state — đó là lý do context dài hàng chục nghìn token từng là "đặc quyền" của những ai có cụm GPU lớn, và là động lực ra đời của hàng loạt kỹ thuật tối ưu mà ta sẽ gặp ở phase 2.</p>
+    <div class="note">💡 <b>Công thức bỏ túi:</b> bộ nhớ ma trận attention của 1 head = <span class="formula" style="display:inline;padding:4px 8px;">L² × số byte</span>. Tối nay hãy đo peak memory thực tế với L = 128/256/512 và kiểm tra xem nó có tăng theo bậc hai không — đó chính là "green checkpoint" của bài này.</div>
+  </section>
+
+  <div class="green">
+    <h3>⚡ Góc tiết kiệm năng lượng</h3>
+    <p>Attention là "lò đốt" năng lượng của context dài: mỗi lần tăng gấp đôi L, chi phí tính toán và bộ nhớ tăng <b>gấp 4</b>. Muốn LLM vừa mạnh vừa rẻ, phải tấn công đúng vào ma trận L×L này:</p>
+    <ul>
+      <li><b>FlashAttention</b> — không bao giờ "vẽ" ra ma trận L×L đầy đủ. Nó tính attention theo từng block nhỏ vừa trong SRAM của GPU, giảm đọc/ghi bộ nhớ hàng chục lần → nhanh hơn 2–4×, tốn ít điện hơn, mà kết quả toán học <b>y hệt</b> (exact, không phải xấp xỉ).</li>
+      <li><b>KV-cache</b> — khi sinh văn bản token-by-token, cache lại K và V của các token cũ. Token mới chỉ cần tính 1 hàng attention mới: O(L·d) thay vì tính lại cả ma trận.</li>
+      <li><b>GQA (Grouped-Query Attention)</b> — nhiều query head dùng chung một key/value head → cache K,V nhỏ đi 4–8×. Llama 3 dùng kỹ thuật này.</li>
+    </ul>
+    <p style="margin-bottom:0">🧪 <b>Green checkpoint tối nay:</b> đo thời gian chạy và peak memory của hàm attention tự code với L = 128 / 256 / 512, vẽ đồ thị và xác nhận đường cong "bậc hai". So sai số đầu ra với <span class="formula" style="display:inline;padding:4px 8px;">torch.nn.functional.scaled_dot_product_attention</span> ở float32 — mục tiêu &lt; 1e-5.</p>
+  </div>
+
+  <div class="tldr">
+    <h3>📝 Tóm tắt 30 giây</h3>
+    <ul>
+      <li>Attention = <b>tra cứu mềm</b>: mỗi token đặt query, so với key của mọi token, lấy value theo trọng số softmax.</li>
+      <li>Công thức: <b>softmax(QK<sup>T</sup>/√d<sub>k</sub>)V</b>, với Q=XW<sup>Q</sup>, K=XW<sup>K</sup>, V=XW<sup>V</sup> học được.</li>
+      <li>Chia <b>√d<sub>k</sub></b> để softmax không bão hòa → gradient không chết.</li>
+      <li><b>Multi-head</b>: h head song song (d<sub>k</sub>=d/h), mỗi head học một kiểu quan hệ; concat + W<sup>O</sup>.</li>
+      <li><b>Causal mask</b>: che tương lai bằng −∞ trước softmax — bắt buộc với mô hình ngôn ngữ tự hồi quy.</li>
+      <li>Cái giá: ma trận L×L → <b>O(L²)</b> bộ nhớ/tính toán; FlashAttention, KV-cache, GQA là cách trả giá rẻ hơn.</li>
+    </ul>
+  </div>
+
+  <div class="nav">
+    <a class="q" href="Day05_quiz.html">📝 Làm quiz 5 câu →</a>
+    <a class="v" href="Day05_video.mp4">🎬 Xem video giải thích →</a>
+  </div>
+
+</div>
+</body>
+</html>
