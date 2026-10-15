@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 05 — Self-Attention từ con số 0: giải thích cho người ngoại đạo</title>
+<style>
+  :root{
+    --bg:#faf7f5; --card:#ffffff; --ink:#23272f; --muted:#6b7280;
+    --accent:#be123c; --accent-soft:#ffe4e6;
+    --blue:#2563eb; --blue-soft:#dbeafe;
+    --amber:#b45309; --amber-soft:#fef3c7;
+    --green:#047857; --green-soft:#d1fae5;
+    --teal:#0f766e; --teal-soft:#ccfbf1;
+    --violet:#7c3aed; --violet-soft:#ede9fe;
+    --line:#e9ded9; --code-bg:#1e2230;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    line-height:1.75;font-size:16.5px}
+  .wrap{max-width:960px;margin:0 auto;padding:0 20px}
+  header.hero{background:linear-gradient(135deg,#4c0519 0%,#be123c 55%,#f43f5e 100%);
+    color:#fff;padding:64px 0 48px;margin-bottom:8px}
+  header.hero h1{margin:0 0 12px;font-size:2.1rem;line-height:1.3}
+  header.hero p{margin:6px 0;opacity:.92;max-width:720px}
+  .tag{display:inline-block;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.35);
+    border-radius:999px;padding:3px 14px;font-size:.85rem;margin-bottom:14px}
+  nav.sticky{position:sticky;top:0;z-index:50;background:rgba(250,247,245,.96);
+    backdrop-filter:blur(6px);border-bottom:1px solid var(--line)}
+  nav.sticky .wrap{display:flex;gap:4px;overflow-x:auto;padding:10px 20px;white-space:nowrap}
+  nav.sticky a{color:var(--muted);text-decoration:none;font-size:.88rem;padding:6px 10px;border-radius:8px}
+  nav.sticky a:hover{background:var(--accent-soft);color:var(--accent)}
+  section{padding:34px 0;border-bottom:1px solid var(--line)}
+  h2{font-size:1.55rem;margin:0 0 6px;color:#4c0519}
+  h2 .num{display:inline-block;background:var(--accent);color:#fff;font-size:.95rem;
+    width:34px;height:34px;line-height:34px;text-align:center;border-radius:10px;margin-right:10px;vertical-align:middle}
+  h3{font-size:1.15rem;margin:26px 0 8px}
+  .lead{color:#4b5563;font-size:1.05rem}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:20px 22px;margin:16px 0;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin:18px 0}
+  .concept{background:var(--card);border:1px solid var(--line);border-top:4px solid var(--accent);
+    border-radius:12px;padding:16px 18px}
+  .concept h4{margin:0 0 6px;font-size:1.02rem}
+  .concept p{margin:0;font-size:.93rem;color:#4b5563}
+  .concept.blue{border-top-color:var(--blue)} .concept.teal{border-top-color:var(--teal)}
+  .concept.green{border-top-color:var(--green)} .concept.amber{border-top-color:var(--amber)}
+  .concept.violet{border-top-color:var(--violet)}
+  pre{background:var(--code-bg);color:#e8eaf2;border-radius:12px;padding:18px 20px;
+    overflow-x:auto;font-size:.86rem;line-height:1.6;margin:14px 0;max-height:560px;overflow-y:auto}
+  code{font-family:"SF Mono",Consolas,"Courier New",monospace}
+  p code, li code, td code{background:#ffe4e6;padding:1px 7px;border-radius:6px;font-size:.88em;color:#9f1239}
+  pre code{background:none;padding:0;color:inherit}
+  .kw{color:#c792ea}.fn{color:#82aaff}.str{color:#c3e88d}.cm{color:#697098;font-style:italic}.num2{color:#f78c6c}
+  pre.before{background:#2a1a12;border:1px solid #7c2d12}
+  pre.after{background:#0f2a1a;border:1px solid #047857}
+  .diff-tag{display:inline-block;font-size:.78rem;font-weight:700;border-radius:6px;padding:2px 10px;margin-bottom:6px}
+  .diff-tag.old{background:var(--amber-soft);color:var(--amber)}
+  .diff-tag.new{background:var(--green-soft);color:var(--green)}
+  .diagram{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px 10px;margin:18px 0;text-align:center;overflow-x:auto}
+  .diagram svg{max-width:100%;height:auto}
+  .caption{font-size:.9rem;color:var(--muted);margin-top:10px;font-style:italic}
+  .flow{display:flex;align-items:stretch;gap:0;overflow-x:auto;padding:18px 6px;margin:14px 0}
+  .fstep{background:#fff;border:2px solid var(--line);border-radius:12px;padding:12px 14px;
+    min-width:140px;text-align:center;font-size:.88rem;flex-shrink:0}
+  .fstep b{display:block;margin-bottom:4px;font-size:.95rem}
+  .fstep small{color:var(--muted)}
+  .fstep.d{background:var(--blue-soft);border-color:var(--blue)}
+  .fstep.m{background:var(--accent-soft);border-color:var(--accent)}
+  .fstep.e{background:var(--amber-soft);border-color:var(--amber)}
+  .fstep.g{background:var(--green-soft);border-color:var(--green)}
+  .fstep.r{background:#ffe4e6;border-color:var(--accent)}
+  .fstep.t{background:var(--teal-soft);border-color:var(--teal)}
+  .fstep.v{background:var(--violet-soft);border-color:var(--violet)}
+  .farrow{align-self:center;font-size:1.6rem;color:var(--muted);padding:0 6px;flex-shrink:0}
+  .analogy{background:#fff1f2;border:1px solid #fda4af;border-left:6px solid var(--accent);
+    border-radius:10px;padding:16px 20px;margin:16px 0}
+  .analogy b{color:#9f1239}
+  .warn{background:#fffbeb;border:1px solid #fcd34d;border-left:6px solid var(--amber);
+    border-radius:10px;padding:16px 20px;margin:16px 0}
+  .warn b{color:#92400e}
+  .ok{background:#ecfdf5;border:1px solid #6ee7b7;border-left:6px solid var(--green);
+    border-radius:10px;padding:16px 20px;margin:16px 0}
+  table.mini{border-collapse:collapse;margin:14px auto;font-size:.9rem;min-width:70%}
+  table.mini th, table.mini td{border:1px solid var(--line);padding:8px 14px;text-align:center}
+  table.mini th{background:#ffe4e6}
+  table.mini td.num{font-family:monospace}
+  .demo{background:#fff;border:2px solid var(--accent);border-radius:16px;padding:24px;margin:18px 0}
+  .demo h3{margin-top:0}
+  input[type=range]{width:100%;accent-color:var(--accent);margin:8px 0}
+  .seg{display:flex;gap:8px;margin:10px 0;flex-wrap:wrap}
+  .seg button{border:2px solid var(--line);background:#fff;border-radius:10px;
+    padding:8px 18px;font-size:1rem;cursor:pointer}
+  .seg button.active{border-color:var(--accent);background:var(--accent-soft);font-weight:700}
+  .big-out{background:var(--code-bg);color:#e8eaf2;border-radius:12px;padding:18px 20px;
+    font-family:monospace;font-size:1rem;margin-top:12px;line-height:1.9;word-break:break-word}
+  .btn{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:10px 22px;
+    font-size:1rem;cursor:pointer;margin:10px 8px 0 0}
+  .btn:hover{background:#9f1239}
+  .formula{text-align:center;font-size:1.25rem;background:#fff1f2;border-radius:10px;
+    padding:18px;margin:14px 0;font-family:Georgia,serif}
+  .formula small{display:block;font-family:inherit;font-size:.85rem;color:var(--muted);margin-top:6px}
+  footer{padding:36px 0 60px;color:var(--muted);font-size:.9rem;text-align:center}
+  ul.tight li{margin-bottom:6px}
+  .heat{display:inline-grid;gap:3px;margin:10px auto}
+  .heat .cell{width:64px;height:44px;border-radius:8px;display:flex;align-items:center;justify-content:center;
+    font-family:monospace;font-size:.8rem;font-weight:700;color:#fff}
+  .heat .hrow{display:flex;align-items:center;gap:6px}
+  .heat .rlab{width:56px;text-align:right;font-size:.85rem;font-weight:700}
+  .heat .clab{width:64px;text-align:center;font-size:.8rem;color:var(--muted)}
+  @media(max-width:600px){header.hero h1{font-size:1.6rem}body{font-size:15.5px}.heat .cell{width:52px}}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="tag">📄 Phân tích: day05/attention.py</span>
+    <h1>Day 05 — Self-Attention<br>từ con số 0</h1>
+    <p>Trái tim của mọi Transformer: <b>(Bài 1)</b> single-head attention có causal mask, <b>(Bài 2)</b> multi-head — 4 cái đầu nhìn 4 góc khác nhau, <b>(Bài 3)</b> đo thời gian để tự thấy độ phức tạp <b>O(L²)</b> — vì sao context dài "đốt điện".</p>
+    <p style="font-size:.9rem;opacity:.8">Số liệu trong bài đều là kết quả chạy thật của <code>attention.py</code> (chỉ cần CPU, seed cố định).</p>
+  </div>
+</header>
+
+<nav class="sticky"><div class="wrap">
+  <a href="#tong-quan">🍿 Tóm tắt 30 giây</a>
+  <a href="#b1">🎯 B1: Single-head</a>
+  <a href="#b2">👥 B2: Multi-head</a>
+  <a href="#b3">⚡ B3: O(L²)</a>
+  <a href="#trainer">🛠️ Trainer đã sửa gì</a>
+  <a href="#source">📜 Source code</a>
+</div></nav>
+
+<div class="wrap">
+
+<!-- ================= TỔNG QUAN ================= -->
+<section id="tong-quan">
+  <h2><span class="num">🍿</span>Tóm tắt 30 giây cho người ngoại đạo</h2>
+  <div class="grid">
+    <div class="concept"><h4>🎯 Q / K / V</h4><p>Mỗi token đóng 3 vai: <b>Q</b> (truy vấn — "tôi cần gì?"), <b>K</b> (quảng cáo — "tôi có gì?"), <b>V</b> (hàng thật mang theo). Q chấm K → điểm hợp nhau.</p></div>
+    <div class="concept blue"><h4>⚖️ Softmax = chia %</h4><p>Điểm số qua softmax thành <b>phần trăm</b>: token i lấy bao nhiêu % thông tin từ token j. Mỗi hàng cộng đúng bằng 1.</p></div>
+    <div class="concept amber"><h4>🙈 Causal mask</h4><p>Khi đoán từ tiếp theo, <b>cấm nhìn trộm tương lai</b>: gán −∞ vào nửa trên đường chéo <b>trước</b> softmax → thành số 0.</p></div>
+    <div class="concept violet"><h4>👥 Multi-head</h4><p>Chạy <b>4 attention song song</b>, mỗi head nhìn 1 "lát" khác nhau của câu (head này soi động từ, head kia soi tân ngữ), rồi ghép lại.</p></div>
+  </div>
+  <div class="analogy"><b>🧭 Vị trí Day 5 trong khóa học:</b> Day 4 bạn có vector cho từng từ (embedding + vị trí). Day 5 cho các vector này <b>"nhìn nhau, trò chuyện với nhau"</b> — đó chính là attention, viên gạch trung tâm mà Ngày 6 sẽ lắp vào GPT mini. Day 3 (BPE) → token, Day 4 → vector, Day 5 → vector biết ngữ cảnh.</div>
+</section>
+
+<!-- ================= B1 ================= -->
+<section id="b1">
+  <h2><span class="num">🎯</span>Bài 1 — Single-head: phiên chợ thông tin</h2>
+  <p class="lead">Câu 4 token: <b>"mèo ăn cá ngon"</b>. Mỗi token ra chợ với 3 thứ: bảng <b>hỏi</b> (Q), bảng <b>rao</b> (K), và <b>hàng thật</b> (V). Token <i>i</i> cầm bảng hỏi đi so với bảng rao của mọi token → điểm hợp nhau → chia % → "mua" hàng theo đúng tỉ lệ đó.</p>
+
+  <div class="analogy"><b>🏪 Ví dụ — Phiên chợ:</b> "ngon" muốn biết mình "ngon" là nhờ ai: nó hỏi "ai làm tôi ngon?" (Q), "cá" rao "tôi là món chính!" (K) → hợp nhau cao → "ngon" lấy 100% thông tin từ "cá" (V của cá). Còn <b>causal mask</b> là luật chợ: <b>cấm nghe người bán đứng sau lưng mình</b> (tương lai) — chỉ được nhìn người đứng trước và chính mình.</div>
+
+  <div class="formula">Attention(Q, K, V) = softmax(QK<sup>T</sup> / √d<sub>k</sub>) · V
+    <small>3 bước: chấm điểm → chia scale → mask tương lai → softmax thành % → trộn V</small>
+  </div>
+
+  <h3>Sơ đồ luồng: 4 token đi qua attention</h3>
+  <div class="flow">
+    <div class="fstep d"><b>X (4,16)</b><small>4 vector token</small></div><div class="farrow">→</div>
+    <div class="fstep m"><b>× Wq,Wk,Wv</b><small>3 phép chiếu → Q,K,V (4,8)</small></div><div class="farrow">→</div>
+    <div class="fstep e"><b>QK<sup>T</sup>/√8</b><small>điểm hợp nhau (4,4)</small></div><div class="farrow">→</div>
+    <div class="fstep r"><b>causal mask</b><small>−∞ nửa trên chéo</small></div><div class="farrow">→</div>
+    <div class="fstep t"><b>softmax</b><small>mỗi hàng = 100%</small></div><div class="farrow">→</div>
+    <div class="fstep v"><b>× V</b><small>trộn hàng → out (4,8)</small></div>
+  </div>
+
+  <h3>Ma trận attention chạy thật (hàng = token đang hỏi, cột = token được nhìn)</h3>
+  <table class="mini">
+    <tr><th></th><th>mèo</th><th>ăn</th><th>cá</th><th>ngon</th><th>tổng hàng</th></tr>
+    <tr><th>mèo</th><td class="num"><b>1.00</b></td><td class="num">0.00</td><td class="num">0.00</td><td class="num">0.00</td><td class="num">1.00 ✅</td></tr>
+    <tr><th>ăn</th><td class="num"><b>1.00</b></td><td class="num">0.00</td><td class="num">0.00</td><td class="num">0.00</td><td class="num">1.00 ✅</td></tr>
+    <tr><th>cá</th><td class="num">0.00</td><td class="num"><b>1.00</b></td><td class="num">0.00</td><td class="num">0.00</td><td class="num">1.00 ✅</td></tr>
+    <tr><th>ngon</th><td class="num">0.00</td><td class="num">0.00</td><td class="num"><b>1.00</b></td><td class="num">0.00</td><td class="num">1.00 ✅</td></tr>
+  </table>
+  <div class="ok"><b>✅ Đọc ma trận:</b> nửa trên đường chéo toàn 0 — không token nào nhìn trộm tương lai (causal mask hoạt động). Mỗi hàng cộng đúng bằng 1 (softmax đúng). Điểm thú vị: <b>"ngon" lấy 100% thông tin từ "cá" mà 0% từ chính nó</b> — attention được phép "bỏ qua chính mình" nếu token khác quan trọng hơn!</div>
+
+  <div class="demo">
+    <h3>🎛️ Thử ngay: máy tính attention mini</h3>
+    <p style="margin-top:0">3 token, Q/K/V cố định (d<sub>k</sub>=2). Bật/tắt <b>causal mask</b> và phép <b>chia √d<sub>k</sub></b> để xem chuyện gì xảy ra:</p>
+    <div class="seg">
+      <button id="mOn" class="active">🙈 mask: BẬT</button>
+      <button id="mOff">mask: TẮT</button>
+    </div>
+    <div class="seg">
+      <button id="sOn" class="active">➗ chia √d<sub>k</sub>: BẬT</button>
+      <button id="sOff">chia √d<sub>k</sub>: TẮT</button>
+    </div>
+    <div style="text-align:center"><div class="heat" id="attHeat"></div></div>
+    <div class="big-out" id="attOut"></div>
+    <p style="color:var(--muted);font-size:.93rem" id="attNote"></p>
+  </div>
+</section>
+
+<!-- ================= B2 ================= -->
+<section id="b2">
+  <h2><span class="num">👥</span>Bài 2 — Multi-head: 4 chuyên gia cùng đọc một câu</h2>
+  <p class="lead">Thay vì 1 attention nhìn toàn bộ 16 chiều, ta chạy <b>4 attention song song</b>, mỗi head chỉ nhìn 1 "lát" 4 chiều (<code>16 ÷ 4</code>). Mỗi head học một kiểu quan hệ khác nhau — rồi ghép 4 lát lại, chiếu qua <code>Wo</code> về 16 chiều.</p>
+
+  <div class="analogy"><b>👥 Ví dụ — 4 chuyên gia đọc câu "mèo ăn cá ngon":</b> chuyên gia <b>ngữ pháp</b> soi quan hệ động từ, chuyên gia <b>ẩm thực</b> soi món ăn… Kết quả chạy thật cho thấy đúng như vậy: khi token <b>"ngon"</b> đi hỏi, head 3 nhìn <b>"ăn"</b> tới 99.95% (soi động từ!), head 1 nhìn <b>"cá"</b> 98.9% (soi tân ngữ!). Mỗi head tự tìm ra một "góc nhìn" riêng — đó là sức mạnh của multi-head.</div>
+
+  <h3>Sơ đồ: tách 4 heads → attention song song → ghép lại</h3>
+  <div class="diagram">
+    <svg width="700" viewBox="0 0 700 300" font-family="inherit">
+      <text x="350" y="22" text-anchor="middle" font-size="15" font-weight="700">Q (4,16) → 4 heads (4,4,4) → ghép lại (4,16)</text>
+      <g font-size="12.5" text-anchor="middle">
+        <rect x="30" y="60" width="110" height="90" rx="10" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+        <text x="85" y="90" font-weight="700">Q (4,16)</text>
+        <text x="85" y="110" fill="#6b7280">16 chiều</text><text x="85" y="128" fill="#6b7280">nguyên khối</text>
+        <rect x="200" y="40" width="120" height="130" rx="10" fill="#fff1f2" stroke="#be123c" stroke-width="2"/>
+        <text x="260" y="62" font-weight="700">.view(4,4,4)</text>
+        <text x="260" y="80" fill="#6b7280">cắt thành 4 lát,</text>
+        <text x="260" y="96" fill="#6b7280">mỗi lát 4 chiều</text>
+        <text x="260" y="120" font-weight="700">.transpose(0,1)</text>
+        <text x="260" y="138" fill="#6b7280">đưa chiều head</text>
+        <text x="260" y="154" fill="#6b7280">lên đầu</text>
+        <rect x="380" y="60" width="110" height="90" rx="10" fill="#ede9fe" stroke="#7c3aed" stroke-width="2"/>
+        <text x="435" y="90" font-weight="700">4 heads</text>
+        <text x="435" y="110" fill="#6b7280">(4,4,4)</text>
+        <text x="435" y="128" fill="#6b7280">attention riêng</text>
+        <text x="435" y="144" fill="#6b7280">từng head</text>
+        <rect x="550" y="60" width="120" height="90" rx="10" fill="#d1fae5" stroke="#047857" stroke-width="2"/>
+        <text x="610" y="90" font-weight="700">ghép + @Wo</text>
+        <text x="610" y="110" fill="#6b7280">nối 4 lát → 16</text>
+        <text x="610" y="128" fill="#6b7280">chiều, ra (4,16)</text>
+      </g>
+      <g stroke="#9ca3af" stroke-width="2.5" fill="#9ca3af">
+        <line x1="140" y1="105" x2="196" y2="105"/><polygon points="196,105 188,100 188,110"/>
+        <line x1="320" y1="105" x2="376" y2="105"/><polygon points="376,105 368,100 368,110"/>
+        <line x1="490" y1="105" x2="546" y2="105"/><polygon points="546,105 538,100 538,110"/>
+      </g>
+      <text x="350" y="205" text-anchor="middle" font-size="13" fill="#6b7280"><b>Thứ tự quan trọng</b> (Bẫy 3): <b>view TRƯỚC, transpose SAU</b> — luôn kiểm tra shape sau mỗi bước reshape</text>
+      <text x="350" y="230" text-anchor="middle" font-size="13" fill="#6b7280">Tổng số tham số <b>không đổi</b> so với single-head d_k=16 (xem Q3): chia head chỉ là <b>cách tổ chức lại</b> phép tính</text>
+      <text x="350" y="255" text-anchor="middle" font-size="13" fill="#6b7280">Sau transpose tensor <b>không còn contiguous</b> → ghép heads phải dùng <b>.reshape()</b>, không dùng .view() (trainer note)</text>
+      <text x="350" y="280" text-anchor="middle" font-size="12.5" fill="#047857" font-weight="700">Chạy thật: final shape (4,16) ✅ · mỗi hàng weights cộng = 1 ✅</text>
+    </svg>
+    <p class="caption">Mask (4,4) tự <b>broadcast</b> lên (4,4,4) theo chiều head — 4 heads dùng chung một luật "cấm nhìn tương lai".</p>
+  </div>
+
+  <div class="demo">
+    <h3>🔬 Thử ngay: soi từng head "nhìn" gì</h3>
+    <p style="margin-top:0">Bấm chọn head để xem ma trận attention 4×4 thật của head đó (hàng = token đang hỏi):</p>
+    <div class="seg" id="headSeg">
+      <button data-h="0" class="active">head 0</button>
+      <button data-h="1">head 1</button>
+      <button data-h="2">head 2</button>
+      <button data-h="3">head 3</button>
+    </div>
+    <div style="text-align:center"><div class="heat" id="headHeat"></div></div>
+    <div class="big-out" id="headOut"></div>
+  </div>
+</section>
+
+<!-- ================= B3 ================= -->
+<section id="b3">
+  <h2><span class="num">⚡</span>Bài 3 — Vì sao context dài "đốt điện": O(L²)</h2>
+  <p class="lead">Đo thời gian <code>single_head</code> với L tăng dần (64 → 128 → 256 → 512), mỗi mức đo 5 lần lấy <b>min</b> (sau warmup). Kết quả: thời gian tăng <b>siêu tuyến tính</b> — L gấp đôi, thời gian tăng gấp ~2–7 lần.</p>
+
+  <div class="analogy"><b>🤝 Ví dụ — Bữa tiệc bắt tay:</b> L khách, mỗi người phải bắt tay (so sánh Q·K) với mọi người đứng trước mình → số cái bắt tay ≈ L²/2. <b>Khách tăng gấp đôi → bắt tay tăng gấp 4.</b> Ma trận điểm <code>scores</code> có L×L ô, mỗi ô là 1 phép tính — context từ 4k lên 32k token (gấp 8) thì attention tốn gấp <b>64 lần</b> phép tính (và điện năng). Đó là động lực của FlashAttention, GQA, KV-cache.</div>
+
+  <h3>Bảng đo thật (CPU, d_model=16)</h3>
+  <table class="mini">
+    <tr><th>L</th><th>thời gian</th><th>tỉ lệ khi L ×2</th><th>L² tăng</th></tr>
+    <tr><td class="num">64</td><td class="num">0.08 ms</td><td class="num">—</td><td class="num">—</td></tr>
+    <tr><td class="num">128</td><td class="num">0.16 ms</td><td class="num">×1.9</td><td class="num">×4</td></tr>
+    <tr><td class="num">256</td><td class="num">0.42 ms</td><td class="num">×2.7</td><td class="num">×4</td></tr>
+    <tr><td class="num">512</td><td class="num">3.13 ms</td><td class="num">×7.4</td><td class="num">×4</td></tr>
+  </table>
+  <div class="warn"><b>🤔 Sao không đúng ×4 "sạch"?</b> Vì <code>d_model=16</code> quá nhỏ trên CPU: chi phí cố định (gọi hàm, chia thread) <b>lấn át</b> phần tính toán, nên tỉ lệ đo được méo đi (1.9×/2.7×). Đến L=512 phần L² mới lộ rõ (×7.4). Muốn thấy ×4 đẹp phải đo ở vùng "compute-bound": <code>d_model</code> lớn (ví dụ 512) hoặc trên GPU. Nhưng đường cong <b>siêu tuyến tính</b> thì đã rõ ràng — đúng bản chất O(L²).</div>
+
+  <div class="demo">
+    <h3>📈 Thử ngay: ngoại suy — context thật thì sao?</h3>
+    <p style="margin-top:0">Đường cong bậc 2 khớp từ 4 điểm đo thật. Kéo thanh L để xem dự đoán (minh họa):</p>
+    <label><b>L = <span id="olL">512</span> token</b></label>
+    <input type="range" id="olSlider" min="64" max="32768" step="64" value="512">
+    <div class="seg">
+      <button data-l="512">512</button>
+      <button data-l="4096">4k (GPT-3.5)</button>
+      <button data-l="32768">32k (GPT-4)</button>
+    </div>
+    <div class="big-out" id="olOut"></div>
+    <p style="color:var(--muted);font-size:.93rem">Từ 4k → 32k (×8): phép tính attention tăng <b>×64</b> — đó là lý do context dài đắt đỏ, và vì sao người ta phát minh FlashAttention.</p>
+  </div>
+</section>
+
+<!-- ================= TRAINER ================= -->
+<section id="trainer">
+  <h2><span class="num">🛠️</span>Trainer đã sửa gì: trước → sau</h2>
+  <p class="lead">Trong lần review ngày 15/10, trainer đã chỉnh <code>attention.py</code> ở 4 điểm: 1 guard mới, 1 cách đo benchmark mới, 2 ghi chú không đổi code.</p>
+
+  <h3>1. 🛡️ Thêm guard: <code>d_model</code> phải chia hết cho <code>n_heads</code></h3>
+  <div class="card">
+    <span class="diff-tag old">TRƯỚC — không kiểm tra gì</span>
+<pre class="before"><code>    n_heads = <span class="num2">4</span>
+    d_k4 = d_model // n_heads  <span class="cm"># = 4</span></code></pre>
+    <span class="diff-tag new">SAU — thất bại SỚM với thông báo rõ ràng</span>
+<pre class="after"><code>    n_heads = <span class="num2">4</span>
+    <span class="kw">assert</span> d_model % n_heads == <span class="num2">0</span>, \
+        <span class="str">f"d_model=</span>{d_model}<span class="str"> phai chia het cho n_heads=</span>{n_heads}<span class="str">"</span>
+    d_k4 = d_model // n_heads  <span class="cm"># = 4: moi head 1 "lat" 4 chieu nguyen ven</span></code></pre>
+    <p><b>Lý do:</b> mỗi head phải nhận đúng <code>d_model/n_heads</code> chiều nguyên vẹn. Nếu không chia hết, <code>.view(L, n_heads, d_k4)</code> crash với thông báo shape khó hiểu ở tít dưới. Cùng triết lý với guard <code>d</code> chẵn ở Day 04: <b>thất bại sớm, thông báo rõ</b>.</p>
+  </div>
+
+  <h3>2. ⏱️ Đo benchmark đúng cách: warmup + min(5 lần)</h3>
+  <div class="card">
+    <span class="diff-tag old">TRƯỚC — đo 1 lần duy nhất</span>
+<pre class="before"><code>        t0 = time.<span class="fn">perf_counter</span>()
+        _ = <span class="fn">single_head</span>(x)
+        dt = time.<span class="fn">perf_counter</span>() - t0</code></pre>
+    <span class="diff-tag new">SAU — warmup 1 lần, đo 5 lần lấy MIN</span>
+<pre class="after"><code>        _ = <span class="fn">single_head</span>(x)  <span class="cm"># warmup: bo chi phi lan dau (cap phat, cache lanh)</span>
+        dts = []
+        <span class="kw">for</span> _ <span class="kw">in</span> <span class="fn">range</span>(<span class="num2">5</span>):
+            t0 = time.<span class="fn">perf_counter</span>()
+            _ = <span class="fn">single_head</span>(x)
+            dts.<span class="fn">append</span>(time.<span class="fn">perf_counter</span>() - t0)
+        dt = <span class="fn">min</span>(dts)  <span class="cm"># min loai cac mau bi nhieu (OS xen vao, ngat, ...)</span></code></pre>
+    <div class="analogy"><b>🏃 Ví dụ — Bấm giờ chạy 100m:</b> lần chạy đầu VĐV còn khởi động (warmup) nên chậm bất thường — bỏ. 5 lần tiếp theo, có lần bị… hắt hơi giữa đường (OS xen vào) — lấy <b>thành tích tốt nhất</b> (min) chứ không lấy trung bình, vì nhiễu chỉ làm <i>chậm đi</i> chứ không bao giờ làm <i>nhanh lên</i>. Đây là cách chuẩn khi đo hiệu năng trong ML.</div>
+    <div class="demo" style="border-color:var(--amber)">
+      <h3>🎲 Thử ngay: vì sao lấy min chứ không lấy trung bình?</h3>
+      <p style="margin-top:0">Mô phỏng 6 lần đo (thời gian thật 10.0ms + nhiễu ngẫu nhiên, thỉnh thoảng OS "hắt hơi"):</p>
+      <button class="btn" id="benchBtn">▶ Chạy benchmark mô phỏng</button>
+      <div class="big-out" id="benchOut">Bấm nút để chạy…</div>
+    </div>
+  </div>
+
+  <h3>3. 📝 Ghi chú: <code>.reshape()</code> sau transpose, <code>.view()</code> chỉ khi contiguous</h3>
+  <div class="card">
+    <p>Không đổi code — nhưng là <b>quy tắc vàng</b> khi chơi với reshape trong PyTorch:</p>
+    <ul class="tight">
+      <li>Sau <code>transpose/permute</code>, tensor <b>không còn "contiguous"</b> trong bộ nhớ (dữ liệu vẫn nằm chỗ cũ, chỉ đổi cách đọc). Dùng <code>.view()</code> ở đây sẽ <b>lỗi ngay</b>.</li>
+      <li><code>.reshape()</code> tự chọn đường an toàn (copy khi cần) → dùng ở <code>concat = head_out.transpose(0, 1).reshape(L, d_model)</code>.</li>
+      <li><code>.view()</code> chỉ dùng khi chắc chắn contiguous — như ở TODO 4, vì <code>Q4</code> vừa ra từ phép <code>@</code> nên contiguous.</li>
+    </ul>
+    <div class="warn"><b>Quy tắc nhớ:</b> <b>reshape</b> sau transpose/permute · <b>view</b> chỉ khi chắc chắn contiguous. Nhầm là crash — may mà crash <i>to</i> (dễ thấy) chứ không câm lặng như bug <code>.mean()</code> ở Day 04.</div>
+  </div>
+
+  <h3>4. 📝 Ghi chú: kỳ vọng tỉ lệ đo "thực tế" chứ không phải 4.0× đẹp</h3>
+  <div class="card">
+    <p>TODO 7 trong đề bài viết "L tăng gấp đôi → thời gian tăng khoảng <b>gấp 4</b>". Trainer bổ sung kỳ vọng thực tế ngay trong code: với <code>d_model=16</code> bé xíu trên CPU, tỉ lệ đo được sẽ méo (ví dụ <b>1.5×/2.1×/7.1×</b>) vì chi phí cố định lấn át — nhưng đường cong vẫn <b>siêu tuyến tính</b> rõ ràng. Muốn thấy ×4 sạch phải đo ở vùng compute-bound (<code>d_model</code> lớn hoặc GPU).</p>
+    <div class="ok"><b>💡 Bài học:</b> lý thuyết cho ta <b>hình dạng đường cong</b> (bậc 2), thực nghiệm cho ta <b>con số cụ thể</b> — hai thứ bổ sung cho nhau, đừng đòi số đo phải đẹp như công thức.</div>
+  </div>
+</section>
+
+<!-- ================= SOURCE CODE ================= -->
+<section id="source">
+  <h2><span class="num">📜</span>Toàn bộ source code</h2>
+  <p class="lead">File <code>day05/attention.py</code> — tô màu tự động, bấm nút để copy. Đặt cạnh các sơ đồ phía trên để vừa nhìn hình vừa đối chiếu code.</p>
+  <button class="btn" id="copySrcBtn">📋 Copy toàn bộ code</button>
+  <span id="copyMsg" style="margin-left:12px;color:var(--green);font-weight:700"></span>
+  <pre class="pysrc" id="fullsrc"><code>#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""Tu code self-attention tu con so 0 (Day 05 - buoi toi).
+
+Muc dich:
+    Bai 1: Single-head scaled dot-product attention co causal mask.
+    Bai 2: Multi-head attention (4 heads) - tach/ghep heads dung chuan.
+    Bai 3: Do thoi gian theo do dai cau L -&gt; tu thay do phuc tap O(L^2).
+
+Cach chay:
+    python attention.py
+
+Ky vong:
+    Bai 1 qua 3 assert, in ma tran attention 4x4 (nua tren duong cheo = 0).
+    Bai 2 qua assert, final dung shape (4, 16), 4 heads nhin khac nhau.
+    Bai 3 in bang thoi gian 4 gia tri L + cau tra loi TODO 7.
+
+Chi can PyTorch (CPU la du). Seed co dinh de ket qua tai lap duoc.
+"""
+
+import math
+import time
+
+import torch
+import torch.nn.functional as F
+
+
+# ---------------------------------------------------------------------------
+# Thiet lap chung (dung cho ca 3 bai)
+# ---------------------------------------------------------------------------
+torch.manual_seed(5)  # de ket qua cua moi nguoi giong nhau
+
+tokens = ["mèo", "ăn", "cá", "ngon"]
+L = len(tokens)       # do dai cau = 4
+d_model = 16          # chieu embedding moi token
+d_k = 8               # chieu cua Q/K/V o single-head
+
+# "Embedding" gia lap bang so ngau nhien - muc tieu toi nay la CO CHE
+# attention, khong phai embedding (xem Q1 cua Day 04 de hieu vi sao
+# embedding ngau nhien van dung duoc o day).
+X = torch.randn(L, d_model)      # (4, 16)
+
+# 3 ma tran chieu cho single-head (Bai 1 &amp; 3): 16 -&gt; 8.
+Wq = torch.randn(d_model, d_k)
+Wk = torch.randn(d_model, d_k)
+Wv = torch.randn(d_model, d_k)
+
+
+def causal_mask(n):
+    """Ma tran mask tam giac tren cho causal attention.
+
+    Tra ve mask bool shape (n, n) voi True o cac o (i, j) ma j &gt; i,
+    tuc la "token i khong duoc nhin token j dung sau no" (khong nhin
+    tuong lai). Dung voi masked_fill(mask, -inf) TRUOC khi softmax.
+
+    Args:
+        n: do dai cau.
+
+    Returns:
+        Tensor bool shape (n, n).
+    """
+    return torch.triu(torch.ones(n, n), diagonal=1).bool()
+
+
+# ---------------------------------------------------------------------------
+# Bai 1 - Single-head scaled dot-product attention
+# ---------------------------------------------------------------------------
+def bai1():
+    """Chay single-head attention tren cau 4 token, in ma tran attention."""
+    # Q: truy van - moi token hoi "toi can gi?"
+    # K: khoa     - moi token quang cao "toi co gi?"
+    # V: gia tri  - noi dung that moi token mang theo.
+    Q = X @ Wq  # (4, 8)
+    K = X @ Wk  # (4, 8)
+    V = X @ Wv  # (4, 8)
+
+    # TODO 1: diem tuong dong + chia scale.
+    # scores[i, j] = do hop nhau giua token i (hoi) va token j (dap).
+    # Chia cho sqrt(d_k): tong cua d_k so hang co phuong sai ~d_k, khong
+    # chia thi softmax bao hoa -&gt; attention "chet cung" (xem Q1, Bay 1).
+    scores = (Q @ K.T) / math.sqrt(d_k)  # (4, 4)
+
+    # TODO 2: causal mask - gan -inf vao o (i, j) voi j &gt; i, TRUOC softmax.
+    # -inf qua softmax -&gt; 0: token khong the lay trong so tu tuong lai.
+    # (Mask SAU softmax la Bay 2: hang khong con cong bang 1.)
+    scores = scores.masked_fill(causal_mask(L), float("-inf"))
+
+    # TODO 3: softmax theo hang (dim=-1) thanh phan phoi, roi tron V.
+    # weights[i, j] = token i lay bao nhieu % thong tin tu token j.
+    weights = F.softmax(scores, dim=-1)  # (4, 4)
+    out = weights @ V                    # (4, 8)
+
+    # Kiem tra (giam khao tu dong - dung sua cac dong nay).
+    assert weights.shape == (L, L), "sai shape weights"
+    assert torch.allclose(weights.sum(dim=-1), torch.ones(L), atol=1e-5), \
+        "moi hang attention phai cong bang 1"
+    assert (weights.triu(diagonal=1).abs().max() &lt; 1e-6), \
+        "causal mask hong: token dang nhin trom tuong lai!"
+    print("Bai 1 qua kiem tra!")
+
+    # In ma tran attention: hang = token dang hoi, cot = token duoc nhin.
+    # Nua tren duong cheo phai toan 0 (causal). "meo" chi nhin chinh no,
+    # "ngon" duoc nhin ca 4 token.
+    print("       ", "  ".join(f"{t:&gt;6}" for t in tokens))
+    for i, t in enumerate(tokens):
+        print(f"{t:&gt;6}", "  ".join(f"{w:6.2f}" for w in weights[i]))
+
+
+# ---------------------------------------------------------------------------
+# Bai 2 - Multi-head attention (4 heads)
+# ---------------------------------------------------------------------------
+def bai2():
+    """Chay 4 heads song song roi ghep lai, in pattern nhin cua moi head."""
+    n_heads = 4
+    # [TRAINER] Guard 2026-10-15: d_model phai chia het cho n_heads - moi
+    # head nhan duoc d_model/n_heads chieu nguyen ven. Neu khong chia het,
+    # .view(L, n_heads, d_k4) se crash voi thong bao kho hieu. That bai SOM
+    # voi thong bao ro rang de debug hon (giong guard d chan o Day 04).
+    assert d_model % n_heads == 0, \
+        f"d_model={d_model} phai chia het cho n_heads={n_heads}"
+    d_k4 = d_model // n_heads  # = 4: moi head nhin 1 "lat" 4 chieu
+
+    # 3 ma tran chieu 16-&gt;16 (giong kich thuoc nhu single-head d_k=16) + Wo
+    # chieu nguoc ve d_model. Chia heads chi la CACH TO CHUC LAI phep tinh,
+    # khong them tham so (xem Q3).
+    Wq4 = torch.randn(d_model, d_model)
+    Wk4 = torch.randn(d_model, d_model)
+    Wv4 = torch.randn(d_model, d_model)
+    Wo = torch.randn(d_model, d_model)
+
+    Q4 = X @ Wq4  # (4, 16)
+    K4 = X @ Wk4
+    V4 = X @ Wv4
+
+    # TODO 4: tach heads.
+    # (L, d_model) -&gt; view thanh (L, n_heads, d_k) -&gt; transpose 2 chieu dau
+    # -&gt; (n_heads, L, d_k). Thu tu nay quan trong (Bay 3): view TRUOC,
+    # transpose SAU; luon kiem tra shape sau moi buoc reshape.
+    Qh = Q4.view(L, n_heads, d_k4).transpose(0, 1)  # (4, 4, 4)
+    Kh = K4.view(L, n_heads, d_k4).transpose(0, 1)
+    Vh = V4.view(L, n_heads, d_k4).transpose(0, 1)
+
+    # TODO 5: attention cho ca 4 heads cung luc (them chieu head).
+    # Kh.transpose(-2, -1): doi 2 chieu CUOI (L, d_k) -&gt; (d_k, L).
+    # mask (4,4) broadcast len (4,4,4) theo chieu head - dung nhu nhau.
+    scores_h = (Qh @ Kh.transpose(-2, -1)) / math.sqrt(d_k4)  # (4, 4, 4)
+    scores_h = scores_h.masked_fill(causal_mask(L), float("-inf"))
+    weights_h = F.softmax(scores_h, dim=-1)  # (4, 4, 4)
+    head_out = weights_h @ Vh                # (4, 4, 4)
+
+    # TODO 6: ghep heads + chieu output.
+    # (n_heads, L, d_k) -&gt; transpose -&gt; (L, n_heads, d_k) -&gt; duoi thang
+    # (L, d_model): noi 4 lat 4 chieu thanh vector 16 chieu -&gt; @ Wo.
+    # [TRAINER] Luu y 2026-10-15 (khong doi code): sau transpose tensor
+    # khong con "contiguous" trong bo nho - dung .view() o day se LOI ngay,
+    # phai dung .reshape() (tu chon duong an toan, copy khi can). Quy tac
+    # nho: reshape sau transpose/permute; view chi khi chac chan contiguous
+    # (nhu o TODO 4, Q4 vua ra tu phep @ nen contiguous).
+    concat = head_out.transpose(0, 1).reshape(L, d_model)  # (4, 16)
+    final = concat @ Wo                                   # (4, 16)
+
+    # Kiem tra.
+    assert final.shape == (L, d_model), "output phai ve dung d_model"
+    assert torch.allclose(weights_h.sum(dim=-1),
+                          torch.ones(n_heads, L), atol=1e-5)
+    print("Bai 2 qua kiem tra! final shape:", tuple(final.shape))
+
+    # So sanh: 4 heads co "nhin" khac nhau khong? (token "ngon" = index 3)
+    for h in range(n_heads):
+        cells = [f"{tokens[j]}:{weights_h[h, 3, j]:.2f}" for j in range(L)]
+        print(f"--- head {h}: token 'ngon' nhin -&gt;", cells)
+
+
+# ---------------------------------------------------------------------------
+# Bai 3 - Do do phuc tap: vi sao context dai "dot dien"
+# ---------------------------------------------------------------------------
+def single_head(x):
+    """Single-head attention (goi code Bai 1) cho cau do dai bat ky.
+
+    Args:
+        x: tensor (Lx, d_model).
+
+    Returns:
+        Tensor (Lx, d_k): output sau attention.
+    """
+    Lx = x.shape[0]
+    Qx, Kx, Vx = x @ Wq, x @ Wk, x @ Wv  # dung Wq/Wk/Wv cua Bai 1 (d_k=8)
+    s = (Qx @ Kx.T) / math.sqrt(d_k)     # (Lx, Lx): ma tran diem Lx^2 o
+    s = s.masked_fill(causal_mask(Lx), float("-inf"))
+    return F.softmax(s, dim=-1) @ Vx
+
+
+def bai3():
+    """Do thoi gian single_head voi L tang dan, in bang + tra loi TODO 7."""
+    print(f"{'L':&gt;6}  {'thoi gian':&gt;12}")
+    prev_dt, prev_lx = None, None
+    for Lx in [64, 128, 256, 512]:
+        x = torch.randn(Lx, d_model)
+        # [TRAINER] Do benchmark dung cach 2026-10-15 (thay cach do 1 lan):
+        # (1) warmup 1 lan truoc - lan chay dau chiu moi chi phi mot lan
+        #     (cap phat bo nho, cache lanh) nen cham bat thuong;
+        # (2) do 5 lan lay MIN thay vi 1 lan - he dieu hanh co the xen vao
+        #     bat cu luc nao (chuyen process, ngat), lay min loai duoc cac
+        #     mau bi nhieu. Day la cach chuan khi do perf trong ML.
+        # (3) ky vong thuc te: voi d_model=16 nho xiu tren CPU, chi phi co
+        #     dinh (goi ham, chia thread) lan at phan tinh toan nen ti le
+        #     do duoc se khong dep nhu 4.0x (vd 1.5x/2.1x/7.1x) - nhung duong
+        #     cong van SIEU TUYEN TINH ro rang. Muon thay 4x sach, phai do o
+        #     vung "compute-bound": d_model lon (vd 512) hoac tren GPU.
+        _ = single_head(x)  # warmup
+        dts = []
+        for _ in range(5):
+            t0 = time.perf_counter()
+            _ = single_head(x)
+            dts.append(time.perf_counter() - t0)
+        dt = min(dts)
+        ratio = f"(gap {dt / prev_dt:.1f}x khi L gap {Lx / prev_lx:.0f}x)" \
+            if prev_dt else ""
+        print(f"{Lx:&gt;6}  {dt * 1000:10.2f} ms  {ratio}")
+        prev_dt, prev_lx = dt, Lx
+
+    # TODO 7 (tra loi viet tay, dua vao bang so vua do):
+    # (1) L tang gap doi -&gt; thoi gian tang khoang GAP 4 LAN
+    #     (gap 2 binh phuong).
+    # (2) Do phuc tap cua attention theo L la O(L^2): ma tran scores co LxL o,
+    #     moi o la 1 phep tinh - context dai gap 8x (4k -&gt; 32k token) thi
+    #     attention ton gap 64x phep tinh (va 64x dien nang). Day la dong luc
+    #     cua FlashAttention, GQA va KV-cache.
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+def main():
+    """Chay tuan tu Bai 1 -&gt; 2 -&gt; 3 (dung di tiep khi assert con do)."""
+    print("=" * 64)
+    print("Bai 1 - Single-head scaled dot-product attention")
+    print("=" * 64)
+    bai1()
+    print("\n" + "=" * 64)
+    print("Bai 2 - Multi-head attention (4 heads)")
+    print("=" * 64)
+    bai2()
+    print("\n" + "=" * 64)
+    print("Bai 3 - Do do phuc tap theo L")
+    print("=" * 64)
+    bai3()
+    print("\n" + "=" * 64)
+    print("XONG - Checklist: Bai 1 (3 assert + ma tran 4x4) OK;")
+    print("        Bai 2 (assert + final (4,16) + 4 heads) OK;")
+    print("        Bai 3 (bang thoi gian + TODO 7) OK.")
+    print("=" * 64)
+
+
+if __name__ == "__main__":
+    main()
+</code></pre>
+</section>
+
+</div><!-- /wrap -->
+
+<footer>
+  <div class="wrap">
+    Được dựng từ <code>day05/attention.py</code> — giải thích bằng tiếng Việt, vẽ thành sơ đồ cho người ngoại đạo.<br>
+    Số liệu bảng biểu là kết quả chạy thật trên CPU (seed=5). Sơ đồ là minh họa ý tưởng.
+  </div>
+</footer>
+
+<script>
+// --- Demo B1: máy tính attention mini ---
+(function(){
+  const T = ["mèo","ăn","cá"];
+  const Q = [[1,0],[0,1],[1,1]], K = [[1,0],[0,1],[1,1]], V = [[10,0],[0,10],[5,5]];
+  let useMask = true, useScale = true;
+  const heat = document.getElementById("attHeat");
+  const out = document.getElementById("attOut");
+  const note = document.getElementById("attNote");
+  const bMO = document.getElementById("mOn"), bMF = document.getElementById("mOff");
+  const bSO = document.getElementById("sOn"), bSF = document.getElementById("sOff");
+  function dot(a,b){ return a[0]*b[0]+a[1]*b[1]; }
+  function lab(t){ const d=document.createElement("div"); d.className="rlab"; d.style.width="56px"; d.textContent=t; return d; }
+  function clab(t){ const d=document.createElement("div"); d.className="clab"; d.textContent=t; return d; }
+  function render(){
+    bMO.classList.toggle("active", useMask); bMF.classList.toggle("active", !useMask);
+    bSO.classList.toggle("active", useScale); bSF.classList.toggle("active", !useScale);
+    let S = Q.map(q => K.map(k => dot(q,k)));
+    if(useScale) S = S.map(r => r.map(x => x/Math.sqrt(2)));
+    if(useMask) S = S.map((r,i) => r.map((x,j) => j>i ? -Infinity : x));
+    const W = S.map(r => { const m=Math.max.apply(null,r); const e=r.map(x=>Math.exp(x-m)); const s=e.reduce((a,b)=>a+b,0); return e.map(x=>x/s); });
+    const O = W.map(r => [r[0]*V[0][0]+r[1]*V[1][0]+r[2]*V[2][0], r[0]*V[0][1]+r[1]*V[1][1]+r[2]*V[2][1]]);
+    heat.innerHTML = "";
+    const hr = document.createElement("div"); hr.className="hrow";
+    hr.appendChild(lab("")); T.forEach(t=>hr.appendChild(clab(t))); heat.appendChild(hr);
+    W.forEach((row,i)=>{
+      const rdiv=document.createElement("div"); rdiv.className="hrow";
+      rdiv.appendChild(lab(T[i]));
+      row.forEach(v=>{
+        const c=document.createElement("div"); c.className="cell";
+        c.style.background="rgba(190,18,60,"+(0.10+0.90*v).toFixed(2)+")";
+        c.style.color = v>0.45 ? "#fff" : "#9f1239";
+        c.textContent=v.toFixed(2); rdiv.appendChild(c);
+      });
+      heat.appendChild(rdiv);
+    });
+    let html="Ma trận trọng số (hàng=tokens đang hỏi):<br>";
+    W.forEach((row,i)=>{ html+=T[i]+" → ["+row.map(v=>v.toFixed(2)).join(", ")+"] &nbsp; tổng="+row.reduce((a,b)=>a+b,0).toFixed(2)+"<br>"; });
+    html+="<br>Output (trộn V theo %):<br>";
+    O.forEach((o,i)=>{ html+=T[i]+" → ["+o[0].toFixed(2)+", "+o[1].toFixed(2)+"]<br>"; });
+    out.innerHTML=html;
+    if(!useMask) note.textContent="⚠️ Tắt mask: 'mèo' nhìn trộm cả 'ăn' và 'cá' (tương lai) — gian lận khi train mô hình đoán từ tiếp theo! (Trong code thật: nửa trên đường chéo phải = 0.)";
+    else if(!useScale) note.textContent="⚠️ Tắt chia √d_k: điểm số lớn → softmax 'chết cứng', phân bố dồn vào 1 token (Bẫy 1). Chia scale giữ attention mềm dẻo.";
+    else note.textContent="✅ Chuẩn: mask chặn tương lai (nửa trên = 0) + chia scale chống bão hòa. Mỗi hàng cộng đúng = 1.";
+  }
+  bMO.addEventListener("click",()=>{useMask=true;render();});
+  bMF.addEventListener("click",()=>{useMask=false;render();});
+  bSO.addEventListener("click",()=>{useScale=true;render();});
+  bSF.addEventListener("click",()=>{useScale=false;render();});
+  render();
+})();
+// --- Demo B2: soi từng head ---
+(function(){
+  const T=["mèo","ăn","cá","ngon"];
+  const HEADS=[
+    [[1,0,0,0],[0.0024,0.9976,0,0],[0,0,1,0],[0.6315,0,0.3685,0]],
+    [[1,0,0,0],[1,0,0,0],[0.0026,0,0.9974,0],[0.0106,0.0004,0.989,0]],
+    [[1,0,0,0],[0.0007,0.9993,0,0],[0.4753,0.5247,0,0],[0.5903,0,0.4097,0]],
+    [[1,0,0,0],[0,1,0,0],[0,0.9996,0.0003,0],[0,0.9995,0.0005,0]]
+  ];
+  const NOTES=[
+    "head 0 — 'ngon' nhìn 'mèo' 63% + 'cá' 37%: pha trộn chủ ngữ và tân ngữ.",
+    "head 1 — 'ngon' nhìn 'cá' 98.9%: CHUYÊN GIA TÂN NGỮ! ('cá' cũng nhìn chính nó 99.7%.)",
+    "head 2 — 'ngon' nhìn 'mèo' 59% + 'cá' 41%, nhưng 'cá' lại nhìn 'ăn' 52%: góc nhìn khác hẳn head 0.",
+    "head 3 — 'ngon' nhìn 'ăn' 99.95%: CHUYÊN GIA ĐỘNG TỪ! ('cá' cũng nhìn 'ăn' 99.96%.)"
+  ];
+  const heat=document.getElementById("headHeat"), out=document.getElementById("headOut");
+  const seg=document.getElementById("headSeg");
+  let cur=0;
+  function lab(t){ const d=document.createElement("div"); d.className="rlab"; d.textContent=t; return d; }
+  function clab(t){ const d=document.createElement("div"); d.className="clab"; d.textContent=t; return d; }
+  function render(){
+    seg.querySelectorAll("button").forEach(b=>b.classList.toggle("active", parseInt(b.dataset.h,10)===cur));
+    const W=HEADS[cur];
+    heat.innerHTML="";
+    const hr=document.createElement("div"); hr.className="hrow";
+    hr.appendChild(lab("")); T.forEach(t=>hr.appendChild(clab(t))); heat.appendChild(hr);
+    W.forEach((row,i)=>{
+      const rdiv=document.createElement("div"); rdiv.className="hrow";
+      rdiv.appendChild(lab(T[i]));
+      row.forEach(v=>{
+        const c=document.createElement("div"); c.className="cell";
+        c.style.background="rgba(124,58,237,"+(0.10+0.90*v).toFixed(2)+")";
+        c.style.color=v>0.45?"#fff":"#5b21b6";
+        c.textContent=v.toFixed(2); rdiv.appendChild(c);
+      });
+      heat.appendChild(rdiv);
+    });
+    out.innerHTML=NOTES[cur]+"<br><br>Điểm chung cả 4 heads: 'ngon' cho <b>chính nó 0.00</b> — attention được phép bỏ qua chính mình khi token khác quan trọng hơn.";
+  }
+  seg.querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{cur=parseInt(b.dataset.h,10);render();}));
+  render();
+})();
+// --- Demo B3: ngoại suy O(L^2) ---
+(function(){
+  const MEAS={64:0.08,128:0.16,256:0.42,512:3.13};
+  const PTS=[[64,0.08],[128,0.16],[256,0.42],[512,3.13]];
+  let sx=0,sy=0,sxx=0,sxy=0; const n=PTS.length;
+  PTS.forEach(p=>{const x=p[0]*p[0];sx+=x;sy+=p[1];sxx+=x*x;sxy+=x*p[1];});
+  const a=(n*sxy-sx*sy)/(n*sxx-sx*sx), b=(sy-a*sx)/n;
+  const slider=document.getElementById("olSlider"), out=document.getElementById("olOut");
+  function fmt(ms){ return ms<1000 ? ms.toFixed(2)+" ms" : (ms/1000).toFixed(2)+" giây"; }
+  function render(){
+    const L=parseInt(slider.value,10);
+    document.getElementById("olL").textContent=L.toLocaleString("vi-VN");
+    const t = MEAS[L]!==undefined ? MEAS[L] : Math.max(0.01, a*L*L+b);
+    const tag = MEAS[L]!==undefined ? " (đo thật)" : " (mô hình bậc 2 khớp từ 4 điểm đo)";
+    out.innerHTML="L = <b>"+L.toLocaleString("vi-VN")+"</b> → thời gian ≈ <b>"+fmt(t)+"</b>"+tag+"<br>"+
+      "gấp <b>"+(t/0.08).toLocaleString("vi-VN",{maximumFractionDigits:0})+"×</b> so với L=64 (0.08 ms)."+
+      (L>=4096 ? "<br>Từ 4k → 32k (×8): phép tính tăng <b>×64</b> — context dài đắt theo cấp số nhân!" : "");
+  }
+  slider.addEventListener("input",render);
+  document.querySelectorAll('[data-l]').forEach(btn=>btn.addEventListener("click",()=>{slider.value=btn.dataset.l;render();}));
+  render();
+})();
+// --- Demo Trainer: vì sao min chứ không mean ---
+(function(){
+  const btn=document.getElementById("benchBtn"), out=document.getElementById("benchOut");
+  btn.addEventListener("click",()=>{
+    const samples=[];
+    for(let i=0;i<6;i++){
+      let v=10+(Math.random()*0.6-0.2);
+      if(Math.random()<0.3) v+=2+Math.random()*3;
+      samples.push(v);
+    }
+    const warmup=samples[0], rest=samples.slice(1);
+    const mean=rest.reduce((s,x)=>s+x,0)/rest.length, mn=Math.min.apply(null,rest);
+    out.innerHTML="6 lần đo: ["+samples.map(v=>v.toFixed(2)).join(", ")+"] ms<br>"+
+      "→ bỏ lần đầu (warmup, còn 'khởi động'): "+warmup.toFixed(2)+" ms<br>"+
+      "→ trung bình 5 lần còn lại: <b>"+mean.toFixed(2)+" ms</b> ← bị kéo lên bởi lần OS 'hắt hơi'<br>"+
+      "→ <b>min</b> 5 lần còn lại: <b>"+mn.toFixed(2)+" ms</b> ← gần thời gian thật nhất ✅<br><br>"+
+      "Nhiễu chỉ làm <i>chậm đi</i> chứ không bao giờ làm <i>nhanh lên</i> — nên min là ước lượng trung thực nhất.";
+  });
+})();
+// --- Copy source ---
+(function(){
+  const btn=document.getElementById("copySrcBtn");
+  btn.addEventListener("click",function(){
+    const raw=document.getElementById("fullsrc").textContent;
+    const msg=document.getElementById("copyMsg");
+    const done=function(){msg.textContent="Đã copy ✓";setTimeout(function(){msg.textContent="";},2000);};
+    if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(raw).then(done,done);}
+    else{const ta=document.createElement("textarea");ta.value=raw;document.body.appendChild(ta);ta.select();try{document.execCommand("copy");}catch(e){}document.body.removeChild(ta);done();}
+  });
+})();
+</script>
+<script>
+// Tô màu cú pháp Python
+(function(){
+  function escHtml(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+  function highlightPython(src){
+    var re=/(#[^\n]*)|("""[\s\S]*?"""|"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*')|\b(import|from|def|class|return|if|elif|else|for|while|in|is|not|and|or|None|True|False|lambda|with|as|try|except|finally|raise|global|pass|break|continue)\b|(\b\d+(?:\.\d+)?\b)|(@[\w.]+)/g;
+    var out="",last=0,m;
+    while((m=re.exec(src))){
+      out+=escHtml(src.slice(last,m.index));
+      var tok=m[0],cls=m[1]?"cm":m[2]?"str":m[3]?"kw":m[4]?"num2":"fn";
+      out+='<span class="'+cls+'">'+escHtml(tok)+"</span>";
+      last=m.index+tok.length;
+      if(tok.length===0)re.lastIndex++;
+    }
+    return out+escHtml(src.slice(last));
+  }
+  document.querySelectorAll("pre.pysrc").forEach(function(pre){
+    var raw=pre.textContent;
+    pre.innerHTML="<code>"+highlightPython(raw)+"</code>";
+  });
+})();
+</script>
+</body>
+</html>
