@@ -194,7 +194,8 @@ def bai3():
         prev_dt, prev_lx = dt, Lx
 
     # TODO 7 (tra loi viet tay, dua vao bang so vua do):
-    # (1) L tang gap doi -> thoi gian tang khoang GAP 4 LAN (gap 2 binh phuong).
+    # (1) L tang gap doi -> thoi gian tang khoang GAP 4 LAN
+    #     (gap 2 binh phuong).
     # (2) Do phuc tap cua attention theo L la O(L^2): ma tran scores co LxL o,
     #     moi o la 1 phep tinh - context dai gap 8x (4k -> 32k token) thi
     #     attention ton gap 64x phep tinh (va 64x dien nang). Day la dong luc
