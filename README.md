@@ -13,7 +13,7 @@ Mỗi ngày một thư mục `dayDD/`:
 day01/
 ├── bigram_lm.py               # Source code bài thực hành (PyTorch)
 ├── corpus.txt                 # Dữ liệu huấn luyện mẫu
-└── bigram_lm_giai_thich.html  # Tài liệu giải thích chi tiết (tiếng Việt, mở bằng trình duyệt)
+└── Day01_giai_thich.html  # Tài liệu giải thích chi tiết (tiếng Việt, mở bằng trình duyệt)
 day02/
 ├── Day02_lesson.html     # Bài học: Tensor, autograd và tối ưu hoá (mở bằng trình duyệt)
 ├── Day02_quiz.html       # Quiz 5 câu trắc nghiệm (chấm điểm ngay trong file)
