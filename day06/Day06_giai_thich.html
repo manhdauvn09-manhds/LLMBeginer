@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 06 — Ghép Transformer block hoàn chỉnh: giải thích cho người ngoại đạo</title>
+<style>
+  :root{
+    --bg:#faf8fb; --card:#ffffff; --ink:#23272f; --muted:#6b7280;
+    --accent:#6d28d9; --accent-soft:#ede9fe;
+    --blue:#2563eb; --blue-soft:#dbeafe;
+    --amber:#b45309; --amber-soft:#fef3c7;
+    --green:#047857; --green-soft:#d1fae5;
+    --teal:#0f766e; --teal-soft:#ccfbf1;
+    --rose:#be123c; --rose-soft:#ffe4e6;
+    --line:#e7dfee; --code-bg:#1e2230;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    line-height:1.75;font-size:16.5px}
+  .wrap{max-width:960px;margin:0 auto;padding:0 20px}
+  header.hero{background:linear-gradient(135deg,#2e1065 0%,#6d28d9 55%,#a78bfa 100%);
+    color:#fff;padding:64px 0 48px;margin-bottom:8px}
+  header.hero h1{margin:0 0 12px;font-size:2.1rem;line-height:1.3}
+  header.hero p{margin:6px 0;opacity:.92;max-width:720px}
+  .tag{display:inline-block;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.35);
+    border-radius:999px;padding:3px 14px;font-size:.85rem;margin-bottom:14px}
+  nav.sticky{position:sticky;top:0;z-index:50;background:rgba(250,248,251,.96);
+    backdrop-filter:blur(6px);border-bottom:1px solid var(--line)}
+  nav.sticky .wrap{display:flex;gap:4px;overflow-x:auto;padding:10px 20px;white-space:nowrap}
+  nav.sticky a{color:var(--muted);text-decoration:none;font-size:.88rem;padding:6px 10px;border-radius:8px}
+  nav.sticky a:hover{background:var(--accent-soft);color:var(--accent)}
+  section{padding:34px 0;border-bottom:1px solid var(--line)}
+  h2{font-size:1.55rem;margin:0 0 6px;color:#2e1065}
+  h2 .num{display:inline-block;background:var(--accent);color:#fff;font-size:.95rem;
+    width:34px;height:34px;line-height:34px;text-align:center;border-radius:10px;margin-right:10px;vertical-align:middle}
+  h3{font-size:1.15rem;margin:26px 0 8px}
+  .lead{color:#4b5563;font-size:1.05rem}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:20px 22px;margin:16px 0;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin:18px 0}
+  .concept{background:var(--card);border:1px solid var(--line);border-top:4px solid var(--accent);
+    border-radius:12px;padding:16px 18px}
+  .concept h4{margin:0 0 6px;font-size:1.02rem}
+  .concept p{margin:0;font-size:.93rem;color:#4b5563}
+  .concept.blue{border-top-color:var(--blue)} .concept.teal{border-top-color:var(--teal)}
+  .concept.green{border-top-color:var(--green)} .concept.amber{border-top-color:var(--amber)}
+  .concept.rose{border-top-color:var(--rose)}
+  pre{background:var(--code-bg);color:#e8eaf2;border-radius:12px;padding:18px 20px;
+    overflow-x:auto;font-size:.86rem;line-height:1.6;margin:14px 0;max-height:560px;overflow-y:auto}
+  code{font-family:"SF Mono",Consolas,"Courier New",monospace}
+  p code, li code, td code{background:var(--accent-soft);padding:1px 7px;border-radius:6px;font-size:.88em;color:#5b21b6}
+  pre code{background:none;padding:0;color:inherit}
+  .kw{color:#c792ea}.fn{color:#82aaff}.str{color:#c3e88d}.cm{color:#697098;font-style:italic}.num2{color:#f78c6c}
+  pre.before{background:#2a1a12;border:1px solid #7c2d12}
+  pre.after{background:#0f2a1a;border:1px solid #047857}
+  .diff-tag{display:inline-block;font-size:.78rem;font-weight:700;border-radius:6px;padding:2px 10px;margin-bottom:6px}
+  .diff-tag.old{background:var(--amber-soft);color:var(--amber)}
+  .diff-tag.new{background:var(--green-soft);color:var(--green)}
+  .diagram{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px 10px;margin:18px 0;text-align:center;overflow-x:auto}
+  .diagram svg{max-width:100%;height:auto}
+  .caption{font-size:.9rem;color:var(--muted);margin-top:10px;font-style:italic}
+  .flow{display:flex;align-items:stretch;gap:0;overflow-x:auto;padding:18px 6px;margin:14px 0}
+  .fstep{background:#fff;border:2px solid var(--line);border-radius:12px;padding:12px 14px;
+    min-width:130px;text-align:center;font-size:.88rem;flex-shrink:0;cursor:default}
+  .fstep b{display:block;margin-bottom:4px;font-size:.95rem}
+  .fstep small{color:var(--muted)}
+  .fstep.d{background:var(--blue-soft);border-color:var(--blue)}
+  .fstep.m{background:var(--accent-soft);border-color:var(--accent)}
+  .fstep.e{background:var(--amber-soft);border-color:var(--amber)}
+  .fstep.g{background:var(--green-soft);border-color:var(--green)}
+  .fstep.r{background:#ffe4e6;border-color:var(--rose)}
+  .fstep.t{background:var(--teal-soft);border-color:var(--teal)}
+  .fstep.v{background:var(--accent-soft);border-color:var(--accent)}
+  .farrow{align-self:center;font-size:1.6rem;color:var(--muted);padding:0 6px;flex-shrink:0}
+  .analogy{background:#f5f3ff;border:1px solid #c4b5fd;border-left:6px solid var(--accent);
+    border-radius:10px;padding:16px 20px;margin:16px 0}
+  .analogy b{color:#5b21b6}
+  .warn{background:#fffbeb;border:1px solid #fcd34d;border-left:6px solid var(--amber);
+    border-radius:10px;padding:16px 20px;margin:16px 0}
+  .warn b{color:#92400e}
+  .ok{background:#ecfdf5;border:1px solid #6ee7b7;border-left:6px solid var(--green);
+    border-radius:10px;padding:16px 20px;margin:16px 0}
+  table.mini{border-collapse:collapse;margin:14px auto;font-size:.9rem;min-width:70%}
+  table.mini th, table.mini td{border:1px solid var(--line);padding:8px 14px;text-align:center}
+  table.mini th{background:var(--accent-soft)}
+  table.mini td.num{font-family:monospace}
+  .demo{background:#fff;border:2px solid var(--accent);border-radius:16px;padding:24px;margin:18px 0}
+  .demo h3{margin-top:0}
+  input[type=range]{width:100%;accent-color:var(--accent);margin:8px 0}
+  .seg{display:flex;gap:8px;margin:10px 0;flex-wrap:wrap}
+  .seg button{border:2px solid var(--line);background:#fff;border-radius:10px;
+    padding:8px 18px;font-size:1rem;cursor:pointer}
+  .seg button.active{border-color:var(--accent);background:var(--accent-soft);font-weight:700}
+  .big-out{background:var(--code-bg);color:#e8eaf2;border-radius:12px;padding:18px 20px;
+    font-family:monospace;font-size:1rem;margin-top:12px;line-height:1.9;word-break:break-word}
+  .btn{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:10px 22px;
+    font-size:1rem;cursor:pointer;margin:10px 8px 0 0}
+  .btn:hover{background:#5b21b6}
+  .formula{text-align:center;font-size:1.25rem;background:#f5f3ff;border-radius:10px;
+    padding:18px;margin:14px 0;font-family:Georgia,serif}
+  .formula small{display:block;font-family:inherit;font-size:.85rem;color:var(--muted);margin-top:6px}
+  footer{padding:36px 0 60px;color:var(--muted);font-size:.9rem;text-align:center}
+  ul.tight li{margin-bottom:6px}
+  .bar-row{display:flex;align-items:center;gap:10px;margin:7px 0;font-size:.9rem}
+  .bar-lab{width:220px;flex-shrink:0;text-align:right}
+  .bar-track{flex:1;background:#f3f0fa;border-radius:8px;height:26px;position:relative;overflow:hidden}
+  .bar-fill{height:100%;border-radius:8px;transition:width .4s}
+  .bar-val{width:110px;flex-shrink:0;font-family:monospace;font-size:.82rem;color:var(--muted)}
+  .cell-grid{display:flex;gap:4px;flex-wrap:wrap;margin:10px 0}
+  .cell-grid .c{width:44px;height:44px;border-radius:8px;display:flex;align-items:center;justify-content:center;
+    font-family:monospace;font-weight:700;font-size:.95rem;border:2px solid var(--line);background:#fff}
+  .cell-grid .c.past{background:var(--green-soft);border-color:var(--green)}
+  .cell-grid .c.fut{background:var(--amber-soft);border-color:var(--amber)}
+  .cell-grid .c.changed{background:#fecaca;border-color:var(--rose);color:#991b1b}
+  @media(max-width:600px){header.hero h1{font-size:1.6rem}body{font-size:15.5px}.bar-lab{width:130px}}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="tag">📄 Phân tích: day06/transformer_block.py</span>
+    <h1>Day 06 — Ghép Transformer block<br>hoàn chỉnh từ con số 0</h1>
+    <p>Buổi tối: lắp ráp <b>RMSNorm</b> (Day 04) + <b>causal attention</b> (Day 05) + <b>MLP</b> thành một Transformer block chạy thật; 2 block + embedding + <b>weight tying</b> = <b>MiniGPT</b> với đúng <b>111,552 tham số</b>. <b>5/5 unit test PASS</b>, train thử loss <b>29.5175 → 0.0001</b> trong ~6 giây CPU.</p>
+    <p style="font-size:.9rem;opacity:.8">Số liệu trong bài đều là kết quả chạy thật của <code>transformer_block.py</code> (CPU, seed 6 cố định, kiểm chứng ngày 16/10/2026).</p>
+  </div>
+</header>
+
+<nav class="sticky"><div class="wrap">
+  <a href="#tong-quan">🍿 Tóm tắt 30 giây</a>
+  <a href="#b1">🧱 B1: Block pre-norm</a>
+  <a href="#b2">🗄️ B2: MLP — kho kiến thức</a>
+  <a href="#b3">🔗 B3: MiniGPT + weight tying</a>
+  <a href="#b4">🧪 B4: 5 unit test</a>
+  <a href="#train">📉 Train thử</a>
+  <a href="#trainer">🛠️ Trainer trước → sau</a>
+  <a href="#source">📜 Source</a>
+</div></nav>
+
+<!-- ================= TONG QUAN ================= -->
+<section id="tong-quan">
+<div class="wrap">
+  <h2><span class="num">🍿</span>Tóm tắt 30 giây</h2>
+  <p class="lead">5 buổi trước ta chế tạo từng "bộ phận rời": embedding &amp; cosine (Day 1–2), BPE (Day 3), RMSNorm &amp; RoPE (Day 4), attention (Day 5). Day 6 là <b>buổi lắp ráp</b>: gắn các bộ phận vào nhau thành một khối Transformer chạy được, rồi xếp 2 khối chồng lên nhau thành một GPT mini đoán được từ tiếp theo.</p>
+
+  <div class="grid">
+    <div class="concept blue">
+      <h4>🧱 TransformerBlock — xương sống</h4>
+      <p>Công thức pre-norm: <b>x′ = x + Attn(Norm(x))</b> rồi <b>y = x′ + MLP(Norm(x′))</b>. Hai "đường tắt" residual giữ thông tin gốc, hai lần Norm giữ số liệu ổn định.</p>
+    </div>
+    <div class="concept amber">
+      <h4>🗄️ MLP — kho kiến thức</h4>
+      <p>Hai lớp tuyến tính <b>64 → 256 → 64</b> với GELU ở giữa. Chiếm <b>⅔ tham số</b> mỗi block — nơi model "ghi nhớ" rằng sau <b>3</b> phải là <b>7</b>.</p>
+    </div>
+    <div class="concept green">
+      <h4>🔗 Weight tying — từ điển dùng chung</h4>
+      <p>Đầu ra (LM head) <b>tái dùng đúng bảng embedding</b> thay vì học thêm một ma trận mới. Tiết kiệm 4,096 tham số, tổng đúng <b>111,552</b> — test sẽ nổ ngay nếu ai lén thêm ma trận thừa.</p>
+    </div>
+    <div class="concept">
+      <h4>🧪 5 unit test + train thử</h4>
+      <p>Kiểm tra shape, tính nhân quả <b>cả 2 chiều</b>, gradient chảy được, đếm tham số, tính lặp lại — rồi train 200 step trên chuỗi <b>[3,7,3,7,…]</b> để chứng minh block <b>học được thật</b>.</p>
+    </div>
+  </div>
+
+  <div class="analogy"><b>🏭 Ví dụ — Dây chuyền lắp ráp 2 tầng:</b> mỗi token là một kiện hàng đi qua nhà máy 2 tầng (2 block). Ở mỗi tầng, kiện hàng được <b>"nghe ngóng" xung quanh</b> (attention: các token trước đó thì thầm cho nhau nghe) rồi vào <b>"phòng suy nghĩ"</b> (MLP: biến đổi sâu theo kiến thức đã học). Hai đường băng chuyền <b>residual</b> chạy song song đảm bảo kiện hàng gốc không bao giờ bị thất lạc — dù tầng nào làm sai, hàng gốc vẫn tới đích.</div>
+
+  <h3>Hành trình 6 ngày trong một bức tranh</h3>
+  <div class="flow">
+    <div class="fstep d"><b>Day 1–2</b><small>bigram + MLP:<br/>đoán chữ tiếp theo</small></div>
+    <div class="farrow">→</div>
+    <div class="fstep e"><b>Day 3</b><small>BPE: cắt chữ<br/>thành token</small></div>
+    <div class="farrow">→</div>
+    <div class="fstep t"><b>Day 4</b><small>RMSNorm + RoPE:<br/>chuẩn hóa &amp; vị trí</small></div>
+    <div class="farrow">→</div>
+    <div class="fstep r"><b>Day 5</b><small>attention:<br/>token nhìn nhau</small></div>
+    <div class="farrow">→</div>
+    <div class="fstep v"><b>Day 6 ⭐</b><small>ghép TẤT CẢ<br/>thành MiniGPT</small></div>
+  </div>
+
+  <table class="mini">
+    <tr><th>Kích thước mini (chạy vài giây trên CPU)</th><th>Giá trị</th></tr>
+    <tr><td>batch <code>B</code> × độ dài <code>T</code> × vocab <code>V</code></td><td class="num">4 × 16 × 64</td></tr>
+    <tr><td>chiều embedding <code>D</code>, số head, số block</td><td class="num">64, 4, 2</td></tr>
+    <tr><td>độ dài tối đa <code>T_MAX</code>, seed</td><td class="num">128, 6</td></tr>
+    <tr><td><b>tổng tham số</b></td><td class="num"><b>111,552</b></td></tr>
+  </table>
+</div>
+</section>
+
+<!-- ================= B1 ================= -->
+<section id="b1">
+<div class="wrap">
+  <h2><span class="num">🧱</span>B1: TransformerBlock — công thức pre-norm</h2>
+  <p class="lead">Một block gồm 2 "công đoạn", mỗi công đoạn đều theo mẫu <b>Norm → làm việc → cộng lại cái cũ</b> (residual). Công thức trong <code>TransformerBlock.forward</code>:</p>
+
+  <div class="formula">
+    x′ = x + Attn(<b>Norm</b>(x)) &nbsp;&nbsp;→&nbsp;&nbsp; y = x′ + MLP(<b>Norm</b>(x′))
+    <small>Norm = RMSNorm tự viết (Day 04) · Attn = causal multi-head (Day 05) · "pre-norm" = chuẩn hóa TRƯỚC khi làm việc</small>
+  </div>
+
+  <div class="analogy"><b>🛁 Ví dụ — "Tắm rửa trước khi vào việc":</b> pre-norm nghĩa là <b>chuẩn hóa dữ liệu trước</b> rồi mới cho attention/MLP xử lý — như rửa tay sạch trước khi nấu ăn. Cách cũ (post-norm) làm ngược lại: nấu xong mới rửa tay — số liệu dễ "bẩn" (bùng/nổ gradient) khi xếp nhiều block chồng lên nhau. GPT-2 trở đi đều dùng pre-norm vì train ổn định hơn hẳn.</div>
+
+  <h3>Sơ đồ dòng chảy trong một block (shape thật với B=4, T=16, D=64)</h3>
+  <div class="diagram">
+  <svg viewBox="0 0 760 300" width="760" height="300" font-family="sans-serif">
+    <rect x="20" y="20" width="150" height="46" rx="10" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+    <text x="95" y="48" text-anchor="middle" font-size="14" font-weight="700">x: (4,16,64)</text>
+    <polygon points="170,43 190,43 190,36 205,47 190,58 190,51 170,51" fill="#6b7280"/>
+    <rect x="205" y="20" width="150" height="46" rx="10" fill="#ccfbf1" stroke="#0f766e" stroke-width="2"/>
+    <text x="280" y="40" text-anchor="middle" font-size="13" font-weight="700">RMSNorm (norm1)</text>
+    <text x="280" y="58" text-anchor="middle" font-size="12" fill="#6b7280">"tắm rửa" lần 1</text>
+    <polygon points="355,43 375,43 375,36 390,47 375,58 375,51 355,51" fill="#6b7280"/>
+    <rect x="390" y="20" width="150" height="46" rx="10" fill="#ffe4e6" stroke="#be123c" stroke-width="2"/>
+    <text x="465" y="40" text-anchor="middle" font-size="13" font-weight="700">Causal Attn (4 head)</text>
+    <text x="465" y="58" text-anchor="middle" font-size="12" fill="#6b7280">"nghe ngóng" quá khứ</text>
+    <polygon points="540,43 560,43 560,36 575,47 560,58 560,51 540,51" fill="#6b7280"/>
+    <rect x="575" y="20" width="150" height="46" rx="10" fill="#d1fae5" stroke="#047857" stroke-width="2"/>
+    <text x="650" y="40" text-anchor="middle" font-size="13" font-weight="700">⊕ cộng x (residual)</text>
+    <text x="650" y="58" text-anchor="middle" font-size="12" fill="#6b7280">→ x′: giữ hàng gốc</text>
+    <rect x="205" y="120" width="150" height="46" rx="10" fill="#ccfbf1" stroke="#0f766e" stroke-width="2"/>
+    <text x="280" y="140" text-anchor="middle" font-size="13" font-weight="700">RMSNorm (norm2)</text>
+    <text x="280" y="158" text-anchor="middle" font-size="12" fill="#6b7280">"tắm rửa" lần 2</text>
+    <rect x="390" y="120" width="150" height="46" rx="10" fill="#fef3c7" stroke="#b45309" stroke-width="2"/>
+    <text x="465" y="140" text-anchor="middle" font-size="13" font-weight="700">MLP 64→256→64</text>
+    <text x="465" y="158" text-anchor="middle" font-size="12" fill="#6b7280">"phòng suy nghĩ" (GELU)</text>
+    <rect x="575" y="120" width="150" height="46" rx="10" fill="#d1fae5" stroke="#047857" stroke-width="2"/>
+    <text x="650" y="140" text-anchor="middle" font-size="13" font-weight="700">⊕ cộng x′ (residual)</text>
+    <text x="650" y="158" text-anchor="middle" font-size="12" fill="#6b7280">→ y: output block</text>
+    <line x1="650" y1="66" x2="650" y2="120" stroke="#6b7280" stroke-width="2" stroke-dasharray="6,4"/>
+    <polygon points="643,112 657,112 650,122" fill="#6b7280"/>
+    <line x1="280" y1="66" x2="280" y2="120" stroke="#6b7280" stroke-width="2" stroke-dasharray="6,4"/>
+    <polygon points="273,112 287,112 280,122" fill="#6b7280"/>
+    <line x1="95" y1="66" x2="95" y2="240" stroke="#047857" stroke-width="3"/>
+    <polygon points="88,232 102,232 95,242" fill="#047857"/>
+    <text x="110" y="230" font-size="12" fill="#047857" font-weight="700">đường tắt residual: x gốc</text>
+    <rect x="20" y="242" width="150" height="40" rx="10" fill="#ede9fe" stroke="#6d28d9" stroke-width="2"/>
+    <text x="95" y="268" text-anchor="middle" font-size="13" font-weight="700">y: (4,16,64)</text>
+    <line x1="465" y1="166" x2="465" y2="242" stroke="#6b7280" stroke-width="2" stroke-dasharray="6,4"/>
+    <polygon points="458,234 472,234 465,244" fill="#6b7280"/>
+  </svg>
+  <div class="caption">Đường xanh lá nét liền: residual — thông tin gốc x luôn có "đường tắt" tới output, gradient không bao giờ bị kẹt.</div>
+  </div>
+
+  <div class="demo">
+    <h3>🔍 Thử ngay: bấm từng công đoạn của block</h3>
+    <p style="margin-top:0">Mỗi bước làm gì, shape ra sao, tốn bao nhiêu tham số (số thật từ <code>transformer_block.py</code>):</p>
+    <div class="seg" id="blockSeg">
+      <button data-s="0" class="active">1. RMSNorm</button>
+      <button data-s="1">2. Attention</button>
+      <button data-s="2">3. ⊕ residual</button>
+      <button data-s="3">4. RMSNorm</button>
+      <button data-s="4">5. MLP</button>
+      <button data-s="5">6. ⊕ residual</button>
+    </div>
+    <div class="big-out" id="blockOut"></div>
+  </div>
+</div>
+</section>
+
+<!-- ================= B2 ================= -->
+<section id="b2">
+<div class="wrap">
+  <h2><span class="num">🗄️</span>B2: MLP — "kho kiến thức" của block</h2>
+  <p class="lead">Sau khi attention cho các token "nghe ngóng" lẫn nhau, MLP cho mỗi token <b>"suy nghĩ một mình"</b> — biến đổi sâu vector 64 chiều của nó. Công thức trong <code>MLP.forward</code>: <code>x → Linear(64→256) → GELU → Linear(256→64)</code>.</p>
+
+  <div class="analogy"><b>📚 Ví dụ — Thư viện trong đầu:</b> attention giống <b>họp nhóm</b> (mọi người trao đổi thông tin), còn MLP giống <b>về nhà đọc sách một mình</b> — nơi kiến thức thật sự được "ghi vào". Nghiên cứu trên các LLM lớn cho thấy phần lớn "trí nhớ sự thật" (ví dụ: thủ đô của Pháp là Paris) nằm ở các lớp MLP, không phải attention. Đó cũng là lý do MLP <b>phình to gấp 4 lần</b> (64→256) rồi mới thu về: cần "kệ sách" đủ rộng để chứa kiến thức.</div>
+
+  <h3>Vì sao MLP ngốn tới ⅔ tham số mỗi block?</h3>
+  <table class="mini">
+    <tr><th>Thành phần (1 block, D=64)</th><th>Công thức</th><th>Tham số</th></tr>
+    <tr><td>Attention: QKV + proj</td><td class="num">3·64² + 64²</td><td class="num">16,384</td></tr>
+    <tr><td><b>MLP: 64→256→64 + bias</b></td><td class="num"><b>4·64²+256 + 4·64²+64</b></td><td class="num"><b>33,088</b></td></tr>
+    <tr><td>2 × RMSNorm</td><td class="num">2·64</td><td class="num">128</td></tr>
+    <tr><td><b>Tổng 1 block</b></td><td class="num"><b>12·64² + 7·64</b></td><td class="num"><b>49,600</b></td></tr>
+  </table>
+  <p>MLP chiếm <b>33,088 / 49,600 ≈ 67%</b> — đúng với các LLM thật (ví dụ Llama: MLP cũng chiếm ~⅔ tham số mỗi block). Khi người ta nói "model 7 tỉ tham số", phần lớn trong đó là các "kho kiến thức" MLP này.</p>
+
+  <div class="warn"><b>⚠️ GELU chứ không phải ReLU:</b> code dùng <code>F.gelu</code> — phiên bản "mềm" của ReLU, cho giá trị âm nhỏ đi qua một phần thay vì cắt phăng. GPT dùng GELU từ đầu; nó mượt hơn nên gradient ổn định hơn khi train sâu.</div>
+
+  <div class="demo">
+    <h3>⚖️ Thử ngay: bản đồ 111,552 tham số</h3>
+    <p style="margin-top:0">Từng "ngăn" tham số của MiniGPT (số thật, đọc từ <code>model.named_parameters()</code>). Bật/tắt weight tying để thấy sự khác biệt:</p>
+    <div class="seg">
+      <button id="tieOn" class="active">🔗 Bật weight tying (như code)</button>
+      <button id="tieOff">🔓 Tắt (thêm LM head riêng)</button>
+    </div>
+    <div id="paramBars"></div>
+    <div class="big-out" id="paramOut"></div>
+  </div>
+</div>
+</section>
+
+<!-- ================= B3 ================= -->
+<section id="b3">
+<div class="wrap">
+  <h2><span class="num">🔗</span>B3: MiniGPT — từ block rời thành mô hình chạy được</h2>
+  <p class="lead"><code>MiniGPT.forward</code> làm 4 việc theo đúng thứ tự: <b>tra từ điển → cộng vị trí → qua 2 block → chuẩn hóa cuối → nhân với từ điển (weight tying)</b> để ra điểm số cho 64 token tiếp theo.</p>
+
+  <div class="flow">
+    <div class="fstep d"><b>idx</b><small>(4,16)<br/>id các token</small></div>
+    <div class="farrow">→</div>
+    <div class="fstep e"><b>tok_emb + pos_emb</b><small>(4,16,64)<br/>"ai" + "ở đâu"</small></div>
+    <div class="farrow">→</div>
+    <div class="fstep v"><b>Block × 2</b><small>(4,16,64)<br/>nghe + nghĩ ×2 tầng</small></div>
+    <div class="farrow">→</div>
+    <div class="fstep t"><b>ln_f</b><small>(4,16,64)<br/>chuẩn hóa cuối</small></div>
+    <div class="farrow">→</div>
+    <div class="fstep g"><b>× tok_embᵀ</b><small>(4,16,64)<br/>logits 64 token</small></div>
+  </div>
+
+  <div class="analogy"><b>📖 Ví dụ — Cuốn từ điển dùng 2 chiều:</b> <b>weight tying</b> nghĩa là bảng <code>tok_emb</code> (64 từ × 64 chiều = 4,096 số) được dùng <b>cả 2 chiều</b>: chiều đi tra "token số 7 là vector nào" (embedding), chiều về hỏi "vector này giống token nào nhất" (LM head = nhân với chuyển vị của chính bảng đó). Như một cuốn từ điển Anh–Việt dùng được cả tra Anh→Việt lẫn Việt→Anh — không cần in 2 cuốn. Tiết kiệm 4,096 tham số, và test <code>test_tying</code> sẽ <b>nổ ngay</b> nếu ai lén thêm ma trận head riêng (tổng sẽ lệch khỏi 111,552).</div>
+
+  <h3>Công thức đếm tham số (ghi ngay trong docstring của test)</h3>
+  <div class="formula">
+    mỗi block = 12d² + 7d &nbsp;&nbsp;→&nbsp;&nbsp; tổng = V·d + T<sub>MAX</sub>·d + n<sub>layer</sub>·block + d
+    <small>V·d = 4,096 (tok_emb) · T<sub>MAX</sub>·d = 8,192 (pos_emb) · 2 × 49,600 (blocks) · d = 64 (ln_f) → <b>111,552</b> ✓ khớp số chạy thật</small>
+  </div>
+  <div class="ok"><b>💡 Vì sao pos_emb to gấp đôi tok_emb?</b> <code>pos_emb</code> có 128 hàng (T<sub>MAX</sub>=128) × 64 = 8,192 — vì model phải chuẩn bị sẵn "tem vị trí" cho chuỗi dài nhất có thể, dù bài này chỉ dùng 16. Đây là <b>học vị trí tuyệt đối</b> (absolute); Day 4 ta đã gặp RoPE — cách "xoay" vị trí tương đối, hiện đại hơn và là thứ Llama dùng thật.</div>
+</div>
+</section>
+
+<!-- ================= B4 ================= -->
+<section id="b4">
+<div class="wrap">
+  <h2><span class="num">🧪</span>B4: 5 unit test — "giám khảo" của block</h2>
+  <p class="lead">Viết test cho neural net nghe lạ, nhưng mỗi test ở đây đều bắt một "bệnh" cụ thể. Tất cả <b>5/5 PASS</b> với seed 6 cố định:</p>
+
+  <div class="grid">
+    <div class="concept blue">
+      <h4>1. test_shapes — đúng hình dạng</h4>
+      <p>Logits phải là <b>(4, 16, 64)</b>: 4 câu × 16 vị trí × 64 ứng viên cho từ tiếp theo. Sai shape là bug reshape — lỗi phổ biến nhất khi ghép block.</p>
+    </div>
+    <div class="concept rose">
+      <h4>2. test_causal — nhân quả 2 chiều ⭐</h4>
+      <p><b>Chiều 1:</b> đổi token CUỐI → các vị trí trước đó <b>không được đổi</b> (quá khứ miễn nhiễm với tương lai). <b>Chiều 2:</b> đổi token ĐẦU → các vị trí sau <b>phải đổi</b> (nếu không, attention chẳng truyền tin gì cả). Thử ngay bên dưới.</p>
+    </div>
+    <div class="concept green">
+      <h4>3. test_residual_grad — gradient chảy được</h4>
+      <p>Sau một lần backward: <b>mọi</b> tham số đều có grad, <b>không NaN</b>. Đây là "giấy chứng nhận" hai đường residual hoạt động — gradient có đường về tới từng tham số.</p>
+    </div>
+    <div class="concept amber">
+      <h4>4. test_tying — đếm 111,552</h4>
+      <p>Tổng tham số phải <b>đúng 111,552</b> theo công thức, và không tồn tại tham số nào tên chứa <code>lm_head</code>/<code>head</code>. Thêm ma trận thừa → test nổ ngay.</p>
+    </div>
+    <div class="concept teal">
+      <h4>5. test_deterministic — lặp lại được</h4>
+      <p>Cùng seed + eval mode → 2 lần forward cho output <b>giống hệt nhau</b> (bit-by-bit). Không có tính lặp lại thì debug là ác mộng.</p>
+    </div>
+  </div>
+
+  <div class="warn"><b>🪤 Vì sao phải test 2 chiều?</b> (đây là "Bẫy" trong đề bài) — Nếu chỉ test chiều 1 (đổi token cuối → quá khứ không đổi), một chiếc mask <b>ngược chiều</b> (chặn quá khứ, cho nhìn tương lai) vẫn... qua được test! Vì khi đó đổi token cuối cũng không ảnh hưởng quá khứ — mask ngược cũng cho kết quả tương tự ở chiều này. Chỉ có chiều 2 (đổi token đầu → tương lai <b>phải</b> đổi) mới tóm được mask ngược. <b>Test một chiều cho cảm giác an toàn giả.</b></div>
+
+  <div class="demo">
+    <h3>🧭 Thử ngay: test nhân quả 2 chiều</h3>
+    <p style="margin-top:0">Minh họa trên chuỗi 8 token. Bấm nút để "đổi" một token và xem output ở các vị trí khác có bị ảnh hưởng không:</p>
+    <div class="seg">
+      <button id="cz1" class="active">Chiều 1: đổi token CUỐI</button>
+      <button id="cz2">Chiều 2: đổi token ĐẦU</button>
+    </div>
+    <p style="font-size:.9rem;color:var(--muted)">Các ô là output tại từng vị trí — <b>xanh</b> = không đổi (đúng), <b>đỏ</b> = đổi:</p>
+    <div class="cell-grid" id="causalGrid"></div>
+    <div class="big-out" id="causalOut"></div>
+  </div>
+</div>
+</section>
+
+<!-- ================= TRAIN ================= -->
+<section id="train">
+<div class="wrap">
+  <h2><span class="num">📉</span>Train thử — "unit test bằng training"</h2>
+  <p class="lead">Bài kiểm tra cuối cùng không phải assert mà là <b>cho model học thật</b>: 64 chuỗi <code>[3,7,3,7,…,3,7]</code> dài 16, nhiệm vụ đoán token tiếp theo (sau 3 là 7, sau 7 là 3). Task này quá dễ — model <b>đúng</b> thì <b>phải</b> học được, loss phải rơi mạnh. Nếu loss đứng yên → block có bug.</p>
+
+  <div class="analogy"><b>🎵 Ví dụ — Học vẹt một câu hát:</b> chuỗi 3-7-3-7… giống như điệp khúc "lá lá lá" lặp đi lặp lại — đến đứa trẻ 3 tuổi nghe vài lần cũng thuộc. Buộc model học thuộc lòng chuỗi này trong 200 step (~6 giây) là cách kiểm tra "bộ máy có chạy không" trước khi cho học thứ khó hơn. Triết lý: <b>đừng train task khó khi chưa chắc model học nổi task dễ</b>.</div>
+
+  <h3>Số thật: loss rơi từ 29.5175 → 0.0001</h3>
+  <table class="mini">
+    <tr><th>step</th><th>loss</th><th>diễn giải</th></tr>
+    <tr><td class="num">0</td><td class="num">29.5175</td><td>đoán bừa (xem ghi chú trung thực bên dưới ⬇)</td></tr>
+    <tr><td class="num">50</td><td class="num">0.0062</td><td>đã "nghe ra" quy luật 3↔7</td></tr>
+    <tr><td class="num">100</td><td class="num">0.0003</td><td>gần như thuộc lòng</td></tr>
+    <tr><td class="num">150</td><td class="num">0.0002</td><td>tin chỉnh</td></tr>
+    <tr><td class="num">199</td><td class="num">0.0001</td><td>✅ &lt; 1.0 — block chạy ĐÚNG (5.7s CPU)</td></tr>
+  </table>
+
+  <div class="warn"><b>🔍 Ghi chú trung thực:</b> đề bài ví dụ loss bước 0 "khoảng 4.2" (= ln 64, mức đoán bừa lý tưởng), nhưng chạy thật ra <b>29.5</b>. Nguyên nhân: embedding khởi tạo chuẩn N(0,1) khiến logits ban đầu lệch chuẩn tới ~√64 = 8 — điểm số "gào thét" loạn xạ nên cross-entropy phình to. Model thật dùng init nhỏ hơn nhiều (ví dụ std = 0.02). Code <b>in đúng số thật</b> và giải thích trong docstring — điều quan trọng không phải số khởi đầu mà là loss <b>giảm 5 bậc độ lớn</b>. (Xem mục Trainer bên dưới.)</div>
+
+  <div class="demo">
+    <h3>📉 Thử ngay: đường cong loss (số thật)</h3>
+    <p style="margin-top:0">5 điểm loss đo thật. Chuyển thang đo để thấy loss "rơi tự do" rõ hơn:</p>
+    <div class="seg">
+      <button id="lsLin" class="active">Thang tuyến tính</button>
+      <button id="lsLog">Thang log</button>
+    </div>
+    <div class="diagram" style="margin-top:10px"><svg id="lossSvg" viewBox="0 0 640 300" width="640" height="300" font-family="sans-serif"></svg></div>
+    <div class="big-out" id="lossOut"></div>
+  </div>
+</div>
+</section>
+
+<!-- ================= TRAINER ================= -->
+<section id="trainer">
+<div class="wrap">
+  <h2><span class="num">🛠️</span>Trainer đã sửa gì: trước → sau</h2>
+  <p class="lead">Trong lần review ngày 16/10, trainer đã xử lý <code>transformer_block.py</code> ở 2 điểm — cả hai đều theo một triết lý: <b>trung thực với số thật</b>, không giấu, không "làm đẹp".</p>
+
+  <h3>1. 🔍 Không giấu số xấu: loss bước 0 ra 29.5 chứ không phải ~4.2</h3>
+  <div class="card">
+    <span class="diff-tag old">TRƯỚC — docstring chỉ ghi kỳ vọng của đề bài</span>
+<pre class="before"><code>Ky vong:
+    5/5 test in PASS; train 200 step: loss tu ~4.2 giam xuong &lt; 1.0.</code></pre>
+    <span class="diff-tag new">SAU — ghi thêm giải thích trung thực cho số thật</span>
+<pre class="after"><code>    Ghi chu ve loss buoc 0: embedding khoi tao chuan N(0,1) nen logits
+    ban dau co do lech chuan ~sqrt(d)=8 -&gt; cross-entropy khoi dau ~30
+    chu khong phai ln(V)~4.2. Model that dung init nho hon (vd std=0.02).
+    Dieu quan trong o day khong phai so ban dau ma la loss GIAM manh.</code></pre>
+    <p><b>Lý do:</b> đề bài ví dụ loss khởi đầu "khoảng 4.2" — đó là mức đoán bừa <b>lý tưởng</b> (ln 64 ≈ 4.16, khi mọi token được cho điểm ngang nhau). Nhưng embedding khởi tạo N(0,1) làm logits ban đầu "gào thét" với độ lệch chuẩn ~8 → softmax dồn hết vào vài token sai → cross-entropy phình tới <b>29.5</b>. Cách xử lý trung thực: <b>in đúng số thật, giải thích nguyên nhân ngay trong docstring</b> — chứ không chỉnh init cho "đẹp số" rồi giấu đi. Model thật (GPT, Llama) dùng init nhỏ (std 0.02) nên không gặp hiện tượng này.</p>
+    <div class="analogy"><b>🎯 Ví dụ — Cân điện tử mới mua:</b> đề bài nói "cân nặng chuẩn khoảng 70kg", nhưng cân nhà bạn hiện 95kg vì... bạn đang bế con mèo. Cách trung thực không phải là vứt con mèo đi cho số đẹp, mà là <b>ghi chú "đang bế mèo ~25kg"</b> rồi nhìn vào <b>xu hướng giảm cân</b> qua các tuần. Ở đây cũng vậy: nhìn vào loss <b>giảm 5 bậc độ lớn</b> (29.5 → 0.0001), không phải số khởi đầu.</div>
+  </div>
+
+  <h3>2. 🛡️ Thêm guard: chuỗi dài hơn t_max thì báo lỗi sớm</h3>
+  <div class="card">
+    <span class="diff-tag old">TRƯỚC — không kiểm tra gì</span>
+<pre class="before"><code>    <span class="kw">def</span> <span class="fn">forward</span>(self, x):
+        B_, T_, _ = x.shape
+        <span class="cm"># Tach Q, K, V tu 1 phep chieu: (B, T, d) -&gt; 3 x (B, T, d).</span>
+        q, k, v = self.<span class="fn">qkv</span>(x).<span class="fn">chunk</span>(<span class="num2">3</span>, dim=-<span class="num2">1</span>)</code></pre>
+    <span class="diff-tag new">SAU — assert ngay đầu forward</span>
+<pre class="after"><code>    <span class="kw">def</span> <span class="fn">forward</span>(self, x):
+        B_, T_, _ = x.shape
+        <span class="kw">assert</span> T_ &lt;= self.mask.<span class="fn">shape</span>[<span class="num2">0</span>], \
+            <span class="str">f"do dai chuoi </span>{T_}<span class="str"> vuot qua t_max=</span>{self.mask.<span class="fn">shape</span>[<span class="num2">0</span>]}<span class="str">"</span>
+        <span class="cm"># Tach Q, K, V tu 1 phep chieu: (B, T, d) -&gt; 3 x (B, T, d).</span>
+        q, k, v = self.<span class="fn">qkv</span>(x).<span class="fn">chunk</span>(<span class="num2">3</span>, dim=-<span class="num2">1</span>)</code></pre>
+    <p><b>Lý do:</b> mask chỉ tạo sẵn tới <code>t_max=128</code>. Nếu chuỗi dài hơn, <code>self.mask[:T_, :T_]</code> <b>không báo lỗi</b> mà âm thầm cắt ra ma trận thiếu kích thước → <code>masked_fill</code> crash với thông báo broadcast khó hiểu ở tít dưới. Guard này "chết sớm, chết rõ" — cùng triết lý với guard <code>d</code> chẵn ở Day 04 và <code>d_model % n_heads</code> ở Day 05.</p>
+    <div class="ok"><b>💡 Mẫu số chung của trainer qua 3 ngày:</b> Day 04 (d chẵn, norm đúng chiều) → Day 05 (d_model chia hết n_heads, reshape sau transpose) → Day 06 (T_ ≤ t_max, con số tài liệu phải trung thực). Ba nguyên tắc: <b>thất bại sớm</b>, <b>đúng chiều/dạng</b>, <b>tài liệu trung thực với số đo thật</b>.</div>
+  </div>
+</div>
+
+</section>
+
+<!-- ================= SOURCE CODE ================= -->
+<section id="source">
+<div class="wrap">
+  <h2><span class="num">📜</span>Toàn bộ source code</h2>
+  <p class="lead">File <code>day06/transformer_block.py</code> — bấm nút để copy. Đặt cạnh các sơ đồ phía trên để vừa nhìn hình vừa đối chiếu code.</p>
+  <button class="btn" id="copySrcBtn">📋 Copy toàn bộ code</button>
+  <span id="copyMsg" style="margin-left:12px;color:var(--green);font-weight:700"></span>
+  <pre class="pysrc" id="fullsrc"><code>#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+&quot;&quot;&quot;Ghep mot Transformer block chay duoc (Day 06 - buoi toi).
+
+Muc dich:
+    - RMSNorm tu viet (khong dung nn.LayerNorm co san).
+    - CausalSelfAttention: multi-head, mask nhan qua, scale 1/sqrt(d_head).
+    - MLP: d -&gt; 4d -&gt; d voi GELU (&quot;nha kho kien thuc&quot; cua block).
+    - TransformerBlock theo cong thuc pre-norm:
+        x&#x27; = x + Attn(Norm(x));  y = x&#x27; + MLP(Norm(x&#x27;)).
+    - MiniGPT: embedding + N block + norm cuoi + LM head chia trong so
+      (weight tying) voi embedding.
+    - 5 unit test bat buoc PASS + train thu mini-task thay loss giam
+      manh (&lt; 1.0 sau 200 step).
+
+Cach chay:
+    python transformer_block.py
+
+Ky vong:
+    5/5 test in PASS; train 200 step: loss giam manh xuong &lt; 1.0.
+    [TRAINER] Sua 2026-10-16: ban cu ghi &quot;loss tu ~4.2&quot; la SAI - thuc te
+    loss buoc 0 ~30 vi embedding khoi tao N(0,1) (da tu giai thich dung
+    trong train_sanity). Ghi sai con so ky vong khien nguoi chay lan dau
+    tuong test hong khi thay loss hien 30.
+
+Chi can PyTorch (CPU la du, chay vai giay).
+&quot;&quot;&quot;
+
+import math
+import time
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+
+# ---------------------------------------------------------------------------
+# Cau hinh mini de chay nhanh tren CPU
+# ---------------------------------------------------------------------------
+torch.manual_seed(6)
+
+B, T, V = 4, 16, 64        # batch, do dai chuoi, vocab size
+D, N_HEAD, N_LAYER = 64, 4, 2  # chieu embedding, so head, so block
+T_MAX = 128               # do dai chuoi toi da cho pos embedding + mask
+EPS = 1e-6                # epsilon chong chia cho 0 trong norm
+
+
+# ---------------------------------------------------------------------------
+# Buoc 1 - RMSNorm
+# ---------------------------------------------------------------------------
+class RMSNorm(nn.Module):
+    &quot;&quot;&quot;Chuan hoa theo RMS (root mean square).
+
+    Cong thuc: y = x / sqrt(mean(x^2) + eps) * g, voi g la tham so hoc
+    duoc khoi tao = 1. Khac LayerNorm o cho KHONG tru mean - re hon ma
+    van du tot cho LLM (Llama dung RMSNorm).
+
+    Args:
+        d: so chieu cua vector can chuan hoa.
+    &quot;&quot;&quot;
+
+    def __init__(self, d):
+        super().__init__()
+        # g: he so co gian tung chieu, hoc duoc. Khoi tao = 1 tuc la luc
+        # dau chi chuan hoa thuan tuy, chua phong to/thu nho gi.
+        self.weight = nn.Parameter(torch.ones(d))
+
+    def forward(self, x):
+        # mean tren chieu CUOI (keepdim de broadcast duoc): ms shape (..., 1).
+        # rsqrt = 1/sqrt: x * rsqrt(ms) == x / sqrt(ms), on dinh so hon.
+        ms = x.pow(2).mean(-1, keepdim=True)
+        return x * torch.rsqrt(ms + EPS) * self.weight
+
+
+# ---------------------------------------------------------------------------
+# Buoc 2 - Causal self-attention (multi-head)
+# ---------------------------------------------------------------------------
+class CausalSelfAttention(nn.Module):
+    &quot;&quot;&quot;Self-attention nhan qua, nhieu head.
+
+    Moi token chi duoc nhin cac token dung TRUOC no (ke ca chinh no) -
+    bat buoc khi train mo hinh sinh (GPT), neu khong la &quot;nhin trom dap an&quot;.
+
+    Args:
+        d: chieu embedding.
+        n_head: so head.
+        t_max: do dai chuoi toi da (de tao san mask).
+    &quot;&quot;&quot;
+
+    def __init__(self, d, n_head, t_max=T_MAX):
+        super().__init__()
+        assert d % n_head == 0, &quot;d phai chia het cho n_head&quot;
+        self.n_head = n_head
+        self.d_head = d // n_head  # chieu moi head &quot;nhin&quot;
+
+        # 1 ma tran duy nhat sinh ra Q, K, V (thay vi 3 ma tran rieng) -
+        # gon va chay nhanh hon. bias=False: chuan cua LLM hien dai.
+        self.qkv = nn.Linear(d, 3 * d, bias=False)
+        self.proj = nn.Linear(d, d, bias=False)  # gop head, chieu ve d
+
+        # Mask tam giac duoi tao 1 LAN (khong tao lai moi forward):
+        # o (i, j) = 1 nghia la token i DUOC nhin token j (j &lt;= i).
+        self.register_buffer(&quot;mask&quot;, torch.tril(torch.ones(t_max, t_max)))
+
+    def forward(self, x):
+        B_, T_, _ = x.shape
+        # [TRAINER] Guard 2026-10-16: mask chi tao san den t_max. Neu T_
+        # vuot qua, self.mask[:T_, :T_] khong bao loi ma am tham tra ve ma
+        # tran thieu kich thuoc -&gt; masked_fill crash voi thong bao broadcast
+        # kho hieu. That bai SOM voi thong bao ro rang de debug hon.
+        assert T_ &lt;= self.mask.shape[0], \
+            f&quot;do dai chuoi {T_} vuot qua t_max={self.mask.shape[0]}&quot;
+        # Tach Q, K, V tu 1 phep chieu: (B, T, d) -&gt; 3 x (B, T, d).
+        q, k, v = self.qkv(x).chunk(3, dim=-1)
+        # Tach head: (B, T, d) -&gt; (B, T, h, dh) -&gt; (B, h, T, dh).
+        q = q.view(B_, T_, self.n_head, self.d_head).transpose(1, 2)
+        k = k.view(B_, T_, self.n_head, self.d_head).transpose(1, 2)
+        v = v.view(B_, T_, self.n_head, self.d_head).transpose(1, 2)
+
+        # Diem tuong dong, chia sqrt(d_head): khong chia thi dot-product
+        # o khoi tao da lon -&gt; softmax bao hoa -&gt; gradient ~ 0 (Bay 2).
+        scores = (q @ k.transpose(-2, -1)) / math.sqrt(self.d_head)
+        # Cam nhin tuong lai: o bi cam (mask == 0) gan -inf TRUOC softmax
+        # -&gt; qua softmax thanh 0. Cat mask theo do dai that T_.
+        mask = self.mask[:T_, :T_]
+        scores = scores.masked_fill(mask == 0, float(&quot;-inf&quot;))
+        weights = F.softmax(scores, dim=-1)
+        out = weights @ v  # (B, h, T, dh): tron thong tin theo trong so
+
+        # Gop head: (B, h, T, dh) -&gt; (B, T, h, dh) -&gt; duoi thang (B, T, d).
+        out = out.transpose(1, 2).reshape(B_, T_, -1)
+        return self.proj(out)
+
+
+# ---------------------------------------------------------------------------
+# Buoc 3 - MLP (&quot;nha kho kien thuc&quot; cua block)
+# ---------------------------------------------------------------------------
+class MLP(nn.Module):
+    &quot;&quot;&quot;MLP: Linear(d -&gt; 4d) -&gt; GELU -&gt; Linear(4d -&gt; d).
+
+    Vi sao mo rong 4d roi thu ve? Hai ma tran day tao nhieu chieu an de
+    luu pattern + phi tuyen GELU -&gt; capacity lon hon han giu nguyen d.
+    Day la trade-off chuan cua moi LLM (GPT, LLaMA).
+    &quot;&quot;&quot;
+
+    def __init__(self, d):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(d, 4 * d),  # mo rong: d -&gt; 4d
+            nn.GELU(),            # phi tuyen mem (thay ReLU)
+            nn.Linear(4 * d, d),  # thu ve: 4d -&gt; d
+        )
+
+    def forward(self, x):
+        return self.net(x)
+
+
+# ---------------------------------------------------------------------------
+# Buoc 4 - TransformerBlock (pre-norm + residual)
+# ---------------------------------------------------------------------------
+class TransformerBlock(nn.Module):
+    &quot;&quot;&quot;Mot block Transformer dung cong thuc pre-norm.
+
+    x&#x27; = x + Attn(Norm1(x));  y = x&#x27; + MLP(Norm2(x&#x27;)).
+
+    DIEM THEN CHOT: norm chi nam TRONG nhanh phu (truoc attn/mlp), khong
+    bao gio chan duong residual x -&gt; x + .... Nho vay gradient co &quot;duong
+    cao toc&quot; chay thang qua phep cong, train sau nhieu lop van on.
+    Viet nham thanh norm(x + attn(x)) la post-norm tra hinh (Bay 3).
+    &quot;&quot;&quot;
+
+    def __init__(self, d, n_head):
+        super().__init__()
+        # Hai norm RIENG BIET cho 2 nhanh (khong dung chung).
+        self.norm1 = RMSNorm(d)
+        self.norm2 = RMSNorm(d)
+        self.attn = CausalSelfAttention(d, n_head)
+        self.mlp = MLP(d)
+
+    def forward(self, x):
+        x = x + self.attn(self.norm1(x))  # nhanh attention + residual
+        x = x + self.mlp(self.norm2(x))   # nhanh MLP + residual
+        return x
+
+
+# ---------------------------------------------------------------------------
+# Buoc 5 - MiniGPT + weight tying
+# ---------------------------------------------------------------------------
+class MiniGPT(nn.Module):
+    &quot;&quot;&quot;GPT thu nho: embedding + N block + norm cuoi + LM head.
+
+    Weight tying: LM head DUNG CHUNG ma tran voi token embedding
+    (logits = h @ tok_emb.weight.T), khong tao ma tran moi -&gt; tiet kiem
+    V x d tham so va ep 2 dau &quot;nhat quan&quot; voi nhau.
+    &quot;&quot;&quot;
+
+    def __init__(self, v=V, d=D, n_head=N_HEAD, n_layer=N_LAYER,
+                 t_max=T_MAX):
+        super().__init__()
+        self.tok_emb = nn.Embedding(v, d)   # bang vector tung token
+        self.pos_emb = nn.Embedding(t_max, d)  # vector vi tri (hoc duoc)
+        self.blocks = nn.ModuleList(
+            [TransformerBlock(d, n_head) for _ in range(n_layer)])
+        self.ln_f = RMSNorm(d)  # norm cuoi truoc khi ra logits
+
+    def forward(self, idx):
+        &quot;&quot;&quot;Nhan idx (B, T) token id, tra logits (B, T, V).&quot;&quot;&quot;
+        _, t = idx.shape
+        assert t &lt;= T_MAX, &quot;chuoi dai hon T_MAX&quot;
+        pos = torch.arange(t, device=idx.device)
+        # Cong embedding token + embedding vi tri
+        # (mo hinh biet &quot;ai&quot; + &quot;o dau&quot;).
+        h = self.tok_emb(idx) + self.pos_emb(pos)
+        for block in self.blocks:
+            h = block(h)
+        h = self.ln_f(h)
+        # Weight tying: tai su dung tok_emb.weight lam LM head.
+        logits = h @ self.tok_emb.weight.T
+        return logits
+
+    def count_params(self):
+        &quot;&quot;&quot;Tong so tham so (embedding dem 1 lan nho weight tying).&quot;&quot;&quot;
+        return sum(p.numel() for p in self.parameters())
+
+
+# ---------------------------------------------------------------------------
+# Buoc 6 - 5 unit test (bat buoc PASS het)
+# ---------------------------------------------------------------------------
+def _fresh_model():
+    &quot;&quot;&quot;Tao model moi voi seed co dinh de test tai lap duoc.&quot;&quot;&quot;
+    torch.manual_seed(6)
+    return MiniGPT()
+
+
+def test_shapes():
+    &quot;&quot;&quot;Logits phai co shape (B, T, V).&quot;&quot;&quot;
+    model = _fresh_model()
+    idx = torch.randint(0, V, (B, T))
+    logits = model(idx)
+    assert logits.shape == (B, T, V), f&quot;sai shape: {logits.shape}&quot;
+    print(&quot;PASS test_shapes: logits shape =&quot;, tuple(logits.shape))
+
+
+def test_causal():
+    &quot;&quot;&quot;Kiem tra tinh nhan qua theo ca hai chieu.
+
+    Doi token tuong lai -&gt; qua khu KHONG doi;
+    doi token qua khu -&gt; tuong lai PHAI doi (Bay: mask nguoc chieu).&quot;&quot;&quot;
+    model = _fresh_model().eval()
+    base = torch.randint(0, V, (B, T))
+
+    # Chieu 1: chi doi token CUOI -&gt; cac vi tri truoc do phai giu nguyen.
+    alt_future = base.clone()
+    alt_future[:, -1] = (alt_future[:, -1] + 1) % V
+    o1 = model(base)
+    o2 = model(alt_future)
+    assert torch.allclose(o1[:, :-1, :], o2[:, :-1, :], atol=1e-5), \
+        &quot;token qua khu bi anh huong boi tuong lai: mask hong!&quot;
+    print(&quot;PASS test_causal (chieu 1): doi token cuoi khong anh huong qua khu&quot;)
+
+    # Chieu 2: doi token DAU -&gt; cac vi tri sau PHAI thay doi (neu khong,
+    # nghia la attention khong truyen thong tin gi ca).
+    alt_past = base.clone()
+    alt_past[:, 0] = (alt_past[:, 0] + 1) % V
+    o3 = model(alt_past)
+    assert not torch.allclose(o1[:, 1:, :], o3[:, 1:, :], atol=1e-5), \
+        &quot;doi qua khu ma tuong lai khong doi: attention khong chay?&quot;
+    print(&quot;PASS test_causal (chieu 2): doi token dau lam doi tuong lai&quot;)
+
+
+def test_residual_grad():
+    &quot;&quot;&quot;Sau backward: moi tham so deu co grad, khong NaN (residual chay).&quot;&quot;&quot;
+    model = _fresh_model()
+    idx = torch.randint(0, V, (B, T))
+    tgt = torch.randint(0, V, (B * T,))
+    loss = F.cross_entropy(model(idx).view(-1, V), tgt)
+    loss.backward()
+    for name, p in model.named_parameters():
+        assert p.grad is not None, f&quot;{name} khong co grad&quot;
+        assert not torch.isnan(p.grad).any(), f&quot;{name} grad bi NaN&quot;
+    print(&quot;PASS test_residual_grad: moi param deu co grad, khong NaN&quot;)
+
+
+def test_tying():
+    &quot;&quot;&quot;Weight tying: bang embedding chi dem 1 lan trong tong params.
+
+    Cong thuc dem (voi attention khong bias, MLP co bias):
+      moi block = attn(3d^2 + d^2) + mlp(4d^2+4d + 4d^2+d) + 2 norm (2d)
+                = 12d^2 + 7d
+      tong = V*d (tok_emb) + T_MAX*d (pos_emb) + n_layer*block + d (ln_f).
+    Neu ai them ma tran lm_head rieng thi tong se lech -&gt; test no ngay.
+    &quot;&quot;&quot;
+    model = _fresh_model()
+    total = model.count_params()
+    per_block = 12 * D * D + 7 * D
+    expected = V * D + T_MAX * D + N_LAYER * per_block + D
+    assert total == expected, f&quot;tong params {total} != {expected}: &quot; \
+        &quot;nghi co ma tran thua (mat weight tying?)&quot;
+    # Kiem tra truc tiep: khong ton tai tham so nao ngoai tok_emb.weight
+    # co the dong vai tro LM head rieng (ten khong chua &#x27;lm_head&#x27;/&#x27;head&#x27;).
+    names = [n for n, _ in model.named_parameters()]
+    assert not any(&quot;lm_head&quot; in n or &quot;head&quot; in n for n in names), \
+        f&quot;phat hien head rieng: {names}&quot;
+    print(f&quot;PASS test_tying: tong {total:,} params, embedding dem dung 1 lan&quot;)
+
+
+def test_deterministic():
+    &quot;&quot;&quot;Cung seed + eval mode -&gt; 2 lan forward cho output giong het nhau.&quot;&quot;&quot;
+    torch.manual_seed(6)
+    model = MiniGPT().eval()
+    idx = torch.randint(0, V, (B, T))
+    out1 = model(idx)
+    out2 = model(idx)
+    assert torch.equal(out1, out2), &quot;forward khong deterministic!&quot;
+    print(&quot;PASS test_deterministic: 2 lan forward giong het nhau&quot;)
+
+
+# ---------------------------------------------------------------------------
+# Buoc 7 - Train thu mini-task (bonus sanity check)
+# ---------------------------------------------------------------------------
+def train_sanity(steps=200, lr=3e-4):
+    &quot;&quot;&quot;Train next-token prediction tren chuoi lap [3,7,3,7,...].
+
+    Task nay qua de nen model DUNG phai hoc duoc: loss giam manh ve
+    &lt; 1.0. Neu loss dung yen -&gt; block co bug (xem Bay 2, 3).
+
+    Ghi chu ve loss buoc 0: embedding khoi tao chuan N(0,1) nen logits
+    ban dau co do lech chuan ~sqrt(d)=8 -&gt; cross-entropy khoi dau ~30
+    chu khong phai ln(V)~4.2. Model that dung init nho hon (vd std=0.02).
+    Dieu quan trong o day khong phai so ban dau ma la loss GIAM manh.
+    &quot;&quot;&quot;
+    torch.manual_seed(6)
+    model = MiniGPT()
+    opt = torch.optim.AdamW(model.parameters(), lr=lr)
+
+    # 64 chuoi [3,7,3,7,...] dai 16. Input = bo token cuoi, target = dich
+    # trai 1: du doan token ke tiep (sau 3 la 7, sau 7 la 3).
+    x = torch.tensor([[3, 7] * 8] * 64)
+    inp, tgt = x[:, :-1], x[:, 1:].reshape(-1)
+
+    t0 = time.perf_counter()
+    init_loss = None
+    for step in range(steps):
+        opt.zero_grad()
+        logits = model(inp)  # (64, 15, 64)
+        loss = F.cross_entropy(logits.reshape(-1, V), tgt)
+        if step == 0:
+            init_loss = loss.item()
+        loss.backward()
+        opt.step()
+        if step % 50 == 0 or step == steps - 1:
+            print(f&quot;  step {step:&gt;3}: loss = {loss.item():.4f}&quot;)
+    dt = time.perf_counter() - t0
+    final = loss.item()
+    assert final &lt; 1.0, f&quot;loss cuoi {final:.4f} &gt;= 1.0: model khong hoc duoc!&quot;
+    print(f&quot;  =&gt; loss giam tu {init_loss:.4f} xuong {final:.4f} trong &quot;
+          f&quot;{dt:.1f}s (CPU): block chay DUNG.&quot;)
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+def main():
+    &quot;&quot;&quot;Chay 5 unit test roi train thu (dung di tiep khi test con do).&quot;&quot;&quot;
+    print(&quot;=&quot; * 64)
+    print(&quot;5 unit test cho Transformer block&quot;)
+    print(&quot;=&quot; * 64)
+    test_shapes()
+    test_causal()
+    test_residual_grad()
+    test_tying()
+    test_deterministic()
+    print(&quot;\n&quot; + &quot;=&quot; * 64)
+    print(&quot;Train thu mini-task: [3,7,3,7,...] -&gt; next token&quot;)
+    print(&quot;=&quot; * 64)
+    train_sanity()
+    print(&quot;\n&quot; + &quot;=&quot; * 64)
+    print(&quot;XONG - 5/5 test PASS, train loss giam dat.&quot;)
+    print(&quot;=&quot; * 64)
+
+
+if __name__ == &quot;__main__&quot;:
+    main()
+</code></pre>
+</div>
+</section>
+
+<footer>
+  <div class="wrap">
+    Day 06 — Ghép Transformer block hoàn chỉnh · Số liệu chạy thật ngày 16/10/2026 (CPU, seed 6) ·
+    Hành trình LLM-beginner: Day 1–2 bigram &amp; MLP → Day 3 BPE → Day 4 RMSNorm &amp; RoPE → Day 5 attention → <b>Day 6 MiniGPT</b> ⭐
+  </div>
+</footer>
+
+<script>
+// --- Demo B1: khám phá từng công đoạn của block ---
+(function(){
+  const STEPS=[
+    "<b>1. RMSNorm (norm1)</b> — 'tắm rửa' lần 1<br>Input (4,16,64) → chuẩn hóa mỗi vector 64 chiều về độ lớn ~1 (công thức Day 04: x / RMS(x) × g).<br>Tham số: <b>64</b> (vector g, khởi tạo = 1). Shape không đổi: (4,16,64).<br><i>Vì sao trước attention? Để điểm số Q·K không bị phình khi xếp nhiều block.</i>",
+    "<b>2. CausalSelfAttention (4 heads)</b> — 'nghe ngóng' quá khứ<br>Mỗi token chỉ được nhìn các token đứng TRƯỚC nó (mask tam giác, Day 05). 4 heads nhìn 4 'góc' khác nhau của quá khứ.<br>Tham số: <b>16,384</b> (QKV 3×64×64=12,288 + proj 64×64=4,096). Shape: (4,16,64) → (4,16,64).",
+    "<b>3. ⊕ cộng x (residual 1)</b> — đường tắt cứu hộ<br>x′ = x + Attn(Norm(x)): cộng TRẢ LẠI input gốc vào output của attention.<br>Tham số: <b>0</b>. Ý nghĩa: dù attention có 'nói nhảm', thông tin gốc không bao giờ mất; gradient có đường tắt về thẳng input.",
+    "<b>4. RMSNorm (norm2)</b> — 'tắm rửa' lần 2<br>Chuẩn hóa lại x′ trước khi vào MLP. Cùng công thức RMSNorm, bộ tham số g riêng.<br>Tham số: <b>64</b>. Shape không đổi: (4,16,64).",
+    "<b>5. MLP (64→256→64, GELU)</b> — 'phòng suy nghĩ'<br>Mỗi token tự biến đổi sâu vector của mình: phình lên 256 chiều (GELU) rồi thu về 64. Đây là 'kho kiến thức'.<br>Tham số: <b>33,088</b> (16,384+256 + 16,384+64) — <b>ngốn ⅔ block!</b>",
+    "<b>6. ⊕ cộng x′ (residual 2)</b> — đường tắt thứ hai<br>y = x′ + MLP(Norm(x′)): cộng trả lại x′ vào output MLP.<br>Tham số: <b>0</b>. Output cuối của block: <b>y (4,16,64)</b> — sẵn sàng vào block tiếp theo."
+  ];
+  const out=document.getElementById("blockOut");
+  const btns=document.getElementById("blockSeg").querySelectorAll("button");
+  function render(i){
+    btns.forEach((b,j)=>b.classList.toggle("active",i===j));
+    out.innerHTML=STEPS[i];
+  }
+  btns.forEach((b)=>b.addEventListener("click",()=>render(parseInt(b.dataset.s,10))));
+  render(0);
+})();
+// --- Demo B2: bản đồ tham số + weight tying ---
+(function(){
+  const ROWS=[
+    ["tok_emb (từ điển token)",4096,"#2563eb"],
+    ["pos_emb (tem vị trí ×128)",8192,"#0f766e"],
+    ["block 1: attn 16,384 + mlp 33,088 + norm 128",49600,"#6d28d9"],
+    ["block 2: attn 16,384 + mlp 33,088 + norm 128",49600,"#6d28d9"],
+    ["ln_f (chuẩn hóa cuối)",64,"#b45309"]
+  ];
+  const bars=document.getElementById("paramBars"), out=document.getElementById("paramOut");
+  const bOn=document.getElementById("tieOn"), bOff=document.getElementById("tieOff");
+  let tied=true;
+  function render(){
+    bOn.classList.toggle("active",tied); bOff.classList.toggle("active",!tied);
+    const rows=tied?ROWS:ROWS.concat([["lm_head RIÊNG (ma trận thừa!)",4096,"#be123c"]]);
+    const max=Math.max.apply(null,rows.map(r=>r[1]));
+    bars.innerHTML="";
+    rows.forEach(r=>{
+      const row=document.createElement("div"); row.className="bar-row";
+      const lab=document.createElement("div"); lab.className="bar-lab"; lab.textContent=r[0];
+      const track=document.createElement("div"); track.className="bar-track";
+      const fill=document.createElement("div"); fill.className="bar-fill";
+      fill.style.width=(100*r[1]/max).toFixed(1)+"%"; fill.style.background=r[2];
+      track.appendChild(fill);
+      const val=document.createElement("div"); val.className="bar-val"; val.textContent=r[1].toLocaleString("en-US");
+      row.appendChild(lab); row.appendChild(track); row.appendChild(val);
+      bars.appendChild(row);
+    });
+    const total=rows.reduce((a,r)=>a+r[1],0);
+    out.innerHTML=tied
+      ? "Tổng = <b>111,552</b> tham số ✓ (khớp số chạy thật).<br>LM head <b>tái dùng</b> tok_emb — bảng từ điển chỉ đếm <b>1 lần</b>. test_tying PASS."
+      : "Tổng = <b>115,648</b> (+4,096 ma trận lm_head riêng).<br>⚠️ test_tying sẽ <b>NỔ</b> vì tổng lệch khỏi 111,552 — đây chính là cách test 'bắt quả tang' ma trận thừa!";
+  }
+  bOn.addEventListener("click",()=>{tied=true;render();});
+  bOff.addEventListener("click",()=>{tied=false;render();});
+  render();
+})();
+// --- Demo B4: test nhân quả 2 chiều ---
+(function(){
+  const grid=document.getElementById("causalGrid"), out=document.getElementById("causalOut");
+  const b1=document.getElementById("cz1"), b2=document.getElementById("cz2");
+  function render(dir){
+    b1.classList.toggle("active",dir===1); b2.classList.toggle("active",dir===2);
+    grid.innerHTML="";
+    for(let i=0;i<8;i++){
+      const c=document.createElement("div"); c.className="c";
+      c.textContent=i;
+      if(dir===1){ c.classList.add(i<7?"past":"changed"); }
+      else{ c.classList.add("changed"); }
+      grid.appendChild(c);
+    }
+    out.innerHTML=dir===1
+      ? "<b>Chiều 1:</b> đổi token số 7 (cuối) → output tại vị trí 0–6 <b>không đổi</b> (xanh) ✓<br>Quá khứ miễn nhiễm với tương lai — mask nhân quả đúng."
+      : "<b>Chiều 2:</b> đổi token số 0 (đầu) → output tại <b>mọi</b> vị trí sau đều <b>đổi</b> (đỏ) ✓<br>Tương lai bắt buộc phải 'nghe thấy' quá khứ — attention truyền tin thật, mask không bị ngược.";
+  }
+  b1.addEventListener("click",()=>render(1));
+  b2.addEventListener("click",()=>render(2));
+  render(1);
+})();
+// --- Demo Train: đường cong loss ---
+(function(){
+  const PTS=[[0,29.5175],[50,0.0062],[100,0.0003],[150,0.0002],[199,0.0001]];
+  const svg=document.getElementById("lossSvg"), out=document.getElementById("lossOut");
+  const bLin=document.getElementById("lsLin"), bLog=document.getElementById("lsLog");
+  let logMode=false;
+  const W=640,H=300,PL=64,PR=20,PT=24,PB=44;
+  function render(){
+    bLin.classList.toggle("active",!logMode); bLog.classList.toggle("active",logMode);
+    const xs=PTS.map(p=>p[0]), raw=PTS.map(p=>p[1]);
+    const ys=logMode?raw.map(Math.log10):raw;
+    const yMin=logMode?-4.2:0, yMax=logMode?1.5:31;
+    const X=x=>PL+(x/199)*(W-PL-PR);
+    const Y=y=>PT+(1-(y-yMin)/(yMax-yMin))*(H-PT-PB);
+    let s="";
+    s+='<line x1="'+PL+'" y1="'+PT+'" x2="'+PL+'" y2="'+(H-PB)+'" stroke="#9ca3af"/>';
+    s+='<line x1="'+PL+'" y1="'+(H-PB)+'" x2="'+(W-PR)+'" y2="'+(H-PB)+'" stroke="#9ca3af"/>';
+    const ticks=logMode?[-4,-3,-2,-1,0,1]:[0,5,10,15,20,25,30];
+    ticks.forEach(t=>{
+      const y=Y(t);
+      s+='<line x1="'+PL+'" y1="'+y+'" x2="'+(W-PR)+'" y2="'+y+'" stroke="#e5e7eb"/>';
+      s+='<text x="'+(PL-8)+'" y="'+(y+4)+'" text-anchor="end" font-size="11" fill="#6b7280">'+(logMode?("1e"+t):t)+'</text>';
+    });
+    xs.forEach(x=>{
+      s+='<text x="'+X(x)+'" y="'+(H-PB+20)+'" text-anchor="middle" font-size="11" fill="#6b7280">step '+x+'</text>';
+    });
+    const pts=PTS.map((p,i)=>X(p[0]).toFixed(1)+","+Y(ys[i]).toFixed(1)).join(" ");
+    s+='<polyline points="'+pts+'" fill="none" stroke="#6d28d9" stroke-width="3"/>';
+    PTS.forEach((p,i)=>{
+      const cx=X(p[0]), cy=Y(ys[i]);
+      s+='<circle cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="6" fill="#6d28d9" stroke="#fff" stroke-width="2"/>';
+      s+='<text x="'+cx.toFixed(1)+'" y="'+(cy-12).toFixed(1)+'" text-anchor="middle" font-size="12" font-weight="700" fill="#4c1d95">'+p[1]+'</text>';
+    });
+    s+='<text x="'+(W-PR)+'" y="'+(PT-6)+'" text-anchor="end" font-size="12" fill="#6b7280">loss ('+(logMode?"thang log10":"thang tuyến tính")+')</text>';
+    svg.innerHTML=s;
+    out.innerHTML=logMode
+      ? "Thang log: thấy rõ loss rơi <b>thẳng đứng</b> từ 10<sup>1.47</sup> (≈29.5) xuống 10<sup>-4</sup> (=0.0001) — <b>giảm hơn 5 bậc độ lớn</b> trong 200 step."
+      : "Thang tuyến tính: loss 'rơi tự do' ngay 50 step đầu (29.5 → 0.0062).<br>Chuyển sang <b>thang log</b> để thấy toàn bộ hành trình giảm.";
+  }
+  bLin.addEventListener("click",()=>{logMode=false;render();});
+  bLog.addEventListener("click",()=>{logMode=true;render();});
+  render();
+})();
+// --- Copy source ---
+(function(){
+  const btn=document.getElementById("copySrcBtn");
+  btn.addEventListener("click",function(){
+    const raw=document.getElementById("fullsrc").textContent;
+    const msg=document.getElementById("copyMsg");
+    const done=function(){msg.textContent="Đã copy ✓";setTimeout(function(){msg.textContent="";},2000);};
+    if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(raw).then(done,done);}
+    else{const ta=document.createElement("textarea");ta.value=raw;document.body.appendChild(ta);ta.select();try{document.execCommand("copy");}catch(e){}document.body.removeChild(ta);done();}
+  });
+})();
+</script>
+<script>
+// To mau cu phap Python cho source code
+(function(){
+  function escHtml(x){return x.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+  function highlightPython(src){
+    var re=/(#[^\n]*)|("""[\s\S]*?"""|"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*')|\b(import|from|def|class|return|if|elif|else|for|while|in|is|not|and|or|None|True|False|lambda|with|as|try|except|finally|raise|global|pass|break|continue)\b|(\b\d+(?:\.\d+)?\b)|(@[\w.]+)/g;
+    var out="",last=0,m;
+    while((m=re.exec(src))){
+      out+=escHtml(src.slice(last,m.index));
+      var tok=m[0],cls=m[1]?"cm":m[2]?"str":m[3]?"kw":m[4]?"num2":"fn";
+      out+='<span class="'+cls+'">'+escHtml(tok)+"</span>";
+      last=m.index+tok.length;
+      if(tok.length===0)re.lastIndex++;
+    }
+    return out+escHtml(src.slice(last));
+  }
+  document.querySelectorAll("pre.pysrc").forEach(function(pre){
+    var raw=pre.textContent;
+    pre.innerHTML="<code>"+highlightPython(raw)+"</code>";
+  });
+})();
+</script>
+</body>
+</html>
