@@ -17,7 +17,11 @@ Cach chay:
     python transformer_block.py
 
 Ky vong:
-    5/5 test in PASS; train 200 step: loss tu ~4.2 giam xuong < 1.0.
+    5/5 test in PASS; train 200 step: loss giam manh xuong < 1.0.
+    [TRAINER] Sua 2026-10-16: ban cu ghi "loss tu ~4.2" la SAI - thuc te
+    loss buoc 0 ~30 vi embedding khoi tao N(0,1) (da tu giai thich dung
+    trong train_sanity). Ghi sai con so ky vong khien nguoi chay lan dau
+    tuong test hong khi thay loss hien 30.
 
 Chi can PyTorch (CPU la du, chay vai giay).
 """
@@ -100,6 +104,12 @@ class CausalSelfAttention(nn.Module):
 
     def forward(self, x):
         B_, T_, _ = x.shape
+        # [TRAINER] Guard 2026-10-16: mask chi tao san den t_max. Neu T_
+        # vuot qua, self.mask[:T_, :T_] khong bao loi ma am tham tra ve ma
+        # tran thieu kich thuoc -> masked_fill crash voi thong bao broadcast
+        # kho hieu. That bai SOM voi thong bao ro rang de debug hon.
+        assert T_ <= self.mask.shape[0], \
+            f"do dai chuoi {T_} vuot qua t_max={self.mask.shape[0]}"
         # Tach Q, K, V tu 1 phep chieu: (B, T, d) -> 3 x (B, T, d).
         q, k, v = self.qkv(x).chunk(3, dim=-1)
         # Tach head: (B, T, d) -> (B, T, h, dh) -> (B, h, T, dh).
