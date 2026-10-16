@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ngày 6 — Ghép Transformer block: mỗi block phải qua unit test</title>
+<style>
+  :root{
+    --bg:#0b1020; --card:#141b33; --line:#26314f; --txt:#e8ecf7; --muted:#9aa6c7;
+    --gold:#fbbf24; --blue:#60a5fa; --green:#34d399; --red:#f87171; --violet:#a78bfa;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  body{margin:0; background:var(--bg); color:var(--txt);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    line-height:1.75; font-size:16.5px;}
+  .wrap{max-width:860px; margin:0 auto; padding:0 18px 80px;}
+  .kicker{display:inline-block; margin:26px 0 10px; padding:6px 14px; border:1px solid var(--line);
+    border-radius:999px; color:var(--muted); font-size:13px; letter-spacing:.4px;}
+  h1{font-size:clamp(26px,5.4vw,38px); line-height:1.3; margin:6px 0 8px;}
+  .sub{color:var(--muted); margin:0 0 6px;}
+  .meta{display:flex; gap:10px; flex-wrap:wrap; margin:14px 0 22px; color:var(--muted); font-size:14px;}
+  .meta span{background:var(--card); border:1px solid var(--line); border-radius:10px; padding:6px 12px;}
+  .hero{width:100%; border-radius:16px; border:1px solid var(--line); display:block;}
+  .cap{color:var(--muted); font-size:13.5px; margin:8px 2px 0;}
+  .goal{background:linear-gradient(135deg,#16213f,#101a36); border:1px solid var(--line);
+    border-radius:14px; padding:18px 20px; margin:26px 0;}
+  .goal h3{margin:0 0 10px; font-size:17px; color:var(--gold);}
+  .goal ul{margin:0; padding-left:20px;}
+  .goal li{margin:6px 0;}
+  section.card{background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:22px 20px; margin:22px 0;}
+  section.card h2{margin:0 0 4px; font-size:21px;}
+  section.card h2 .n{display:inline-flex; width:30px; height:30px; border-radius:9px;
+    background:var(--blue); color:#081226; font-size:16px; align-items:center; justify-content:center;
+    margin-right:8px; font-weight:800;}
+  section.card p.lead{color:var(--muted); margin:0 0 12px;}
+  .formula{background:#0b1226; border:1px dashed #33406b; border-radius:12px;
+    padding:14px 16px; margin:14px 0; font-family:"SF Mono",Consolas,Menlo,monospace;
+    font-size:15px; overflow-x:auto; white-space:nowrap;}
+  .formula b{color:var(--gold);}
+  .note{border-left:4px solid var(--green); background:#0f2233; border-radius:0 12px 12px 0;
+    padding:12px 16px; margin:14px 0;}
+  .warn{border-left:4px solid var(--red); background:#2a1420; border-radius:0 12px 12px 0;
+    padding:12px 16px; margin:14px 0;}
+  .green{border:1px solid #14532d; background:linear-gradient(135deg,#0c2b1a,#0a1f14);
+    border-radius:14px; padding:18px 20px; margin:22px 0;}
+  .green h3{margin:0 0 8px; color:var(--green); font-size:18px;}
+  .code{background:#070d1c; border:1px solid var(--line); border-radius:12px; padding:14px 16px;
+    font-family:"SF Mono",Consolas,Menlo,monospace; font-size:14px; overflow-x:auto; margin:14px 0; white-space:pre;}
+  .code .c{color:#7c8db5;} .code .k{color:var(--violet);} .code .s{color:var(--green);} .code .n{color:var(--gold);}
+  svg.diagram{width:100%; height:auto; display:block; margin:12px 0; border-radius:12px;}
+  table.tbl{width:100%; border-collapse:collapse; margin:12px 0; font-size:15px;}
+  table.tbl th, table.tbl td{border:1px solid var(--line); padding:9px 12px; text-align:left;}
+  table.tbl th{background:#0f1730; color:var(--gold);}
+  .tldr{background:#151a2e; border:1px solid var(--line); border-radius:14px; padding:18px 20px; margin:22px 0;}
+  .tldr h3{margin:0 0 8px; color:var(--blue);}
+  .tldr li{margin:6px 0;}
+  .check{list-style:none; padding-left:0;}
+  .check li{margin:8px 0; padding-left:30px; position:relative;}
+  .check li::before{content:"☑"; position:absolute; left:0; color:var(--green);}
+  .nav{display:flex; gap:12px; flex-wrap:wrap; margin:28px 0 0;}
+  .nav a{flex:1 1 200px; text-align:center; text-decoration:none; font-weight:700;
+    padding:15px 18px; border-radius:14px; border:1px solid var(--line);}
+  .nav a.q{background:linear-gradient(135deg,#3b82f6,#1d4ed8); color:#fff;}
+  .nav a.v{background:linear-gradient(135deg,#f59e0b,#b45309); color:#1a1205;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <span class="kicker">Khóa AI Engineer (LLM) · Phase 1 — Ngày 6/30</span>
+  <h1>Ghép Transformer block: mỗi block phải qua unit test</h1>
+  <p class="sub">Mỗi layer của GPT là một "block" lặp đi lặp lại — bên trong là attention, MLP, LayerNorm và đường residual nối chúng lại. Hiểu một block = hiểu 99% kiến trúc.</p>
+  <div class="meta">
+    <span>☀️ Buổi sáng · Lý thuyết + quiz</span>
+    <span>⏱ ~35 phút đọc</span>
+    <span>🧩 5 câu trắc nghiệm + 1 câu tự luận</span>
+  </div>
+
+  <img class="hero" src="img/day06_hero.webp" alt="Các module transformer ghép lại thành một khối">
+  <p class="cap">Attention, MLP, LayerNorm là những "viên gạch" — Transformer block là cách xếp chúng lại với nhau.</p>
+
+  <div class="goal">
+    <h3>🎯 Mục tiêu buổi học</h3>
+    <ul>
+      <li>Ghép <b>attention + MLP + residual + LayerNorm</b> thành một decoder-only block hoàn chỉnh (kiểu pre-norm).</li>
+      <li>Phân biệt <b>pre-norm vs post-norm</b> và hiểu vì sao mọi LLM hiện nay dùng pre-norm.</li>
+      <li>Hiểu <b>GELU/SwiGLU</b> trong MLP, <b>residual stream</b>, <b>dropout</b> và <b>causal LM head</b>.</li>
+      <li>Viết được <b>unit test</b> cho một block: kiểm tra shape, mask, gradient trước khi train.</li>
+    </ul>
+  </div>
+
+  <section class="card" id="s-noi-tiep">
+    <h2><span class="n">0</span>Nối tiếp từ Ngày 5</h2>
+    <p class="lead">Attention đã cho phép các token "hỏi han" lẫn nhau. Nhưng chỉ attention thôi chưa đủ.</p>
+    <p>Self-attention về bản chất là một phép <b>trộn thông tin theo chiều token</b> (mixing across positions): mỗi output là trung bình có trọng số của các input. Nhưng nó không học được biến đổi phi tuyến phức tạp <b>theo chiều vector</b> (mixing across channels) — nhiệm vụ đó thuộc về <b>MLP</b>. Thêm vào đó, khi xếp hàng chục layer chồng lên nhau, mô hình cần <b>đường residual</b> để gradient chảy xuyên suốt, và <b>LayerNorm</b> để giữ thang số ổn định. Bốn mảnh ghép lại = một <b>Transformer block</b>.</p>
+  </section>
+
+  <section class="card" id="s-giai-phau">
+    <h2><span class="n">1</span>Giải phẫu một Transformer block (pre-norm)</h2>
+    <p class="lead">Block kiểu pre-norm — kiến trúc mà GPT-2, GPT-3, LLaMA, Mistral đều dùng.</p>
+    <svg class="diagram" viewBox="0 0 720 560" role="img" aria-label="Sơ đồ pre-norm transformer block">
+      <defs>
+        <marker id="arw" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+          <path d="M0,0 L10,5 L0,10 z" fill="#9aa6c7"/>
+        </marker>
+      </defs>
+      <g font-size="15" text-anchor="middle" font-family="inherit">
+        <!-- main stream -->
+        <rect x="285" y="14" width="150" height="44" rx="10" fill="#16213f" stroke="#60a5fa" stroke-width="2"/>
+        <text x="360" y="42" fill="#e8ecf7" font-weight="700">input x (B, L, d)</text>
+        <line x1="360" y1="58" x2="360" y2="88" stroke="#9aa6c7" stroke-width="2" marker-end="url(#arw)"/>
+        <!-- residual line -->
+        <line x1="140" y1="73" x2="140" y2="470" stroke="#fbbf24" stroke-width="3" stroke-dasharray="8,5"/>
+        <text x="120" y1="73" x2="0" y="0" x="132" y="250" fill="#fbbf24" font-size="13" transform="rotate(-90 100 250)">residual stream</text>
+        <!-- LN1 -->
+        <rect x="285" y="88" width="150" height="44" rx="10" fill="#101a36" stroke="#34d399" stroke-width="2"/>
+        <text x="360" y="116" fill="#34d399" font-weight="700">LayerNorm ①</text>
+        <line x1="360" y1="132" x2="360" y2="162" stroke="#9aa6c7" stroke-width="2" marker-end="url(#arw)"/>
+        <!-- attn -->
+        <rect x="285" y="162" width="150" height="52" rx="10" fill="#101a36" stroke="#60a5fa" stroke-width="2"/>
+        <text x="360" y="184" fill="#60a5fa" font-weight="700">Causal Self-Attention</text>
+        <text x="360" y="205" fill="#9aa6c7" font-size="13">(Ngày 5 đã học)</text>
+        <line x1="360" y1="214" x2="360" y2="244" stroke="#9aa6c7" stroke-width="2" marker-end="url(#arw)"/>
+        <!-- add1 -->
+        <circle cx="360" cy="262" r="18" fill="#0b1226" stroke="#fbbf24" stroke-width="2"/>
+        <text x="360" y="269" fill="#fbbf24" font-size="20" font-weight="700">+</text>
+        <line x1="140" y1="262" x2="342" y2="262" stroke="#fbbf24" stroke-width="3" stroke-dasharray="8,5"/>
+        <line x1="360" y1="280" x2="360" y2="310" stroke="#9aa6c7" stroke-width="2" marker-end="url(#arw)"/>
+        <text x="470" y="268" fill="#fbbf24" font-size="13" text-anchor="start">x + Attn(LN(x))</text>
+        <!-- LN2 -->
+        <rect x="285" y="310" width="150" height="44" rx="10" fill="#101a36" stroke="#34d399" stroke-width="2"/>
+        <text x="360" y="338" fill="#34d399" font-weight="700">LayerNorm ②</text>
+        <line x1="360" y1="354" x2="360" y2="384" stroke="#9aa6c7" stroke-width="2" marker-end="url(#arw)"/>
+        <!-- mlp -->
+        <rect x="285" y="384" width="150" height="52" rx="10" fill="#101a36" stroke="#a78bfa" stroke-width="2"/>
+        <text x="360" y="406" fill="#a78bfa" font-weight="700">MLP (d → 4d → d)</text>
+        <text x="360" y="427" fill="#9aa6c7" font-size="13">GELU / SwiGLU</text>
+        <line x1="360" y1="436" x2="360" y2="466" stroke="#9aa6c7" stroke-width="2" marker-end="url(#arw)"/>
+        <!-- add2 -->
+        <circle cx="360" cy="484" r="18" fill="#0b1226" stroke="#fbbf24" stroke-width="2"/>
+        <text x="360" y="491" fill="#fbbf24" font-size="20" font-weight="700">+</text>
+        <line x1="140" y1="484" x2="342" y2="484" stroke="#fbbf24" stroke-width="3" stroke-dasharray="8,5"/>
+        <line x1="360" y1="502" x2="360" y2="528" stroke="#9aa6c7" stroke-width="2" marker-end="url(#arw)"/>
+        <text x="470" y="490" fill="#fbbf24" font-size="13" text-anchor="start">x' + MLP(LN(x'))</text>
+        <!-- out -->
+        <rect x="285" y="528" width="150" height="44" rx="10" fill="#16213f" stroke="#60a5fa" stroke-width="2"/>
+        <text x="360" y="556" fill="#e8ecf7" font-weight="700">output y (B, L, d)</text>
+      </g>
+    </svg>
+    <div class="formula"><b>x′</b> = x + Attn(LN(x)) &nbsp;&nbsp;·&nbsp;&nbsp; <b>y</b> = x′ + MLP(LN(x′))</div>
+    <p>Nhận xét quan trọng: <b>chuẩn hóa (LayerNorm) nằm TRƯỚC mỗi sub-layer</b> — đây là pre-norm. Đường residual (đường vàng đứt nét) chạy thẳng từ đầu đến cuối, cộng dần "hiệu chỉnh" của attention và MLP vào. Nếu zero-init đầu ra của hai sub-layer, block trở thành hàm đồng nhất — đó là lý do train sâu ổn định.</p>
+    <div class="note">💡 Stack N block = N layer của LLM. Mỗi block có bộ tham số riêng, cùng công thức trên. GPT-2 small: 12 block, d=768 → 117M tham số.</div>
+  </section>
+
+  <section class="card" id="s-pre-post">
+    <h2><span class="n">2</span>Pre-norm vs Post-norm: 2 dòng code, khác nhau cả thập kỷ</h2>
+    <p class="lead">Transformer gốc 2017 dùng post-norm. GPT-2 (2019) đổi sang pre-norm. Không ai quay lại nữa.</p>
+    <table class="tbl">
+      <tr><th></th><th>Post-norm (Transformer 2017)</th><th>Pre-norm (GPT-2 → LLaMA)</th></tr>
+      <tr><td><b>Công thức</b></td><td>x′ = LN(x + Attn(x))</td><td>x′ = x + Attn(LN(x))</td></tr>
+      <tr><td><b>Gradient</b></td><td>Phải đi xuyên qua LN mỗi layer → dễ suy giảm/khuếch đại</td><td>Đường residual "sạch" chạy thẳng → gradient chảy tốt</td></tr>
+      <tr><td><b>Train sâu</b></td><td>Cần warm-up learning rate rất kỹ, hay mất ổn định</td><td>Ổn định với learning rate lớn hơn, warm-up đơn giản</td></tr>
+      <tr><td><b>Output cuối</b></td><td>Đã được chuẩn hóa từng layer</td><td>Cần thêm 1 LN cuối cùng trước LM head</td></tr>
+    </table>
+    <p>Trực giác: trong pre-norm, tín hiệu <b>x đi nguyên vẹn</b> dọc đường residual từ embedding đến tận layer cuối — các block chỉ "nhặt" và "bổ sung" thông tin, không "sờ" vào bản thân x. Gradient cũng vậy: luôn có đường tắt về loss, không bao giờ bị LN "bóp méo" trên đường đi.</p>
+    <div class="warn">⚠️ Bẫy thường gặp: quên LN cuối sau block cuối cùng. Vì pre-norm không chuẩn hóa x trên đường residual, nên trước khi đưa vào LM head phải có <b>final LayerNorm</b> — không là thang số chạy loạn.</div>
+  </section>
+
+  <section class="card" id="s-mlp">
+    <h2><span class="n">3</span>MLP trong block: nhà kho kiến thức của mô hình</h2>
+    <p class="lead">Nếu attention là "trao đổi thông tin giữa các token", MLP là "suy nghĩ sâu bên trong mỗi token".</p>
+    <div class="formula">MLP(x) = <b>W₂</b>( GELU( <b>W₁</b> x ) ), &nbsp; W₁: d → 4d, &nbsp; W₂: 4d → d</div>
+    <p>Vì sao mở rộng 4x rồi co lại? Ở không gian 4d rộng, mô hình có "chỗ" để lưu <b>mẫu kiến thức</b> (fact, quan hệ, quy tắc) dưới dạng các nơ-ron kích hoạt thưa. Nhiều nghiên cứu cho thấy MLP chính là nơi LLM <b>lưu trữ tri thức</b> — attention chỉ định tuyến, còn MLP mới là "bộ nhớ".</p>
+    <p><b>GELU vs ReLU:</b> ReLU(x) = max(0, x) có góc gãy tại 0 (đạo hàm không xác định, nơ-ron "chết" khi x âm). GELU trơn, mềm, nơ-ron âm nhỏ vẫn có gradient → học mượt hơn. Hầu hết LLM dùng GELU hoặc SwiGLU.</p>
+    <div class="formula">SwiGLU(x) = ( x<b>W</b> ⊙ silu(x<b>V</b>) )<b>U</b>, &nbsp; silu(z) = z · σ(z)</div>
+    <p><b>SwiGLU</b> (LLaMA, Mistral, PaLM) thêm một <b>cổng gate</b>: nhánh silu(xV) quyết định "mở cửa" bao nhiêu cho nhánh xW. Gate = mô hình tự học <b>tắt bớt nơ-ron không cần thiết</b> theo từng input — vừa mạnh hơn, vừa thưa hơn GELU thuần.</p>
+    <div class="note">💡 Tham số: attention chiếm <b>4d²</b> (W^Q, W^K, W^V, W^O), MLP chiếm <b>8d²</b> (2 ma trận d×4d). Mỗi block ≈ <b>12d²</b> tham số — 2/3 nằm ở MLP. Muốn thu nhỏ model? Cắt MLP ratio trước.</div>
+  </section>
+
+  <section class="card" id="s-residual">
+    <h2><span class="n">4</span>Residual stream &amp; dropout: đường cao tốc và phanh tay</h2>
+    <p class="lead">Đường cộng x trực tiếp chính là phát minh khiến mạng sâu 100+ layer train được.</p>
+    <img class="hero" src="img/day06_residual.webp" alt="Đường cao tốc residual với các nhánh nhỏ nhập vào">
+    <p class="cap">Residual stream như làn cao tốc chạy xuyên suốt — mỗi block chỉ là một con đường nhỏ nhập thêm "hiệu chỉnh" vào.</p>
+    <p><b>Residual stream:</b> gọi là "stream" (dòng chảy) vì x ở mọi layer sống trong cùng không gian d chiều. Mỗi block <b>không viết lại</b> x mà chỉ <b>cộng thêm delta</b> (hiệu chỉnh nhỏ). Ở đầu train, delta gần 0 → mạng sâu hoạt động như mạng nông, dễ tối ưu. Càng train, các block càng học cách "khắc" thông tin vào stream.</p>
+    <p><b>Dropout</b> (thường 0.1): tắt ngẫu nhiên một số nơ-ron trong lúc train, buộc mạng không "ỷ lại" vào vài nơ-ron cụ thể → chống overfitting. Lưu ý: dropout <b>phải TẮT khi inference</b> (model.eval()) và nhớ <b>scale lại</b> output khi train (inverted dropout: chia cho 1−p).</p>
+  </section>
+
+  <section class="card" id="s-lmhead">
+    <h2><span class="n">5</span>Causal LM head: từ vector ẩn thành dự đoán từ tiếp theo</h2>
+    <p class="lead">Block cuối xong, vector ẩn h phải biến thành xác suất cho V từ trong từ điển.</p>
+    <div class="formula">logits = <b>h</b> · <b>W_embᵀ</b>, &nbsp;&nbsp; loss = CrossEntropy( softmax(logits), token_tiếp_theo )</div>
+    <p><b>Tied embeddings:</b> dùng <b>chung một ma trận</b> W_emb cho cả embedding đầu vào (token → vector) và LM head (vector → logits). Lợi ích kép: (1) giảm hẳn <b>V×d</b> tham số (với V=50k, d=768 là ~38M tham số); (2) ép mô hình dùng <b>cùng một không gian biểu diễn</b> cho đọc và viết — trực giác ngôn ngữ nhất quán hơn.</p>
+    <div class="note">💡 Nhớ Ngày 3: embedding là bảng tra V×d. Tied embeddings đơn giản là "đọc bảng tra theo chiều ngược lại" để giải mã. Không có gì thần bí.</div>
+  </section>
+
+  <section class="card" id="s-unittest">
+    <h2><span class="n">6</span>Unit test cho block: đừng train khi chưa test</h2>
+    <p class="lead">Một block có bug mà train 10 tiếng mới phát hiện = đốt tiền điện. 5 test dưới đây chạy trong vài giây.</p>
+    <ul class="check">
+      <li><b>Shape test:</b> input (B, L, d) → output (B, L, d); LM head cho (B, L, V). Sai shape = bug reshape/transpose.</li>
+      <li><b>Causal test:</b> đổi các token ở <b>tương lai</b> thành ngẫu nhiên → output ở vị trí hiện tại <b>không đổi</b>. Nếu đổi = mask bị rò.</li>
+      <li><b>Gradient test:</b> loss.backward() xong, mọi tham số đều có grad, không NaN/Inf.</li>
+      <li><b>Identity test:</b> zero-init output của Attn và MLP → block phải trả về đúng input (đường residual sạch).</li>
+      <li><b>Tied embedding test:</b> W của LM head và W của embedding là <b>cùng một object</b> trong bộ nhớ.</li>
+    </ul>
+    <div class="code"><span class="c"># causal test: tương lai đổi, quá khứ không được đổi</span>
+x1 = torch.randn(B, L, d)
+x2 = x1.clone(); x2[:, -2:] = torch.randn(B, 2, d)  <span class="c"># phá 2 token cuối</span>
+y1, y2 = block(x1), block(x2)
+<span class="k">assert</span> torch.allclose(y1[:, :-2], y2[:, :-2], atol=<span class="n">1e-5</span>)  <span class="c"># các vị trí cũ giữ nguyên</span></div>
+    <div class="warn">⚠️ Causal test có thể fail giả nếu bạn dùng <b>dropout</b>: chuyển model sang <b>eval()</b> trước khi test để tắt tính ngẫu nhiên.</div>
+  </section>
+
+  <div class="green">
+    <h3>⚡ Góc tiết kiệm năng lượng</h3>
+    <p><b>Pre-norm không chỉ ổn định hơn — nó còn tiết kiệm điện.</b> Vì gradient chảy tốt, pre-norm hội tụ với learning rate lớn hơn và ít bước hơn post-norm để đạt cùng loss → <b>ít GPU-giờ hơn cho cùng một model</b>. Một run train thất bại giữa chừng vì mất ổn định (nan loss) là hàng chục kWh đổ sông đổ biển.</p>
+    <p>Thêm một "chiêu" nữa cho buổi tối: <b>gradient checkpointing</b> — không lưu activation của mọi layer, chỉ lưu lại khi backward cần (tính lại forward). Đổi <b>tính toán lấy bộ nhớ</b>: train được model to hơn trên cùng một GPU, batch lớn hơn → GPU chạy đầy tải → <b>tokens/kWh cao hơn</b>. Khi đo hiệu quả, đừng chỉ nhìn loss — hãy nhìn <b>loss trên mỗi kWh</b>.</p>
+  </div>
+
+  <div class="tldr">
+    <h3>📌 Tóm tắt Ngày 6</h3>
+    <ul>
+      <li>Transformer block (pre-norm): x′ = x + Attn(LN(x)); y = x′ + MLP(LN(x′)).</li>
+      <li>Pre-norm &gt; post-norm: đường residual sạch → gradient chảy, train ổn định, hội tụ nhanh.</li>
+      <li>MLP (d→4d→d, GELU/SwiGLU) là "nhà kho kiến thức", chiếm 2/3 tham số block.</li>
+      <li>Residual stream: các block chỉ cộng "hiệu chỉnh" vào dòng chảy chung; dropout tắt khi inference.</li>
+      <li>LM head: logits = h·W_embᵀ, tied embeddings tiết kiệm V×d tham số.</li>
+      <li>5 unit test bắt buộc trước khi train: shape, causal, gradient, identity, tied embedding.</li>
+    </ul>
+  </div>
+
+  <div class="nav">
+    <a class="q" href="Day06_quiz.html">📝 Làm quiz Ngày 6 →</a>
+    <a class="v" href="Day06_video.mp4">🎬 Xem video giải thích →</a>
+  </div>
+
+</div>
+</body>
+</html>

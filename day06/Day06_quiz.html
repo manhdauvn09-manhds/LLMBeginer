@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quiz Ngày 6 — Transformer block hoàn chỉnh</title>
+<style>
+  :root{--bg:#0b1020;--card:#141b33;--line:#26314f;--txt:#e8ecf7;--muted:#9aa6c7;
+    --gold:#fbbf24;--blue:#60a5fa;--green:#34d399;--red:#f87171;}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  body{margin:0;background:var(--bg);color:var(--txt);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;line-height:1.7;font-size:16px;}
+  .wrap{max-width:760px;margin:0 auto;padding:0 18px 80px;}
+  .kicker{display:inline-block;margin:26px 0 10px;padding:6px 14px;border:1px solid var(--line);
+    border-radius:999px;color:var(--muted);font-size:13px;}
+  h1{font-size:clamp(24px,5vw,32px);margin:6px 0 4px;}
+  .sub{color:var(--muted);margin:0 0 18px;}
+  .q{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin:16px 0;}
+  .q h3{margin:0 0 10px;font-size:17px;}
+  .q h3 .qn{color:var(--gold);margin-right:6px;}
+  label.opt{display:block;padding:10px 12px;border:1px solid var(--line);border-radius:10px;
+    margin:8px 0;cursor:pointer;}
+  label.opt:hover{border-color:var(--blue);}
+  label.opt input{margin-right:10px;transform:scale(1.2);}
+  .exp{display:none;margin-top:10px;padding:10px 12px;border-radius:10px;font-size:15px;}
+  .exp.ok{display:block;background:#0c2b1a;border:1px solid #14532d;}
+  .exp.no{display:block;background:#2a1420;border:1px solid #7f1d1d;}
+  textarea{width:100%;min-height:110px;background:#0b1226;border:1px solid var(--line);
+    border-radius:10px;color:var(--txt);padding:12px;font-size:15px;font-family:inherit;resize:vertical;}
+  .btnrow{display:flex;gap:12px;flex-wrap:wrap;margin:24px 0;}
+  button{flex:1 1 200px;padding:15px;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer;}
+  #submit{background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;}
+  #copy{background:linear-gradient(135deg,#34d399,#047857);color:#06281c;display:none;}
+  #score{font-size:19px;font-weight:800;margin:14px 0;display:none;}
+  .note{color:var(--muted);font-size:14px;border:1px dashed var(--line);border-radius:12px;padding:12px 14px;margin-top:18px;}
+  .back{display:inline-block;margin-top:10px;color:var(--blue);text-decoration:none;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <span class="kicker">Khóa AI Engineer (LLM) · Quiz Ngày 6/30</span>
+  <h1>📝 Quiz — Transformer block hoàn chỉnh</h1>
+  <p class="sub">5 câu trắc nghiệm + 1 câu tự luận. Chọn đáp án rồi bấm <b>Nộp bài</b> để chấm điểm ngay trong file.</p>
+
+  <div id="quiz"></div>
+
+  <div class="q">
+    <h3><span class="qn">Câu 6 (tự luận).</span>Giải thích bằng lời của bạn: vì sao trong pre-norm, đường residual giúp gradient "chảy" tốt hơn so với post-norm?</h3>
+    <textarea id="essay" placeholder="Viết suy nghĩ của bạn vào đây (không chấm điểm tự động)..."></textarea>
+    <div class="exp" id="expEssay"></div>
+  </div>
+
+  <div class="btnrow">
+    <button id="submit" onclick="grade()">Nộp bài</button>
+    <button id="copy" onclick="copyResult()">📋 Copy kết quả</button>
+  </div>
+  <div id="score"></div>
+
+  <div class="note">ℹ️ File HTML này chạy offline, <b>không tự gửi kết quả về được</b>. Sau khi bấm "Copy kết quả", bạn paste chuỗi kết quả vào chat để trợ lý ghi điểm và theo dõi tiến độ nhé.</div>
+  <a class="back" href="Day06_lesson.html">← Quay lại bài học</a>
+</div>
+
+<script>
+const QUESTIONS = [
+  {q:"Công thức đúng của một pre-norm Transformer block là gì?",
+   opts:["x′ = LN(x + Attn(x)); y = LN(x′ + MLP(x′))","x′ = x + Attn(LN(x)); y = x′ + MLP(LN(x′))","x′ = Attn(x) + MLP(x); y = LN(x + x′ + LN(x′))","x′ = LN(Attn(x)); y = LN(MLP(x′))"],
+   ans:1,
+   exp:"Pre-norm = chuẩn hóa TRƯỚC mỗi sub-layer, rồi cộng residual sau. Đường x chạy thẳng, chỉ được 'bổ sung' bởi Attn(LN(x)) và MLP(LN(x′)) — ngược lại với post-norm."},
+  {q:"Vì sao GPT-2/LLaMA chọn pre-norm thay vì post-norm?",
+   opts:["Vì pre-norm có ít tham số hơn nên train nhanh hơn","Vì gradient có đường residual sạch chạy thẳng, không bị LayerNorm bóp méo mỗi layer → train ổn định, hội tụ với learning rate lớn hơn","Vì post-norm không tương thích với causal mask","Vì pre-norm cho accuracy cao hơn trên mọi bài toán, không ngoại lệ"],
+   ans:1,
+   exp:"Lý do cốt lõi là gradient: trong pre-norm, tín hiệu x (và gradient ngược lại) đi nguyên vẹn dọc đường residual. Post-norm bắt gradient xuyên qua LN ở mỗi layer, dễ suy giảm/khuếch đại → phải warm-up kỹ và vẫn hay mất ổn định."},
+  {q:"SwiGLU khác GELU ở điểm nào, và vì sao LLaMA/Mistral dùng nó?",
+   opts:["SwiGLU nhanh hơn vì không có hàm mũ; chỉ là GELU viết gọn","SwiGLU thêm một nhánh gate silu(xV) nhân với xW — mô hình tự học tắt/bật nơ-ron theo từng input, vừa mạnh hơn vừa thưa hơn","SwiGLU là GELU cộng thêm bias, dùng để tránh nơ-ron chết","SwiGLU chỉ khác tên gọi, công thức toán học tương đương GELU"],
+   ans:1,
+   exp:"SwiGLU(x) = (xW ⊙ silu(xV))U: nhánh gate silu(xV) quyết định 'mở cửa' bao nhiêu cho nhánh chính. Gate theo input = sparsity động, thực nghiệm cho chất lượng tốt hơn GELU thuần trên LLM."},
+  {q:"Residual stream có nghĩa là gì trong thực tế huấn luyện?",
+   opts:["Mỗi block viết lại hoàn toàn vector x bằng output của mình","x sống trong cùng không gian d chiều qua mọi layer; mỗi block chỉ cộng thêm một delta (hiệu chỉnh nhỏ) — đầu train delta ≈ 0 nên mạng sâu hoạt động như mạng nông","Là kỹ thuật nối tắt bỏ qua attention, chỉ dùng MLP","Là tên gọi khác của gradient checkpointing"],
+   ans:1,
+   exp:"'Stream' = dòng chảy chung. Các block không viết lại x mà chỉ khắc thêm thông tin vào. Khởi tạo tốt khiến delta ban đầu nhỏ → mạng 100 layer vẫn tối ưu được như mạng nông lúc đầu train."},
+  {q:"Tied embeddings (dùng chung W_emb cho embedding và LM head) mang lại lợi ích gì?",
+   opts:["Tăng gấp đôi số tham số để mô hình học tốt hơn","Giảm hẳn V×d tham số và ép input/output dùng chung một không gian biểu diễn ngôn ngữ","Chỉ giúp tiết kiệm bộ nhớ khi inference, không ảnh hưởng gì khác","Là bắt buộc để causal mask hoạt động đúng"],
+   ans:1,
+   exp:"logits = h·W_embᵀ: đọc bảng tra theo chiều ngược. Tiết kiệm ~V×d tham số (V=50k, d=768 → ~38M) và ép sự nhất quán giữa 'đọc' (encode) và 'viết' (decode) của mô hình."}
+];
+const ESSAY_SAMPLE = "Gợi ý: trong pre-norm, công thức x′ = x + Attn(LN(x)) cho thấy x được cộng nguyên vẹn vào output. Khi lan truyền ngược, đạo hàm của phép cộng là 1 nên gradient từ loss chảy thẳng về các layer đầu qua đường residual, không phải đi xuyên qua LayerNorm (vốn có thể co/giãn gradient tùy theo phương sai của input). Trong post-norm, mỗi layer đều có dạng LN(x + F(x)) nên gradient bắt buộc đi qua LN ở mọi layer — càng sâu càng dễ suy giảm hoặc bùng nổ. Đó là lý do pre-norm train sâu ổn định hơn và hội tụ nhanh hơn với cùng số bước.";
+let result = "";
+
+function render(){
+  const box = document.getElementById("quiz");
+  box.innerHTML = QUESTIONS.map((it,i)=>`
+    <div class="q" id="q${i}">
+      <h3><span class="qn">Câu ${i+1}.</span>${it.q}</h3>
+      ${it.opts.map((o,j)=>`
+        <label class="opt"><input type="radio" name="q${i}" value="${j}">${"ABCD"[j]}. ${o}</label>`).join("")}
+      <div class="exp" id="exp${i}"></div>
+    </div>`).join("");
+}
+
+function grade(){
+  let correct = 0; const picks = [];
+  QUESTIONS.forEach((it,i)=>{
+    const sel = document.querySelector(`input[name=q${i}]:checked`);
+    const exp = document.getElementById(`exp${i}`);
+    if(!sel){ exp.className="exp no"; exp.textContent="⚠️ Bạn chưa chọn đáp án câu này."; picks.push("–"); return; }
+    const v = +sel.value; picks.push("ABCD"[v]);
+    if(v===it.ans){ correct++; exp.className="exp ok"; exp.innerHTML="✅ <b>Đúng.</b> "+it.exp; }
+    else{ exp.className="exp no"; exp.innerHTML=`❌ <b>Sai.</b> Đáp án đúng là <b>${"ABCD"[it.ans]}</b>. `+it.exp; }
+  });
+  const ee = document.getElementById("expEssay");
+  ee.className = "exp ok";
+  ee.innerHTML = "📖 <b>Câu tự luận — đáp án tham khảo:</b><br>"+ESSAY_SAMPLE;
+  const s = document.getElementById("score");
+  s.style.display = "block";
+  s.innerHTML = `Kết quả trắc nghiệm: <span style="color:${correct>=4?"var(--green)":"var(--red)"}">${correct}/5</span>` +
+    (correct>=4 ? " — Tuyệt vời! 🎉" : " — Hãy đọc lại bài rồi làm lại nhé. 💪");
+  result = `Day06 Quiz: ${picks.map((p,i)=>(i+1)+p).join(" ")} — ${correct}/5`;
+  document.getElementById("copy").style.display = "block";
+}
+
+function copyResult(){
+  navigator.clipboard.writeText(result).then(
+    ()=>{ document.getElementById("copy").textContent = "✅ Đã copy! Paste vào chat nhé"; },
+    ()=>{ prompt("Copy thủ công chuỗi này:", result); });
+}
+
+render();
+</script>
+</body>
+</html>
