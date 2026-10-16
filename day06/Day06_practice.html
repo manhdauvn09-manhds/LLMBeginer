@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ngày 6 — Buổi tối: Thực hành ghép Transformer block</title>
+<style>
+:root{--bg:#0b1020;--card:#141b33;--line:#26314f;--txt:#e8ecf7;--muted:#9aa6c7;
+--gold:#fbbf24;--blue:#60a5fa;--green:#34d399;--red:#f87171;--violet:#a78bfa;--orange:#fb923c}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:var(--bg);color:var(--txt);
+font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+line-height:1.75;font-size:16.5px}
+.wrap{max-width:860px;margin:0 auto;padding:0 18px 90px}
+.kicker{display:inline-block;margin:26px 0 10px;padding:6px 14px;border:1px solid var(--line);
+border-radius:999px;color:var(--muted);font-size:13px}
+h1{font-size:clamp(25px,5.4vw,36px);line-height:1.3;margin:6px 0 8px}
+.sub{color:var(--muted);margin:0 0 6px}
+.meta{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0 22px;color:var(--muted);font-size:14px}
+.meta span{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:6px 12px}
+section.card{background:var(--card);border:1px solid var(--line);border-radius:16px;
+padding:22px 20px;margin:22px 0}
+section.card h2{margin:0 0 10px;font-size:21px}
+section.card h2 .n{display:inline-flex;width:30px;height:30px;border-radius:9px;
+background:var(--green);color:#081226;font-size:16px;align-items:center;justify-content:center;
+margin-right:8px;font-weight:700}
+section.card h2 .n.b{background:var(--blue)}
+section.card h2 .n.o{background:var(--orange)}
+section.card h2 .n.v{background:var(--violet)}
+code{background:#0a0f22;border:1px solid var(--line);border-radius:6px;padding:1px 7px;
+font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.92em;color:var(--gold)}
+pre{background:#0a0f22;border:1px solid var(--line);border-radius:12px;padding:16px 14px;
+overflow-x:auto;font-size:14px;line-height:1.6;color:#dbe4fa;
+font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+pre .c{color:#5b6b94}pre .k{color:#a78bfa}pre .s{color:#34d399}pre .f{color:#60a5fa}pre .n{color:#fbbf24}
+details{border:1px dashed var(--line);border-radius:10px;padding:10px 14px;margin:10px 0;
+background:#0d1428}
+summary{cursor:pointer;color:var(--blue);font-weight:600}
+.hint{color:var(--muted);font-size:15px}
+.todo{background:#1a1230;border:1px solid var(--violet);border-radius:10px;padding:12px 14px;margin:12px 0}
+.todo b{color:var(--violet)}
+.check{list-style:none;padding:0;margin:12px 0}
+.check li{padding:9px 0 9px 34px;position:relative;border-bottom:1px solid #1b2440}
+.check li:before{content:"☐";position:absolute;left:4px;color:var(--green);font-size:18px}
+.trap{border-left:4px solid var(--red);padding:8px 14px;margin:12px 0;background:#160f1e;border-radius:0 10px 10px 0}
+.trap b{color:var(--red)}
+.q{border:1px solid var(--line);border-radius:12px;padding:14px;margin:12px 0;background:#0d1428}
+.q .ans{display:none;margin-top:10px;color:var(--green)}
+.q button{background:var(--blue);border:none;color:#081226;font-weight:700;border-radius:8px;
+padding:8px 16px;cursor:pointer;margin-top:8px}
+.energy{border:1px solid #3d3413;background:#141007;border-radius:12px;padding:14px 16px;margin:14px 0}
+.energy b{color:var(--gold)}
+.formula{text-align:center;font-size:19px;margin:14px 0;color:var(--txt)}
+.footer{color:var(--muted);font-size:14px;text-align:center;margin-top:40px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<span class="kicker">Ngày 6 / 30 &nbsp;•&nbsp; Buổi tối</span>
+<h1>🛠️ Thực hành: ghép một Transformer block chạy được</h1>
+<p class="sub">Sáng nay bạn đã học công thức. Tối nay: tự tay lắp một block hoàn chỉnh
+(pre-norm + attention nhân quả + MLP + LM head) rồi bắt nó <b>qua 5 unit test</b> —
+đúng tinh thần "mỗi block phải qua unit test" của bài học.</p>
+<div class="meta">
+<span>⏱️ ~60–90 phút</span><span>🧰 PyTorch (CPU là đủ)</span><span>📦 1 file Python</span><span>✅ 5 unit test</span>
+</div>
+
+<section class="card">
+<h2><span class="n">1</span>Mục tiêu buổi tối</h2>
+<p>Cuối buổi bạn có file <code>transformer_block.py</code> chạy được, trong đó:</p>
+<ul>
+<li><code>RMSNorm</code> (hoặc LayerNorm) tự viết — không dùng <code>nn.LayerNorm</code> có sẵn cho phần chính.</li>
+<li><code>CausalSelfAttention</code>: multi-head, mask nhân quả, scale <code>1/√d</code>.</li>
+<li><code>MLP</code>: <code>d → 4d → d</code> với GELU (hoặc SwiGLU nếu thích thử thách).</li>
+<li><code>TransformerBlock</code> theo công thức pre-norm:
+<div class="formula">x′ = x + Attn(LN(x)) &nbsp;&nbsp; ; &nbsp;&nbsp; y = x′ + MLP(LN(x′))</div></li>
+<li><code>MiniGPT</code>: embedding + N block + norm cuối + <b>LM head chia trọng số</b> với embedding.</li>
+<li>Chạy <b>5/5 unit test PASS</b> và train thử mini-task thấy loss giảm.</li>
+</ul>
+<div class="energy">⚡ <b>Góc tiết kiệm năng lượng:</b> pre-norm hội tụ nhanh hơn post-norm
+→ ít step train hơn → ít điện hơn. Mọi test tối nay chạy trên CPU vài giây, không cần GPU.</div>
+</section>
+
+<section class="card">
+<h2><span class="n b">2</span>Bài tập code — từng bước</h2>
+<p class="hint">Khung code bên dưới có các khối <b>TODO</b> — đó là phần bạn tự làm.
+Mỗi TODO có nút <i>Gợi ý</i> nhưng hãy thử tự nghĩ trước 10 phút rồi mới mở.</p>
+
+<h3>Bước 0 — Chuẩn bị</h3>
+<pre><span class="k">import</span> torch, math
+<span class="k">import</span> torch.nn <span class="k">as</span> nn
+<span class="k">import</span> torch.nn.functional <span class="k">as</span> F
+torch.manual_seed(<span class="n">6</span>)
+<span class="c"># Cấu hình mini để chạy nhanh trên CPU</span>
+B, T, V = <span class="n">4</span>, <span class="n">16</span>, <span class="n">64</span>      <span class="c"># batch, độ dài chuỗi, vocab</span>
+d, n_head, n_layer = <span class="n">64</span>, <span class="n">4</span>, <span class="n">2</span> <span class="c"># chiều embedding, số head, số block</span></pre>
+
+<h3>Bước 1 — RMSNorm</h3>
+<div class="todo"><b>TODO 1:</b> Viết <code>RMSNorm(d)</code>: <code>y = x / RMS(x) * g</code>,
+với <code>RMS(x) = sqrt(mean(x²) + eps)</code>, <code>g</code> là tham số học được (khởi tạo = 1).</div>
+<details><summary>Gợi ý</summary>
+<p class="hint"><code>ms = x.pow(2).mean(-1, keepdim=True)</code> rồi
+<code>x * torch.rsqrt(ms + eps) * self.weight</code>. Dùng <code>torch.rsqrt</code>
+cho ổn định số. <code>eps=1e-6</code>.</p></details>
+
+<h3>Bước 2 — Causal self-attention (multi-head)</h3>
+<div class="todo"><b>TODO 2:</b> Viết <code>CausalSelfAttention(d, n_head)</code>:
+<code>qkv = W_qkv(x)</code> → tách head → <code>scores = QKᵀ/√dₕ</code> →
+áp <b>mask nhân quả</b> → softmax → <code>@V</code> → gộp head → <code>W_o</code>.</div>
+<details><summary>Gợi ý</summary>
+<p class="hint">Tạo mask một lần trong <code>__init__</code>:
+<code>torch.tril(torch.ones(T_max, T_max))</code>, khi forward cắt
+<code>mask[:T, :T]</code>. Vị trí bị cấm gán <code>-inf</code> trước softmax:
+<code>scores.masked_fill(mask == 0, float('-inf'))</code>.
+Nhớ chia <code>math.sqrt(d_head)</code>.</p></details>
+
+<h3>Bước 3 — MLP (nhà kho kiến thức)</h3>
+<div class="todo"><b>TODO 3:</b> Viết <code>MLP(d)</code>: <code>Linear(d→4d) → GELU → Linear(4d→d)</code>.
+Bản nâng cao (tùy chọn): SwiGLU — <code>down(silu(gate(x)) * up(x))</code> với hidden = <code>8d/3</code>.</div>
+<details><summary>Gợi ý</summary>
+<p class="hint"><code>nn.Sequential(nn.Linear(d, 4*d), nn.GELU(), nn.Linear(4*d, d))</code>
+là đủ cho bản cơ bản. SwiGLU cần 3 ma trận: <code>w1, w2 (d→h)</code> và
+<code>w3 (h→d)</code>, công thức <code>w3(F.silu(w1(x)) * w2(x))</code>.</p></details>
+
+<h3>Bước 4 — Lắp block (pre-norm + residual)</h3>
+<div class="todo"><b>TODO 4:</b> Viết <code>TransformerBlock</code> đúng thứ tự:
+<code>x = x + attn(norm1(x))</code> rồi <code>x = x + mlp(norm2(x))</code>.
+<b>Không</b> được để norm "chặn" đường residual.</div>
+<details><summary>Gợi ý</summary>
+<p class="hint">Hai <code>RMSNorm</code> riêng biệt cho 2 nhánh. Vẽ lại công thức
+x′ = x + Attn(LN(x)) ra giấy trước khi code — 90% lỗi sai thứ tự nằm ở bước này.</p></details>
+
+<h3>Bước 5 — MiniGPT + weight tying</h3>
+<div class="todo"><b>TODO 5:</b> Viết <code>MiniGPT</code>:
+<code>tok_emb</code> + <code>pos_emb</code> → N block → norm cuối →
+<b>logits = h @ tok_emb.weight.T</b> (LM head <i>chia</i> trọng số embedding, không tạo ma trận mới).</div>
+<details><summary>Gợi ý</summary>
+<p class="hint"><code>h = self.ln_f(h); logits = h @ self.tok_emb.weight.T</code>.
+Không dùng <code>nn.Linear(V, d)</code> riêng. Kiểm tra:
+<code>model.tok_emb.weight is ...</code> — vì dùng chung nên chẳng cần kiểm tra gì thêm,
+chỉ cần chắc bạn không tạo weight mới.</p></details>
+
+<h3>Bước 6 — 5 unit test (bắt buộc PASS hết)</h3>
+<pre><span class="k">def</span> <span class="f">test_shapes</span>():
+    <span class="c"># logits phải có shape (B, T, V)</span>
+<span class="k">def</span> <span class="f">test_causal</span>():
+    <span class="c"># đổi token ở vị trí j: output tại vị trí i &lt; j KHÔNG được đổi</span>
+    <span class="c"># (token quá khứ không được "nhìn thấy" tương lai)</span>
+<span class="k">def</span> <span class="f">test_residual_grad</span>():
+    <span class="c"># loss.backward(): mọi tham số đều có grad != None và không NaN</span>
+<span class="k">def</span> <span class="f">test_tying</span>():
+    <span class="c"># số tham số embedding chỉ đếm 1 lần trong tổng params</span>
+<span class="k">def</span> <span class="f">test_deterministic</span>():
+    <span class="c"># cùng seed + eval mode → 2 lần forward cho output giống hệt nhau</span></pre>
+<div class="todo"><b>TODO 6:</b> Viết cả 5 test. Với <code>test_causal</code>: tạo 2 input chỉ khác nhau
+ở token cuối, so sánh logits ở các vị trí trước đó bằng <code>torch.allclose</code>.</div>
+
+<h3>Bước 7 — Train thử mini-task (sanity check)</h3>
+<div class="todo"><b>TODO 7 (bonus):</b> Tạo dataset chuỗi lặp đơn giản
+(vd: <code>[3,7,3,7,...]</code> → next-token prediction), train 200 step bằng AdamW lr=3e-4.
+Loss phải giảm rõ rệt (vd từ ~4.2 xuống &lt; 1.0). Nếu không giảm → block của bạn có bug.</div>
+<details><summary>Gợi ý</summary>
+<p class="hint">Data: <code>x = torch.tensor([[3,7]*8]*64)</code>, target = x dịch trái 1.
+Loss <code>F.cross_entropy(logits.view(-1,V), tgt.view(-1))</code>.
+Task này quá dễ nên model đúng <i>phải</i> học được — đây chính là ý nghĩa của "unit test bằng training".</p></details>
+</section>
+
+<section class="card">
+<h2><span class="n o">3</span>Tự kiểm tra nhanh (không chấm điểm)</h2>
+<p class="hint">Trả lời trong đầu rồi bấm "Hiện đáp án" để đối chiếu.</p>
+
+<div class="q"><b>Câu 1.</b> Vì sao pre-norm (LN đặt <i>trước</i> attention/MLP trong nhánh)
+cho gradient chảy tốt hơn post-norm?
+<button onclick="this.nextElementSibling.style.display='block';this.style.display='none'">Hiện đáp án</button>
+<div class="ans">Vì đường residual <code>x → x + F(LN(x))</code> giữ một "đường cao tốc" sạch:
+gradient ∂L/∂x luôn có thành phần đi thẳng qua phép cộng mà không bị LN bóp méo.
+Post-norm (<code>LN(x + F(x))</code>) đặt LN chặn ngay trên đường residual → gradient bị
+co/giãn qua LN mỗi block, sâu nhiều lớp thì càng khó train lúc khởi tạo, thường phải warmup dài.</div></div>
+
+<div class="q"><b>Câu 2.</b> Vì sao MLP mở rộng lên <code>4d</code> rồi thu về <code>d</code>,
+thay vì giữ nguyên <code>d</code> cho rẻ?
+<button onclick="this.nextElementSibling.style.display='block';this.style.display='none'">Hiện đáp án</button>
+<div class="ans">MLP là "nhà kho kiến thức" của block: hai ma trận dày đặc
+<code>d→4d</code> và <code>4d→d</code> tạo ra nhiều chiều ẩn để lưu pattern,
+kết hợp phi tuyến GELU/SwiGLU. Giữ nguyên <code>d</code> thì capacity của block
+sụt mạnh dù rẻ hơn — đây là trade-off chuẩn mà mọi LLM (GPT, LLaMA) đều chọn 4d
+(hoặc 8d/3 với SwiGLU).</div></div>
+
+<div class="q"><b>Câu 3.</b> Weight tying (LM head dùng chung trọng số với token embedding)
+được lợi gì, và khi nào KHÔNG nên dùng?
+<button onclick="this.nextElementSibling.style.display='block';this.style.display='none'">Hiện đáp án</button>
+<div class="ans">Lợi: giảm <code>V × d</code> tham số (với V=50k, d=4096 là ~200M param),
+đồng thời ép không gian embedding input/output nhất quán → thường ổn định và hội tụ tốt hơn.
+Không nên dùng khi muốn embedding "đọc" và head "viết" sống trong hai không gian khác nhau
+(hiếm), hoặc khi vocab quá lớn mà muốn tách để quantize/shard riêng từng phía.</div></div>
+</section>
+
+<section class="card">
+<h2><span class="n v">4</span>Bẫy thường gặp</h2>
+<div class="trap"><b>🪤 Mask ngược chiều.</b> <code>tril</code> cho phép nhìn quá khứ;
+dùng nhầm <code>triu</code> là model "nhìn trộm" tương lai — test_causal vẫn có thể
+lọt nếu bạn chỉ test một chiều. Luôn test cả hai hướng: đổi quá khứ → output tương lai
+<i>phải</i> đổi; đổi tương lai → output quá khứ <i>không</i> đổi.</div>
+<div class="trap"><b>🪤 Quên chia √d<sub>h</sub>.</b> Không scale, dot-product ở init đã lớn
+→ softmax bão hòa → gradient gần như bằng 0 → train 200 step loss đứng yên.
+Triệu chứng đặc trưng: loss không nhúc nhích ngay từ step đầu.</div>
+<div class="trap"><b>🪤 Norm đặt sai chỗ (post-norm trá hình).</b>
+<code>x = norm(x + attn(x))</code> trông "gọn" nhưng đó là post-norm:
+đường residual bị chặn, init khó train. Công thức đúng: norm chỉ nằm <i>trong</i> nhánh,
+<code>x = x + attn(norm(x))</code>.</div>
+</section>
+
+<section class="card">
+<h2><span class="n">5</span>Checklist nộp bài</h2>
+<p>Paste vào chat những thứ sau để được nhận xét chi tiết (như giáo sư chấm bài):</p>
+<ul class="check">
+<li>File <code>transformer_block.py</code> (hoặc paste trực tiếp đoạn code TODO bạn tự viết)</li>
+<li>Kết quả 5 unit test: mấy PASS / mấy FAIL (copy nguyên dòng output)</li>
+<li>Kết quả train thử: loss step 0 và step 200 (bonus)</li>
+<li>Chỗ nào bạn phải mở <i>Gợi ý</i> mới làm được — nói thật, đó chính là chỗ cần dạy lại</li>
+<li>1 câu hỏi bạn còn lăn tăn nhất về Transformer block</li>
+</ul>
+<p class="hint">Bài nộp càng trung thực (kể cả FAIL) thì feedback càng có giá trị.
+Mục tiêu tối nay không phải code chạy ngay lần đầu, mà là hiểu <i>vì sao</i> nó chạy.</p>
+</section>
+
+<p class="footer">Ngày 6 — Buổi tối • Trở thành AI Engineer (LLM) • Mai sáng: Ngày 7 — ôn tập tổng hợp tuần 1</p>
+</div>
+</body>
+</html>
