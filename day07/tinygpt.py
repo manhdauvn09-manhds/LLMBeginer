@@ -205,6 +205,13 @@ class Head(nn.Module):
 
     def forward(self, x):
         B_, T_, _ = x.shape
+        # [TRAINER] Guard 2026-10-17: giong loi da sua o Day 6 - mask tril
+        # chi tao san den block_size. Neu T_ vuot qua, self.tril[:T_, :T_]
+        # khong bao loi ma am tham tra ve ma tran thieu kich thuoc ->
+        # masked_fill crash voi thong bao broadcast kho hieu.
+        # That bai SOM voi thong bao ro rang de debug hon.
+        assert T_ <= self.tril.shape[0], \
+            f"do dai chuoi {T_} vuot qua block_size={self.tril.shape[0]}"
         q, k, v = self.q(x), self.k(x), self.v(x)
         # scores[i, j] = do hop q_i voi k_j; chia sqrt(head_size) de
         # softmax khong bao hoa (quen chia -> gradient ~ 0, Day 5).
@@ -221,6 +228,12 @@ class MultiHeadAttention(nn.Module):
 
     def __init__(self, n_embd, n_head, block_size):
         super().__init__()
+        # [TRAINER] Guard 2026-10-17: giong Day 6 (transformer_block.py) -
+        # neu n_embd khong chia het cho n_head, head_size bi cat ngan do
+        # phep // -> cat cac head ra sai chieu (B, T, h*head_size != d) ->
+        # self.proj crash o forward voi thong bao dim kho hieu.
+        # That bai SOM ngay khi khoi tao de thay loi config.
+        assert n_embd % n_head == 0, "n_embd phai chia het cho n_head"
         head_size = n_embd // n_head
         self.heads = nn.ModuleList(
             [Head(n_embd, head_size, block_size) for _ in range(n_head)])
@@ -293,7 +306,12 @@ class TinyGPT(nn.Module):
         """Nhan x (B, T) token id, tra logits (B, T, V)."""
         B_, T_ = x.shape
         # Cong vector token + vector vi tri (hoc duoc, du dung o co nay).
-        h = self.tok_emb(x) + self.pos_emb(torch.arange(T_))
+        # [TRAINER] Sua 2026-10-17: them device=x.device. Ban Day 6
+        # (transformer_block.py) ban da viet dung torch.arange(t,
+        # device=idx.device); sang file nay bi "regression" mat device ->
+        # tren CPU van chay, nhung ai .to('cuda') model se crash vi
+        # pos_emb nhan tensor CPU trong khi weight da len GPU.
+        h = self.tok_emb(x) + self.pos_emb(torch.arange(T_, device=x.device))
         assert h.shape == (B_, T_, config["n_embd"]), "sai shape embedding"
         h = self.blocks(h)
         h = self.ln_f(h)
@@ -421,7 +439,11 @@ def generate(model, prompt, max_new=200, temperature=0.8):
     """
     assert temperature > 0, "temperature phai > 0"
     model.eval()
-    idx = torch.tensor([encode(prompt)], dtype=torch.long)
+    # [TRAINER] Sua 2026-10-17: dat idx len dung device cua model (giong
+    # loi pos_emb o TinyGPT.forward). Tren CPU khong anh huong, nhung neu
+    # model da .to('cuda') ma idx con o CPU thi forward crash ngay buoc 1.
+    dev = next(model.parameters()).device
+    idx = torch.tensor([encode(prompt)], dtype=torch.long, device=dev)
     for _ in range(max_new):
         # Cat context ve block_size: model chi nho duoc T token gan nhat.
         logits = model(idx[:, -config["block_size"]:])
