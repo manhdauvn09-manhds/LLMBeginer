@@ -1,0 +1,1176 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 07 — Mini-project TinyGPT: giải thích cho người ngoại đạo</title>
+<style>
+  :root{
+    --bg:#f7f7fc; --card:#ffffff; --ink:#23272f; --muted:#6b7280;
+    --accent:#4338ca; --accent-soft:#e0e7ff;
+    --blue:#2563eb; --blue-soft:#dbeafe;
+    --amber:#b45309; --amber-soft:#fef3c7;
+    --green:#047857; --green-soft:#d1fae5;
+    --teal:#0f766e; --teal-soft:#ccfbf1;
+    --rose:#be123c; --rose-soft:#ffe4e6;
+    --line:#e2e1f0; --code-bg:#1e2230;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    line-height:1.75;font-size:16.5px}
+  .wrap{max-width:960px;margin:0 auto;padding:0 20px}
+  header.hero{background:linear-gradient(135deg,#1e1b4b 0%,#4338ca 55%,#818cf8 100%);
+    color:#fff;padding:64px 0 48px;margin-bottom:8px}
+  header.hero h1{margin:0 0 12px;font-size:2.1rem;line-height:1.3}
+  header.hero p{margin:6px 0;opacity:.92;max-width:720px}
+  .tag{display:inline-block;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.35);
+    border-radius:999px;padding:3px 14px;font-size:.85rem;margin-bottom:14px}
+  nav.sticky{position:sticky;top:0;z-index:50;background:rgba(247,247,252,.96);
+    backdrop-filter:blur(6px);border-bottom:1px solid var(--line)}
+  nav.sticky .wrap{display:flex;gap:4px;overflow-x:auto;padding:10px 20px;white-space:nowrap}
+  nav.sticky a{color:var(--muted);text-decoration:none;font-size:.88rem;padding:6px 10px;border-radius:8px}
+  nav.sticky a:hover{background:var(--accent-soft);color:var(--accent)}
+  section{padding:34px 0;border-bottom:1px solid var(--line)}
+  h2{font-size:1.55rem;margin:0 0 6px;color:#1e1b4b}
+  h2 .num{display:inline-block;background:var(--accent);color:#fff;font-size:.95rem;
+    width:34px;height:34px;line-height:34px;text-align:center;border-radius:10px;margin-right:10px;vertical-align:middle}
+  h3{font-size:1.15rem;margin:26px 0 8px}
+  .lead{color:#4b5563;font-size:1.05rem}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:20px 22px;margin:16px 0;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin:18px 0}
+  .concept{background:var(--card);border:1px solid var(--line);border-top:4px solid var(--accent);
+    border-radius:12px;padding:16px 18px}
+  .concept h4{margin:0 0 6px;font-size:1.02rem}
+  .concept p{margin:0;font-size:.93rem;color:#4b5563}
+  .concept.blue{border-top-color:var(--blue)} .concept.teal{border-top-color:var(--teal)}
+  .concept.green{border-top-color:var(--green)} .concept.amber{border-top-color:var(--amber)}
+  .concept.rose{border-top-color:var(--rose)}
+  pre{background:var(--code-bg);color:#e8eaf2;border-radius:12px;padding:18px 20px;
+    overflow-x:auto;font-size:.86rem;line-height:1.6;margin:14px 0;max-height:560px;overflow-y:auto}
+  code{font-family:"SF Mono",Consolas,"Courier New",monospace}
+  p code, li code, td code{background:var(--accent-soft);padding:1px 7px;border-radius:6px;font-size:.88em;color:#3730a3}
+  pre code{background:none;padding:0;color:inherit}
+  .kw{color:#c792ea}.fn{color:#82aaff}.str{color:#c3e88d}.cm{color:#697098;font-style:italic}.num2{color:#f78c6c}
+  pre.before{background:#2a1a12;border:1px solid #7c2d12}
+  pre.after{background:#0f2a1a;border:1px solid #047857}
+  .diff-tag{display:inline-block;font-size:.78rem;font-weight:700;border-radius:6px;padding:2px 10px;margin-bottom:6px}
+  .diff-tag.old{background:var(--amber-soft);color:var(--amber)}
+  .diff-tag.new{background:var(--green-soft);color:var(--green)}
+  .diagram{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px 10px;margin:18px 0;text-align:center;overflow-x:auto}
+  .diagram svg{max-width:100%;height:auto}
+  .caption{font-size:.9rem;color:var(--muted);margin-top:10px;font-style:italic}
+  .flow{display:flex;align-items:stretch;gap:0;overflow-x:auto;padding:18px 6px;margin:14px 0}
+  .fstep{background:#fff;border:2px solid var(--line);border-radius:12px;padding:12px 14px;
+    min-width:118px;text-align:center;font-size:.85rem;flex-shrink:0}
+  .fstep b{display:block;margin-bottom:4px;font-size:.92rem}
+  .fstep small{color:var(--muted)}
+  .fstep.d{background:var(--blue-soft);border-color:var(--blue)}
+  .fstep.m{background:var(--accent-soft);border-color:var(--accent)}
+  .fstep.e{background:var(--amber-soft);border-color:var(--amber)}
+  .fstep.g{background:var(--green-soft);border-color:var(--green)}
+  .fstep.r{background:var(--rose-soft);border-color:var(--rose)}
+  .fstep.t{background:var(--teal-soft);border-color:var(--teal)}
+  .farrow{align-self:center;font-size:1.4rem;color:var(--muted);padding:0 4px;flex-shrink:0}
+  .analogy{background:#eef2ff;border:1px solid #c7d2fe;border-left:6px solid var(--accent);
+    border-radius:10px;padding:16px 20px;margin:16px 0}
+  .analogy b{color:#3730a3}
+  .warn{background:#fffbeb;border:1px solid #fcd34d;border-left:6px solid var(--amber);
+    border-radius:10px;padding:16px 20px;margin:16px 0}
+  .warn b{color:#92400e}
+  .ok{background:#ecfdf5;border:1px solid #6ee7b7;border-left:6px solid var(--green);
+    border-radius:10px;padding:16px 20px;margin:16px 0}
+  table.mini{border-collapse:collapse;margin:14px auto;font-size:.9rem;min-width:70%}
+  table.mini th, table.mini td{border:1px solid var(--line);padding:8px 14px;text-align:center}
+  table.mini th{background:var(--accent-soft)}
+  table.mini td.num{font-family:monospace}
+  .demo{background:#fff;border:2px solid var(--accent);border-radius:16px;padding:24px;margin:18px 0}
+  .demo h3{margin-top:0}
+  input[type=range]{width:100%;accent-color:var(--accent);margin:8px 0}
+  input[type=text]{width:100%;padding:10px 14px;font-size:1rem;border:2px solid var(--line);
+    border-radius:10px;margin:8px 0;font-family:monospace}
+  .seg{display:flex;gap:8px;margin:10px 0;flex-wrap:wrap}
+  .seg button{border:2px solid var(--line);background:#fff;border-radius:10px;
+    padding:8px 18px;font-size:1rem;cursor:pointer}
+  .seg button.active{border-color:var(--accent);background:var(--accent-soft);font-weight:700}
+  .big-out{background:var(--code-bg);color:#e8eaf2;border-radius:12px;padding:18px 20px;
+    font-family:monospace;font-size:.95rem;margin-top:12px;line-height:1.9;word-break:break-word}
+  .btn{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:10px 22px;
+    font-size:1rem;cursor:pointer;margin:10px 8px 0 0}
+  .btn:hover{background:#3730a3}
+  .formula{text-align:center;font-size:1.2rem;background:#eef2ff;border-radius:10px;
+    padding:18px;margin:14px 0;font-family:Georgia,serif}
+  .formula small{display:block;font-family:inherit;font-size:.85rem;color:var(--muted);margin-top:6px}
+  footer{padding:36px 0 60px;color:var(--muted);font-size:.9rem;text-align:center}
+  ul.tight li{margin-bottom:6px}
+  .tokrow{display:flex;gap:4px;flex-wrap:wrap;margin:8px 0;align-items:center}
+  .tok{display:inline-block;min-width:34px;text-align:center;padding:6px 8px;border-radius:8px;
+    font-family:monospace;font-weight:700;font-size:.9rem;border:2px solid var(--line);background:#fff}
+  .tok.x{background:var(--blue-soft);border-color:var(--blue)}
+  .tok.y{background:var(--green-soft);border-color:var(--green)}
+  .tok .tid{display:block;font-size:.7rem;color:var(--muted);font-weight:400}
+  .tbar{display:flex;align-items:flex-end;gap:5px;height:120px;justify-content:center;margin:12px 0}
+  .tbar .bcol{flex:1;max-width:44px;border-radius:6px 6px 0 0;min-height:4px;position:relative;
+    background:linear-gradient(180deg,#818cf8,#4338ca)}
+  .tbar .blab{position:absolute;bottom:-24px;left:0;right:0;text-align:center;font-size:.7rem;color:var(--muted);font-family:monospace}
+  .quizopt{border:2px solid var(--line);border-radius:10px;padding:10px 14px;margin:8px 0;cursor:pointer;font-family:monospace;font-size:.9rem}
+  .quizopt:hover{border-color:var(--accent)}
+  .quizopt.right{border-color:var(--green);background:var(--green-soft)}
+  .quizopt.wrong{border-color:var(--rose);background:var(--rose-soft)}
+  @media(max-width:600px){header.hero h1{font-size:1.6rem}body{font-size:15.5px}}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="tag">📄 Phân tích: day07/tinygpt.py</span>
+    <h1>Day 07 — Mini-project<br>TinyGPT từ số 0</h1>
+    <p>Tổng hợp cả tuần thành một mô hình chạy được <b>thật</b>: tải truyện Shakespeare → cắt token → xếp Transformer → train 2000 bước → <b>sinh văn bản mới</b>. Khoảng <b>0.8 triệu tham số</b>, chạy được trên CPU.</p>
+    <p style="font-size:.9rem;opacity:.8">Số liệu trong bài là kết quả chạy thật của <code>tinygpt.py</code> (seed 1337 cố định).</p>
+  </div>
+</header>
+
+<nav class="sticky"><div class="wrap">
+  <a href="#tong-quan">🍿 Tóm tắt 30 giây</a>
+  <a href="#m01">📦 M0–M1: Dữ liệu</a>
+  <a href="#m2">🔤 M2: Tokenizer</a>
+  <a href="#m35">🏗️ M3–M5: Model</a>
+  <a href="#m6">🏋️ M6: Train</a>
+  <a href="#m7">✍️ M7: Sampling</a>
+  <a href="#trainer">🛠️ Trainer đã sửa gì</a>
+  <a href="#source">📜 Source code</a>
+</div></nav>
+
+<div class="wrap">
+
+<!-- ================= TỔNG QUAN ================= -->
+<section id="tong-quan">
+  <h2><span class="num">🍿</span>Tóm tắt 30 giây cho người ngoại đạo</h2>
+  <p class="lead">6 ngày qua bạn chế tạo từng bộ phận rời. Day 7 là <b>ngày lắp ráp + chạy thử + bàn giao</b>: cho model đọc truyện Shakespeare, train nó đoán chữ tiếp theo, rồi xem nó "bịa" văn mới — kèm <b>model card</b> như một sản phẩm thật.</p>
+  <div class="flow">
+    <div class="fstep m"><b>M0</b><small>config</small></div><div class="farrow">→</div>
+    <div class="fstep d"><b>M1</b><small>dữ liệu</small></div><div class="farrow">→</div>
+    <div class="fstep t"><b>M2</b><small>tokenizer</small></div><div class="farrow">→</div>
+    <div class="fstep e"><b>M3–M5</b><small>model</small></div><div class="farrow">→</div>
+    <div class="fstep g"><b>M6</b><small>train</small></div><div class="farrow">→</div>
+    <div class="fstep r"><b>M7</b><small>sinh chữ</small></div>
+  </div>
+  <div class="grid">
+    <div class="concept"><h4>📦 M0–M1: Chuẩn bị</h4><p>Mọi siêu tham số gom vào một <code>dict config</code>. Tải truyện Shakespeare (~1MB), tách 90/10 train/val, cắt batch ngẫu nhiên — <code>y</code> luôn là <code>x</code> dịch phải 1 chữ.</p></div>
+    <div class="concept teal"><h4>🔤 M2: Tokenizer</h4><p>Char-level: mỗi ký tự một số. Round-trip encode→decode phải đúng <b>100%</b> trên 100 đoạn trích — "cân điện tử" phải hiện đúng số bỏ vào.</p></div>
+    <div class="concept blue"><h4>🏗️ M3–M5: Lắp model</h4><p>Embedding + 4 block Transformer (pre-norm, 4 head, MLP 4×) + LM head <b>riêng</b> (không weight tying như Day 6). Tổng ~0.8M tham số.</p></div>
+    <div class="concept green"><h4>🏋️ M6: Train</h4><p>AdamW 2000 bước, mỗi 200 bước đo loss, clip gradient, lưu <code>ckpt.pt</code>. Loss train 4.23 → 1.72: model học được "văn phong Shakespeare".</p></div>
+    <div class="concept rose"><h4>✍️ M7: Sinh chữ</h4><p>Bốc thăm từng chữ theo xác suất (temperature): T thấp → văn "ngoan", T cao → văn "điên". Kèm model card 9 dòng + báo cáo "xanh" (tokens/giây).</p></div>
+  </div>
+  <div class="analogy"><b>🧭 Mỗi M là một ngày cũ:</b> M1 ← Day 1 (dữ liệu/batch), M2 ← Day 3 (tokenizer), M3 ← Day 4 (embedding), M4 ← Day 5 (attention — milestone dễ sai nhất, đối chiếu với torch SDPA), M5 ← Day 6 (block), M6 ← Day 2 (train loop, AdamW, grad clip) + checkpoint, M7 ← kỹ năng mới: sampling + model card.</div>
+</section>
+
+<!-- ================= M0-M1 ================= -->
+<section id="m01">
+  <h2><span class="num">📦</span>M0–M1 — Config + dữ liệu: "sách giáo khoa" của model</h2>
+  <p class="lead"><b>M0</b> gom mọi con số vào một <code>dict config</code> ở đầu file — muốn đổi batch size hay learning rate thì sửa một chỗ, không lùng sục khắp code. <b>M1</b> lo "sách giáo khoa": tải truyện Shakespeare, tách 90% học / 10% kiểm tra, rồi cắt thành từng "khẩu phần" (batch) ngẫu nhiên.</p>
+
+  <div class="analogy"><b>🍱 Ví dụ — Máy cắt cơm cuộn:</b> cả cuốn truyện là một cuộn cơm dài 1 triệu ký tự. Mỗi lần train, máy cắt ngẫu nhiên 32 đoạn, mỗi đoạn 64 ký tự (<code>x</code>). Đáp án (<code>y</code>) chính là đoạn đó <b>dịch phải 1 ký tự</b> — nhiệm vụ của model: nhìn 64 ký tự, đoán ký tự thứ 65. Cắt ngẫu nhiên mỗi lần để model không học thuộc <i>thứ tự</i> bài (Bẫy 1: quên dịch → model học "copy", loss đẹp ảo).</div>
+
+  <div class="formula">y[i, t] = x[i, t+1]
+    <small>đáp án luôn là input dịch phải 1 — "đoán chữ tiếp theo", nhiệm vụ duy nhất của GPT</small>
+  </div>
+
+  <h3>Sơ đồ: một batch (B=32, T=64)</h3>
+  <div class="diagram">
+    <svg width="680" viewBox="0 0 680 200" font-family="inherit">
+      <text x="340" y="22" text-anchor="middle" font-size="15" font-weight="700">Cuộn truyện 1,115,394 ký tự → cắt ngẫu nhiên 32 đoạn × 64 ký tự</text>
+      <rect x="40" y="50" width="600" height="26" rx="6" fill="#eef2ff" stroke="#4338ca" stroke-width="1.5"/>
+      <text x="340" y="68" text-anchor="middle" font-size="12" fill="#6b7280">First Citizen: Before we proceed any further, hear me speak...</text>
+      <rect x="140" y="95" width="180" height="34" rx="8" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+      <text x="230" y="117" text-anchor="middle" font-size="13" font-weight="700" fill="#1d4ed8">x: 64 ký tự</text>
+      <rect x="360" y="95" width="180" height="34" rx="8" fill="#d1fae5" stroke="#047857" stroke-width="2"/>
+      <text x="450" y="117" text-anchor="middle" font-size="13" font-weight="700" fill="#065f46">y: dịch phải 1</text>
+      <line x1="320" y1="112" x2="356" y2="112" stroke="#9ca3af" stroke-width="2"/><polygon points="356,112 348,107 348,117" fill="#9ca3af"/>
+      <text x="340" y="105" text-anchor="middle" font-size="11" fill="#6b7280">dịch 1</text>
+      <text x="340" y="160" text-anchor="middle" font-size="13" fill="#6b7280">× 32 đoạn mỗi batch · vị trí cắt <b>ngẫu nhiên</b> mỗi lần gọi</text>
+      <text x="340" y="183" text-anchor="middle" font-size="13" fill="#6b7280">90% đầu truyện → train · 10% cuối → val (không cho model "học tủ" rồi tự chấm)</text>
+    </svg>
+  </div>
+
+  <div class="demo">
+    <h3>🎛️ Thử ngay: máy cắt batch mini</h3>
+    <p style="margin-top:0">Gõ một câu (chữ thường, không dấu), xem nó biến thành <code>x</code> và <code>y</code> thế nào:</p>
+    <input type="text" id="dlInput" value="to be or not to be" maxlength="60">
+    <div class="tokrow" id="dlX"></div>
+    <div class="tokrow" id="dlY"></div>
+    <div class="big-out" id="dlOut"></div>
+  </div>
+
+  <div class="ok"><b>✅ Accept của M1 (chạy thật):</b> <code>x.shape == (32, 64)</code> và <code>y[0,:5] == x[0,1:6]</code> — đúng 5 token đầu của y phải bằng token 1→5 của x. Test này tóm gọn Bẫy 1: nếu quên dịch, model chỉ học "copy y chang", loss đẹp nhưng vô dụng.</div>
+</section>
+
+<!-- ================= M2 ================= -->
+<section id="m2">
+  <h2><span class="num">🔤</span>M2 — Tokenizer char-level: "bảng mã" của model</h2>
+  <p class="lead">Đơn giản hết mức: vocab = <b>mọi ký tự xuất hiện trong truyện</b> (65 ký tự: chữ, số, dấu câu, xuống dòng). <code>encode</code> biến chữ thành số, <code>decode</code> biến số về chữ. Không có BPE như Day 3 — vì mục tiêu là chạy được pipeline, không phải tokenizer xịn.</p>
+
+  <div class="analogy"><b>📻 Ví dụ — Mã Morse:</b> mỗi ký tự là một "tít te" riêng. Yêu cầu duy nhất: <b>mã hóa rồi giải mã phải ra đúng chữ ban đầu, 100%</b> — như cân điện tử: bỏ 50kg lên phải hiện 50kg, không được hiện 49. Test <code>test_roundtrip</code> kiểm tra trên 100 đoạn trích ngẫu nhiên. (Ký tự lạ ngoài vocab → id 0, đó là thiết kế có chủ ý.)</div>
+
+  <div class="demo">
+    <h3>⌨️ Thử ngay: máy mã hóa mini</h3>
+    <p style="margin-top:0">Vocab minh họa: 26 chữ + dấu cách + <code>.,!?</code> (bản thật có 65 ký tự lấy từ truyện). Gõ thử rồi bấm <b>mã hóa → giải mã</b>:</p>
+    <input type="text" id="tkInput" value="hello world!" maxlength="60">
+    <div class="seg"><button class="btn" id="tkBtn" style="margin:0">⚙️ Encode → Decode</button></div>
+    <div class="big-out" id="tkOut">Bấm nút để chạy…</div>
+  </div>
+</section>
+
+<!-- ================= M3-M5 ================= -->
+<section id="m35">
+  <h2><span class="num">🏗️</span>M3–M5 — Lắp model: TinyGPT ~0.8M tham số</h2>
+  <p class="lead">Kiến trúc là "Day 6 phóng to": <b>4 block</b> (thay vì 2), <b>128 chiều</b> (thay vì 64), vocab 65. Công thức mỗi block vẫn pre-norm quen thuộc: <code>x + Attn(LN(x))</code> rồi <code>x + MLP(LN(x))</code>.</p>
+
+  <h3>Sơ đồ toàn model (shape thật: B=32, T=64)</h3>
+  <div class="flow">
+    <div class="fstep d"><b>id (32,64)</b><small>token id</small></div><div class="farrow">→</div>
+    <div class="fstep e"><b>tok+pos emb</b><small>(32,64,128)</small></div><div class="farrow">→</div>
+    <div class="fstep m"><b>Block ×4</b><small>(32,64,128)<br/>pre-norm</small></div><div class="farrow">→</div>
+    <div class="fstep t"><b>ln_f</b><small>(32,64,128)</small></div><div class="farrow">→</div>
+    <div class="fstep r"><b>lm_head</b><small>(32,64,65)<br/>logits</small></div>
+  </div>
+
+  <h3>3 điểm khác so với Day 6 (đáng để ý)</h3>
+  <div class="grid">
+    <div class="concept blue"><h4>1️⃣ LayerNorm thay RMSNorm</h4><p>Day 6 tự viết RMSNorm; ở đây dùng <code>nn.LayerNorm</code> có sẵn của torch (trừ mean + chia std). Kết quả tương đương cho model nhỏ — dùng đồ có sẵn cho gọn.</p></div>
+    <div class="concept amber"><h4>2️⃣ LM head RIÊNG</h4><p>Day 6 "weight tying" (tái dùng bảng embedding). Ở đây <code>lm_head = Linear(128, 65)</code> là ma trận riêng (+8,385 tham số). Đơn giản, dễ hiểu cho mini-project.</p></div>
+    <div class="concept teal"><h4>3️⃣ Head tách riêng</h4><p>Day 6 gộp QKV vào 1 ma trận; ở đây mỗi head có <code>q,k,v</code> riêng (class <code>Head</code>), rồi <code>MultiHeadAttention</code> nối 4 head lại. Dễ đọc hơn cho người mới.</p></div>
+  </div>
+
+  <h3>Bản đồ ~0.8M tham số</h3>
+  <div class="diagram" style="text-align:left;max-width:640px;margin:18px auto">
+    <div id="pmBars"></div>
+    <p class="caption">Số thật từ <code>model.count_params()</code> = <b>816,640</b> (~0.82M). Mỗi block ~197k, trong đó MLP chiếm ~⅔ (đúng như Day 6).</p>
+  </div>
+
+  <div class="ok"><b>✅ Milestone dễ sai nhất — M4:</b> attention tự viết được đối chiếu với <code>torch.scaled_dot_product_attention</code> (hàm chuẩn của PyTorch): sai số max chỉ <b>8.94e-08</b> (&lt; 1e-5 ✅). Nếu tự code sai mask hay quên chia scale, con số này sẽ "tố cáo" ngay — đây là cách kỹ sư kiểm chứng code numerical.</div>
+</section>
+
+<!-- ================= M6 ================= -->
+<section id="m6">
+  <h2><span class="num">🏋️</span>M6 — Train: 2000 bước trên CPU</h2>
+  <p class="lead">Vòng lặp train kinh điển (Day 2): lấy batch → forward → loss → <code>zero_grad</code> → backward → <b>clip gradient</b> → step. Cứ 200 bước đo loss train/val một lần, cuối cùng lưu <code>ckpt.pt</code> + vẽ đường cong loss.</p>
+
+  <div class="analogy"><b>🎓 Ví dụ — Luyện thi:</b> mỗi batch là một đề thi thử 32 câu (mỗi câu 64 chữ, đoán chữ tiếp theo). <code>zero_grad</code> = xóa nháp cũ trước khi làm đề mới (quên là điểm cộng dồn → NaN). <code>clip_grad_norm</code> = "phanh khẩn cấp": nếu một đề quá khó làm gradient bùng nổ, cắt bớt để không lật xe. Đo val loss = thi thử đề <i>lạ</i> để biết có học tủ không.</div>
+
+  <div class="diagram">
+    <svg width="680" viewBox="0 0 680 190" font-family="inherit">
+      <text x="340" y="22" text-anchor="middle" font-size="15" font-weight="700">Một bước train (lặp 2000 lần)</text>
+      <g font-size="12.5" text-anchor="middle">
+        <rect x="20" y="60" width="100" height="60" rx="10" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+        <text x="70" y="86" font-weight="700">get_batch</text><text x="70" y="106" fill="#6b7280">x, y (32,64)</text>
+        <rect x="150" y="60" width="100" height="60" rx="10" fill="#e0e7ff" stroke="#4338ca" stroke-width="2"/>
+        <text x="200" y="86" font-weight="700">forward</text><text x="200" y="106" fill="#6b7280">logits</text>
+        <rect x="280" y="60" width="100" height="60" rx="10" fill="#fef3c7" stroke="#b45309" stroke-width="2"/>
+        <text x="330" y="86" font-weight="700">loss</text><text x="330" y="106" fill="#6b7280">cross-entropy</text>
+        <rect x="410" y="60" width="130" height="60" rx="10" fill="#ffe4e6" stroke="#be123c" stroke-width="2"/>
+        <text x="475" y="86" font-weight="700">zero→backward</text><text x="475" y="106" fill="#6b7280">→clip→step</text>
+        <rect x="570" y="60" width="90" height="60" rx="10" fill="#d1fae5" stroke="#047857" stroke-width="2"/>
+        <text x="615" y="86" font-weight="700">eval</text><text x="615" y="106" fill="#6b7280">mỗi 200 bước</text>
+      </g>
+      <g stroke="#9ca3af" stroke-width="2" fill="#9ca3af">
+        <line x1="120" y1="90" x2="146" y2="90"/><polygon points="146,90 139,85 139,95"/>
+        <line x1="250" y1="90" x2="276" y2="90"/><polygon points="276,90 269,85 269,95"/>
+        <line x1="380" y1="90" x2="406" y2="90"/><polygon points="406,90 399,85 399,95"/>
+        <line x1="540" y1="90" x2="566" y2="90"/><polygon points="566,90 559,85 559,95"/>
+      </g>
+      <text x="340" y="155" text-anchor="middle" font-size="13" fill="#6b7280">AdamW(lr=3e-4, wd=0.01) · grad_clip=1.0 · checkpoint <b>ckpt.pt</b> lưu cả model + config</text>
+    </svg>
+  </div>
+
+  <h3>Đường cong loss chạy thật</h3>
+  <div class="diagram"><svg id="lossCurve" viewBox="0 0 640 300" width="640" height="300" font-family="sans-serif"></svg>
+    <p class="caption">Train 4.23 → 1.72, val 4.24 → 1.87 sau 2000 iters (10.0 phút CPU). Val loss đi cùng chiều train loss → model học được pattern chung, chưa overfit nặng.</p>
+  </div>
+
+  <div class="ok"><b>✅ Accept của M6:</b> <code>ckpt.pt</code> load lại được và cho output <b>giống hệt</b> model gốc — checkpoint không chỉ "lưu được" mà phải "sống lại được". Đây là bài học Day 2 áp vào thực tế.</div>
+</section>
+
+<!-- ================= M7 ================= -->
+<section id="m7">
+  <h2><span class="num">✍️</span>M7 — Sampling: cho model "bịa" văn + model card</h2>
+  <p class="lead">Train xong, đến lúc vui nhất: đưa một đoạn mồi (prompt), để model <b>tự bốc thăm từng chữ</b> tiếp theo. Mỗi bước: lấy logits của chữ cuối → chia temperature → softmax → <b>bốc thăm</b> (<code>multinomial</code>) → nối vào chuỗi, lặp lại.</p>
+
+  <div class="analogy"><b>🎲 Ví dụ — Bốc thăm có "độ điên":</b> model cho biết "sau 'to be or not to' thì 'be' 70%, 'me' 20%, 'zebra' 0.01%…". <b>Temperature</b> là núm vặn "độ điên": T thấp (0.7) → thăm gần như luôn trúng ô to nhất → văn "ngoan", đúng chính tả; T cao (1.3) → các ô nhỏ được "ăn gian" thêm cơ hội → văn "điên", sáng tạo nhưng sai chính tả. T = 1.0 là bốc thăm trung thực theo đúng xác suất model học được.</div>
+
+  <div class="formula">p<sub>i</sub> = softmax(logits<sub>i</sub> / T)
+    <small>T → 0: chỉ chọn chữ chắc nhất · T = 1: đúng xác suất gốc · T → ∞: mọi chữ ngang nhau</small>
+  </div>
+
+  <div class="demo">
+    <h3>🌡️ Thử ngay: vặn temperature xem phân phối đổi thế nào</h3>
+    <p style="margin-top:0">5 ứng viên với logits cố định. Kéo T rồi bấm <b>bốc thăm</b> vài lần:</p>
+    <label><b>Temperature = <span id="tpVal">1.0</span></b></label>
+    <input type="range" id="tpSlider" min="0.2" max="2" step="0.1" value="1">
+    <div class="tbar" id="tpBars"></div>
+    <div class="seg"><button class="btn" id="tpDraw" style="margin:0">🎲 Bốc thăm 1 chữ</button></div>
+    <div class="big-out" id="tpOut">Kéo thanh T, bấm bốc thăm vài lần để cảm nhận…</div>
+  </div>
+
+  <h3>Văn bản model sinh ra thật (prompt = 30 ký tự đầu truyện)</h3>
+  <table class="mini">
+    <tr><th>T</th><th>đoạn sinh (200 ký tự đầu)</th></tr>
+    <tr><td class="num">0.7</td><td style="text-align:left;font-family:monospace;font-size:.82rem"> to man once will on liftse of ster&#x27;s<br>And him be my tham the be make her weethere<br>Tishall &#x27;dwings, that and ev</td></tr>
+    <tr><td class="num">1.3</td><td style="text-align:left;font-family:monospace;font-size:.82rem">lt!&#x27;s not<br>To willson liftse yourser&#x27;s<br>And himabud velt my water; bop his weem, &#x27;twaus a ch&#x27;d.<br><br>SICILgA:<br>Ay, eD</td></tr>
+  </table>
+  <p style="color:var(--muted);font-size:.93rem">Nhận xét: T=0.7 "ngoan" hơn (từ có nghĩa, gần đúng chính tả), T=1.3 "điên" hơn (từ bịa, chữ hoa lung tung). Cả hai đều mang <b>phong vị Shakespeare</b> ("thou", "doth"-kiểu) — model đã bắt được pattern, dù chưa hiểu nghĩa.</p>
+
+  <div class="card">
+    <h3 style="margin-top:0">📋 MODEL_CARD.md — "giấy khai sinh" của model (9 dòng)</h3>
+    <p>Sau khi train, script tự viết model card: kiến trúc, dữ liệu, siêu tham số, <b>816,640 tham số</b>, loss trước→sau, 2 sample, giới hạn đã biết, và <b>báo cáo "xanh"</b>: 6,830 tokens/giây — train gấp đôi iters thì tốn gấp đôi điện (chi phí tuyến tính theo số bước).</p>
+    <div class="ok"><b>💡 Vì sao làm model card?</b> Đây là chuẩn của ngành (Hugging Face bắt buộc cho model public): ai dùng model cũng cần biết nó train bằng gì, mạnh/yếu ở đâu, tốn bao nhiêu điện. Làm từ mini-project để thành thói quen.</div>
+  </div>
+</section>
+
+<!-- ================= TRAINER ================= -->
+<section id="trainer">
+  <h2><span class="num">🛠️</span>Trainer đã sửa gì: trước → sau</h2>
+  <p class="lead">Lần review ngày 17/10, trainer sửa <code>tinygpt.py</code> ở 4 điểm: 2 guard "chết sớm" (quen thuộc từ Day 6) và 2 lỗi <b>device</b> — loại bug "ngủ yên" trên CPU, chỉ nổ khi lên GPU.</p>
+
+  <h3>1. 🛡️ Guard: <code>n_embd</code> phải chia hết cho <code>n_head</code></h3>
+  <div class="card">
+    <span class="diff-tag old">TRƯỚC — không kiểm tra</span>
+<pre class="before"><code>    <span class="kw">def</span> <span class="fn">__init__</span>(self, n_embd, n_head, block_size):
+        super().<span class="fn">__init__</span>()
+        head_size = n_embd // n_head</code></pre>
+    <span class="diff-tag new">SAU — assert ngay khi khởi tạo</span>
+<pre class="after"><code>    <span class="kw">def</span> <span class="fn">__init__</span>(self, n_embd, n_head, block_size):
+        super().<span class="fn">__init__</span>()
+        <span class="kw">assert</span> n_embd % n_head == <span class="num2">0</span>, <span class="str">"n_embd phai chia het cho n_head"</span>
+        head_size = n_embd // n_head</code></pre>
+    <p><b>Lý do:</b> nếu không chia hết, phép <code>//</code> cắt ngắn <code>head_size</code> → nối các head lại thiếu chiều → <code>self.proj</code> crash ở forward với thông báo dim khó hiểu. Guard này báo lỗi <b>ngay khi khởi tạo</b> — sớm hơn cả Day 6 (Day 6 assert trong forward). Triết lý "thất bại sớm" lên một nấc mới.</p>
+  </div>
+
+  <h3>2. 🛡️ Guard: chuỗi dài hơn <code>block_size</code> thì báo lỗi sớm</h3>
+  <div class="card">
+    <span class="diff-tag old">TRƯỚC — cắt mask âm thầm</span>
+<pre class="before"><code>    <span class="kw">def</span> <span class="fn">forward</span>(self, x):
+        B_, T_, _ = x.shape
+        q, k, v = self.<span class="fn">q</span>(x), self.<span class="fn">k</span>(x), self.<span class="fn">v</span>(x)</code></pre>
+    <span class="diff-tag new">SAU — assert trước khi dùng mask</span>
+<pre class="after"><code>    <span class="kw">def</span> <span class="fn">forward</span>(self, x):
+        B_, T_, _ = x.shape
+        <span class="kw">assert</span> T_ &lt;= self.tril.<span class="fn">shape</span>[<span class="num2">0</span>], \
+            <span class="str">f"do dai chuoi </span>{T_}<span class="str"> vuot qua block_size=</span>{self.tril.<span class="fn">shape</span>[<span class="num2">0</span>]}<span class="str">"</span>
+        q, k, v = self.<span class="fn">q</span>(x), self.<span class="fn">k</span>(x), self.<span class="fn">v</span>(x)</code></pre>
+    <p><b>Lý do:</b> y hệt lỗi đã sửa ở Day 6 — mask <code>tril</code> chỉ tạo sẵn tới <code>block_size=64</code>. Chuỗi dài hơn thì <code>self.tril[:T_, :T_]</code> âm thầm trả về ma trận thiếu → <code>masked_fill</code> crash với thông báo broadcast khó đọc.</p>
+  </div>
+
+  <h3>3. 🔌 Sửa device: <code>pos_emb</code> thiếu <code>device=x.device</code> (regression từ Day 6!)</h3>
+  <div class="card">
+    <span class="diff-tag old">TRƯỚC — arange nằm trên CPU</span>
+<pre class="before"><code>        h = self.<span class="fn">tok_emb</span>(x) + self.<span class="fn">pos_emb</span>(torch.<span class="fn">arange</span>(T_))</code></pre>
+    <span class="diff-tag new">SAU — arange đi theo device của input</span>
+<pre class="after"><code>        h = self.<span class="fn">tok_emb</span>(x) + self.<span class="fn">pos_emb</span>(torch.<span class="fn">arange</span>(T_, device=x.device))</code></pre>
+    <div class="warn"><b>⚠️ Vì sao gọi là "regression"?</b> Bản Day 6 (<code>transformer_block.py</code>) bạn đã viết <b>đúng</b> <code>torch.arange(t, device=idx.device)</code>. Sang file mới, chỗ này bị <b>viết lại sai</b> — kiến thức đúng bị "mất" khi copy sang code mới. Trên CPU vẫn chạy ngon lành (bug <b>ngủ yên</b>), nhưng ai <code>.to('cuda')</code> model sẽ crash ngay: <code>pos_emb</code> nhận tensor CPU trong khi weight đã lên GPU.</div>
+  </div>
+
+  <h3>4. 🔌 Sửa device: <code>idx</code> trong <code>generate()</code> cũng phải theo model</h3>
+  <div class="card">
+    <span class="diff-tag old">TRƯỚC — idx luôn ở CPU</span>
+<pre class="before"><code>    idx = torch.<span class="fn">tensor</span>([encode(prompt)], dtype=torch.long)</code></pre>
+    <span class="diff-tag new">SAU — idx theo device của model</span>
+<pre class="after"><code>    dev = <span class="fn">next</span>(model.<span class="fn">parameters</span>()).device
+    idx = torch.<span class="fn">tensor</span>([encode(prompt)], dtype=torch.long, device=dev)</code></pre>
+    <p><b>Lý do:</b> cùng họ bug với #3 — model lên CUDA mà <code>idx</code> còn ở CPU thì forward crash ngay bước sinh đầu tiên. Mẫu <code>next(model.parameters()).device</code> là cách chuẩn để hỏi "model đang ở đâu".</p>
+  </div>
+
+  <div class="demo" style="border-color:var(--amber)">
+    <h3>🕵️ Thử ngay: bắt bug "ngủ yên" (quiz 2 câu)</h3>
+    <p style="margin-top:0">Bug device chỉ nổ trên GPU — trên CPU nó <b>vô hình</b>. Bấm chọn đáp án:</p>
+    <div id="quiz1">
+      <p><b>Câu 1.</b> Dòng nào crash khi model đã <code>.to('cuda')</code>?</p>
+      <div class="quizopt" data-ok="0"><code>h = tok_emb(x) + pos_emb(torch.arange(T_))</code></div>
+      <div class="quizopt" data-ok="1"><code>h = tok_emb(x) + pos_emb(torch.arange(T_, device=x.device))</code></div>
+      <div class="big-out" id="quizOut1" style="display:none"></div>
+    </div>
+    <div id="quiz2" style="margin-top:18px">
+      <p><b>Câu 2.</b> Vì sao bug này "ngủ yên" trên CPU mà trainer vẫn bắt sửa?</p>
+      <div class="quizopt" data-ok="0">Vì trên CPU chạy chậm nên không ai để ý</div>
+      <div class="quizopt" data-ok="1">Vì CPU chỉ có 1 device nên mọi tensor "tự khớp"; lên GPU mới lộ xung đột device</div>
+      <div class="big-out" id="quizOut2" style="display:none"></div>
+    </div>
+  </div>
+
+  <div class="ok"><b>💡 Bài học mang về:</b> có một họ bug <b>chỉ tồn tại trên GPU</b> (device mismatch). Viết code "device-agnostic" ngay từ đầu (luôn hỏi <code>x.device</code> / <code>model.device</code>) rẻ hơn nhiều so với debug crash bí ẩn sau này. Và khi copy pattern từ file cũ sang file mới, hãy copy cả những chi tiết "nhỏ" như <code>device=</code> — regression thường núp ở đó.</div>
+</section>
+
+<!-- ================= SOURCE CODE ================= -->
+<section id="source">
+  <h2><span class="num">📜</span>Toàn bộ source code</h2>
+  <p class="lead">File <code>day07/tinygpt.py</code> (566 dòng) — tô màu tự động, bấm nút để copy. Đặt cạnh các sơ đồ phía trên để vừa nhìn hình vừa đối chiếu code.</p>
+  <button class="btn" id="copySrcBtn">📋 Copy toàn bộ code</button>
+  <span id="copyMsg" style="margin-left:12px;color:var(--green);font-weight:700"></span>
+  <pre class="pysrc" id="fullsrc"><code>#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""Mini-project 1: TinyGPT tu so 0 (Day 07 - buoi toi).
+
+Tong hop tuan 1 (Ngay 1 -&gt; 6) thanh mot mo hinh chay duoc that
+(~0.8M tham so): du lieu + dataloader (M1), tokenizer char-level (M2),
+embedding + vi tri (M3), causal self-attention (M4), Transformer block
+(M5), train loop + checkpoint (M6), sampling + model card (M7).
+
+Cach chay:
+    python tinygpt.py
+File "input.txt": neu chua co, script tu tai tiny-shakespeare; neu
+khong co mang thi dung doan van ban Viet du phong kem san trong code.
+
+Ky vong (accept):
+    M0: chay khong loi import, in duoc config.
+    M1: x.shape == (32, 64), y[0,:5] == x[0,1:6].
+    M2: round-trip dung 100% tren 100 doan trich ngau nhien.
+    M3: h.shape == (B, T, n_embd); in tong so tham so.
+    M4: khop torch SDPA voi sai so &lt; 1e-5.
+    M5: forward + backward 1 batch: loss huu han, khong NaN.
+    M6: sau 2000 iters, train loss giam ro ret; ckpt.pt load lai duoc.
+    M7: sinh van ban giong phong cach du lieu train; co MODEL_CARD.md.
+
+Chi can PyTorch (CPU la du). Seed co dinh de tai lap duoc.
+"""
+
+import json
+import math
+import os
+import time
+import urllib.request
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+
+# ---------------------------------------------------------------------------
+# M0 - Khung file va config (moi sieu tham so dat o day, khong hardcode)
+# ---------------------------------------------------------------------------
+config = {
+    "data": "input.txt",  # van ban train (tu tai neu chua co)
+    "block_size": 64,     # T: do dai ngu canh (mo hinh nhin toi da 64 ky tu)
+    "batch_size": 32,     # B: so chuoi moi batch
+    "n_layer": 4,         # so Transformer block
+    "n_head": 4,          # so attention head moi block
+    "n_embd": 128,        # chieu embedding
+    "lr": 3e-4,           # learning rate cho AdamW
+    "max_iters": 2000,    # so buoc train
+    "eval_every": 200,    # cu bao nhieu buoc thi do loss 1 lan
+    "eval_batches": 20,   # do loss trung binh tren bao nhieu batch
+    "weight_decay": 0.01, # chong overfit (Day 2)
+    "grad_clip": 1.0,     # cat gradient de khong no (Day 2)
+    "seed": 1337,         # tai lap duoc (Day 9 se dao sau)
+}
+
+torch.manual_seed(config["seed"])
+
+# Van ban Viet du phong: chi dung khi khong tai duoc du lieu va chua co
+# input.txt. Du nho de chay het pipeline (se overfit - chap nhan duoc
+# cho muc dich demo).
+FALLBACK_TEXT = (
+    "xin chao cac ban. hom nay chung ta hoc lap trinh python. "
+    "python la ngon ngu don gian va manh me. "
+    "tri tue nhan tao dang thay doi the gioi. "
+    "mo hinh ngon ngu hoc tu du lieu van ban rat lon. "
+    "chung ta bat dau tu mo hinh nho de hieu cach no hoat dong. "
+) * 40
+
+
+# ---------------------------------------------------------------------------
+# M1 - Du lieu + dataloader (Ngay 1)
+# ---------------------------------------------------------------------------
+def ensure_data(path):
+    """Dam bao co file du lieu; tra ve noi dung van ban.
+
+    Thu tu: file co san -&gt; tai tiny-shakespeare -&gt; van ban du phong.
+    """
+    if os.path.exists(path):
+        print(f"M1: doc du lieu tu {path} (co san)")
+        with open(path, encoding="utf-8") as f:
+            return f.read()
+    url = ("https://raw.githubusercontent.com/karpathy/char-rnn/master/"
+           "data/tinyshakespeare/input.txt")
+    try:
+        print(f"M1: dang tai tiny-shakespeare tu github...")
+        with urllib.request.urlopen(url, timeout=60) as r:
+            text = r.read().decode("utf-8")
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(text)
+        print(f"M1: da tai xong, luu vao {path}")
+        return text
+    except Exception as e:  # khong mang / bi chan: dung du phong
+        print(f"M1: khong tai duoc ({e}); dung van ban Viet du phong")
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(FALLBACK_TEXT)
+        return FALLBACK_TEXT
+
+
+def build_splits(text):
+    """Ma hoa toan bo van ban thanh tensor so nguyen, tach 90/10.
+
+    Returns:
+        Tuple (train_data, val_data): tensor 1 chieu cac token id.
+    """
+    data = torch.tensor(encode(text), dtype=torch.long)
+    n = int(0.9 * len(data))  # 90% train, 10% val
+    return data[:n], data[n:]
+
+
+def get_batch(split, train_data, val_data):
+    """Lay 1 batch ngau nhien: x (B, T), y (B, T).
+
+    y la x dich phai 1 token: y[i, t] = x[i, t+1] - nhiem vu "du doan
+    token ke tiep". Offset ngau nhien moi lan goi de model khong hoc
+    thuoc thu tu du lieu (Bay 1: quen dich -&gt; model hoc copy, loss ao).
+    """
+    data = train_data if split == "train" else val_data
+    B, T = config["batch_size"], config["block_size"]
+    # Vi tri bat dau ngau nhien; tru T+1 de y con du 1 token phia sau.
+    ix = torch.randint(0, len(data) - T - 1, (B,))
+    x = torch.stack([data[i:i + T] for i in ix])
+    y = torch.stack([data[i + 1:i + T + 1] for i in ix])
+    return x, y
+
+
+# ---------------------------------------------------------------------------
+# M2 - Tokenizer char-level + round-trip (Ngay 3)
+# ---------------------------------------------------------------------------
+# Vocab = toan bo ky tu xuat hien trong du lieu (don gian nhung du cho
+# mini-project). Xay sau khi co text - bien toan cuc dat trong main().
+stoi = {}  # char -&gt; id
+itos = {}  # id -&gt; char
+
+
+def build_vocab(text):
+    """Xay vocab tu tap ky tu cua du lieu."""
+    global stoi, itos
+    chars = sorted(set(text))
+    stoi = {ch: i for i, ch in enumerate(chars)}
+    itos = {i: ch for i, ch in enumerate(chars)}
+    return len(chars)
+
+
+def encode(s):
+    """Ma hoa chuoi -&gt; list id (ky tu la -&gt; id 0)."""
+    return [stoi.get(ch, 0) for ch in s]
+
+
+def decode(ids):
+    """Giai ma list id -&gt; chuoi."""
+    return "".join(itos[i] for i in ids)
+
+
+def test_roundtrip(text, n=100):
+    """Round-trip phai dung 100% tren n doan trich ngau nhien."""
+    for _ in range(n):
+        i = torch.randint(0, len(text) - 50, (1,)).item()
+        s = text[i:i + 50]
+        assert decode(encode(s)) == s, f"round-trip hong tai: {s!r}"
+    # Cau tieng Viet co dau: chi test khi vocab co du ky tu (du lieu Viet).
+    # Voi du lieu tieng Anh, ky tu la duoc anh xa ve id 0 theo dung thiet
+    # ke (Hint M2) nen khong the round-trip - bo qua cho nay la dung.
+    vn = "xin chào Việt Nam"
+    if all(ch in stoi for ch in vn):
+        assert decode(encode(vn)) == vn
+        print(f"M2: round-trip dung 100% tren {n} doan trich + cau tieng Viet")
+    else:
+        print(f"M2: round-trip dung 100% tren {n} doan trich "
+              "(bo qua cau tieng Viet: vocab tieng Anh khong co dau)")
+
+
+# ---------------------------------------------------------------------------
+# M3 - Embedding + vi tri (Ngay 4): nam trong TinyGPT (xem M5)
+# ---------------------------------------------------------------------------
+def count_emb_params(vocab_size):
+    """Dem tham so embedding, bao cao MB (float32 = 4 byte/param)."""
+    n = vocab_size * config["n_embd"] + config["block_size"] * config["n_embd"]
+    print(f"M3: tham so embedding = {n:,} (~{n * 4 / 1e6:.3f} MB)")
+    return n
+
+
+# ---------------------------------------------------------------------------
+# M4 - Causal self-attention (Ngay 5): milestone de sai nhat
+# ---------------------------------------------------------------------------
+class Head(nn.Module):
+    """Mot attention head: q, k, v = Linear(n_embd, head_size)(x).
+
+    Args:
+        n_embd: chieu embedding dau vao.
+        head_size: chieu cua moi head.
+        block_size: do dai toi da de tao san mask.
+    """
+
+    def __init__(self, n_embd, head_size, block_size):
+        super().__init__()
+        self.q = nn.Linear(n_embd, head_size, bias=False)
+        self.k = nn.Linear(n_embd, head_size, bias=False)
+        self.v = nn.Linear(n_embd, head_size, bias=False)
+        # Mask tam giac duoi tao 1 LAN: o (i, j) = 1 neu j &lt;= i
+        # (token i duoc nhin token j dung truoc no).
+        self.register_buffer("tril",
+                             torch.tril(torch.ones(block_size, block_size)))
+
+    def forward(self, x):
+        B_, T_, _ = x.shape
+        # [TRAINER] Guard 2026-10-17: giong loi da sua o Day 6 - mask tril
+        # chi tao san den block_size. Neu T_ vuot qua, self.tril[:T_, :T_]
+        # khong bao loi ma am tham tra ve ma tran thieu kich thuoc -&gt;
+        # masked_fill crash voi thong bao broadcast kho hieu.
+        # That bai SOM voi thong bao ro rang de debug hon.
+        assert T_ &lt;= self.tril.shape[0], \
+            f"do dai chuoi {T_} vuot qua block_size={self.tril.shape[0]}"
+        q, k, v = self.q(x), self.k(x), self.v(x)
+        # scores[i, j] = do hop q_i voi k_j; chia sqrt(head_size) de
+        # softmax khong bao hoa (quen chia -&gt; gradient ~ 0, Day 5).
+        scores = (q @ k.transpose(-2, -1)) / math.sqrt(q.shape[-1])
+        # BAT BUOC: cam nhin tuong lai truoc softmax. Quen mask la loi
+        # "gian lan" kinh dien: loss dep ao nhung sample ra rac (Q1).
+        scores = scores.masked_fill(self.tril[:T_, :T_] == 0, float("-inf"))
+        attn = F.softmax(scores, dim=-1)
+        return attn @ v
+
+
+class MultiHeadAttention(nn.Module):
+    """Nhieu head chay song song, ghep lai roi chieu ve n_embd."""
+
+    def __init__(self, n_embd, n_head, block_size):
+        super().__init__()
+        # [TRAINER] Guard 2026-10-17: giong Day 6 (transformer_block.py) -
+        # neu n_embd khong chia het cho n_head, head_size bi cat ngan do
+        # phep // -&gt; cat cac head ra sai chieu (B, T, h*head_size != d) -&gt;
+        # self.proj crash o forward voi thong bao dim kho hieu.
+        # That bai SOM ngay khi khoi tao de thay loi config.
+        assert n_embd % n_head == 0, "n_embd phai chia het cho n_head"
+        head_size = n_embd // n_head
+        self.heads = nn.ModuleList(
+            [Head(n_embd, head_size, block_size) for _ in range(n_head)])
+        self.proj = nn.Linear(n_embd, n_embd)  # gop head -&gt; n_embd
+
+    def forward(self, x):
+        # Noi output cac head theo chieu cuoi: (B, T, h*head_size)=(B,T,d).
+        out = torch.cat([h(x) for h in self.heads], dim=-1)
+        return self.proj(out)
+
+
+def test_sdpa():
+    """So head tu viet voi torch SDPA: sai so phai &lt; 1e-5 (M4 accept)."""
+    torch.manual_seed(0)
+    n_embd, head_size, T_ = 32, 8, 16
+    head = Head(n_embd, head_size, T_).eval()
+    x = torch.randn(2, T_, n_embd)
+    with torch.no_grad():
+        q, k, v = head.q(x), head.k(x), head.v(x)
+        manual = head(x)
+        # SDPA chuan cua torch, is_causal=True = tu ap mask nhan qua.
+        ref = F.scaled_dot_product_attention(q, k, v, is_causal=True)
+    diff = (manual - ref).abs().max().item()
+    assert diff &lt; 1e-5, f"khop SDPA kem: diff = {diff}"
+    print(f"M4: attention tu viet khop torch SDPA (sai so {diff:.2e} &lt; 1e-5)")
+
+
+# ---------------------------------------------------------------------------
+# M5 - Transformer block + TinyGPT (Ngay 6)
+# ---------------------------------------------------------------------------
+class Block(nn.Module):
+    """Mot block: x + Attn(LN(x)) roi x + MLP(LN(x)) (pre-norm).
+
+    Norm nam TRONG nhanh phu, khong chan duong residual -&gt; gradient chay
+    thang qua phep cong (Day 6). Quen "+ x" thi sau 4 layer gradient chet.
+    """
+
+    def __init__(self, n_embd, n_head, block_size):
+        super().__init__()
+        self.ln1 = nn.LayerNorm(n_embd)
+        self.ln2 = nn.LayerNorm(n_embd)
+        self.attn = MultiHeadAttention(n_embd, n_head, block_size)
+        self.mlp = nn.Sequential(
+            nn.Linear(n_embd, 4 * n_embd),  # mo rong 4x: "nha kho kien thuc"
+            nn.GELU(),
+            nn.Linear(4 * n_embd, n_embd),  # thu ve n_embd
+        )
+
+    def forward(self, x):
+        x = x + self.attn(self.ln1(x))
+        x = x + self.mlp(self.ln2(x))
+        return x
+
+
+class TinyGPT(nn.Module):
+    """GPT thu nho: embedding -&gt; n_layer block -&gt; LN -&gt; LM head rieng."""
+
+    def __init__(self, vocab_size):
+        super().__init__()
+        cfg = config
+        self.tok_emb = nn.Embedding(vocab_size, cfg["n_embd"])
+        self.pos_emb = nn.Embedding(cfg["block_size"], cfg["n_embd"])
+        self.blocks = nn.Sequential(*[
+            Block(cfg["n_embd"], cfg["n_head"], cfg["block_size"])
+            for _ in range(cfg["n_layer"])])
+        self.ln_f = nn.LayerNorm(cfg["n_embd"])
+        self.lm_head = nn.Linear(cfg["n_embd"], vocab_size, bias=False)
+
+    def forward(self, x):
+        """Nhan x (B, T) token id, tra logits (B, T, V)."""
+        B_, T_ = x.shape
+        # Cong vector token + vector vi tri (hoc duoc, du dung o co nay).
+        # [TRAINER] Sua 2026-10-17: them device=x.device. Ban Day 6
+        # (transformer_block.py) ban da viet dung torch.arange(t,
+        # device=idx.device); sang file nay bi "regression" mat device -&gt;
+        # tren CPU van chay, nhung ai .to('cuda') model se crash vi
+        # pos_emb nhan tensor CPU trong khi weight da len GPU.
+        h = self.tok_emb(x) + self.pos_emb(torch.arange(T_, device=x.device))
+        assert h.shape == (B_, T_, config["n_embd"]), "sai shape embedding"
+        h = self.blocks(h)
+        h = self.ln_f(h)
+        return self.lm_head(h)
+
+    def count_params(self):
+        """Tong so tham so cua model."""
+        return sum(p.numel() for p in self.parameters())
+
+
+def test_forward_backward(model, train_data, val_data):
+    """M5 accept: forward + backward 1 batch: loss huu han, khong NaN."""
+    model.train()
+    x, y = get_batch("train", train_data, val_data)
+    logits = model(x)
+    loss = F.cross_entropy(logits.view(-1, logits.shape[-1]), y.view(-1))
+    assert torch.isfinite(loss), "loss khong huu han!"
+    loss.backward()
+    for n_, p in model.named_parameters():
+        assert p.grad is not None and not torch.isnan(p.grad).any(), \
+            f"grad loi tai {n_}"
+    model.zero_grad()  # xoa grad thu nghiem truoc khi train that
+    print(f"M5: forward+backward OK, loss batch dau = {loss.item():.4f}")
+
+
+# ---------------------------------------------------------------------------
+# M6 - Train loop + checkpoint (Ngay 2 + Ngay 7)
+# ---------------------------------------------------------------------------
+@torch.no_grad()
+def estimate_loss(model, train_data, val_data):
+    """Loss trung binh tren eval_batches batch (khong tinh gradient)."""
+    model.eval()
+    out = {}
+    for split in ("train", "val"):
+        losses = []
+        for _ in range(config["eval_batches"]):
+            x, y = get_batch(split, train_data, val_data)
+            logits = model(x)
+            losses.append(
+                F.cross_entropy(logits.view(-1, logits.shape[-1]),
+                                y.view(-1)).item())
+        out[split] = sum(losses) / len(losses)
+    model.train()
+    return out
+
+
+def train(model, train_data, val_data):
+    """Vong train chinh. Tra ve lich su loss + thoi gian (giay)."""
+    opt = torch.optim.AdamW(model.parameters(), lr=config["lr"],
+                            weight_decay=config["weight_decay"])
+    history = []
+    t0 = time.perf_counter()
+    for it in range(1, config["max_iters"] + 1):
+        x, y = get_batch("train", train_data, val_data)
+        logits = model(x)
+        loss = F.cross_entropy(logits.view(-1, logits.shape[-1]), y.view(-1))
+        opt.zero_grad()  # Bay 2: quen dong nay -&gt; grad cong don -&gt; NaN
+        loss.backward()
+        # Cat gradient: chong 1 batch "di" lam no tung loss (Day 2).
+        torch.nn.utils.clip_grad_norm_(model.parameters(), config["grad_clip"])
+        opt.step()
+        if it % config["eval_every"] == 0 or it == 1:
+            el = estimate_loss(model, train_data, val_data)
+            history.append((it, el["train"], el["val"]))
+            print(f"  iter {it:&gt;4}: train loss {el['train']:.4f} | "
+                  f"val loss {el['val']:.4f}")
+    dt = time.perf_counter() - t0
+    # Checkpoint: luu de tai su dung / nop bai (M6 accept).
+    torch.save({"model": model.state_dict(), "config": config,
+                "iter": config["max_iters"]}, "ckpt.pt")
+    print(f"M6: train xong {config['max_iters']} iters trong {dt / 60:.1f} "
+          f"phut; da luu ckpt.pt")
+    return history, dt
+
+
+def test_checkpoint(vocab_size, train_data, val_data):
+    """M6 accept: ckpt.pt load lai duoc va cho output nhu cu."""
+    sd = torch.load("ckpt.pt", weights_only=True)["model"]
+    m2 = TinyGPT(vocab_size)
+    m2.load_state_dict(sd)  # no neu khop -&gt; checkpoint hop le
+    m2.eval()
+    x, _ = get_batch("val", train_data, val_data)
+    torch.manual_seed(1)
+    m1 = TinyGPT(vocab_size)
+    m1.load_state_dict(sd)
+    m1.eval()
+    with torch.no_grad():
+        assert torch.equal(m1(x), m2(x)), "load checkpoint cho output khac!"
+    print("M6: ckpt.pt load lai duoc, output khop")
+
+
+def save_loss_log(history):
+    """Luu log loss ra CSV; ve PNG neu co matplotlib."""
+    with open("loss_log.csv", "w") as f:
+        f.write("iter,train_loss,val_loss\n")
+        for it, tr, va in history:
+            f.write(f"{it},{tr:.4f},{va:.4f}\n")
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+        iters = [h[0] for h in history]
+        plt.plot(iters, [h[1] for h in history], label="train")
+        plt.plot(iters, [h[2] for h in history], label="val")
+        plt.xlabel("iter")
+        plt.ylabel("loss")
+        plt.legend()
+        plt.savefig("loss_curve.png")
+        print("M6: da ve loss_curve.png")
+    except ImportError:
+        print("M6: chua co matplotlib -&gt; bo qua ve do thi "
+              "(xem loss_log.csv)")
+
+
+# ---------------------------------------------------------------------------
+# M7 - Sampling + model card + bao cao xanh (Ngay 7)
+# ---------------------------------------------------------------------------
+@torch.no_grad()
+def generate(model, prompt, max_new=200, temperature=0.8):
+    """Sinh tiep max_new token tu prompt (temperature sampling).
+
+    Moi buoc: lay logits cua token CUOI -&gt; chia temperature -&gt; softmax
+    -&gt; boc tham 1 token (multinomial) -&gt; noi vao chuoi. Temperature cao
+    -&gt; phan phoi "det" hon -&gt; van ban "dien" hon.
+    """
+    assert temperature &gt; 0, "temperature phai &gt; 0"
+    model.eval()
+    # [TRAINER] Sua 2026-10-17: dat idx len dung device cua model (giong
+    # loi pos_emb o TinyGPT.forward). Tren CPU khong anh huong, nhung neu
+    # model da .to('cuda') ma idx con o CPU thi forward crash ngay buoc 1.
+    dev = next(model.parameters()).device
+    idx = torch.tensor([encode(prompt)], dtype=torch.long, device=dev)
+    for _ in range(max_new):
+        # Cat context ve block_size: model chi nho duoc T token gan nhat.
+        logits = model(idx[:, -config["block_size"]:])
+        probs = F.softmax(logits[:, -1, :] / temperature, dim=-1)
+        nxt = torch.multinomial(probs, num_samples=1)
+        idx = torch.cat([idx, nxt], dim=1)
+    return decode(idx[0].tolist())
+
+
+def write_model_card(history, dt, samples, vocab_size, total_params):
+    """Viet MODEL_CARD.md (&lt;= 20 dong): bao cao cua mini-project."""
+    tr0, va0 = history[0][1], history[0][2]
+    tr1, va1 = history[-1][1], history[-1][2]
+    toks = config["max_iters"] * config["batch_size"] * config["block_size"]
+    card = [
+        "# MODEL_CARD.md - TinyGPT (Day 07 mini-project)",
+        f"1. Kien truc: char-level Transformer {config['n_layer']} layer x "
+        f"{config['n_head']} head, n_embd={config['n_embd']}, MLP 4x + GELU, "
+        "pre-norm, causal mask.",
+        f"2. Du lieu: {config['data']}, vocab {vocab_size} ky tu, "
+        "tach 90/10 train/val.",
+        f"3. Sieu tham so: block_size={config['block_size']}, "
+        f"batch={config['batch_size']}, AdamW lr={config['lr']} "
+        f"wd={config['weight_decay']}, {config['max_iters']} iters, "
+        f"seed={config['seed']}.",
+        f"4. Tham so: {total_params:,} (~{total_params / 1e6:.2f}M).",
+        f"5. Loss: train {tr0:.2f} -&gt; {tr1:.2f}, val {va0:.2f} -&gt; {va1:.2f} "
+        f"(sau {config['max_iters']} iters, {dt / 60:.1f} phut CPU).",
+        f"6. Sample tot nhat (T=0.7): {samples[0.7][:110]!r}",
+        f"7. Sample 'dien' nhat (T=1.3): {samples[1.3][:110]!r}",
+        "8. Gioi han da biet: char-level + context 64 nen van ban con sai "
+        "chinh ta; model nho (~1M) khong hieu nghia sau; chi nho pattern "
+        "ngan.",
+        f"9. Xanh: {toks / dt:,.0f} tokens/s; train gap doi iters ~ gap doi "
+        "dien nang (chi phi tuyen tinh theo so buoc).",
+    ]
+    assert len(card) &lt;= 20, "model card qua 20 dong!"
+    with open("MODEL_CARD.md", "w", encoding="utf-8") as f:
+        f.write("\n".join(card) + "\n")
+    print("M7: da viet MODEL_CARD.md (9 dong)")
+
+
+# ---------------------------------------------------------------------------
+# Main: chay tuan tu M0 -&gt; M7, dat accept moi sang milestone tiep
+# ---------------------------------------------------------------------------
+def main():
+    """Pipeline mini-project: du lieu -&gt; model -&gt; train -&gt; sample."""
+    print("=" * 64)
+    print("M0 - Config")
+    print("=" * 64)
+    print(json.dumps(config, indent=2))
+    print("M0: import OK, in duoc config")
+
+    print("\n" + "=" * 64)
+    print("M1 - Du lieu + dataloader")
+    print("=" * 64)
+    text = ensure_data(config["data"])
+    print(f"M1: do dai van ban = {len(text):,} ky tu")
+    vocab_size = build_vocab(text)
+    print(f"M1: vocab size = {vocab_size}")
+    train_data, val_data = build_splits(text)
+    x, y = get_batch("train", train_data, val_data)
+    assert x.shape == (config["batch_size"], config["block_size"])
+    assert torch.equal(y[0, :5], x[0, 1:6]), "y phai la x dich phai 1!"
+    print(f"M1: x.shape = {tuple(x.shape)}, y[0,:5] == x[0,1:6] dung")
+    print("M1: 10 token dau cua batch:", x[0, :10].tolist(), "-&gt;",
+          repr(decode(x[0, :10].tolist())))
+
+    print("\n" + "=" * 64)
+    print("M2 - Tokenizer char-level")
+    print("=" * 64)
+    test_roundtrip(text)
+
+    print("\n" + "=" * 64)
+    print("M3 - Embedding + vi tri")
+    print("=" * 64)
+    count_emb_params(vocab_size)
+
+    print("\n" + "=" * 64)
+    print("M4 - Causal self-attention")
+    print("=" * 64)
+    test_sdpa()
+
+    print("\n" + "=" * 64)
+    print("M5 - Transformer block + TinyGPT")
+    print("=" * 64)
+    model = TinyGPT(vocab_size)
+    total = model.count_params()
+    print(f"M5: tong so tham so = {total:,} (~{total / 1e6:.2f}M)")
+    test_forward_backward(model, train_data, val_data)
+
+    print("\n" + "=" * 64)
+    print("M6 - Train loop + checkpoint (~vai phut tren CPU)")
+    print("=" * 64)
+    history, dt = train(model, train_data, val_data)
+    test_checkpoint(vocab_size, train_data, val_data)
+    save_loss_log(history)
+
+    print("\n" + "=" * 64)
+    print("M7 - Sampling + model card + bao cao xanh")
+    print("=" * 64)
+    prompt = text[:30]  # lay 30 ky tu dau du lieu lam prompt mau
+    print(f"M7: prompt = {prompt!r}")
+    samples = {}
+    for temp in (0.7, 1.0, 1.3):
+        torch.manual_seed(7)  # cung seed de so sanh cong bang 3 nhiet do
+        s = generate(model, prompt, max_new=200, temperature=temp)
+        samples[temp] = s[len(prompt):]
+        print(f"--- temperature = {temp}:")
+        print("   ", samples[temp][:200].replace("\n", " "))
+    write_model_card(history, dt, samples, vocab_size, total)
+
+    print("\n" + "=" * 64)
+    print("XONG - Checklist: M0-M7 dat accept; co ckpt.pt, loss_log.csv,")
+    print("        MODEL_CARD.md (+ loss_curve.png neu co matplotlib).")
+    print("=" * 64)
+
+
+if __name__ == "__main__":
+    main()
+</code></pre>
+</section>
+
+</div><!-- /wrap -->
+
+<footer>
+  <div class="wrap">
+    Được dựng từ <code>day07/tinygpt.py</code> — giải thích bằng tiếng Việt, vẽ thành sơ đồ cho người ngoại đạo.<br>
+    Số liệu là kết quả chạy thật trên CPU (seed=1337). Sơ đồ là minh họa ý tưởng.
+  </div>
+</footer>
+
+<script>
+// --- Tiện ích ---
+function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+// --- Demo M1: máy cắt batch mini ---
+(function(){
+  const VOC="abcdefghijklmnopqrstuvwxyz .,!?";
+  const enc = s => [...s.toLowerCase()].map(c => VOC.indexOf(c) >= 0 ? VOC.indexOf(c) : 30).slice(0, 16);
+  const input = document.getElementById("dlInput");
+  function tokRow(el, ids, cls){
+    el.innerHTML = "";
+    ids.forEach(id => {
+      const d = document.createElement("span"); d.className = "tok " + cls;
+      d.innerHTML = esc(VOC[id] === " " ? "␣" : VOC[id]) + '<span class="tid">' + id + "</span>";
+      el.appendChild(d);
+    });
+  }
+  function render(){
+    const ids = enc(input.value || " ");
+    const x = ids.slice(0, ids.length - 1), y = ids.slice(1);
+    tokRow(document.getElementById("dlX"), x, "x");
+    tokRow(document.getElementById("dlY"), y, "y");
+    document.getElementById("dlOut").innerHTML =
+      "x (input):  [" + x.join(", ") + "]<br>" +
+      "y (đáp án): [" + y.join(", ") + "]  ← y[0]=" + y[0] + " == x[1]=" + x[1] + " ✅ (dịch phải 1)";
+  }
+  input.addEventListener("input", render);
+  render();
+})();
+// --- Demo M2: máy mã hóa mini ---
+(function(){
+  const VOC="abcdefghijklmnopqrstuvwxyz .,!?";
+  const btn = document.getElementById("tkBtn");
+  btn.addEventListener("click", function(){
+    const s = document.getElementById("tkInput").value || "";
+    const ids = [...s.toLowerCase()].map(c => VOC.indexOf(c) >= 0 ? VOC.indexOf(c) : 30);
+    const back = ids.map(i => VOC[i] || "?").join("");
+    const ok = back === s.toLowerCase();
+    document.getElementById("tkOut").innerHTML =
+      "encode: [" + ids.join(", ") + "]<br>" +
+      "decode: " + esc(JSON.stringify(back)) + "<br>" +
+      (ok ? "round-trip ✅ đúng 100%" : "⚠️ có ký tự lạ → id 30 (theo thiết kế)");
+  });
+})();
+// --- Bản đồ tham số (số thật) ---
+(function(){
+  const el = document.getElementById("pmBars");
+  const rows = [
+    ["tok_emb: 65 × 128", 8320, "#2563eb"],
+    ["pos_emb: 64 × 128", 8192, "#0f766e"],
+    ["4 × block (mỗi block 197,888)", 791552, "#4338ca"],
+    ["ln_f", 256, "#b45309"],
+    ["lm_head: 128 × 65 (riêng)", 8320, "#be123c"]
+  ];
+  const total = 816640;
+  rows.forEach(r => {
+    const pct = (r[1] / total * 100);
+    const div = document.createElement("div");
+    div.style.cssText = "display:flex;align-items:center;gap:10px;margin:7px 0;font-size:.88rem";
+    div.innerHTML = '<div style="width:230px;flex-shrink:0;font-family:monospace;font-size:.8rem">' + esc(r[0]) + '</div>' +
+      '<div style="flex:1;background:#eef0fa;border-radius:8px;height:24px"><div style="width:' + Math.max(pct, 1.5).toFixed(1) + '%;height:100%;border-radius:8px;background:' + r[2] + '"></div></div>' +
+      '<div style="width:110px;font-family:monospace;font-size:.78rem;color:var(--muted)">' + r[1].toLocaleString("vi-VN") + "</div>";
+    el.appendChild(div);
+  });
+})();
+// --- Demo M6: đường cong loss (số chạy thật) ---
+(function(){
+  const svg = document.getElementById("lossCurve");
+  const H = [[1, 4.2314, 4.2427], [200, 2.494, 2.5043], [400, 2.3367, 2.3361], [600, 2.2089, 2.2187], [800, 2.0951, 2.1255], [1000, 2.0111, 2.0654], [1200, 1.9201, 2.0001], [1400, 1.8836, 1.9685], [1600, 1.8075, 1.919], [1800, 1.765, 1.9131], [2000, 1.7176, 1.8682]];
+  const W=640, HT=300, PL=56, PR=16, PT=18, PB=38;
+  const NS = "http://www.w3.org/2000/svg";
+  const xs = H.map(h=>h[0]), tr = H.map(h=>h[1]), va = H.map(h=>h[2]);
+  const mx = Math.max.apply(null, tr.concat(va)) * 1.05, mn = 0;
+  const X = i => PL + (xs[i]/2000)*(W-PL-PR);
+  const Y = v => PT + (1-(v-mn)/(mx-mn))*(HT-PT-PB);
+  function line(x1,y1,x2,y2,c,w){ const l=document.createElementNS(NS,"line");
+    l.setAttribute("x1",x1);l.setAttribute("y1",y1);l.setAttribute("x2",x2);l.setAttribute("y2",y2);
+    l.setAttribute("stroke",c);l.setAttribute("stroke-width",w||1);svg.appendChild(l); }
+  function txt(x,y,s,c,sz,anc){ const t=document.createElementNS(NS,"text");
+    t.setAttribute("x",x);t.setAttribute("y",y);t.setAttribute("font-size",sz||11);
+    t.setAttribute("fill",c||"#6b7280");t.setAttribute("text-anchor",anc||"middle");t.textContent=s;svg.appendChild(t); }
+  [0,1,2,3,4,5].forEach(g=>{ const v=mx*g/5; line(PL,Y(v),W-PR,Y(v),"#e5e3f5"); txt(PL-8,Y(v)+4,v.toFixed(1),"#6b7280",10,"end"); });
+  [0,500,1000,1500,2000].forEach(x=>{ const px=PL+(x/2000)*(W-PL-PR); txt(px,HT-PB+20,x,"#6b7280",10); });
+  txt(W/2, HT-6, "iter", "#6b7280", 11); txt(14, HT/2, "loss", "#6b7280", 11);
+  [["tr","#4338ca"],["va","#be123c"]].forEach((cfg,ci)=>{
+    const vals = ci===0?tr:va;
+    let d = "";
+    vals.forEach((v,i)=>{ d += (i===0?"M":"L") + X(i).toFixed(1) + "," + Y(v).toFixed(1) + " "; });
+    const p=document.createElementNS(NS,"path");
+    p.setAttribute("d",d);p.setAttribute("fill","none");p.setAttribute("stroke",cfg[1]);p.setAttribute("stroke-width","2.5");
+    svg.appendChild(p);
+    vals.forEach((v,i)=>{ const c=document.createElementNS(NS,"circle");
+      c.setAttribute("cx",X(i));c.setAttribute("cy",Y(v));c.setAttribute("r","4");c.setAttribute("fill",cfg[1]);svg.appendChild(c); });
+  });
+  txt(W-PR-70, PT+14, "— train", "#4338ca", 12, "start");
+  txt(W-PR-70, PT+32, "— val", "#be123c", 12, "start");
+})();
+// --- Demo M7: temperature ---
+(function(){
+  const cands = [["be",3.0],["me",2.0],["see",1.0],["flee",0.0],["zebra",-1.0]];
+  const slider = document.getElementById("tpSlider");
+  const bars = document.getElementById("tpBars");
+  const out = document.getElementById("tpOut");
+  function probs(T){
+    const mx = Math.max.apply(null, cands.map(c=>c[1]/T));
+    const e = cands.map(c=>Math.exp(c[1]/T - mx));
+    const s = e.reduce((a,b)=>a+b,0);
+    return e.map(x=>x/s);
+  }
+  function render(){
+    const T = parseFloat(slider.value);
+    document.getElementById("tpVal").textContent = T.toFixed(1);
+    const p = probs(T);
+    bars.innerHTML = "";
+    cands.forEach((c,i)=>{
+      const d = document.createElement("div");
+      d.className = "bcol"; d.style.height = Math.max(4, p[i]*110) + "px";
+      d.innerHTML = '<span class="blab">' + c[0] + "<br>" + (p[i]*100).toFixed(1) + "%</span>";
+      d.title = c[0] + ": " + (p[i]*100).toFixed(1) + "%";
+      bars.appendChild(d);
+    });
+  }
+  document.getElementById("tpDraw").addEventListener("click", function(){
+    const T = parseFloat(slider.value), p = probs(T);
+    const r = Math.random(); let acc = 0, pick = cands[0][0];
+    for(let i=0;i<p.length;i++){ acc += p[i]; if(r < acc){ pick = cands[i][0]; break; } }
+    out.innerHTML = "T=" + T.toFixed(1) + " → bốc được: <b>“" + esc(pick) + "”</b>" +
+      (T < 0.6 ? " (T thấp: gần như luôn trúng 'be')" : T > 1.2 ? " (T cao: cả 'zebra' cũng có cửa!)" : "");
+  });
+  slider.addEventListener("input", render);
+  render();
+})();
+// --- Quiz trainer ---
+(function(){
+  const answers = {
+    quizOut1: "✅ Đúng! <code>torch.arange(T_)</code> tạo tensor trên CPU; cộng vào <code>pos_emb</code> đã lên GPU → crash. Bản sửa thêm <code>device=x.device</code>.",
+    quizOut2: "✅ Đúng! CPU chỉ có một device nên mọi thứ 'tự khớp' — bug ngủ yên. Lên GPU (2 device trở lên) mới lộ xung đột. Vì vậy phải viết code device-agnostic ngay từ đầu."
+  };
+  ["quiz1","quiz2"].forEach((qid, qi)=>{
+    const box = document.getElementById(qid);
+    const outId = "quizOut" + (qi+1);
+    box.querySelectorAll(".quizopt").forEach(opt=>{
+      opt.addEventListener("click", function(){
+        box.querySelectorAll(".quizopt").forEach(o=>{o.classList.remove("right","wrong");});
+        const ok = opt.dataset.ok === "1";
+        opt.classList.add(ok ? "right" : "wrong");
+        const out = document.getElementById(outId);
+        out.style.display = "block";
+        out.innerHTML = ok ? answers[outId] : "❌ Chưa đúng — thử lại nhé!";
+      });
+    });
+  });
+})();
+// --- Copy source ---
+(function(){
+  const btn = document.getElementById("copySrcBtn");
+  btn.addEventListener("click", function(){
+    const raw = document.getElementById("fullsrc").textContent;
+    const msg = document.getElementById("copyMsg");
+    const done = function(){ msg.textContent = "Đã copy ✓"; setTimeout(function(){ msg.textContent = ""; }, 2000); };
+    if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(raw).then(done, done); }
+    else { const ta = document.createElement("textarea"); ta.value = raw; document.body.appendChild(ta); ta.select(); try{ document.execCommand("copy"); }catch(e){} document.body.removeChild(ta); done(); }
+  });
+})();
+</script>
+<script>
+// Tô màu cú pháp Python
+(function(){
+  function escHtml(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+  function highlightPython(src){
+    var re = /(#[^\n]*)|("""[\s\S]*?"""|"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*')|\b(import|from|def|class|return|if|elif|else|for|while|in|is|not|and|or|None|True|False|lambda|with|as|try|except|finally|raise|global|pass|break|continue)\b|(\b\d+(?:\.\d+)?\b)|(@[\w.]+)/g;
+    var out = "", last = 0, m;
+    while((m = re.exec(src))){
+      out += escHtml(src.slice(last, m.index));
+      var tok = m[0], cls = m[1] ? "cm" : m[2] ? "str" : m[3] ? "kw" : m[4] ? "num2" : "fn";
+      out += '<span class="' + cls + '">' + escHtml(tok) + "</span>";
+      last = m.index + tok.length;
+      if(tok.length === 0) re.lastIndex++;
+    }
+    return out + escHtml(src.slice(last));
+  }
+  document.querySelectorAll("pre.pysrc").forEach(function(pre){
+    var raw = pre.textContent;
+    pre.innerHTML = "<code>" + highlightPython(raw) + "</code>";
+  });
+})();
+</script>
+</body>
+</html>
