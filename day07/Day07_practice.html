@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ngày 7 — Buổi tối: Mini-project 1 · TinyGPT từ số 0</title>
+<style>
+:root{
+  --bg:#0d1117; --panel:#161b22; --panel2:#1c2330; --border:#30363d;
+  --text:#e6edf3; --muted:#9aa4b2; --accent:#58a6ff; --green:#3fb950;
+  --orange:#d29922; --red:#f85149; --purple:#bc8cff;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;margin:0;line-height:1.7}
+.wrap{max-width:860px;margin:0 auto;padding:16px 16px 64px}
+h1{font-size:1.5rem;line-height:1.35;margin:0 0 4px}
+h2{font-size:1.2rem;margin:36px 0 12px;padding-bottom:8px;border-bottom:1px solid var(--border);color:var(--accent)}
+h3{font-size:1.05rem;margin:22px 0 8px;color:var(--green)}
+p{margin:10px 0}
+.sub{color:var(--muted);font-size:.95rem}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px;margin:14px 0}
+.milestone{border-left:4px solid var(--accent)}
+.milestone.done-ok{border-left-color:var(--green)}
+ul,ol{padding-left:22px;margin:8px 0}
+li{margin:6px 0}
+pre{background:#0a0d12;border:1px solid var(--border);border-radius:10px;padding:12px;overflow-x:auto;font-size:.82rem;line-height:1.55}
+code{font-family:"SF Mono",Consolas,"Courier New",monospace}
+p code,li code,td code{background:#0a0d12;border:1px solid var(--border);border-radius:6px;padding:1px 6px;font-size:.85em}
+.tag{display:inline-block;font-size:.75rem;background:var(--panel2);border:1px solid var(--border);border-radius:20px;padding:2px 10px;color:var(--muted);margin:2px 4px 2px 0}
+.todo{background:#2a1f10;border:1px dashed var(--orange);border-radius:8px;padding:10px 12px;margin:10px 0;color:#f0d8a8}
+.hint{background:#0e1a2b;border:1px solid #1f6feb55;border-radius:8px;padding:10px 12px;margin:10px 0;font-size:.93rem}
+.accept{background:#0e2317;border:1px solid #2ea04366;border-radius:8px;padding:10px 12px;margin:10px 0;font-size:.93rem}
+table{width:100%;border-collapse:collapse;margin:12px 0;font-size:.9rem}
+th,td{border:1px solid var(--border);padding:8px 10px;text-align:left;vertical-align:top}
+th{background:var(--panel2)}
+details{margin:10px 0}
+summary{cursor:pointer;color:var(--purple);font-weight:600}
+.qa{margin-bottom:18px}
+button.show{background:#1f6feb;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:.9rem;cursor:pointer}
+button.show:hover{background:#388bfd}
+.ans{display:none;background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-top:8px}
+.check{list-style:none;padding-left:4px}
+.check li{padding:6px 0 6px 30px;position:relative}
+.check li::before{content:"☐";position:absolute;left:4px;color:var(--accent)}
+.warn{color:var(--orange)}
+.trap{background:#230f14;border:1px solid #a40e2666;border-radius:10px;padding:12px 14px;margin:12px 0}
+.trap b{color:var(--red)}
+.green{color:var(--green)}
+.foot{margin-top:40px;color:var(--muted);font-size:.85rem;border-top:1px solid var(--border);padding-top:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>🛠️ Ngày 7 — Buổi tối: Mini-project 1 · TinyGPT từ số 0</h1>
+<p class="sub">Bài tập tổng hợp cả tuần 1 · Ngày 1→6 giờ đây ghép thành <b>một mô hình chạy được thật</b>.</p>
+
+<div class="card">
+<span class="tag">⏱️ ~90–120 phút</span>
+<span class="tag">🟡 Trung bình–khó</span>
+<span class="tag">📦 1 file duy nhất: <code>tinygpt.py</code></span>
+</div>
+
+<h2>1 · Mục tiêu buổi tối</h2>
+<div class="card">
+<p>Từ linh kiện rời của tuần 1, bạn lắp ráp và <b>huấn luyện thật</b> một TinyGPT (~1–5M tham số):</p>
+<ul>
+<li><b>M1</b> (Ngày 1): dữ liệu + dataloader → batch <code>(B, T)</code> đúng shape.</li>
+<li><b>M2</b> (Ngày 2): optimizer + gradient sanity — loss phải <b>giảm</b> sau vài trăm bước.</li>
+<li><b>M3</b> (Ngày 3): tokenizer char-level có encode/decode <b>round-trip</b> đúng.</li>
+<li><b>M4</b> (Ngày 4): token embedding + vị trí, shape kiểm chứng được.</li>
+<li><b>M5</b> (Ngày 5): self-attention với <b>causal mask</b>, so với <code>torch SDPA</code>.</li>
+<li><b>M6</b> (Ngày 6): một Transformer block + LM head, ghép thành TinyGPT.</li>
+<li><b>M7</b> (Ngày 7): train loop + checkpoint + sampling + <b>model card</b> + báo cáo năng lượng.</li>
+</ul>
+<p>Quy tắc: mỗi milestone có <span class="green">tiêu chí đạt (accept)</span> — đạt rồi mới sang milestone tiếp theo. Nếu kẹt quá 20 phút ở 1 milestone, đọc hint, vẫn kẹt thì paste lỗi vào chat.</p>
+</div>
+
+<h2>2 · Bài tập code — từng bước</h2>
+
+<h3>M0 — Khung file và config</h3>
+<div class="card milestone">
+<p>Tạo file <code>tinygpt.py</code> với khung config duy nhất. Mọi siêu tham số đặt ở đây, không hardcode trong code.</p>
+<pre><code># TODO: điền config tối giản, chạy được trên CPU
+config = {
+    "data": "input.txt",   # văn bản train, xem M1
+    "block_size": 64,      # T: độ dài ngữ cảnh
+    "batch_size": 32,      # B
+    "n_layer": 4, "n_head": 4, "n_embd": 128,
+    "lr": 3e-4, "max_iters": 2000, "eval_every": 200,
+    "seed": 1337,
+}
+torch.manual_seed(config["seed"])  # tái lập được (Day 9 sẽ đào sâu)</code></pre>
+<div class="accept">✅ <b>Accept:</b> <code>python tinygpt.py</code> chạy không lỗi import, in được config.</div>
+</div>
+
+<h3>M1 — Dữ liệu + dataloader (Ngày 1)</h3>
+<div class="card milestone">
+<p>Lấy 1 file văn bản tiếng Việt (hoặc tiếng Anh) ~50–200KB — ví dụ copy vài bài báo công cộng, hoặc tải <code>tiny-shakespeare</code> nếu muốn tiếng Anh. Mục tiêu: biến văn bản thành batch số nguyên.</p>
+<pre><code># TODO 1: đọc file, tách 90% train / 10% val
+# TODO 2: get_batch(split) -> x (B,T), y (B,T), trong đó y là x dịch phải 1 token
+# Gợi ý: x = tokens[i : i+T], y = tokens[i+1 : i+T+1]  (dự đoán token kế tiếp)</code></pre>
+<div class="hint">💡 <b>Hint:</b> random offset mỗi lần gọi → dữ liệu không bị học thuộc thứ tự. In <code>x.shape</code>, <code>x[0,:10]</code> để mắt thấy token thật.</div>
+<div class="accept">✅ <b>Accept:</b> <code>x.shape == (32, 64)</code>, <code>y[0,:5] == x[0,1:6]</code> (dịch phải đúng 1 vị trí).</div>
+</div>
+
+<h3>M2 — Tokenizer char-level + round-trip (Ngày 3)</h3>
+<div class="card milestone">
+<p>Char-level: vocab = tập ký tự xuất hiện trong dữ liệu. Đơn giản nhưng đủ cho mini-project.</p>
+<pre><code># TODO 1: xây vocab: chars = sorted(set(text)); stoi = {ch:i}; itos = {i:ch}
+# TODO 2: encode(s) -> list[int]; decode(ids) -> str
+# TODO 3: test round-trip: decode(encode("xin chào")) == "xin chào"</code></pre>
+<div class="hint">💡 <b>Hint:</b> test trên 1 câu tiếng Việt có dấu để bắt lỗi Unicode. Ký tự lạ khi sinh (nếu có) → ánh xạ về id 0.</div>
+<div class="accept">✅ <b>Accept:</b> round-trip đúng 100% trên 100 câu ngẫu nhiên lấy từ dữ liệu.</div>
+</div>
+
+<h3>M3 — Embedding + vị trí (Ngày 4)</h3>
+<div class="card milestone">
+<pre><code># TODO 1: tok_emb = nn.Embedding(vocab_size, n_embd)
+# TODO 2: pos_emb = nn.Embedding(block_size, n_embd)  # học được, đủ dùng ở quy mô này
+# TODO 3: h = tok_emb(x) + pos_emb(torch.arange(T))
+# TODO 4 (thêm): đếm số tham số embedding = vocab_size*n_embd + block_size*n_embd
+#         → báo cáo MB (param * 4 byte / 1e6)</code></pre>
+<div class="hint">💡 <b>Hint:</b> sinusoidal (Ngày 4) thay được cho pos học được — thử cả hai, xem loss có khác biệt đáng kể không. Đó chính là "thí nghiệm" đầu tiên của bạn.</div>
+<div class="accept">✅ <b>Accept:</b> <code>h.shape == (B, T, n_embd)</code>; biết tổng tham số model (in ra, ví dụ ~1.2M).</div>
+</div>
+
+<h3>M4 — Causal self-attention (Ngày 5) ⚠️ milestone dễ sai nhất</h3>
+<div class="card milestone">
+<pre><code># TODO 1: viết Head: q,k,v = Linear(n_embd, head_size)(x)
+#         scores = q @ k.T / sqrt(head_size)
+# TODO 2: ÁP CAUSAL MASK: scores.masked_fill(tril == 0, -inf)  ← bắt buộc
+# TODO 3: attn = softmax(scores); out = attn @ v
+# TODO 4: MultiHead = concat(heads) -> Linear(n_embd)
+# TODO 5: so sánh với torch.nn.functional.scaled_dot_product_attention(is_causal=True)
+#         → sai số phải &lt; 1e-5</code></pre>
+<div class="hint">💡 <b>Hint:</b> mask có thể precompute 1 lần: <code>self.register_buffer("tril", torch.tril(torch.ones(T,T)))</code>. Quên mask là lỗi "gian lận" kinh điển — xem mục Bẫy.</div>
+<div class="accept">✅ <b>Accept:</b> khớp SDPA &lt; 1e-5; tắt mask đi thì loss train "đẹp bất thường" nhưng sample ra rác (tự kiểm chứng!).</div>
+</div>
+
+<h3>M5 — Transformer block + TinyGPT (Ngày 6)</h3>
+<div class="card milestone">
+<pre><code># TODO 1: Block = x + Attn(LayerNorm(x)); x = x + MLP(LayerNorm(x))
+#         MLP: Linear(n_embd, 4*n_embd) -> GELU -> Linear(4*n_embd, n_embd)
+# TODO 2: TinyGPT: embedding -> n_layer Block -> LayerNorm -> Linear(vocab_size)
+# TODO 3: loss = cross_entropy(logits.view(-1, V), y.view(-1))
+# TODO 4: unit test: forward 1 batch, loss là số hữu hạn, backward không NaN</code></pre>
+<div class="hint">💡 <b>Hint:</b> thứ tự Pre-LN (norm trước) ổn định hơn Post-LN ở model nhỏ. Residual <code>x + ...</code> đừng quên — không có nó, sâu 4 layer là gradient "chết".</div>
+<div class="accept">✅ <b>Accept:</b> forward+backward 1 batch không NaN; tổng tham số in ra (mục tiêu 1–5M).</div>
+</div>
+
+<h3>M6 — Train loop + checkpoint (Ngày 2 + Ngày 7) 🎯</h3>
+<div class="card milestone">
+<pre><code># TODO 1: optimizer = AdamW(params, lr=3e-4, weight_decay=0.01)
+# TODO 2: vòng lặp max_iters: get_batch -> loss -> backward -> clip grad 1.0 -> step
+# TODO 3: mỗi eval_every: tính loss train/val trung bình 20 batch, in ra
+# TODO 4: lưu checkpoint: torch.save({"model": sd, "config": config, "iter": i}, "ckpt.pt")
+# TODO 5: vẽ loss curve (matplotlib hoặc in log ra file rồi vẽ tay)</code></pre>
+<div class="accept">✅ <b>Accept:</b> sau ~2000 iters trên CPU (5–20 phút tùy máy), <b>train loss giảm rõ rệt</b> (ví dụ từ ~4.5 → ~2.5 với vocab ~65 ký tự) và val loss không vọt lên quá xa. Checkpoint load lại được.</div>
+</div>
+
+<h3>M7 — Sampling + model card + báo cáo xanh (Ngày 7) 🏁</h3>
+<div class="card milestone">
+<pre><code># TODO 1: generate(prompt, max_new=200, temperature=0.8):
+#         lặp: lấy logits token cuối -> softmax/T -> multinomial -> append
+# TODO 2: sinh 200 token ở 3 nhiệt độ 0.7 / 1.0 / 1.3, so sánh "độ điên"
+# TODO 3: viết MODEL_CARD.md (≤ 20 dòng): kiến trúc, dữ liệu, siêu tham số,
+#         loss cuối, sample hay nhất + dở nhất, giới hạn đã biết
+# TODO 4 (green checkpoint): ghi thời gian train, ước tokens/s,
+#         và câu: "nếu train gấp đôi iters, chi phí năng lượng tăng bao nhiêu?"</code></pre>
+<div class="accept">✅ <b>Accept:</b> sample ra được <b>văn bản giống phong cách dữ liệu train</b> (dù còn sai chính tả/grammar — đó là bình thường ở 1M params); có file <code>MODEL_CARD.md</code>.</div>
+</div>
+
+<div class="card">
+<p><b>🎓 Mở rộng (không bắt buộc):</b> tăng <code>n_layer</code> lên 6 và so loss/kWh; thay char-tokenizer bằng BPE Ngày 3 rồi đo độ dài chuỗi trung bình; thử <code>temperature=0</code> (greedy) xem văn bản có bị lặp không.</p>
+</div>
+
+<h2>3 · Tự kiểm tra nhanh (không chấm điểm)</h2>
+
+<div class="qa">
+<p><b>Câu 1.</b> Bạn quên causal mask ở M4. Train loss giảm rất nhanh và đẹp. Tại sao đây là dấu hiệu xấu chứ không phải tốt?</p>
+<button class="show" onclick="this.nextElementSibling.style.display='block';this.style.display='none'">Hiện đáp án</button>
+<div class="ans">Vì model được "nhìn trộm" đáp án: token ở vị trí <code>t</code> thấy được token <code>t+1</code> (chính là thứ cần dự đoán) qua attention. Loss thấp là gian lận, không phải học. Khi sinh văn bản thật (lúc đó không có tương lai để nhìn), model hoàn toàn không biết làm gì → ra rác. Đây là lý do M4 bắt bạn tự kiểm chứng: tắt mask → loss đẹp nhưng sample rác.</div>
+</div>
+
+<div class="qa">
+<p><b>Câu 2.</b> Val loss bắt đầu tăng trong khi train loss vẫn giảm. Theo Ngày 10 sắp tới, đây là hiện tượng gì và 2 cách xử lý đầu tiên nên thử là gì?</p>
+<button class="show" onclick="this.nextElementSibling.style.display='block';this.style.display='none'">Hiện đáp án</button>
+<div class="ans">Overfitting: model học thuộc train set, mất khả năng tổng quát. Hai cách đầu tiên: (1) tăng weight decay / giảm model size (ở quy mô này, giảm <code>n_embd</code> hoặc <code>n_layer</code>); (2) thêm dữ liệu hoặc tăng dropout (ví dụ <code>dropout=0.1</code> trong attention/MLP). Dừng sớm (early stopping) dựa trên val loss cũng là đáp án đúng.</div>
+</div>
+
+<div class="qa">
+<p><b>Câu 3.</b> Green checkpoint: bạn có 2 lựa chọn — model 1M params train 2000 iters, hoặc model 4M params train 500 iters (tổng compute tương đương). Không chạy thử, bạn dự đoán lựa chọn nào cho loss tốt hơn, và vì sao câu hỏi này quan trọng với "tiết kiệm năng lượng"?</p>
+<button class="show" onclick="this.nextElementSibling.style.display='block';this.style.display='none'">Hiện đáp án</button>
+<div class="ans">Không có đáp án chắc chắn nếu không chạy — đó chính là ý nghĩa của scaling law (Ngày 11): quan hệ giữa params, data và compute quyết định loss, không phải cứ "to là tốt". Câu hỏi quan trọng vì mỗi lựa chọn tốn cùng ngân sách năng lượng nhưng cho kết quả khác nhau; kỹ sư giỏi là người <b>dự báo trước khi đốt điện</b>, và luôn báo cáo loss/kWh chứ không chỉ loss.</div>
+</div>
+
+<h2>4 · Bẫy thường gặp</h2>
+
+<div class="trap">
+<b>🪤 Bẫy 1 — Shape đúng nhưng logic sai ở <code>y</code>.</b><br>
+<code>y = x</code> (quên dịch phải 1) → model học "copy token hiện tại", loss giảm ảo. Kiểm tra: <code>y[0,:5]</code> phải bằng <code>x[0,1:6]</code>, không phải <code>x[0,:5]</code>. Mắt thường không thấy, unit test thấy ngay.
+</div>
+
+<div class="trap">
+<b>🪤 Bẫy 2 — Quên <code>optimizer.zero_grad()</code>.</b><br>
+Gradient cộng dồn qua các batch → vài trăm iter đầu loss giảm, sau đó vọt lên NaN. Triệu chứng đặc trưng: loss "đẹp lúc đầu, nổ lúc sau". Fix: <code>zero_grad()</code> trước mỗi <code>backward()</code>.
+</div>
+
+<div class="trap">
+<b>🪤 Bẫy 3 — Sample lúc train khác lúc sinh.</b><br>
+Quên <code>model.eval()</code> khi generate (nếu có dropout) → mỗi lần sinh cùng prompt ra kết quả khác nhau một cách bất thường, khó đánh giá. Và ngược lại: quên <code>model.train()</code> khi train tiếp → dropout tắt, số liệu eval/train lẫn lộn.
+</div>
+
+<h2>5 · Checklist nộp bài</h2>
+<div class="card">
+<p>Paste vào chat <b>4 thứ</b> sau để được nhận xét chi tiết:</p>
+<ul class="check">
+<li>Số tham số model + thời gian train thực tế (phút) + thiết bị (CPU/GPU gì)</li>
+<li>Train loss đầu → cuối, val loss cuối (copy 3–5 dòng log là đủ)</li>
+<li>1 đoạn sample ưng ý nhất (~100 token) + nhiệt độ đã dùng</li>
+<li>1 khó khăn đã gặp và cách bạn vượt qua (hoặc đang kẹt ở đâu)</li>
+</ul>
+<p class="sub">Không cần gửi cả file code — chỉ gửi khi được yêu cầu review chi tiết. Nếu chưa chạy xong tối nay cũng không sao: nộp milestone đã đạt được (M1–M3 cũng đáng giá), mai làm tiếp.</p>
+</div>
+
+<div class="foot">
+<p>Ngày 7 — Buổi tối · Mini-project 1: TinyGPT từ số 0 · Tổng hợp tuần 1 (Ngày 1→6).<br>
+Tài liệu: <code>MODEL_CARD.md</code> tự viết sau M7 là "báo cáo" của mini-project này.</p>
+</div>
+
+</div>
+<script>
+document.querySelectorAll('button.show').forEach(function(b){
+  b.addEventListener('click', function(){
+    var a = b.nextElementSibling;
+    a.style.display = 'block'; b.style.display = 'none';
+  });
+});
+</script>
+</body>
+</html>
