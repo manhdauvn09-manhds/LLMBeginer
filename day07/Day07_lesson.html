@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ngày 7 — Ôn tập: 6 ngày đầu, ghép thành 1 bức tranh hoàn chỉnh</title>
+<style>
+  :root{
+    --bg:#0b1020; --card:#141b33; --line:#26314f; --txt:#e8ecf7; --muted:#9aa6c7;
+    --gold:#fbbf24; --blue:#60a5fa; --green:#34d399; --red:#f87171; --violet:#a78bfa;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  body{margin:0; background:var(--bg); color:var(--txt);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    line-height:1.75; font-size:16.5px;}
+  .wrap{max-width:860px; margin:0 auto; padding:0 18px 80px;}
+  .kicker{display:inline-block; margin:26px 0 10px; padding:6px 14px; border:1px solid var(--line);
+    border-radius:999px; color:var(--muted); font-size:13px; letter-spacing:.4px;}
+  h1{font-size:clamp(26px,5.4vw,38px); line-height:1.3; margin:6px 0 8px;}
+  .sub{color:var(--muted); margin:0 0 6px;}
+  .meta{display:flex; gap:10px; flex-wrap:wrap; margin:14px 0 22px; color:var(--muted); font-size:14px;}
+  .meta span{background:var(--card); border:1px solid var(--line); border-radius:10px; padding:6px 12px;}
+  .hero{width:100%; border-radius:16px; border:1px solid var(--line); display:block;}
+  .cap{color:var(--muted); font-size:13.5px; margin:8px 2px 0;}
+  .goal{background:linear-gradient(135deg,#16213f,#101a36); border:1px solid var(--line);
+    border-radius:14px; padding:18px 20px; margin:26px 0;}
+  .goal h3{margin:0 0 10px; font-size:17px; color:var(--gold);}
+  .goal ul{margin:0; padding-left:20px;}
+  .goal li{margin:6px 0;}
+  section.card{background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:22px 20px; margin:22px 0;}
+  section.card h2{margin:0 0 4px; font-size:21px;}
+  section.card h2 .n{display:inline-flex; width:30px; height:30px; border-radius:9px;
+    background:var(--blue); color:#081226; font-size:16px; align-items:center; justify-content:center;
+    margin-right:8px; font-weight:800;}
+  section.card p.lead{color:var(--muted); margin:0 0 12px;}
+  .formula{background:#0b1226; border:1px dashed #33406b; border-radius:12px;
+    padding:14px 16px; margin:14px 0; font-family:"SF Mono",Consolas,Menlo,monospace;
+    font-size:15px; overflow-x:auto; white-space:nowrap;}
+  .formula b{color:var(--gold);}
+  .note{border-left:4px solid var(--green); background:#0f2233; border-radius:0 12px 12px 0;
+    padding:12px 16px; margin:14px 0;}
+  .warn{border-left:4px solid var(--red); background:#2a1420; border-radius:0 12px 12px 0;
+    padding:12px 16px; margin:14px 0;}
+  .green{border:1px solid #14532d; background:linear-gradient(135deg,#0c2b1a,#0a1f14);
+    border-radius:14px; padding:18px 20px; margin:22px 0;}
+  .green h3{margin:0 0 8px; color:var(--green); font-size:18px;}
+  .code{background:#070d1c; border:1px solid var(--line); border-radius:12px; padding:14px 16px;
+    font-family:"SF Mono",Consolas,Menlo,monospace; font-size:14px; overflow-x:auto;
+    white-space:pre; margin:14px 0; line-height:1.65;}
+  svg.diagram{width:100%; height:auto; border-radius:12px; background:#0b1226;
+    border:1px solid var(--line); margin:14px 0;}
+  .pill{display:inline-block; background:#0b1226; border:1px solid var(--line); border-radius:999px;
+    padding:3px 12px; font-size:13.5px; color:var(--muted); margin:2px 4px 2px 0;}
+  .nav{display:flex; gap:12px; flex-wrap:wrap; margin:28px 0 10px;}
+  .nav a{flex:1 1 220px; text-align:center; text-decoration:none; font-weight:700;
+    padding:16px 18px; border-radius:14px; font-size:17px;}
+  .nav a.quiz{background:var(--gold); color:#241a04;}
+  .nav a.video{background:var(--violet); color:#150b33;}
+  footer{margin-top:44px; color:var(--muted); font-size:13.5px; text-align:center;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <span class="kicker">📚 ÔN TẬP • Buổi sáng Ngày 7 • 30 ngày thành AI Engineer (LLM)</span>
+  <h1>Ngày 7 — Ôn tập: 6 ngày đầu, ghép thành 1 bức tranh hoàn chỉnh</h1>
+  <p class="sub">Tuần 1 đã đi qua 6 trạm. Hôm nay ta không học khái niệm mới — ta đứng lại,
+  nhìn toàn bộ tuyến đường, và kiểm tra xem mỗi trạm còn nhớ bao nhiêu.</p>
+
+  <div class="meta">
+    <span>⏱️ ~25 phút đọc</span><span>🎯 Quiz 8 câu trong file riêng</span><span>⚡ Tóm gọn 1 màn hình mỗi trạm</span>
+  </div>
+
+  <div class="goal">
+    <h3>🎯 Mục tiêu buổi ôn tập</h3>
+    <ul>
+      <li>Nhớ được <b>1 câu cốt lõi</b> của mỗi ngày 1 → 6 và cách các câu đó nối thành pipeline hoàn chỉnh.</li>
+      <li>Viết lại được 3 công thức: softmax, scaled dot-product attention, cross-entropy loss.</li>
+      <li>Làm đúng ít nhất <b>6/8 câu quiz</b>. Dưới 70% → bài tiếp theo có mục dạy lại chỗ hổng trước.</li>
+    </ul>
+  </div>
+
+  <!-- ================= BẢN ĐỒ 1 TRANG ================= -->
+  <section class="card" id="sec-map">
+    <h2><span class="n">🗺</span> Bản đồ 6 ngày trên 1 hình</h2>
+    <p class="lead">Đường đi của một câu văn qua mô hình — mỗi trạm là một ngày học:</p>
+    <svg class="diagram" viewBox="0 0 800 300" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="arw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="#60a5fa"/>
+        </marker>
+      </defs>
+      <rect x="8" y="8" width="784" height="284" rx="12" fill="none" stroke="#26314f"/>
+      <!-- Day1 -->
+      <rect x="24" y="60" width="120" height="80" rx="10" fill="#1a2342" stroke="#fbbf24" stroke-width="2"/>
+      <text x="84" y="90" fill="#fbbf24" font-size="13" text-anchor="middle" font-weight="bold">Ngày 1</text>
+      <text x="84" y="112" fill="#e8ecf7" font-size="12.5" text-anchor="middle">Token → dự đoán</text>
+      <text x="84" y="130" fill="#9aa6c7" font-size="11.5" text-anchor="middle">mất mát cross-entropy</text>
+      <!-- Day2 -->
+      <rect x="184" y="60" width="120" height="80" rx="10" fill="#1a2342" stroke="#fbbf24" stroke-width="2"/>
+      <text x="244" y="90" fill="#fbbf24" font-size="13" text-anchor="middle" font-weight="bold">Ngày 2</text>
+      <text x="244" y="112" fill="#e8ecf7" font-size="12.5" text-anchor="middle">Autograd + tối ưu</text>
+      <text x="244" y="130" fill="#9aa6c7" font-size="11.5" text-anchor="middle">gradient check bằng số</text>
+      <!-- Day3 -->
+      <rect x="344" y="60" width="120" height="80" rx="10" fill="#1a2342" stroke="#fbbf24" stroke-width="2"/>
+      <text x="404" y="90" fill="#fbbf24" font-size="13" text-anchor="middle" font-weight="bold">Ngày 3</text>
+      <text x="404" y="112" fill="#e8ecf7" font-size="12.5" text-anchor="middle">Tokenizer</text>
+      <text x="404" y="130" fill="#9aa6c7" font-size="11.5" text-anchor="middle">một phần của mô hình</text>
+      <!-- arrows top row -->
+      <line x1="146" y1="100" x2="182" y2="100" stroke="#60a5fa" stroke-width="2.5" marker-end="url(#arw)"/>
+      <line x1="306" y1="100" x2="342" y2="100" stroke="#60a5fa" stroke-width="2.5" marker-end="url(#arw)"/>
+      <!-- Day4 -->
+      <rect x="504" y="60" width="120" height="80" rx="10" fill="#1a2342" stroke="#fbbf24" stroke-width="2"/>
+      <text x="564" y="90" fill="#fbbf24" font-size="13" text-anchor="middle" font-weight="bold">Ngày 4</text>
+      <text x="564" y="112" fill="#e8ecf7" font-size="12.5" text-anchor="middle">Embedding + vị trí</text>
+      <text x="564" y="130" fill="#9aa6c7" font-size="11.5" text-anchor="middle">không gian biểu diễn</text>
+      <!-- Day5 -->
+      <rect x="664" y="60" width="120" height="80" rx="10" fill="#1a2342" stroke="#fbbf24" stroke-width="2"/>
+      <text x="724" y="90" fill="#fbbf24" font-size="13" text-anchor="middle" font-weight="bold">Ngày 5</text>
+      <text x="724" y="112" fill="#e8ecf7" font-size="12.5" text-anchor="middle">Self-attention</text>
+      <text x="724" y="130" fill="#9aa6c7" font-size="11.5" text-anchor="middle">trộn thông tin</text>
+      <line x1="466" y1="100" x2="502" y2="100" stroke="#60a5fa" stroke-width="2.5" marker-end="url(#arw)"/>
+      <line x1="626" y1="100" x2="662" y2="100" stroke="#60a5fa" stroke-width="2.5" marker-end="url(#arw)"/>
+      <!-- Day6 bottom -->
+      <rect x="344" y="180" width="240" height="80" rx="10" fill="#14283f" stroke="#34d399" stroke-width="2.5"/>
+      <text x="464" y="210" fill="#34d399" font-size="13" text-anchor="middle" font-weight="bold">Ngày 6 — Transformer block</text>
+      <text x="464" y="232" fill="#e8ecf7" font-size="12.5" text-anchor="middle">Norm → Attention → Norm → MLP + residual</text>
+      <text x="464" y="250" fill="#9aa6c7" font-size="11.5" text-anchor="middle">xếp chồng N block = thân mô hình</text>
+      <!-- connectors -->
+      <line x1="724" y1="142" x2="724" y2="220" stroke="#60a5fa" stroke-width="2.5"/>
+      <line x1="584" y1="220" x2="720" y2="220" stroke="#60a5fa" stroke-width="2.5" marker-end="url(#arw)"/>
+      <text x="200" y="200" fill="#9aa6c7" font-size="12.5">mất mát ngày 1 — gradient ngày 2 — đi qua toàn bộ tuyến đường</text>
+      <text x="200" y="252" fill="#60a5fa" font-size="12.5">➡️ vòng lặp: forward → loss → backward → update (ngày 2) chạy mỗi bước train</text>
+    </svg>
+    <div class="cap">Đọc hình từ trái sang phải, rồi xuống trạm Ngày 6. Tokenizer (ngày 3) + embedding (ngày 4) đưa chữ thành vector; attention (ngày 5) trộn ngữ cảnh; block (ngày 6) là viên gạch lặp lại; loss (ngày 1) và gradient (ngày 2) là bộ máy huấn luyện.</div>
+  </section>
+
+  <!-- ================= TRẠM 1 ================= -->
+  <section class="card" id="sec-d1">
+    <h2><span class="n">1</span> Ngày 1 — Mô hình ngôn ngữ là bài toán dự đoán token</h2>
+    <p class="lead"><b>1 câu cốt lõi:</b> LLM không "hiểu" theo nghĩa con người — nó là cỗ máy dự đoán token tiếp theo, và mọi thứ tinh vi đều mọc ra từ đúng một bài toán đó.</p>
+    <div class="formula">P(x₁…xₙ) = Π P(xₜ | x₁…xₜ₋₁) &nbsp;&nbsp;// phân rã tự hồi quy</div>
+    <div class="formula"><b>ℒ</b> = − Σ log P(xₜ | ngữ cảnh) &nbsp;&nbsp;// cross-entropy loss</div>
+    <p>Ba ý phải thuộc lòng: (1) huấn luyện = giảm mức "bất ngờ" của mô hình trên văn bản thật; (2) sinh văn bản = lặp lại "chọn token có xác suất cao"; (3) perplexity = e^(mất mát trung bình) — càng thấp càng "đoán giỏi".</p>
+    <div class="note">🧭 Gắn kết: mất mát này chính là "quãng đường về nhà" mà gradient ở ngày 2 sẽ dẫn chúng ta xuống mỗi bước train.</div>
+  </section>
+
+  <!-- ================= TRẠM 2 ================= -->
+  <section class="card" id="sec-d2">
+    <h2><span class="n">2</span> Ngày 2 — Tensor, autograd và tối ưu hóa: nhìn gradient bằng con số</h2>
+    <p class="lead"><b>1 câu cốt lõi:</b> Backprop không phải phép màu — nó là quy tắc xích (chain rule) được máy tính tự động ghi lại trong đồ thị tính toán; sai số của nó đo được bằng con số.</p>
+    <div class="formula">df/dx ≈ (f(x+ε) − f(x−ε)) / 2ε &nbsp;&nbsp;// kiểm tra gradient số (ε≈1e-5)</div>
+    <div class="formula"><b>θ ← θ − η·∇ℒ</b> &nbsp;&nbsp;// SGD: đi xuống theo độ dốc, bước chân η</div>
+    <p>Ba ý phải thuộc lòng: (1) autograd = forward ghi lại phép tính, backward lan truyền ngược bằng chain rule; (2) <b>gradient check</b> so sánh gradient của autograd với đạo hàm số — sai lệch &lt; 1e-5 thì yên tâm code đúng; (3) forward phải <b>deterministic</b> khi check (tắt dropout, cố định seed).</p>
+    <div class="warn">⚠️ Bẫy kinh điển đã gặp trong thực hành: dữ liệu train == test (không có tập validation) → accuracy 100% chỉ chứng minh nhớ, không chứng minh học — đây chính là cầu nối sang overfitting.</div>
+    <div class="green"><h3>⚡ Góc tiết kiệm năng lượng</h3>
+    AdamW hội tụ nhanh hơn SGD nên tổng số bước train ít hơn → ít điện hơn. Nhưng bước Adam đắt hơn ~30%: thực tế đo tổng FLOPs, không đoán bằng cảm tính.</div>
+  </section>
+
+  <!-- ================= TRẠM 3 ================= -->
+  <section class="card" id="sec-d3">
+    <h2><span class="n">3</span> Ngày 3 — Tokenizer là một phần của mô hình</h2>
+    <p class="lead"><b>1 câu cốt lõi:</b> Tokenizer không phải "tiền xử lý ngoài rìa" — đổi tokenizer là đổi luôn phân phối bài toán ngày 1, vì mô hình chỉ nhìn thế giới qua đúng các token đó.</p>
+    <p>Ba ý phải thuộc lòng: (1) BPE học cách gộp các cặp byte phổ biến → từ vựng ~50k token cân bằng giữa "ít token/câu" và "ít tham số bảng embedding"; (2) tokenizer phải <b>reversible</b> (decode(encode(x)) == x) kẻo mất ký tự; (3) fertility — số token trung bình mỗi từ — quyết định trực tiếp chi phí suy luận: tiếng Việt có fertility cao hơn tiếng Anh trên tokenizer train chủ yếu bằng tiếng Anh.</p>
+    <div class="note">🧭 Gắn kết: kích thước từ vựng V là số hàng của bảng embedding ngày 4 — hai ngày này ký hợp đồng với nhau.</div>
+    <div class="green"><h3>⚡ Góc tiết kiệm năng lượng</h3>
+    Fertility thấp = ít token hơn cho cùng một văn bản = ít bước sinh hơn = ít điện hơn khi inference. Tokenizer tốt là một trong những cách "tiết kiệm năng lượng" rẻ nhất mà không đụng vào kiến trúc.</div>
+  </section>
+
+  <!-- ================= TRẠM 4 ================= -->
+  <section class="card" id="sec-d4">
+    <h2><span class="n">4</span> Ngày 4 — Embedding và vị trí tạo nên không gian biểu diễn</h2>
+    <p class="lead"><b>1 câu cốt lõi:</b> Embedding biến id rời rạc thành vector liên tục có hình học — từ tương tự nằm gần nhau; và vì attention không biết thứ tự, ta phải cộng thêm "dấu vị trí".</p>
+    <div class="formula">xₜ = <b>E</b>[tokenₜ] + <b>P</b>[t] &nbsp;&nbsp;// E: bảng V×d, P: mã vị trí</div>
+    <p>Ba ý phải thuộc lòng: (1) E là bảng tra cứu <b>học được</b> — gradient chảy về hàng tương ứng mỗi lần token xuất hiện; (2) positional encoding: có thể cố định (sinusoidal) hoặc học được — mục đích duy nhất là cho mô hình biết "ai đứng trước ai"; (3) chiều d là siêu tham số cân bằng: lớn → biểu diễn giàu, nhưng mọi phép nhân ma trận sau đó đều đắt lên theo d².</p>
+    <div class="warn">⚠️ Bẫy: quên cộng positional encoding → mô hình thành "túi từ" (bag-of-words), "mèo đuổi chuột" và "chuột đuổi mèo" cho cùng một kết quả.</div>
+  </section>
+
+  <!-- ================= TRẠM 5 ================= -->
+  <section class="card" id="sec-d5">
+    <h2><span class="n">5</span> Ngày 5 — Self-attention: tự code một lần, hiểu cả đời</h2>
+    <p class="lead"><b>1 câu cốt lõi:</b> Attention là cơ chế "mỗi token được quyền hỏi tất cả token khác xem ai liên quan đến mình", với mức độ liên quan học được qua Q, K, V.</p>
+    <div class="formula"><b>Attention(Q,K,V)</b> = softmax( QKᵀ / √dₖ ) · V</div>
+    <p>Ba ý phải thuộc lòng: (1) Q = "tôi đang tìm gì", K = "tôi có gì", V = "nội dung tôi mang" — 3 phép chiếu tuyến tính khác nhau của cùng đầu vào; (2) chia cho √dₖ để điểm số không phình to làm softmax bão hòa (gradient chết); (3) mask tam giác dưới trong huấn luyện: token hiện tại <b>không được nhìn trộm</b> token tương lai — vi phạm là rò rỉ đáp án.</p>
+    <div class="note">🧭 Gắn kết: công thức này là trái tim của block ngày 6. Multi-head = chạy h trái tim song song rồi nối lại — mỗi head học một kiểu quan hệ khác nhau (ngữ pháp, đồng tham chiếu, vị trí…).</div>
+    <div class="green"><h3>⚡ Góc tiết kiệm năng lượng</h3>
+    Attention tốn O(n²) theo độ dài chuỗi — đây là nút thắt năng lượng lớn nhất khi chuỗi dài. Mọi kiến trúc "hiệu quả" (FlashAttention, sparse, linear) đều bắt đầu từ việc tấn công đúng nút này.</div>
+  </section>
+
+  <!-- ================= TRẠM 6 ================= -->
+  <section class="card" id="sec-d6">
+    <h2><span class="n">6</span> Ngày 6 — Ghép Transformer block: mỗi block phải qua unit test</h2>
+    <p class="lead"><b>1 câu cốt lõi:</b> Transformer block là một "viên gạch" chuẩn: Norm → Attention → Norm → MLP, mỗi sub-layer ôm trong một đường residual; xếp chồng N viên = thân mô hình.</p>
+    <div class="formula"><b>x ← x + Sublayer( Norm(x) )</b> &nbsp;&nbsp;// công thức residual — thuộc lòng</div>
+    <p>Ba ý phải thuộc lòng: (1) residual connection là "đường tắt" cho gradient — không có nó, mạng sâu 96 lớp không train nổi (gradient tan biến); (2) LayerNorm ổn định phân phối activation giữa các lớp; (3) MLP (feed-forward, thường phình 4× rồi bóp lại) là nơi chứa phần lớn tham số và "kiến thức" của mô hình.</p>
+    <div class="note">🧭 Gắn kết: xếp N block lên nhau, gắn đầu ra vào linear + softmax (ngày 1) → ta có một GPT mini hoàn chỉnh. Vòng train: forward qua N block → cross-entropy → backward (ngày 2) → update.</div>
+  </section>
+
+  <!-- ================= ĐIỂM YẾU THƯỜNG GẶP ================= -->
+  <section class="card" id="sec-traps">
+    <h2><span class="n">🪤</span> 5 cái bẫy hay sập nhất tuần 1</h2>
+    <p class="lead">Ôn tập không chỉ là nhớ đúng — mà là nhớ mình đã từng sai ở đâu:</p>
+    <ol>
+      <li><b>Nhầm perplexity thấp = thông minh.</b> Nó chỉ đo "đoán giỏi trên dữ liệu giống train" — không đo suy luận.</li>
+      <li><b>Gradient check với dropout đang bật.</b> Forward không deterministic → sai số loạn → tưởng code sai.</li>
+      <li><b>Đổi tokenizer mà giữ nguyên checkpoint.</b> Id token đổi nghĩa → mô hình thành "người mất trí nhớ".</li>
+      <li><b>Quên mask trong attention khi train.</b> Mô hình nhìn trộm tương lai → loss đẹp giả tạo, sinh văn bản thì nát.</li>
+      <li><b>Xếp block mà quên residual.</b> Mạng sâu không học được gì — gradient chết trước khi tới lớp đầu.</li>
+    </ol>
+  </section>
+
+  <div class="green">
+    <h3>⚡ Góc tiết kiệm năng lượng — tổng kết tuần</h3>
+    Mỗi trạm đều có một đòn bẩy năng lượng: <b>ngày 1</b> — loss tốt = ít epoch lãng phí; <b>ngày 2</b> — optimizer hội tụ nhanh; <b>ngày 3</b> — tokenizer fertility thấp; <b>ngày 4</b> — chiều d vừa đủ; <b>ngày 5</b> — attention O(n²) là nút thắt; <b>ngày 6</b> — ít block hơn nhưng train kỹ có thể thắng block nhiều train ẩu. Đây là sợi chỉ đỏ xuyên suốt 30 ngày — và là hướng đề tài nghiên cứu ở phase 2.
+  </div>
+
+  <div class="goal">
+    <h3>✅ Checklist trước khi sang tuần 2</h3>
+    <ul>
+      <li>Viết lại được 3 công thức: softmax, attention, cross-entropy — không nhìn tài liệu.</li>
+      <li>Giải thích được cho người mới: "vì sao cần positional encoding?" trong 2 câu.</li>
+      <li>Quiz 8 câu đạt ≥ 6/8. Chưa đạt → đọc lại trạm tương ứng rồi làm lại quiz.</li>
+    </ul>
+  </div>
+
+  <div class="nav">
+    <a class="quiz" href="Day07_quiz.html">📝 Làm Quiz 8 câu →</a>
+    <a class="video" href="Day07_video.mp4">🎬 Xem video ôn tập →</a>
+  </div>
+
+  <footer>Khóa "Trở thành AI Engineer (LLM)" • Ngày 7 — Ôn tập tổng hợp • Quiz không tự gửi về — làm xong bấm "Copy kết quả" rồi paste vào chat để trợ lý ghi điểm.</footer>
+
+</div>
+</body>
+</html>

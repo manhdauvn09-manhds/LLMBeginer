@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quiz Ngày 7 — Ôn tập tổng hợp tuần 1 (ngày 1–6)</title>
+<style>
+  :root{--bg:#0b1020;--card:#141b33;--line:#26314f;--txt:#e8ecf7;--muted:#9aa6c7;
+    --gold:#fbbf24;--blue:#60a5fa;--green:#34d399;--red:#f87171;}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  body{margin:0;background:var(--bg);color:var(--txt);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;line-height:1.7;font-size:16px;}
+  .wrap{max-width:760px;margin:0 auto;padding:0 18px 80px;}
+  .kicker{display:inline-block;margin:26px 0 10px;padding:6px 14px;border:1px solid var(--line);
+    border-radius:999px;color:var(--muted);font-size:13px;}
+  h1{font-size:clamp(24px,5vw,32px);margin:6px 0 4px;}
+  .sub{color:var(--muted);margin:0 0 18px;}
+  .q{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin:16px 0;}
+  .q h3{margin:0 0 10px;font-size:17px;}
+  .q h3 .qn{color:var(--gold);margin-right:6px;}
+  .tag{display:inline-block;font-size:12px;color:var(--muted);border:1px solid var(--line);
+    border-radius:999px;padding:2px 10px;margin-left:8px;}
+  label.opt{display:block;padding:10px 12px;border:1px solid var(--line);border-radius:10px;
+    margin:8px 0;cursor:pointer;}
+  label.opt:hover{border-color:var(--blue);}
+  label.opt input{margin-right:10px;transform:scale(1.2);}
+  .exp{display:none;margin-top:10px;padding:10px 12px;border-radius:10px;font-size:15px;}
+  .exp.ok{display:block;background:#0c2b1a;border:1px solid #14532d;}
+  .exp.no{display:block;background:#2a1420;border:1px solid #7f1d1d;}
+  .btnrow{display:flex;gap:12px;flex-wrap:wrap;margin:24px 0;}
+  button{flex:1 1 200px;padding:15px;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer;}
+  #submit{background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;}
+  #copy{background:linear-gradient(135deg,#34d399,#047857);color:#06281c;display:none;}
+  #score{font-size:19px;font-weight:800;margin:14px 0;display:none;}
+  .note{color:var(--muted);font-size:14px;border:1px dashed var(--line);border-radius:12px;padding:12px 14px;margin-top:18px;}
+  .back{display:inline-block;margin-top:10px;color:var(--blue);text-decoration:none;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <span class="kicker">Khóa AI Engineer (LLM) · Quiz Ngày 7/30 · Ôn tập</span>
+  <h1>📝 Quiz ôn tập — 8 câu bao quát tuần 1</h1>
+  <p class="sub">Mỗi câu thuộc một trạm ngày 1–6. Chọn đáp án rồi bấm <b>Nộp bài</b> để chấm điểm ngay trong file. Mục tiêu: ≥ 6/8.</p>
+
+  <div id="quiz"></div>
+
+  <div class="btnrow">
+    <button id="submit" onclick="grade()">Nộp bài</button>
+    <button id="copy" onclick="copyResult()">📋 Copy kết quả</button>
+  </div>
+  <div id="score"></div>
+
+  <div class="note">ℹ️ File HTML này chạy offline, <b>không tự gửi kết quả về được</b>. Sau khi bấm "Copy kết quả", bạn paste chuỗi kết quả vào chat để trợ lý ghi điểm và theo dõi tiến độ nhé.</div>
+  <a class="back" href="Day07_lesson.html">← Quay lại bài học</a>
+
+<script>
+const QUESTIONS = [
+ {q:"Mô hình ngôn ngữ (ngày 1) được huấn luyện để tối ưu điều gì?",
+  tag:"Ngày 1",
+  opts:["Dự đoán đúng nghĩa của câu theo từ điển",
+        "Giảm mức bất ngờ (cross-entropy) khi dự đoán token tiếp theo trên văn bản thật",
+        "Sinh ra câu dài nhất có thể với cùng một prompt",
+        "Nhớ nguyên văn toàn bộ tập huấn luyện"],
+  ans:1,
+  exp:"Huấn luyện LM = giảm cross-entropy ℒ = −Σ log P(xₜ|ngữ cảnh). Sinh văn bản chỉ là lặp lại việc chọn token theo phân phối đã học."},
+ {q:"Khi kiểm tra gradient bằng đạo hàm số (ngày 2), điều kiện BẮT BUỘC nào sau đây phải đúng?",
+  tag:"Ngày 2",
+  opts:["Bật dropout để mô hình mạnh hơn khi check",
+        "Forward phải deterministic (tắt dropout, cố định seed), sai lệch so với autograd &lt; ~1e-5",
+        "Dùng learning rate thật lớn để sai số hiện rõ",
+        "Chỉ check trên 1 tham số duy nhất là đủ"],
+  ans:1,
+  exp:"Gradient check so df/dx ≈ (f(x+ε)−f(x−ε))/2ε với autograd. Nếu forward có ngẫu nhiên (dropout), hai lần chạy khác nhau → sai số loạn, không kết luận được gì."},
+ {q:"Vì sao tokenizer được coi là 'một phần của mô hình' (ngày 3)?",
+  tag:"Ngày 3",
+  opts:["Vì tokenizer chạy trên GPU nên tốn điện như mô hình",
+        "Vì đổi tokenizer là đổi luôn tập token mà mô hình nhìn thấy — id cũ có thể mang nghĩa hoàn toàn khác",
+        "Vì tokenizer và mô hình dùng chung file checkpoint",
+        "Vì tokenizer quyết định số layer của Transformer"],
+  ans:1,
+  exp:"Mô hình chỉ biết thế giới qua các token id. Đổi tokenizer (đổi từ vựng) mà giữ checkpoint cũ = gán nghĩa mới cho id cũ → mô hình 'mất trí nhớ'. Ngoài ra fertility của tokenizer ảnh hưởng trực tiếp chi phí inference."},
+ {q:"Nếu quên cộng positional encoding vào embedding (ngày 4), mô hình sẽ bị gì?",
+  tag:"Ngày 4",
+  opts:["Không train được vì gradient bằng 0 ở mọi layer",
+        "Trở thành mô hình 'túi từ': 'mèo đuổi chuột' và 'chuột đuổi mèo' cho cùng kết quả vì mất thông tin thứ tự",
+        "Tự động học được vị trí sau vài epoch nên không sao",
+        "Chỉ ảnh hưởng tốc độ train, không ảnh hưởng chất lượng"],
+  ans:1,
+  exp:"Self-attention vốn bất biến với hoán vị (permutation invariant). Không có tín hiệu vị trí, thứ tự từ biến mất khỏi biểu diễn."},
+ {q:"Trong công thức Attention(Q,K,V) = softmax(QKᵀ/√dₖ)·V (ngày 5), phép chia cho √dₖ có tác dụng gì?",
+  tag:"Ngày 5",
+  opts:["Làm cho attention chạy nhanh hơn vì số nhỏ hơn",
+        "Ngăn điểm số phình to làm softmax bão hòa → gradient không bị chết",
+        "Chuẩn hóa để tổng các trọng số bằng đúng 1",
+        "Giảm số tham số của ma trận Q, K, V"],
+  ans:1,
+  exp:"Khi dₖ lớn, tích vô hướng QKᵀ có phương sai lớn → softmax rơi vào vùng bão hòa (gần 0/1), gradient ≈ 0. Chia √dₖ giữ điểm số ở vùng softmax còn 'nhạy'."},
+ {q:"Trong huấn luyện mô hình ngôn ngữ tự hồi quy, causal mask trong attention (ngày 5) dùng để làm gì?",
+  tag:"Ngày 5",
+  opts:["Giảm một nửa số phép tính để tiết kiệm điện",
+        "Ngăn token hiện tại nhìn trộm token tương lai — tránh rò rỉ đáp án khi train",
+        "Bỏ qua các token padding ở cuối chuỗi",
+        "Tăng trọng số cho token đầu câu"],
+  ans:1,
+  exp:"Không có mask, mô hình thấy luôn đáp án (token tương lai) trong lúc train → loss đẹp giả tạo, nhưng khi sinh thật (không có tương lai để nhìn) thì sụp đổ."},
+ {q:"Công thức residual x ← x + Sublayer(Norm(x)) trong Transformer block (ngày 6) quan trọng nhất vì điều gì?",
+  tag:"Ngày 6",
+  opts:["Giúp mô hình có thêm tham số để nhớ nhiều kiến thức hơn",
+        "Tạo đường tắt cho gradient chảy thẳng về các layer đầu — mạng sâu mới train được",
+        "Làm cho LayerNorm chạy nhanh gấp đôi",
+        "Giảm một nửa dung lượng bộ nhớ khi inference"],
+  ans:1,
+  exp:"Đạo hàm của phép cộng là 1, nên gradient từ loss đi thẳng qua đường residual về layer đầu mà không bị co/giãn qua nhiều phép biến đổi. Không có nó, mạng hàng chục layer bị vanishing gradient."},
+ {q:"Nút thắt năng lượng lớn nhất khi chạy mô hình với chuỗi văn bản rất dài nằm ở đâu (tổng kết tuần)?",
+  tag:"Tổng hợp",
+  opts:["Bảng embedding vì phải tra cứu V hàng cho mỗi token",
+        "Self-attention với độ phức tạp O(n²) theo độ dài chuỗi",
+        "LayerNorm vì phải tính trung bình và phương sai liên tục",
+        "Tokenizer vì phải tách từng ký tự của văn bản đầu vào"],
+  ans:1,
+  exp:"Ma trận attention n×n tăng theo bình phương độ dài chuỗi — đây là lý do mọi kiến trúc hiệu quả (FlashAttention, sparse attention...) đều tấn công đúng vào nút này. Tokenizer fertility thấp cũng giúp vì rút ngắn n."}
+];
+let result = "";
+
+function render(){
+  const box = document.getElementById("quiz");
+  box.innerHTML = QUESTIONS.map((it,i)=>`
+    <div class="q" id="q${i}">
+      <h3><span class="qn">Câu ${i+1}.</span>${it.q}<span class="tag">${it.tag}</span></h3>
+      ${it.opts.map((o,j)=>`
+        <label class="opt"><input type="radio" name="q${i}" value="${j}">${"ABCD"[j]}. ${o}</label>`).join("")}
+      <div class="exp" id="exp${i}"></div>
+    </div>`).join("");
+}
+
+function grade(){
+  let correct = 0; const picks = [];
+  QUESTIONS.forEach((it,i)=>{
+    const sel = document.querySelector(`input[name=q${i}]:checked`);
+    const exp = document.getElementById(`exp${i}`);
+    if(!sel){ exp.className="exp no"; exp.textContent="⚠️ Bạn chưa chọn đáp án câu này."; picks.push("–"); return; }
+    const v = +sel.value; picks.push("ABCD"[v]);
+    if(v===it.ans){ correct++; exp.className="exp ok"; exp.innerHTML="✅ <b>Đúng.</b> "+it.exp; }
+    else{ exp.className="exp no"; exp.innerHTML=`❌ <b>Sai.</b> Đáp án đúng là <b>${"ABCD"[it.ans]}</b>. `+it.exp; }
+  });
+  const s = document.getElementById("score");
+  s.style.display = "block";
+  s.innerHTML = `Kết quả: <span style="color:${correct>=6?"var(--green)":"var(--red)"}">${correct}/8</span>` +
+    (correct>=6 ? " — Đạt chuẩn tuần 1! 🎉 Sẵn sàng sang tuần 2." : " — Chưa đạt 70%. Hãy đọc lại trạm tương ứng trong bài học rồi làm lại nhé. 💪");
+  result = `Day07 Quiz: ${picks.map((p,i)=>(i+1)+p).join(" ")} — ${correct}/8`;
+  document.getElementById("copy").style.display = "block";
+}
+
+function copyResult(){
+  navigator.clipboard.writeText(result).then(
+    ()=>{ document.getElementById("copy").textContent = "✅ Đã copy! Paste vào chat nhé"; },
+    ()=>{ prompt("Copy thủ công chuỗi này:", result); });
+}
+
+render();
+</script>
+</body>
+</html>
