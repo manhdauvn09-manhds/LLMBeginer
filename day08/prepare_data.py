@@ -16,8 +16,13 @@ Cach chay:
 
 Ky vong:
     In bang bao cao so mau bi loai o TUNG BUOC (khong bao gio chi bao
-    so mau con lai). Chay 2 lan cho manifest hash giong het nhau
-    (deterministic).
+    so mau con lai). Chay 2 lan trong CUNG NGAY cho manifest hash giong
+    het nhau (deterministic).
+    [TRAINER] Sua 2026-10-18: ban cu ghi "chay 2 lan ... giong het nhau"
+    ma thieu dieu kien - manifest.json co truong created_at = ngay hien
+    tai nen chay khac ngay se khac byte (du hash tung shard van giong
+    het nhau). Ghi thieu "cung ngay" khien nguoi test vao hom sau tuong
+    pipeline mat tinh deterministic oan.
 
 Chi dung thu vien chuan Python.
 """
