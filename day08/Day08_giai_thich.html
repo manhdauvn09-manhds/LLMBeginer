@@ -1,0 +1,1353 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 08 — Pipeline dữ liệu huấn luyện LLM: giải thích cho người ngoại đạo</title>
+<style>
+  :root{
+    --bg:#f4fbfc; --card:#ffffff; --ink:#23272f; --muted:#6b7280;
+    --accent:#0891b2; --accent-soft:#cffafe;
+    --blue:#2563eb; --blue-soft:#dbeafe;
+    --amber:#b45309; --amber-soft:#fef3c7;
+    --green:#047857; --green-soft:#d1fae5;
+    --rose:#be123c; --rose-soft:#ffe4e6;
+    --violet:#7c3aed; --violet-soft:#ede9fe;
+    --line:#d8e9ec; --code-bg:#1e2230;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    line-height:1.75;font-size:16.5px}
+  .wrap{max-width:960px;margin:0 auto;padding:0 20px}
+  header.hero{background:linear-gradient(135deg,#083344 0%,#0891b2 55%,#22d3ee 100%);
+    color:#fff;padding:64px 0 48px;margin-bottom:8px}
+  header.hero h1{margin:0 0 12px;font-size:2.1rem;line-height:1.3}
+  header.hero p{margin:6px 0;opacity:.92;max-width:720px}
+  .tag{display:inline-block;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.35);
+    border-radius:999px;padding:3px 14px;font-size:.85rem;margin-bottom:14px}
+  nav.sticky{position:sticky;top:0;z-index:50;background:rgba(244,251,252,.96);
+    backdrop-filter:blur(6px);border-bottom:1px solid var(--line)}
+  nav.sticky .wrap{display:flex;gap:4px;overflow-x:auto;padding:10px 20px;white-space:nowrap}
+  nav.sticky a{color:var(--muted);text-decoration:none;font-size:.88rem;padding:6px 10px;border-radius:8px}
+  nav.sticky a:hover{background:var(--accent-soft);color:var(--accent)}
+  section{padding:34px 0;border-bottom:1px solid var(--line)}
+  h2{font-size:1.55rem;margin:0 0 6px;color:#083344}
+  h2 .num{display:inline-block;background:var(--accent);color:#fff;font-size:.95rem;
+    width:34px;height:34px;line-height:34px;text-align:center;border-radius:10px;margin-right:10px;vertical-align:middle}
+  h3{font-size:1.15rem;margin:26px 0 8px}
+  .lead{color:#4b5563;font-size:1.05rem}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:20px 22px;margin:16px 0;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin:18px 0}
+  .concept{background:var(--card);border:1px solid var(--line);border-top:4px solid var(--accent);
+    border-radius:12px;padding:16px 18px}
+  .concept h4{margin:0 0 6px;font-size:1.02rem}
+  .concept p{margin:0;font-size:.93rem;color:#4b5563}
+  .concept.blue{border-top-color:var(--blue)} .concept.amber{border-top-color:var(--amber)}
+  .concept.green{border-top-color:var(--green)} .concept.rose{border-top-color:var(--rose)}
+  .concept.violet{border-top-color:var(--violet)}
+  pre{background:var(--code-bg);color:#e8eaf2;border-radius:12px;padding:18px 20px;
+    overflow-x:auto;font-size:.86rem;line-height:1.6;margin:14px 0;max-height:560px;overflow-y:auto}
+  code{font-family:"SF Mono",Consolas,"Courier New",monospace}
+  p code, li code, td code{background:var(--accent-soft);padding:1px 7px;border-radius:6px;font-size:.88em;color:#0e7490}
+  pre code{background:none;padding:0;color:inherit}
+  .kw{color:#c792ea}.fn{color:#82aaff}.str{color:#c3e88d}.cm{color:#697098;font-style:italic}.num2{color:#f78c6c}
+  pre.before{background:#2a1a12;border:1px solid #7c2d12}
+  pre.after{background:#0f2a1a;border:1px solid #047857}
+  .diff-tag{display:inline-block;font-size:.78rem;font-weight:700;border-radius:6px;padding:2px 10px;margin-bottom:6px}
+  .diff-tag.old{background:var(--amber-soft);color:var(--amber)}
+  .diff-tag.new{background:var(--green-soft);color:var(--green)}
+  .diagram{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px 10px;margin:18px 0;text-align:center;overflow-x:auto}
+  .diagram svg{max-width:100%;height:auto}
+  .caption{font-size:.9rem;color:var(--muted);margin-top:10px;font-style:italic}
+  .flow{display:flex;align-items:stretch;gap:0;overflow-x:auto;padding:18px 6px;margin:14px 0}
+  .fstep{background:#fff;border:2px solid var(--line);border-radius:12px;padding:10px 12px;
+    min-width:104px;text-align:center;font-size:.82rem;flex-shrink:0}
+  .fstep b{display:block;margin-bottom:4px;font-size:.9rem}
+  .fstep small{color:var(--muted)}
+  .fstep.d{background:var(--blue-soft);border-color:var(--blue)}
+  .fstep.m{background:var(--accent-soft);border-color:var(--accent)}
+  .fstep.e{background:var(--amber-soft);border-color:var(--amber)}
+  .fstep.g{background:var(--green-soft);border-color:var(--green)}
+  .fstep.r{background:var(--rose-soft);border-color:var(--rose)}
+  .fstep.v{background:var(--violet-soft);border-color:var(--violet)}
+  .farrow{align-self:center;font-size:1.3rem;color:var(--muted);padding:0 3px;flex-shrink:0}
+  .drop{font-weight:700;color:var(--rose);font-size:.8rem;display:block;margin-top:2px}
+  .analogy{background:#ecfeff;border:1px solid #67e8f9;border-left:6px solid var(--accent);
+    border-radius:10px;padding:16px 20px;margin:16px 0}
+  .analogy b{color:#0e7490}
+  .warn{background:#fffbeb;border:1px solid #fcd34d;border-left:6px solid var(--amber);
+    border-radius:10px;padding:16px 20px;margin:16px 0}
+  .warn b{color:#92400e}
+  .ok{background:#ecfdf5;border:1px solid #6ee7b7;border-left:6px solid var(--green);
+    border-radius:10px;padding:16px 20px;margin:16px 0}
+  table.mini{border-collapse:collapse;margin:14px auto;font-size:.9rem;min-width:70%}
+  table.mini th, table.mini td{border:1px solid var(--line);padding:8px 14px;text-align:center}
+  table.mini th{background:var(--accent-soft)}
+  table.mini td.num{font-family:monospace}
+  .demo{background:#fff;border:2px solid var(--accent);border-radius:16px;padding:24px;margin:18px 0}
+  .demo h3{margin-top:0}
+  input[type=text], textarea{width:100%;padding:10px 14px;font-size:.95rem;border:2px solid var(--line);
+    border-radius:10px;margin:8px 0;font-family:monospace}
+  textarea{min-height:76px;resize:vertical}
+  .seg{display:flex;gap:8px;margin:10px 0;flex-wrap:wrap}
+  .seg button{border:2px solid var(--line);background:#fff;border-radius:10px;
+    padding:8px 18px;font-size:1rem;cursor:pointer}
+  .seg button.active{border-color:var(--accent);background:var(--accent-soft);font-weight:700}
+  .big-out{background:var(--code-bg);color:#e8eaf2;border-radius:12px;padding:18px 20px;
+    font-family:monospace;font-size:.92rem;margin-top:12px;line-height:1.9;word-break:break-word}
+  .btn{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:10px 22px;
+    font-size:1rem;cursor:pointer;margin:10px 8px 0 0}
+  .btn:hover{background:#0e7490}
+  .formula{text-align:center;font-size:1.15rem;background:#ecfeff;border-radius:10px;
+    padding:18px;margin:14px 0;font-family:Georgia,serif}
+  .formula small{display:block;font-family:inherit;font-size:.85rem;color:var(--muted);margin-top:6px}
+  footer{padding:36px 0 60px;color:var(--muted);font-size:.9rem;text-align:center}
+  ul.tight li{margin-bottom:6px}
+  .bar-row{display:flex;align-items:center;gap:10px;margin:7px 0;font-size:.88rem}
+  .bar-lab{width:200px;flex-shrink:0;text-align:right;font-family:monospace;font-size:.78rem}
+  .bar-track{flex:1;background:#eef6f8;border-radius:8px;height:24px;overflow:hidden}
+  .bar-fill{height:100%;border-radius:8px;display:flex;align-items:center;justify-content:flex-end;
+    padding-right:8px;color:#fff;font-weight:700;font-size:.75rem;font-family:monospace}
+  .bar-val{width:44px;flex-shrink:0;font-family:monospace;font-size:.8rem;color:var(--muted)}
+  .jbar{display:flex;height:26px;border-radius:8px;overflow:hidden;margin:10px 0;border:1px solid var(--line)}
+  .jbar div{height:100%}
+  @media(max-width:600px){header.hero h1{font-size:1.6rem}body{font-size:15.5px}.bar-lab{width:120px}}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="tag">📄 Phân tích: day08/prepare_data.py + make_dirty_data.py</span>
+    <h1>Day 08 — Pipeline dữ liệu<br>huấn luyện LLM</h1>
+    <p>Trước khi train model tiền tỉ đô, người ta phải <b>"rửa rau"</b>: chuẩn hóa chữ, che thông tin cá nhân, vứt rác, loại trùng lặp, chống rò đề thi. Pipeline 8 bước biến 200 docs "bẩn" thành <b>147 docs sạch</b>, kèm manifest băm SHA-256 và data card.</p>
+    <p style="font-size:.9rem;opacity:.8">Số liệu trong bài là kết quả chạy thật (chỉ dùng thư viện chuẩn Python).</p>
+  </div>
+</header>
+
+<nav class="sticky"><div class="wrap">
+  <a href="#tong-quan">🍿 Tóm tắt 30 giây</a>
+  <a href="#dirty">🦠 Dữ liệu bẩn</a>
+  <a href="#norm">🧹 Normalize</a>
+  <a href="#pii">🙈 Che PII</a>
+  <a href="#quality">🔍 Lọc quality</a>
+  <a href="#dedup">👯 Dedup</a>
+  <a href="#contam">🚨 Chống rò đề</a>
+  <a href="#shard">📦 Shard + manifest</a>
+  <a href="#trainer">🛠️ Trainer đã sửa gì</a>
+  <a href="#source">📜 Source code</a>
+</div></nav>
+
+<div class="wrap">
+
+<!-- ================= TỔNG QUAN ================= -->
+<section id="tong-quan">
+  <h2><span class="num">🍿</span>Tóm tắt 30 giây cho người ngoại đạo</h2>
+  <p class="lead">Model chỉ giỏi bằng dữ liệu nó ăn. Pipeline Day 8 là <b>dây chuyền rửa rau</b> 8 công đoạn: 200 docs thô đi vào, 147 docs sạch đi ra — mỗi bước đều <b>báo cáo đã loại bao nhiêu</b> (không bao giờ chỉ báo còn lại bao nhiêu).</p>
+  <div class="flow">
+    <div class="fstep m"><b>ingest</b><small>200 docs</small></div><div class="farrow">→</div>
+    <div class="fstep d"><b>normalize</b><small>chuẩn hóa</small></div><div class="farrow">→</div>
+    <div class="fstep v"><b>scrub PII</b><small>che 30<span class="drop">giữ doc!</span></small></div><div class="farrow">→</div>
+    <div class="fstep e"><b>quality</b><small><span class="drop">−15</span></small></div><div class="farrow">→</div>
+    <div class="fstep e"><b>exact dedup</b><small><span class="drop">−20</span></small></div><div class="farrow">→</div>
+    <div class="fstep e"><b>near dedup</b><small><span class="drop">−15</span></small></div><div class="farrow">→</div>
+    <div class="fstep r"><b>chống rò đề</b><small><span class="drop">−3</span></small></div><div class="farrow">→</div>
+    <div class="fstep g"><b>split+shard</b><small>147 docs</small></div>
+  </div>
+  <div class="grid">
+    <div class="concept"><h4>🧹 Normalize</h4><p>Gộp dấu tiếng Việt về chuẩn NFC, xóa thẻ HTML, gom khoảng trắng. <b>Không lowercase</b> — chữ hoa mang thông tin ("Apple" công ty vs "apple" trái cây).</p></div>
+    <div class="concept violet"><h4>🙈 Che PII, không xóa doc</h4><p>Email/SĐT/CCCD được <b>che</b> thành token (<code>[EMAIL]</code>…), doc vẫn giữ lại. Thứ tự regex quan trọng: phone trước id.</p></div>
+    <div class="concept amber"><h4>🔍 Quality filter</h4><p>5 cửa ải theo thứ tự: rỗng → quá dài → ký tự lặp → quá ngắn → không phải tiếng Việt. Mỗi doc rớt đúng 1 lý do chính xác nhất.</p></div>
+    <div class="concept blue"><h4>👯 Dedup 2 tầng</h4><p>SHA-256 bắt <b>trùng y hệt</b>; Jaccard 5-gram &gt; 0.8 bắt <b>gần trùng</b> (đổi 1-2 chữ là SHA đã khác hẳn). Sort theo hash trước để deterministic.</p></div>
+    <div class="concept rose"><h4>🚨 Chống rò đề thi</h4><p>Doc nào chứa <b>nguyên văn câu hỏi test</b> (hoặc gần giống &gt; 0.9) thì loại — <b>trước khi</b> chia train/val. Đây là đạo đức khoa học, không chỉ kỹ thuật.</p></div>
+    <div class="concept green"><h4>📦 Shard + manifest</h4><p>Chia 90/10 bằng <b>sort theo hash</b> (không random → máy nào chạy cũng giống nhau). Mỗi shard băm SHA-256 ghi vào manifest; data card ghi lại mọi quyết định.</p></div>
+  </div>
+  <div class="analogy"><b>🧭 Vị trí Day 8 trong khóa học:</b> Day 1–7 bạn học "nấu ăn" (model). Day 8 học <b>"đi chợ + rửa rau"</b> — vì 90% công sức làm LLM thật nằm ở dữ liệu, không phải ở model. Tuần sau (fine-tune) sẽ dùng chính pipeline này để chuẩn bị dữ liệu.</div>
+</section>
+
+<!-- ================= DIRTY DATA ================= -->
+<section id="dirty">
+  <h2><span class="num">🦠</span>Dữ liệu "bẩn có chủ đích": 200 docs để pipeline có cái mà lọc</h2>
+  <p class="lead"><code>make_dirty_data.py</code> sinh 200 docs với <b>"vết bẩn" cố tình</b> — như giáo viên cố tình bỏ sỏi vào gạo để học trò luyện nhặt. Mỗi doc có trường <code>kind</code> để <i>người</i> đối chiếu, nhưng pipeline <b>bị cấm</b> đọc nó (chỉ được dùng <code>id</code> + <code>text</code>).</p>
+  <div class="diagram" style="text-align:left;max-width:620px;margin:18px auto"><div id="dirtyBars"></div>
+    <p class="caption">Phân bố 200 docs (seed 42 cố định → sinh lần nào cũng giống nhau). Số thật từ lần chạy.</p>
+  </div>
+  <div class="warn"><b>⚠️ Chi tiết tinh tế:</b> 20 docs <code>exact_dup</code> và 15 docs <code>near_dup</code> được lấy từ <b>2 nhóm gốc riêng biệt, không overlap</b> — vì nếu 1 doc vừa bị copy y hệt vừa bị sửa gần giống thì không biết nó bị loại ở tầng nào, số liệu báo cáo sẽ khó giải thích. Dữ liệu test cũng phải <b>thiết kế để đo được</b>.</div>
+</section>
+
+<!-- ================= NORMALIZE ================= -->
+<section id="norm">
+  <h2><span class="num">🧹</span>Normalize: gộp dấu, lột HTML, gom khoảng trắng</h2>
+  <p class="lead">Ba việc nhỏ nhưng thiếu một là pipeline "rò rỉ": <b>NFC</b> gộp dấu tiếng Việt về dạng chuẩn, xóa thẻ HTML của dữ liệu web, gom mọi khoảng trắng thừa thành 1 dấu cách.</p>
+
+  <div class="analogy"><b>👕 Ví dụ — Gấp quần áo trước khi xếp tủ:</b> chữ "ệ" có tới <b>2 cách mã hóa</b> trong Unicode: dạng <b>dựng sẵn</b> (1 ký tự) và dạng <b>tổ hợp</b> ("e" + 2 dấu riêng). Mắt người thấy giống hệt nhau, nhưng SHA-256 thấy là <b>2 chuỗi khác nhau</b> → exact dedup "bó tay một cách vô duyên" với 2 doc thực ra trùng nhau. NFC ép tất cả về 1 dạng trước khi băm.</div>
+
+  <div class="demo">
+    <h3>🔬 Thử ngay: máy chuẩn hóa</h3>
+    <p style="margin-top:0">"ệ" bên dưới đang ở dạng tổ hợp (e + 2 dấu rời). Bấm chạy:</p>
+    <textarea id="nmInput"><p>Vi&#x65;&#x323;&#x302;t   Nam</p>    đ&#x65;&#x323;&#x302;p</textarea>
+    <div class="seg"><button class="btn" id="nmBtn" style="margin:0">🧹 Normalize</button></div>
+    <div class="big-out" id="nmOut">Bấm nút để chạy…</div>
+  </div>
+
+  <div class="warn"><b>⚠️ Quyết định được ghi vào data card: KHÔNG lowercase.</b> Chữ hoa mang thông tin: <b>"Apple"</b> (công ty) vs <b>"apple"</b> (trái cây). Normalize quá tay làm mất thông tin mà không giải thích được vì sao — đây là "Bẫy 1" của bài. Mọi quyết định kiểu này đều phải ghi lại, không làm trong im lặng.</div>
+</section>
+
+<!-- ================= PII ================= -->
+<section id="pii">
+  <h2><span class="num">🙈</span>Che PII: thay token, giữ doc — thứ tự regex là sinh tử</h2>
+  <p class="lead"><code>scrub_pii</code> thay email → <code>[EMAIL]</code>, SĐT → <code>[PHONE]</code>, dãy 9–12 chữ số → <code>[ID_NUMBER]</code>, dùng <code>subn()</code> để <b>vừa thay vừa đếm</b> trong một lượt. Điểm then chốt: <b>thứ tự phone trước id</b>.</p>
+
+  <div class="analogy"><b>🎭 Ví dụ — Che mặt nhân chứng:</b> thay vì <b>xóa</b> cả đoạn phim có mặt nhân chứng (mất luôn nội dung), ta chỉ <b>che mờ khuôn mặt</b> — doc vẫn giữ lại để train, chỉ thông tin nhạy cảm bị che. Chạy thật: <b>30 thực thể</b> bị che, <b>0 doc</b> bị loại ở bước này.</div>
+
+  <div class="demo">
+    <h3>🕵️ Thử ngay: bẫy thứ tự regex</h3>
+    <p style="margin-top:0">SĐT <code>0912345678</code> cũng là "dãy 10 chữ số" — nếu regex <b>id chạy trước</b>, nó sẽ nuốt luôn SĐT. Bấm để so sánh:</p>
+    <div class="seg">
+      <button id="piiRight" class="active">✅ Đúng: phone trước, id sau</button>
+      <button id="piiWrong">❌ Sai: id trước, phone sau</button>
+    </div>
+    <div class="big-out" id="piiOut"></div>
+  </div>
+</section>
+
+<!-- ================= QUALITY ================= -->
+<section id="quality">
+  <h2><span class="num">🔍</span>Quality filter: 5 cửa ải, mỗi doc rớt đúng 1 lý do</h2>
+  <p class="lead">Thứ tự kiểm tra đi từ <b>tổng quát đến chi tiết</b>: rỗng → quá dài → ký tự/từ lặp → quá ngắn → không phải tiếng Việt. Nhờ vậy <code>"a"*500</code> bị gắn nhãn <b>repetitive</b> chứ không phải <b>too_short</b> — báo cáo mới chính xác.</p>
+
+  <div class="analogy"><b>🛂 Ví dụ — Hải quan sân bay:</b> kiểm tra theo thứ tự: có hộ chiếu không (rỗng) → hành lý quá khổ (quá dài) → vali toàn đá (lặp) → … Mỗi người bị từ chối đúng 1 lý do <b>chính xác nhất</b>. Và ngưỡng "lặp" 30% là an toàn: văn bản thường thì dấu cách đã chiếm ~15–20%, từ phổ biến nhất ("của", "và") chỉ ~3–5% — chỉ có rác mới có 1 ký tự chiếm &gt; 30%.</div>
+
+  <table class="mini">
+    <tr><th>lý do loại</th><th>ngưỡng</th><th>số thật</th></tr>
+    <tr><td class="num">non_vietnamese</td><td class="num">ký tự có dấu &lt; 5% (doc &gt; 20 từ, không phải code)</td><td class="num">5</td></tr>
+    <tr><td class="num">too_short</td><td class="num">&lt; 30 từ</td><td class="num">4</td></tr>
+    <tr><td class="num">too_long</td><td class="num">&gt; 2000 từ</td><td class="num">3</td></tr>
+    <tr><td class="num">repetitive</td><td class="num">1 ký tự/từ chiếm &gt; 30%</td><td class="num">3</td></tr>
+  </table>
+
+  <div class="demo">
+    <h3>🧪 Thử ngay: máy kiểm định chất lượng</h3>
+    <p style="margin-top:0">Dán văn bản vào, xem nó qua được 5 cửa ải không (logic y hệt code Python):</p>
+    <textarea id="qfInput">Trí tuệ nhân tạo đang thay đổi cách chúng ta làm việc mỗi ngày. Mô hình ngôn ngữ lớn học được tri thức từ hàng tỷ trang văn bản. Học sâu cần rất nhiều dữ liệu sạch để đạt hiệu quả cao. Kỹ sư AI phải hiểu cả toán học lẫn kỹ năng lập trình thực tế.</textarea>
+    <div class="seg"><button class="btn" id="qfBtn" style="margin:0">🔍 Kiểm tra</button></div>
+    <div class="big-out" id="qfOut">Bấm nút để chạy…</div>
+    <p style="color:var(--muted);font-size:.9rem">Gợi ý thử: xóa hết chỉ để lại "Xin chào." (too_short) · dán "a" lặp 500 lần (repetitive) · dán đoạn tiếng Anh dài (non_vietnamese).</p>
+  </div>
+</section>
+
+<!-- ================= DEDUP ================= -->
+<section id="dedup">
+  <h2><span class="num">👯</span>Dedup 2 tầng: SHA-256 bắt trùng y hệt, Jaccard bắt gần trùng</h2>
+  <p class="lead"><b>Tầng 1 (exact):</b> băm SHA-256 toàn văn bản — trùng hash là loại, O(1) mỗi doc. <b>Tầng 2 (near):</b> Jaccard 5-gram &gt; 0.8 là loại — vì chỉ cần đổi 1 ký tự là SHA-256 đã khác hẳn (báo chí copy lại chỉ khác tiêu đề thì tầng 1 bó tay).</p>
+
+  <div class="analogy"><b>🫆 Ví dụ — Dấu vân tay vs khuôn mặt:</b> SHA-256 như <b>dấu vân tay</b>: khác 1 chi tiết là khác hẳn — chính xác nhưng "cứng nhắc". Jaccard 5-gram như <b>nhận diện khuôn mặt</b>: cắt văn bản thành mảnh 5 ký tự (shingle), đo % mảnh chung — 2 doc "anh em" vẫn nhận ra nhau. Chạy thật: tầng 1 loại <b>20</b>, tầng 2 loại <b>15</b>.</div>
+
+  <div class="formula">Jaccard(A, B) = |A ∩ B| / |A ∪ B|
+    <small>A, B là tập các 5-gram ký tự (đã bỏ dấu cách) — càng nhiều mảnh chung càng giống nhau</small>
+  </div>
+
+  <div class="demo">
+    <h3>⚖️ Thử ngay: máy đo độ giống nhau</h3>
+    <p style="margin-top:0">Đã điền sẵn cặp near-dup thật (Jaccard = 0.9347). Sửa một bên rồi bấm đo:</p>
+    <textarea id="jcA">Sau đây là bài viết đáng đọc. Sao lưu code lên git giúp bạn không bao giờ mất công sức đã bỏ ra. Làm việc nhóm tốt đòi hỏi kỹ năng lắng nghe và tôn trọng lẫn nhau. Nem rán giòn rụm là món khai vị được nhiều người yêu thích. Phở bò Hà Nội nổi tiếng với nước dùng trong và thơm mùi quế hồi. Bánh cuốn Thanh Trì mỏng tang ăn với chả quế thơm lừng. Kiên trì theo đuổi mục tiêu quan trọng hơn tài năng bẩm sinh. Code review giúp cả nhóm học hỏi lẫn nhau và bắt lỗi sớm.</textarea>
+    <textarea id="jcB">Sao lưu code lên git giúp bạn không bao giờ mất công sức đã bỏ ra. Làm việc nhóm tốt đòi hỏi kỹ năng lắng nghe và tôn trọng lẫn nhau. Nem rán giòn rụm là món khai vị được nhiều người yêu thích. Phở bò Hà Nội nổi tiếng với nước dùng trong và thơm mùi quế hồi. Bánh cuốn Thanh Trì mỏng tang ăn với chả quế thơm lừng. Kiên trì theo đuổi mục tiêu quan trọng hơn tài năng bẩm sinh. Code review giúp cả nhóm học hỏi lẫn nhau và bắt lỗi sớm.</textarea>
+    <div class="seg"><button class="btn" id="jcBtn" style="margin:0">⚖️ Đo Jaccard 5-gram</button></div>
+    <div class="jbar" id="jcBar" style="display:none"><div id="jcFillA" style="background:#0891b2"></div><div id="jcFillB" style="background:#e5e7eb"></div></div>
+    <div class="big-out" id="jcOut">Bấm nút để chạy…</div>
+  </div>
+
+  <div class="warn"><b>⚠️ Ghi chú mở rộng (trong code):</b> so sánh từng cặp là O(n²) — với 200 docs (40k cặp) thì OK, nhưng với 1M docs là 10¹² cặp, không tưởng. Thực tế dùng <b>MinHash</b> (nén tập shingle thành vector ngắn) + <b>LSH</b> (chỉ so các doc cùng "xô") để đưa về gần O(n). Demo này dạy <i>ý tưởng</i>, quy mô thật cần thêm kỹ thuật.</div>
+  <div class="ok"><b>💡 Vì sao sort theo hash trước khi dedup?</b> (Bẫy 3) — thứ tự duyệt dict/set trong Python phụ thuộc <code>PYTHONHASHSEED</code> của phiên chạy. Sort theo SHA-256 của nội dung thì máy nào chạy cũng duyệt cùng thứ tự → giữ "bản đầu tiên" nào cũng giống nhau → <b>deterministic</b>.</div>
+</section>
+
+<!-- ================= CONTAMINATION ================= -->
+<section id="contam">
+  <h2><span class="num">🚨</span>Chống rò đề thi: loại trước khi chia, không phải sau</h2>
+  <p class="lead">Doc nào chứa <b>nguyên văn câu hỏi test</b> — hoặc <b>gần giống</b> (Jaccard 8-gram &gt; 0.9) — thì loại. Chạy thật loại <b>3 docs</b> (đúng 3 câu bị "cài" rò rỉ).</p>
+
+  <div class="analogy"><b>📝 Ví dụ — Đề thi lọt vào sách giáo khoa:</b> nếu sách luyện thi in nguyên văn 3 câu sẽ ra trong đề thi thật, học sinh "đỗ" nhưng thực ra chỉ <b>học thuộc lòng đáp án</b>. Điểm eval cao ngất nhưng ảo — đây là <b>gian lận khoa học</b>, không chỉ là bug kỹ thuật. Vì vậy bước này chạy <b>trước khi</b> chia train/val: rò vào val cũng là gian lận (val cũng là eval!).</div>
+
+  <div class="demo">
+    <h3>🚨 Thử ngay: máy quét rò đề</h3>
+    <p style="margin-top:0">Đã nạp 10 câu hỏi test thật. Dán một đoạn văn, xem nó có "chôm" câu nào không:</p>
+    <textarea id="ctInput">Hôm nay trời đẹp. Câu hỏi ôn tập: Thủ đô của Việt Nam là thành phố nào? Mọi người cùng thảo luận nhé.</textarea>
+    <div class="seg"><button class="btn" id="ctBtn" style="margin:0">🚨 Quét rò rỉ</button></div>
+    <div class="big-out" id="ctOut">Bấm nút để chạy…</div>
+  </div>
+</section>
+
+<!-- ================= SHARD ================= -->
+<section id="shard">
+  <h2><span class="num">📦</span>Split + shard + manifest: chia, đóng gói, niêm phong</h2>
+  <p class="lead"><b>Chia 90/10</b> bằng cách sort theo SHA-256 nội dung (132 train / 15 val) — <b>không</b> dùng <code>random.shuffle</code> (quên set seed là mất tái lập). Rồi cắt thành shard ≤ 50 docs, băm SHA-256 từng shard ghi vào <code>manifest.json</code>, sinh <code>data_card.md</code>.</p>
+
+  <div class="analogy"><b>📦 Ví dụ — Đóng hàng niêm phong:</b> 147 docs được chia vào các thùng (shard), mỗi thùng dán <b>tem niêm phong</b> (SHA-256). Ai nhận hàng chỉ cần băm lại và so tem — khác 1 byte là biết thùng bị "khui". <code>manifest.json</code> là <b>biên bản giao nhận</b>: ghi đủ từ khâu nào loại bao nhiêu đến tem từng thùng.</div>
+
+  <div class="diagram">
+    <svg width="680" viewBox="0 0 680 210" font-family="inherit">
+      <text x="340" y="22" text-anchor="middle" font-size="15" font-weight="700">147 docs sạch → 132 train / 15 val → shards</text>
+      <g font-size="12.5" text-anchor="middle">
+        <rect x="60" y="60" width="150" height="60" rx="10" fill="#cffafe" stroke="#0891b2" stroke-width="2"/>
+        <text x="135" y="86" font-weight="700">sort by SHA-256</text><text x="135" y="106" fill="#6b7280">90% đầu → train</text>
+        <rect x="265" y="60" width="150" height="60" rx="10" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+        <text x="340" y="86" font-weight="700">3 train shards</text><text x="340" y="106" fill="#6b7280">50 + 50 + 32 docs</text>
+        <rect x="470" y="60" width="150" height="60" rx="10" fill="#d1fae5" stroke="#047857" stroke-width="2"/>
+        <text x="545" y="86" font-weight="700">1 val shard</text><text x="545" y="106" fill="#6b7280">15 docs</text>
+      </g>
+      <g stroke="#9ca3af" stroke-width="2" fill="#9ca3af">
+        <line x1="210" y1="90" x2="261" y2="90"/><polygon points="261,90 253,85 253,95"/>
+        <line x1="415" y1="90" x2="466" y2="90"/><polygon points="466,90 458,85 458,95"/>
+      </g>
+      <text x="340" y="155" text-anchor="middle" font-size="13" fill="#6b7280">manifest.json: created_at + stage_report + <b>SHA-256 từng shard</b></text>
+      <text x="340" y="180" text-anchor="middle" font-size="13" fill="#6b7280">Chạy 2 lần trong <b>cùng ngày</b> → md5 manifest <b>giống hệt nhau</b> (<code>bb49f8e2…</code> ✅ deterministic)</text>
+    </svg>
+  </div>
+
+  <h3>Green checkpoint: 270.1 token sạch cho mỗi doc bị loại</h3>
+  <div class="formula">green_ratio = token hữu ích / số doc bị loại = 14,314 / 53 ≈ 270.1
+    <small>"công sức" bỏ ra (53 docs bị vứt) đổi lấy 14,314 token sạch — và mỗi doc trùng bị loại sớm là bớt đi nhiều bước train "đốt điện vô nghĩa" khi chạy thật</small>
+  </div>
+  <div class="ok"><b>💡 Vì sao dedup tiết kiệm điện?</b> Doc trùng lặp tạo ra bước gradient <b>vô ích</b> — model học lại điều đã biết. Loại 1 doc trùng ở đây (vài mili giây) rẻ hơn gấp triệu lần để nó "ngốn" GPU trong lúc train. Dữ liệu sạch = tiền điện thật.</div>
+</section>
+
+<!-- ================= TRAINER ================= -->
+<section id="trainer">
+  <h2><span class="num">🛠️</span>Trainer đã sửa gì: trước → sau</h2>
+  <p class="lead">Lần review ngày 18/10, trainer sửa <b>1 điểm duy nhất</b> trong <code>prepare_data.py</code> — nhưng là điểm rất đáng học: <b>tài liệu ghi thiếu điều kiện</b>.</p>
+
+  <div class="card">
+    <span class="diff-tag old">TRƯỚC — thiếu điều kiện "cùng ngày"</span>
+<pre class="before"><code>Ky vong:
+    In bang bao cao so mau bi loai o TUNG BUOC (khong bao gio chi bao
+    so mau con lai). Chay 2 lan cho manifest hash giong het nhau
+    (deterministic).</code></pre>
+    <span class="diff-tag new">SAU — thêm điều kiện + giải thích</span>
+<pre class="after"><code>Ky vong:
+    In bang bao cao so mau bi loai o TUNG BUOC (khong bao gio chi bao
+    so mau con lai). Chay 2 lan trong CUNG NGAY cho manifest hash giong
+    het nhau (deterministic).
+    [TRAINER] Sua 2026-10-18: ban cu ghi "chay 2 lan ... giong het nhau"
+    ma thieu dieu kien - manifest.json co truong created_at = ngay hien
+    tai nen chay khac ngay se khac byte (du hash tung shard van giong
+    het nhau). Ghi thieu "cung ngay" khien nguoi test vao hom sau tuong
+    pipeline mat tinh deterministic oan.</code></pre>
+    <div class="warn"><b>⚠️ Vì sao 2 chữ "cùng ngày" quan trọng?</b> <code>manifest.json</code> có trường <code>created_at</code> = ngày hiện tại. Chạy hôm nay và ngày mai → 2 file <b>khác byte</b> (dù hash từng shard vẫn giống hệt nhau). Người test vào hôm sau thấy md5 khác nhau sẽ kết luận "pipeline mất tính deterministic" — <b>oan</b>! Tài liệu thiếu điều kiện biến một pipeline đúng thành "có bug" trong mắt người đọc.</div>
+    <div class="demo" style="border-color:var(--amber)">
+      <h3>📅 Thử ngay: vì sao "cùng ngày" mới deterministic</h3>
+      <p style="margin-top:0">Bấm để "chạy pipeline" vào 2 ngày khác nhau (hash minh họa):</p>
+      <div class="seg">
+        <button id="dtToday" class="active">Chạy lần 1: 2026-10-18</button>
+        <button id="dtTomorrow">Chạy lần 2: 2026-10-19</button>
+      </div>
+      <div class="big-out" id="dtOut"></div>
+      <p style="color:var(--muted);font-size:.93rem">Chạy thật 2 lần trong cùng ngày 18/10: md5 đều là <code>bb49f8e2…</code> ✅. Khác ngày → <code>created_at</code> khác → byte khác → md5 khác (dù shard hash không đổi).</p>
+    </div>
+  </div>
+  <div class="ok"><b>💡 Triết lý của trainer:</b> tài liệu kỹ thuật phải ghi <b>đủ điều kiện</b> để người khác tái hiện được — thiếu 2 chữ "cùng ngày", một khẳng định đúng ("pipeline deterministic") cũng trở thành sai trong thực hành. Viết tài liệu cũng là một dạng <b>test</b>: nếu người đọc làm theo mà ra kết quả khác, tài liệu đó có bug.</div>
+</section>
+
+<!-- ================= SOURCE CODE ================= -->
+<section id="source">
+  <h2><span class="num">📜</span>Toàn bộ source code</h2>
+  <p class="lead">Day 8 có <b>2 file</b>: <code>prepare_data.py</code> (pipeline 8 bước) và <code>make_dirty_data.py</code> (sinh dữ liệu bẩn). Bấm tab để đổi file, bấm nút để copy.</p>
+  <div class="seg">
+    <button id="tabPrep" class="active">prepare_data.py (423 dòng)</button>
+    <button id="tabDirty">make_dirty_data.py (323 dòng)</button>
+  </div>
+  <button class="btn" id="copySrcBtn">📋 Copy file đang xem</button>
+  <span id="copyMsg" style="margin-left:12px;color:var(--green);font-weight:700"></span>
+  <pre class="pysrc" id="srcPrep"><code>#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""Pipeline du lieu huan luyen LLM (Day 08 - buoi toi).
+
+Chay: ingest -&gt; normalize -&gt; scrub PII -&gt; quality filter -&gt; exact dedup
+-&gt; near dedup -&gt; contamination check -&gt; split -&gt; shard.
+
+Dau vao: raw_docs.jsonl (200 docs, tao boi make_dirty_data.py),
+         test_set.jsonl (10 cau hoi).
+Dau ra: train-*.jsonl / val-*.jsonl (shard, toi da 50 docs/shard),
+        manifest.json (SHA-256 tung shard + bao cao tung buoc),
+        data_card.md (tai lieu mo ta du lieu).
+
+Cach chay:
+    python prepare_data.py
+
+Ky vong:
+    In bang bao cao so mau bi loai o TUNG BUOC (khong bao gio chi bao
+    so mau con lai). Chay 2 lan trong CUNG NGAY cho manifest hash giong
+    het nhau (deterministic).
+    [TRAINER] Sua 2026-10-18: ban cu ghi "chay 2 lan ... giong het nhau"
+    ma thieu dieu kien - manifest.json co truong created_at = ngay hien
+    tai nen chay khac ngay se khac byte (du hash tung shard van giong
+    het nhau). Ghi thieu "cung ngay" khien nguoi test vao hom sau tuong
+    pipeline mat tinh deterministic oan.
+
+Chi dung thu vien chuan Python.
+"""
+
+import hashlib
+import json
+import os
+import re
+import unicodedata
+from collections import Counter
+from datetime import date
+
+# ---------------------------------------------------------------------------
+# Cau hinh pipeline (moi nguong dat o day, khong hardcode trong ham)
+# ---------------------------------------------------------------------------
+RAW_PATH = "raw_docs.jsonl"
+TEST_PATH = "test_set.jsonl"
+SHARD_SIZE = 50       # so doc toi da moi shard
+TRAIN_RATIO = 0.9     # 90% train / 10% val
+MIN_WORDS = 30        # doc it hon -&gt; qua ngan
+MAX_WORDS = 2000      # doc nhieu hon -&gt; qua dai
+REPEAT_RATIO = 0.3    # ky tu pho bien nhat &gt; 30% do dai -&gt; rac
+VI_DIACRITICS = set(  # tap ky tu tieng Viet co dau de nhan dien ngon ngu
+    "àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡ"
+    "ùúụủũưừứựửữỳýỵỷỹđĐ")
+LANG_MIN_WORDS = 20   # doc dai hon moi kiem tra ngon ngu
+LANG_MIN_RATIO = 0.05  # ti le ky tu co dau toi thieu
+NEAR_DUP_JACCARD = 0.8   # Jaccard 5-gram &gt; 0.8 -&gt; gan trung
+CONTAM_JACCARD = 0.9     # Jaccard 8-gram &gt; 0.9 voi cau test -&gt; o nhiem
+
+# Regex che PII (thu tu quan trong: phone truoc id vi SDT cung la so).
+EMAIL_RE = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
+PHONE_RE = re.compile(r"\b0\d{9}\b")      # SDT VN: 0 + 9 so (10 so)
+ID_RE = re.compile(r"\b\d{9,12}\b")       # day so 9-12 chu so (CMND/CCCD)
+HTML_RE = re.compile(r"&lt;[^&gt;]+&gt;")
+WS_RE = re.compile(r"\s+")
+# Dau hieu "day la code, khong phai van ban tieng Anh" (mien tru language).
+CODE_MARKS = ("{", "}", ";", "def ", "import ", "class ", "();")
+
+
+# ---------------------------------------------------------------------------
+# Buoc 1 - normalize(text): chuan hoa van ban
+# ---------------------------------------------------------------------------
+def normalize(text):
+    """Chuan hoa van ban ve dang nhat quan.
+
+    1. NFC: gop dau tieng Viet ve dang chuan (e + dau -&gt; e co dau san).
+       Neu khong, "ệ" kieu to hop va kieu dung san la 2 chuoi khac nhau
+       du exact dedup that bai mot cach vo duyen.
+    2. Xoa HTML tags (du lieu web luon lan the &lt;p&gt;, &lt;div&gt;...).
+    3. Gom khoang trang thua (ke ca xuong dong) thanh 1 space, strip.
+
+    QUYET DINH (ghi vao data_card): KHONG lowercase - chu hoa mang thong
+    tin ("Apple" cong ty vs "apple" trai cay). Bay 1: normalize qua tay
+    lam mat thong tin ma khong giai thich duoc vi sao.
+    """
+    text = unicodedata.normalize("NFC", text)
+    text = HTML_RE.sub(" ", text)
+    text = WS_RE.sub(" ", text).strip()
+    return text
+
+
+# ---------------------------------------------------------------------------
+# Buoc 2 - scrub_pii(text): che thong tin nhay cam
+# ---------------------------------------------------------------------------
+def scrub_pii(text):
+    """Thay email/SDT/so dinh danh bang token che, dem so luot che.
+
+    Dung subn() de vua thay vua dem trong 1 luot. Thu tu: email -&gt;
+    phone -&gt; id (neu chay id truoc, SDT 10 so se bi nuot thanh [ID]).
+
+    Returns:
+        Tuple (text_da_che, so_thuc_the_bi_che).
+    """
+    count = 0
+    text, n = EMAIL_RE.subn("[EMAIL]", text)
+    count += n
+    text, n = PHONE_RE.subn("[PHONE]", text)
+    count += n
+    text, n = ID_RE.subn("[ID_NUMBER]", text)
+    count += n
+    return text, count
+
+
+# ---------------------------------------------------------------------------
+# Buoc 3 - quality_filter(doc): loc chat luong
+# ---------------------------------------------------------------------------
+def quality_filter(text):
+    """Kiem tra chat luong doc.
+
+    Thu tu kiem tra (tu tong quat den chi tiet): rong -&gt; qua dai -&gt;
+    ky tu/tu lap -&gt; qua ngan -&gt; ngon ngu. Moi doc roi vao ly do CHINH
+    XAC nhat (vd "a"*500 la repetitive chu khong phai too_short).
+
+    Returns:
+        Tuple (giu_lai: bool, ly_do_loai: str | None). Ly do loai phuc vu
+        bao cao - pipeline tot phai noi duoc no loai cai gi.
+    """
+    if not text:
+        return False, "empty"
+    words = text.split()
+    if len(words) &gt; MAX_WORDS:
+        return False, "too_long"
+    # Ky tu/tu lap: "aaaaa..." co 1 ky tu chiem gan 100% do dai; "xyz "*200
+    # co 1 tu chiem 100%. Van ban thuong: space ~15-20%, tu pho bien
+    # nhat ("cua", "va") chi ~3-5% -&gt; nguong 30% an toan.
+    top_char_ratio = Counter(text).most_common(1)[0][1] / len(text)
+    # Ti le tu lap chi y nghia khi doc du dai (doc 2 tu nhu "Xin chao."
+    # thi moi tu da chiem 50% -&gt; bao sai). Nguong 10 tu la du an toan.
+    top_word_ratio = (Counter(words).most_common(1)[0][1] / len(words)
+                      if len(words) &gt;= 10 else 0)
+    if top_char_ratio &gt; REPEAT_RATIO or top_word_ratio &gt; REPEAT_RATIO:
+        return False, "repetitive"
+    if len(words) &lt; MIN_WORDS:
+        return False, "too_short"
+    # Language ID don gian: dem ky tu tieng Viet co dau. Doc dai ma gan
+    # nhu khong co dau -&gt; khong phai tieng Viet -&gt; loai (tru khi la code).
+    if len(words) &gt; LANG_MIN_WORDS:
+        diac = sum(1 for ch in text if ch in VI_DIACRITICS)
+        marks = sum(1 for m in CODE_MARKS if m in text)
+        if diac / len(text) &lt; LANG_MIN_RATIO and marks &lt; 2:
+            return False, "non_vietnamese"
+    return True, None
+
+
+# ---------------------------------------------------------------------------
+# Buoc 4 - dedup(docs): loai trung lap 2 tang
+# ---------------------------------------------------------------------------
+def shingles(text, k=5):
+    """Tap k-gram ky tu (shingle) de so sanh gan dung.
+
+    Bo space truoc khi cat: "a b" va "ab" cho shingle giong nhau, bot
+    nhay cam voi format thua.
+    """
+    t = text.replace(" ", "")
+    return {t[i:i + k] for i in range(max(1, len(t) - k + 1))}
+
+
+def jaccard(a, b):
+    """Do tuong dong Jaccard = |A giao B| / |A hop B|, trong [0, 1]."""
+    return len(a &amp; b) / max(1, len(a | b))
+
+
+def content_hash(text):
+    """SHA-256 hex cua noi dung (dinh danh doc)."""
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def dedup(docs):
+    """Loai trung lap, giu ban xuat hien dau tien (thu tu deterministic).
+
+    Tang 1 - exact: bam SHA-256 toan van ban (da normalize) -&gt; trung hash
+    la loai, O(1) moi doc.
+    Tang 2 - near: Jaccard 5-gram &gt; 0.8 voi doc da giu -&gt; loai. Can thiet
+    vi chi 1 ky tu khac la SHA-256 da khac han (Q2): bao chi copy lai chi
+    khac tieu de thi exact dedup bo tay.
+
+    GHI CHU MO RONG: so sanh tuan tu la O(n^2) - voi 200 docs thi OK
+    (40k cap), nhung voi 1M docs la khong tuong (10^12 cap). Thuc te dung
+    MinHash (nen tap shingle thanh vector ngan) + LSH (chi so sanh cac
+    doc cung "xô") de dua ve gan O(n).
+
+    Args:
+        docs: list dict {"id", "text"} (text da normalize + scrub).
+
+    Returns:
+        Tuple (docs_giu_lai, so_exact_loai, so_near_loai).
+    """
+    # Sort theo hash TRUOC khi dedup: thu tu duyet khong phu thuoc
+    # PYTHONHASHSEED cua phien chay -&gt; deterministic (Bay 3).
+    docs = sorted(docs, key=lambda d: content_hash(d["text"]))
+
+    seen_hash, kept, kept_shingles = set(), [], []
+    n_exact = 0
+    for d in docs:
+        h = content_hash(d["text"])
+        if h in seen_hash:
+            n_exact += 1
+            continue
+        seen_hash.add(h)
+        kept.append(d)
+        kept_shingles.append(shingles(d["text"]))
+
+    # Near dedup tren tap da sach exact (it doc hon -&gt; it cap so sanh hon).
+    final, final_shingles = [], []
+    n_near = 0
+    for d, sh in zip(kept, kept_shingles):
+        if any(jaccard(sh, ks) &gt; NEAR_DUP_JACCARD for ks in final_shingles):
+            n_near += 1
+            continue
+        final.append(d)
+        final_shingles.append(sh)
+    return final, n_exact, n_near
+
+
+# ---------------------------------------------------------------------------
+# Buoc 5 - check_contamination(docs, test_set): chong ro ri eval
+# ---------------------------------------------------------------------------
+def check_contamination(docs, test_set):
+    """Loai doc train chua dap an / cau hoi cua test set.
+
+    2 dau hieu (gap 1 trong 2 la loai):
+      1. Chua NGUYEN VAN cau test (sau normalize, so sanh chuoi con).
+      2. Jaccard 8-gram &gt; 0.9 voi cau test (ban gan nhu y he cau test).
+
+    THU TU CUC KY QUAN TRONG: chay TRUOC khi split train/val - vi val
+    cung la eval, ro ri vao val cung la gian lan. Day la loi dao duc khoa
+    hoc chu khong chi la loi ky thuat: diem eval ao -&gt; tuong model gioi.
+
+    Returns:
+        Tuple (docs_sach, so_doc_o_nhiem).
+    """
+    norm_q = [(q["id"], normalize(q["question"])) for q in test_set]
+    q_shingles = [(qid, shingles(q, k=8)) for qid, q in norm_q]
+    clean, n_contam = [], 0
+    for d in docs:
+        t = d["text"]  # da normalize tu buoc ingest
+        hit = any(q in t for _, q in norm_q)
+        if not hit:
+            d_sh = shingles(t, k=8)
+            hit = any(jaccard(d_sh, qs) &gt; CONTAM_JACCARD
+                      for _, qs in q_shingles)
+        if hit:
+            n_contam += 1
+            continue
+        clean.append(d)
+    return clean, n_contam
+
+
+# ---------------------------------------------------------------------------
+# Buoc 6 - split_and_shard(docs): chia tap + shard + manifest + data card
+# ---------------------------------------------------------------------------
+def split_and_shard(docs, report):
+    """Chia train/val deterministic, ghi shard, manifest, data card.
+
+    Split: sort theo SHA-256 noi dung, 90% dau -&gt; train, 10% cuoi -&gt; val.
+    Vi sao khong random.shuffle? Vi seed quen set la mat tai lap; hash-sort
+    thi may nao chay cung giong het nhau (Q3).
+
+    Returns:
+        Dict thong ke cuoi (train/val docs, tokens, thoi gian...).
+    """
+    docs = sorted(docs, key=lambda d: content_hash(d["text"]))
+    n_train = int(len(docs) * TRAIN_RATIO)
+    train_docs, val_docs = docs[:n_train], docs[n_train:]
+
+    os.makedirs("shards", exist_ok=True)
+    shards = []
+    for split, sdocs in (("train", train_docs), ("val", val_docs)):
+        for i in range(0, len(sdocs), SHARD_SIZE):
+            part = sdocs[i:i + SHARD_SIZE]
+            path = f"shards/{split}-{i // SHARD_SIZE:05d}.jsonl"
+            with open(path, "w", encoding="utf-8") as f:
+                for d in part:
+                    f.write(json.dumps({"id": d["id"], "text": d["text"]},
+                                       ensure_ascii=False) + "\n")
+            with open(path, "rb") as f:
+                digest = hashlib.sha256(f.read()).hexdigest()
+            n_tok = sum(len(d["text"].split()) for d in part)
+            shards.append({"path": path, "sha256": digest,
+                           "num_docs": len(part), "num_tokens": n_tok})
+
+    manifest = {
+        "created_at": date.today().isoformat(),
+        "source": RAW_PATH,
+        "license": "Du lieu tong hop cho muc dich hoc tap (khong dung that)",
+        "stage_report": report,
+        "shards": shards,
+    }
+    with open("manifest.json", "w", encoding="utf-8") as f:
+        json.dump(manifest, f, ensure_ascii=False, indent=2)
+
+    write_data_card(report, train_docs, val_docs, shards)
+    return {"n_train": len(train_docs), "n_val": len(val_docs),
+            "tok_train": sum(s["num_tokens"] for s in shards
+                             if s["path"].startswith("shards/train")),
+            "tok_val": sum(s["num_tokens"] for s in shards
+                           if s["path"].startswith("shards/val"))}
+
+
+def write_data_card(report, train_docs, val_docs, shards):
+    """Sinh data_card.md: tai lieu mo ta du lieu (provenance)."""
+    # Counter chi co key khi co doc bi loai vi ly do do -&gt; dung .get().
+    q = report["quality"]
+    n_short = q.get("too_short", 0)
+    n_long = q.get("too_long", 0)
+    n_rep = q.get("repetitive", 0)
+    n_lang = q.get("non_vietnamese", 0)
+    n_empty = q.get("empty", 0)
+    lines = [
+        "# DATA CARD - Pipeline du lieu huan luyen LLM (Day 08)",
+        "",
+        f"- Nguon: {RAW_PATH} (du lieu tong hop bang make_dirty_data.py).",
+        "- License: du lieu tong hop cho muc dich hoc tap.",
+        f"- Ngay tao: {date.today().isoformat()}.",
+        "- Quyet dinh normalize: NFC + xoa HTML + gom space; KHONG "
+        "lowercase (chu hoa mang thong tin: 'Apple' cong ty vs 'apple').",
+        "",
+        "## Thong ke",
+        f"- Train: {len(train_docs)} docs | Val: {len(val_docs)} docs.",
+        f"- Shard: {len(shards)} file (toi da {SHARD_SIZE} docs/shard).",
+        "",
+        "## Cac buoc loc (so mau BI LOAI moi buoc)",
+        f"- Che PII: {report['pii_redactions']} thuc the "
+        "(email-&gt; [EMAIL], SDT -&gt; [PHONE], so 9-12 chu so -&gt; [ID_NUMBER]).",
+        f"- Quality: loai {sum(q.values())} "
+        f"(qua ngan {n_short}, qua dai {n_long}, "
+        f"ky tu lap {n_rep}, khac tieng Viet {n_lang}, "
+        f"rong {n_empty}).",
+        f"- Exact dedup (SHA-256): loai {report['exact_dedup']}.",
+        f"- Near dedup (Jaccard 5-gram &gt; {NEAR_DUP_JACCARD}): "
+        f"loai {report['near_dedup']}.",
+        f"- Chong ro ri eval (nguyen van hoac Jaccard 8-gram &gt; "
+        f"{CONTAM_JACCARD}): loai {report['contamination']}.",
+        "",
+        "## Green checkpoint",
+        f"- Token huu ich / cong suc: {report['green_ratio']:.1f} token sach "
+        "cho moi doc bi loai.",
+        "- Vi sao dedup tiet kiem dien: doc trung lap la buoc gradient vo "
+        "ich (model hoc lai dieu da biet); loai som 1 doc trung = bot di "
+        "nhieu buoc train dot dien vo nghia khi chay that.",
+    ]
+    with open("data_card.md", "w", encoding="utf-8") as f:
+        f.write("\n".join(lines) + "\n")
+
+
+# ---------------------------------------------------------------------------
+# Main: chay full pipeline + in bang bao cao
+# ---------------------------------------------------------------------------
+def main():
+    """Ingest -&gt; loc -&gt; dedup -&gt; contamination -&gt; split -&gt; shard."""
+    with open(RAW_PATH, encoding="utf-8") as f:
+        raw = [json.loads(line) for line in f if line.strip()]
+    with open(TEST_PATH, encoding="utf-8") as f:
+        test_set = [json.loads(line) for line in f if line.strip()]
+    n_ingest = len(raw)
+
+    # Normalize + scrub PII cho toan bo (PII duoc CHE chu khong bi loai).
+    docs, pii_count = [], 0
+    for d in raw:
+        text, n = scrub_pii(normalize(d["text"]))
+        pii_count += n
+        docs.append({"id": d["id"], "text": text})
+
+    # Quality filter (gi ly do de bao cao).
+    kept, q_drop = [], Counter()
+    for d in docs:
+        ok, reason = quality_filter(d["text"])
+        if ok:
+            kept.append(d)
+        else:
+            q_drop[reason] += 1
+
+    # Dedup 2 tang (deterministic).
+    kept, n_exact, n_near = dedup(kept)
+
+    # Chong ro ri eval (TRUOC split).
+    kept, n_contam = check_contamination(kept, test_set)
+
+    # Bao cao so mau BI LOAI tung buoc (khong bao gio chi bao so con lai).
+    n_drop = (sum(q_drop.values()) + n_exact + n_near + n_contam)
+    n_final_tokens = sum(len(d["text"].split()) for d in kept)
+    report = {
+        "ingest": n_ingest,
+        "pii_redactions": pii_count,
+        "quality": dict(q_drop),
+        "exact_dedup": n_exact,
+        "near_dedup": n_near,
+        "contamination": n_contam,
+        "final": len(kept),
+        # Green checkpoint 1: token huu ich / cong suc.
+        "green_ratio": n_final_tokens / max(1, n_drop),
+    }
+
+    stats = split_and_shard(kept, report)
+
+    print("=" * 64)
+    print("Bao cao pipeline (so mau BI LOAI tung buoc)")
+    print("=" * 64)
+    print(f"ingest: {n_ingest} "
+          f"-&gt; quality: -{sum(q_drop.values())} {dict(q_drop)} "
+          f"-&gt; exact_dedup: -{n_exact} "
+          f"-&gt; near_dedup: -{n_near} "
+          f"-&gt; contamination: -{n_contam} "
+          f"-&gt; final: {len(kept)} "
+          f"(train {stats['n_train']} / val {stats['n_val']})")
+    print(f"PII da che: {pii_count} thuc the "
+          f"(doc van duoc giu lai, chi che thong tin nhay cam)")
+    print(f"Token cuoi: train {stats['tok_train']:,} + "
+          f"val {stats['tok_val']:,} = "
+          f"{stats['tok_train'] + stats['tok_val']:,}")
+    print(f"Green: {report['green_ratio']:.1f} token sach / moi doc bi loai")
+    print("Da ghi: shards/, manifest.json, data_card.md")
+    print("=" * 64)
+
+
+if __name__ == "__main__":
+    main()
+</code></pre>
+  <pre class="pysrc" id="srcDirty" style="display:none"><code>#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""Sinh du lieu THUC HANH CO Y BAN cho pipeline Ngay 8.
+
+Tao raw_docs.jsonl (200 docs) voi cac "vet ban" co chu dich de pipeline
+co cai ma loc, va test_set.jsonl (10 cau hoi) de kiem tra ro ri eval.
+
+Phan bo 200 docs (seed co dinh -&gt; tai lap duoc):
+    20 docs TRUNG CHINH XAC (copy nguyen van)
+    15 docs GAN TRUNG (doi 1-2 tu / them cau mo dau)
+    10 docs chua PII (email, SDT, so dinh danh gia)
+    10 docs rac (qua ngan, qua dai, ky tu lap)
+     5 docs KHAC NGON NGU (tieng Anh thuan)
+     3 docs O NHIEM EVAL (chua nguyen van 3 cau hoi test)
+    137 docs sach tieng Viet
+Cong: 20+15+10+10+5+3+137 = 200.
+
+Truong "kind" chi de NGUOI doc kiem chung pipeline (pipeline that
+khong duoc phep doc no). Pipeline chi duoc dung id + text.
+
+Cach chay:
+    python make_dirty_data.py
+"""
+
+import json
+import random
+
+RNG = random.Random(42)  # seed co dinh: sinh lan nao cung giong nhau
+
+# ---------------------------------------------------------------------------
+# Kho cau tieng Viet sach (100 cau, 5 chu de) - moi doc = 5 cau ghep lai.
+# Du lieu co dau day du de bo loc ngon ngu dem duoc ky tu co dau.
+# ---------------------------------------------------------------------------
+SENTENCES = [
+    # Tri tue nhan tao / hoc may (20 cau)
+    "Trí tuệ nhân tạo đang thay đổi cách chúng ta làm việc mỗi ngày.",
+    "Mô hình ngôn ngữ lớn học được tri thức từ hàng tỷ trang văn bản.",
+    "Học sâu cần rất nhiều dữ liệu sạch để đạt hiệu quả cao.",
+    "Kỹ sư AI phải hiểu cả toán học lẫn kỹ năng lập trình thực tế.",
+    "Mạng nơ-ron gồm nhiều lớp biến đổi dữ liệu từ đơn giản đến phức tạp.",
+    "Quá trình huấn luyện mô hình tiêu tốn lượng điện năng đáng kể.",
+    "Dữ liệu huấn luyện kém chất lượng khiến mô hình đưa ra câu trả lời sai.",
+    "Việc đánh giá mô hình cần tập kiểm tra hoàn toàn tách biệt.",
+    "Rò rỉ dữ liệu kiểm tra làm cho điểm số trở nên ảo và gây hiểu lầm.",
+    "Loại bỏ dữ liệu trùng lặp giúp tiết kiệm chi phí huấn luyện.",
+    "Vector embedding biến từ ngữ thành các con số mà máy tính hiểu được.",
+    "Cơ chế chú ý giúp mô hình tập trung vào phần quan trọng của câu.",
+    "Mô hình càng lớn thì càng cần nhiều bộ nhớ và thời gian huấn luyện.",
+    "Tinh chỉnh mô hình có sẵn thường rẻ hơn huấn luyện từ đầu.",
+    "Đạo đức trong AI là vấn đề mà cả ngành công nghiệp đang tranh luận.",
+    "Dữ liệu cá nhân trong tập huấn luyện phải được che giấu cẩn thận.",
+    "Mô hình ngôn ngữ đôi khi bịa ra thông tin trông rất thuyết phục.",
+    "Người dùng nên kiểm chứng lại câu trả lời quan trọng của mô hình.",
+    "Nghiên cứu AI tiến bộ nhanh đến mức khó theo kịp mỗi tuần.",
+    "Tương lai của AI phụ thuộc vào cách chúng ta quản lý nó hôm nay.",
+    # Lap trinh Python (20 cau)
+    "Python là ngôn ngữ lập trình phổ biến cho người mới bắt đầu.",
+    "Cú pháp của Python gần gũi với ngôn ngữ tự nhiên nên dễ đọc.",
+    "Thư viện chuẩn của Python cung cấp sẵn rất nhiều công cụ hữu ích.",
+    "Biểu thức chính quy giúp tìm kiếm và thay thế văn bản hiệu quả.",
+    "Khi đọc file văn bản, bạn nên chỉ rõ mã hóa UTF-8.",
+    "Hàm băm SHA-256 tạo ra dấu vân tay duy nhất cho mỗi chuỗi.",
+    "Sắp xếp danh sách trước khi xử lý giúp kết quả ổn định "
+    "giữa các lần chạy.",
+    "Kiểm thử đơn vị phát hiện lỗi sớm trước khi chúng gây hậu quả lớn.",
+    "Vòng lặp for trong Python duyệt qua từng phần tử một cách đơn giản.",
+    "Từ điển trong Python lưu trữ cặp khóa và giá trị rất linh hoạt.",
+    "Xử lý ngoại lệ giúp chương trình không bị sập khi gặp lỗi.",
+    "Viết chú thích rõ ràng giúp người khác hiểu code của bạn nhanh hơn.",
+    "Tái cấu trúc code thường xuyên giữ cho dự án gọn gàng và dễ bảo trì.",
+    "Môi trường ảo giúp tách biệt các thư viện của từng dự án.",
+    "Trình quản lý gói pip giúp cài đặt thư viện chỉ bằng một dòng lệnh.",
+    "Ghi log đầy đủ giúp việc gỡ lỗi trở nên dễ dàng hơn nhiều.",
+    "Đọc tài liệu chính thức là thói quen tốt của mọi lập trình viên.",
+    "Code review giúp cả nhóm học hỏi lẫn nhau và bắt lỗi sớm.",
+    "Tự động hóa các tác vụ lặp đi lặp lại tiết kiệm rất nhiều thời gian.",
+    "Sao lưu code lên git giúp bạn không bao giờ mất công sức đã bỏ ra.",
+    # Am thuc / ca phe Viet Nam (20 cau)
+    "Cà phê sữa đá là thức uống quen thuộc của người Việt mỗi sáng.",
+    "Phở bò Hà Nội nổi tiếng với nước dùng trong và thơm mùi quế hồi.",
+    "Bánh mì Việt Nam được nhiều tạp chí quốc tế bình chọn là món "
+    "ăn đường phố ngon nhất.",
+    "Cơm tấm sườn bì chả là đặc sản không thể bỏ qua khi đến Sài Gòn.",
+    "Trà đá vỉa hè là nét văn hóa bình dị nhưng đầy sức sống.",
+    "Bún chả Hà Nội ăn kèm nước mắm chua ngọt và rau sống tươi ngon.",
+    "Cà phê trứng có lớp kem béo ngậy phủ trên cà phê đen đậm đà.",
+    "Bánh xèo vàng giòn cuốn với rau sống chấm nước mắm rất hấp dẫn.",
+    "Chè thái với đủ loại thạch và nước cốt dừa ngọt mát ngày hè.",
+    "Mì Quảng đặc trưng với sợi mì vàng và đậu phộng rang giòn.",
+    "Hủ tiếu Nam Vang có nước lèo ngọt thanh từ xương hầm.",
+    "Bánh cuốn Thanh Trì mỏng tang ăn với chả quế thơm lừng.",
+    "Nem rán giòn rụm là món khai vị được nhiều người yêu thích.",
+    "Lẩu thái chua cay thích hợp cho những buổi tụ họp bạn bè.",
+    "Gỏi cuốn tôm thịt chấm tương đậu phộng béo ngậy khó quên.",
+    "Bánh tráng trộn với đủ vị chua cay mặn ngọt rất kích thích.",
+    "Sinh tố bơ béo mịn là lựa chọn bổ dưỡng cho buổi sáng.",
+    "Cà phê cốt dừa kết hợp vị đắng và béo một cách hài hòa.",
+    "Bún bò Huế với nước dùng đậm đà và sả ớt cay nồng.",
+    "Cháo lòng nóng hổi là món ăn sáng ấm bụng ngày se lạnh.",
+    # Du lich / doi song (20 cau)
+    "Hội An lung linh với hàng trăm chiếc đèn lồng đủ màu sắc.",
+    "Vịnh Hạ Long được UNESCO công nhận là di sản thiên nhiên thế giới.",
+    "Đà Lạt mát mẻ quanh năm với những đồi thông xanh ngát.",
+    "Phố cổ Hà Nội nhộn nhịp với ba mươi sáu phố phường truyền thống.",
+    "Cố đô Huế trầm mặc với lăng tẩm và đền đài cổ kính.",
+    "Phú Quốc có những bãi biển cát trắng và nước biển trong xanh.",
+    "Sa Pa mùa đông đôi khi có tuyết phủ trắng xóa đỉnh Fansipan.",
+    "Chợ nổi Cái Răng tấp nập ghe thuyền từ sáng sớm tinh mơ.",
+    "Hang Sơn Đoòng là hang động tự nhiên lớn nhất thế giới.",
+    "Cù Lao Chàm thích hợp cho những ai yêu thích lặn biển ngắm san hô.",
+    "Buổi sáng dạo quanh hồ Hoàn Kiếm ngắm người tập thể dục rất thư thái.",
+    "Chuyến đi miền Tây cho bạn trải nghiệm miệt vườn sông nước.",
+    "Leo núi vào cuối tuần là cách rèn luyện sức khỏe tuyệt vời.",
+    "Ngắm hoàng hôn trên biển là khoảnh khắc bình yên khó quên.",
+    "Du lịch bụi giúp bạn khám phá những điều không có trong sách hướng dẫn.",
+    "Chuẩn bị kỹ hành lý giúp chuyến đi trở nên suôn sẻ hơn nhiều.",
+    "Ẩm thực địa phương luôn là điểm nhấn đáng nhớ của mỗi chuyến đi.",
+    "Chụp ảnh lưu giữ kỷ niệm nhưng đừng quên tận hưởng khoảnh khắc.",
+    "Đi du lịch cùng gia đình tạo ra những kỷ niệm gắn kết bền lâu.",
+    "Mỗi vùng đất đều có câu chuyện riêng đang chờ bạn khám phá.",
+    # Hoc tap / lam viec (20 cau)
+    "Học ngoại ngữ mỗi ngày một ít sẽ tiến bộ hơn học dồn vào cuối tuần.",
+    "Đặt mục tiêu rõ ràng giúp bạn duy trì động lực lâu dài.",
+    "Ghi chép bằng tay giúp não bộ ghi nhớ kiến thức tốt hơn.",
+    "Ôn tập ngắt quãng là phương pháp được khoa học chứng minh hiệu quả.",
+    "Dậy sớm cho bạn thêm thời gian yên tĩnh để tập trung làm việc.",
+    "Làm việc nhóm tốt đòi hỏi kỹ năng lắng nghe và tôn trọng lẫn nhau.",
+    "Thuyết trình tự tin đến từ sự chuẩn bị kỹ lưỡng và luyện tập nhiều lần.",
+    "Quản lý thời gian hiệu quả bắt đầu từ việc biết nói không đúng lúc.",
+    "Đọc sách mỗi tối giúp mở rộng vốn hiểu biết và vốn từ vựng.",
+    "Kiên trì theo đuổi mục tiêu quan trọng hơn tài năng bẩm sinh.",
+    "Thất bại là bài học quý giá nếu bạn chịu rút kinh nghiệm.",
+    "Sức khỏe tinh thần cũng quan trọng như sức khỏe thể chất.",
+    "Tập thể dục đều đặn giúp đầu óc minh mẫn và làm việc hiệu quả hơn.",
+    "Ngủ đủ giấc là nền tảng cho một ngày làm việc năng suất.",
+    "Cân bằng giữa công việc và cuộc sống giúp bạn đi đường dài.",
+    "Học hỏi từ đồng nghiệp giỏi là cách thăng tiến nhanh nhất.",
+    "Đừng ngại đặt câu hỏi vì không ai biết hết mọi thứ.",
+    "Phản hồi mang tính xây dựng giúp cả nhóm cùng tiến bộ.",
+    "Tự động viên bản thân vượt qua những ngày làm việc khó khăn.",
+    "Thành công là quá trình tích lũy những nỗ lực nhỏ mỗi ngày.",
+]
+
+# Cau tieng Anh cho 5 docs khac ngon ngu (khong dau).
+EN_SENTENCES = [
+    "Machine learning models learn patterns from large amounts of data.",
+    "Clean data is often more valuable than a bigger model.",
+    "Engineers should always validate their models on unseen data.",
+    "Removing duplicates saves both time and energy during training.",
+    "Attention mechanisms help models focus on relevant information.",
+    "A good data pipeline reports everything it removes.",
+    "Evaluation leakage makes benchmark scores misleading.",
+    "Deterministic processing ensures reproducible results.",
+    "Hash functions create unique fingerprints for text.",
+    "Quality filters remove documents that are too short or too long.",
+    "Language detection keeps the training corpus consistent.",
+    "Near-duplicate detection uses shingles and Jaccard similarity.",
+    "Contamination checks protect the integrity of evaluation.",
+    "Sharding splits data into manageable files for training.",
+    "Manifests record hashes for every data shard produced.",
+    "Data cards document sources, licenses, and filtering steps.",
+    "Energy efficiency matters at every stage of the pipeline.",
+    "Small models can still learn useful patterns from clean data.",
+    "Reproducibility is a cornerstone of serious machine learning.",
+    "Documentation is as important as the code itself.",
+    "Version control keeps track of every change made.",
+    "Automated tests catch bugs before they cause damage.",
+    "Clear comments help others understand your code faster.",
+    "Regular refactoring keeps projects maintainable.",
+    "Backup your work frequently to avoid losing progress.",
+]
+
+# Bo test set: 10 cau hoi. 3 cau dau se bi "ro ri" nguyen van vao data.
+TEST_SET = [
+    {"id": "t01", "question": "Thủ đô của Việt Nam là thành phố nào?",
+     "answer": "Hà Nội."},
+    {"id": "t02",
+     "question": "Hàm băm SHA-256 tạo ra chuỗi dài bao nhiêu bit?",
+     "answer": "256 bit."},
+    {"id": "t03",
+     "question": "Vì sao phải loại bỏ dữ liệu trùng lặp trước khi "
+     "huấn luyện mô hình?",
+     "answer": "Vì dữ liệu trùng lặp khiến mô hình học đi học lại "
+     "điều đã biết, tốn điện và dễ ghi nhớ máy móc."},
+    {"id": "t04",
+     "question": "Kỹ thuật nào giúp mô hình tập trung vào phần "
+     "quan trọng của câu?",
+     "answer": "Cơ chế chú ý (attention)."},
+    {"id": "t05", "question": "Món ăn nào nổi tiếng nhất của Hà Nội?",
+     "answer": "Phở bò."},
+    {"id": "t06", "question": "UTF-8 là gì?",
+     "answer": "Là chuẩn mã hóa ký tự phổ biến, tương thích ngược với ASCII."},
+    {"id": "t07", "question": "Ôn tập ngắt quãng có tác dụng gì?",
+     "answer": "Giúp ghi nhớ lâu hơn so với học dồn một lúc."},
+    {"id": "t08",
+     "question": "Vịnh Hạ Long được UNESCO công nhận vào năm nào?",
+     "answer": "Năm 1994."},
+    {"id": "t09", "question": "Biểu thức chính quy dùng để làm gì?",
+     "answer": "Tìm kiếm và thay thế văn bản theo mẫu."},
+    {"id": "t10", "question": "Cà phê trứng có nguồn gốc từ đâu?",
+     "answer": "Hà Nội, Việt Nam."},
+]
+
+# Tu dong nghia don gian de tao ban "gan trung" (doi 1-2 tu).
+SYNONYMS = {
+    "rất": "cực kỳ", "tốt": "tuyệt vời", "nhanh": "tốc độ",
+    "mỗi ngày": "hằng ngày", "quan trọng": "thiết yếu",
+}
+
+
+def make_doc(sentences):
+    """Ghep 5 cau thanh 1 doc (chuoi van ban)."""
+    return " ".join(sentences)
+
+
+def main():
+    """Sinh raw_docs.jsonl (200 docs) + test_set.jsonl."""
+    docs = []
+    idx = 1
+
+    def add(text, kind):
+        """Them 1 doc voi id tang dan."""
+        nonlocal idx
+        docs.append({"id": f"doc-{idx:04d}", "text": text, "kind": kind})
+        idx += 1
+        return text
+
+    # 1. Docs sach: 137 docs, moi doc 7 cau lay ngau nhien (seed co dinh).
+    # Dung 7 cau/doc de 2 docs sach hiem khi chia se du cau tro thanh
+    # "gan trung" oan (can Jaccard &gt; 0.8).
+    clean_texts = []
+    for _ in range(137):
+        t = make_doc(RNG.sample(SENTENCES, 7))
+        clean_texts.append(t)
+        add(t, "clean")
+
+    # 2-3. Lay 35 docs sach RIENG BIET cho 2 loai bien the (khong overlap):
+    # neu 1 doc vua bi copy exact vua bi sua near thi so lieu kho giai
+    # thich (gia dinh nao bi loai truoc?). Tach rieng -&gt; moi quan he
+    # 1-1 ro rang: 20 cap exact, 15 cap near.
+    variant_pool = RNG.sample(clean_texts, 35)
+
+    # 2. Trung chinh xac: copy nguyen van 20 docs sach.
+    for t in variant_pool[:20]:
+        add(t, "exact_dup")
+
+    # 3. Gan trung: doi 1-2 tu hoac them cau mo dau (15 docs).
+    for t in variant_pool[20:]:
+        t2 = t
+        if RNG.random() &lt; 0.5:
+            for old, new in RNG.sample(list(SYNONYMS.items()), 2):
+                # Chi nhan khi tu can thay THUC SU co trong doc; neu
+                # khong, replace() la no-op -&gt; vo tinh tao exact dup!
+                if old in t2:
+                    t2 = t2.replace(old, new, 1)
+            if t2 == t:  # khong doi duoc tu nao -&gt; dung cach prepend
+                t2 = "Sau đây là bài viết đáng đọc. " + t
+        else:
+            t2 = "Sau đây là bài viết đáng đọc. " + t
+        assert t2 != t, "near_dup phai khac ban goc"
+        add(t2, "near_dup")
+
+    # 4. PII: doc DOC LAP (cau moi, khong copy tu clean) + chen PII.
+    # Ly do: neu copy tu clean doc, sau khi scrub no se gan nhu y he ban
+    # goc -&gt; near-dedup loai oan. Doc that co PII la doc doc lap.
+    pii_pool = [
+        "nguyen.van.a@example.com", "tran.thi.b123@mail.vn",
+        "le.c.test@company.com.vn",
+    ]
+    phone_pool = ["0912345678", "0987654321", "0334567890"]
+    id_pool = ["123456789", "123456789012", "987654321098"]
+    for _ in range(10):
+        t = make_doc(RNG.sample(SENTENCES, 7))
+        t += (f" Liên hệ: {RNG.choice(pii_pool)}, "
+              f"SĐT: {RNG.choice(phone_pool)}, "
+              f"CCCD: {RNG.choice(id_pool)}.")
+        add(t, "pii")
+
+    # 5. Rac: qua ngan / qua dai / ky tu lap (10 docs).
+    for _ in range(4):
+        add("Xin chào.", "junk_short")            # 2 tu -&gt; qua ngan
+    for _ in range(3):
+        add("từ vựng " * 2500, "junk_long")       # 5000 tu -&gt; qua dai
+    for s in ["a" * 500, "ab" * 300, "xyz " * 200]:
+        add(s, "junk_repeat")                     # ky tu lap -&gt; rac
+
+    # 6. Khac ngon ngu: tieng Anh thuan (5 docs, 7 cau nhu doc sach).
+    for _ in range(5):
+        add(make_doc(RNG.sample(EN_SENTENCES, 7)), "non_vietnamese")
+
+    # 7. O nhiem eval: 3 docs chua nguyen van 3 cau hoi test.
+    for q in TEST_SET[:3]:
+        t = make_doc(RNG.sample(SENTENCES, 2))
+        t += f" Câu hỏi ôn tập: {q['question']} "
+        t += make_doc(RNG.sample(SENTENCES, 2))
+        add(t, "contaminated")
+
+    assert len(docs) == 200, f"phai du 200 docs, dang co {len(docs)}"
+
+    # Tron thu tu (seed co dinh) de doc trung khong nam canh nhau.
+    RNG.shuffle(docs)
+    # Danh lai id theo thu tu sau khi tron.
+    for i, d in enumerate(docs, 1):
+        d["id"] = f"doc-{i:04d}"
+
+    with open("raw_docs.jsonl", "w", encoding="utf-8") as f:
+        for d in docs:
+            f.write(json.dumps(d, ensure_ascii=False) + "\n")
+
+    with open("test_set.jsonl", "w", encoding="utf-8") as f:
+        for q in TEST_SET:
+            f.write(json.dumps(q, ensure_ascii=False) + "\n")
+
+    # Bao cao so luong tung loai de doi chieu voi pipeline.
+    from collections import Counter
+    print("Da sinh raw_docs.jsonl (200 docs):")
+    for kind, n in sorted(Counter(d["kind"] for d in docs).items()):
+        print(f"  {kind:&gt;15}: {n}")
+    print("Da sinh test_set.jsonl (10 cau hoi).")
+
+
+if __name__ == "__main__":
+    main()
+</code></pre>
+</section>
+
+</div><!-- /wrap -->
+
+<footer>
+  <div class="wrap">
+    Được dựng từ <code>day08/prepare_data.py</code> + <code>make_dirty_data.py</code> — giải thích bằng tiếng Việt, vẽ thành sơ đồ cho người ngoại đạo.<br>
+    Số liệu là kết quả chạy thật (chỉ dùng thư viện chuẩn Python). Sơ đồ là minh họa ý tưởng.
+  </div>
+</footer>
+
+<script>
+// --- Tiện ích ---
+function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+// --- Biểu đồ phân bố dirty data ---
+(function(){
+  const el = document.getElementById("dirtyBars");
+  const rows = [
+    ["clean (sạch)", 137, "#047857"], ["exact_dup (trùng y hệt)", 20, "#be123c"],
+    ["near_dup (gần trùng)", 15, "#b45309"], ["pii (chứa PII)", 10, "#7c3aed"],
+    ["junk (rác: ngắn/dài/lặp)", 10, "#6b7280"], ["non_vietnamese", 5, "#2563eb"],
+    ["contaminated (rò đề)", 3, "#dc2626"]
+  ];
+  rows.forEach(r => {
+    const pct = r[1]/200*100;
+    const div = document.createElement("div"); div.className = "bar-row";
+    div.innerHTML = '<div class="bar-lab">' + esc(r[0]) + '</div>' +
+      '<div class="bar-track"><div class="bar-fill" style="width:' + Math.max(pct,3).toFixed(1) + '%;background:' + r[2] + '">' + r[1] + '</div></div>' +
+      '<div class="bar-val">' + pct.toFixed(0) + '%</div>';
+    el.appendChild(div);
+  });
+})();
+// --- Demo normalize ---
+(function(){
+  const btn = document.getElementById("nmBtn");
+  btn.addEventListener("click", function(){
+    const raw = document.getElementById("nmInput").value;
+    const nfc = raw.normalize("NFC");
+    const noHtml = nfc.replace(/<[^>]+>/g, " ");
+    const clean = noHtml.replace(/\s+/g, " ").trim();
+    // so sánh chuỗi tổ hợp vs dựng sẵn trước NFC
+    const decomposed = "ẹ́", prebuilt = "ệ";
+    document.getElementById("nmOut").innerHTML =
+      "Input:  " + esc(JSON.stringify(raw)) + "<br>" +
+      "Sau NFC + xóa HTML + gom space:<br><b>" + esc(JSON.stringify(clean)) + "</b><br><br>" +
+      "Vì sao cần NFC? 'ệ' tổ hợp (" + decomposed.length + " ký tự) === 'ệ' dựng sẵn (" + prebuilt.length + " ký tự)? " +
+      "<b>" + (decomposed === prebuilt) + "</b> → sau NFC: <b>" + (decomposed.normalize("NFC") === prebuilt) + "</b> ✅<br>" +
+      "(SHA-256 của 2 dạng khác nhau → dedup sẽ 'bó tay vô duyên' nếu không NFC trước)";
+  });
+})();
+// --- Demo PII: bẫy thứ tự ---
+(function(){
+  const EMAIL_RE = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
+  const PHONE_RE = /\b0\d{9}\b/g;
+  const ID_RE = /\b\d{9,12}\b/g;
+  const sample = "Liên hệ: nguyen.van.a@example.com, SĐT: 0912345678, CCCD: 123456789012.";
+  const out = document.getElementById("piiOut");
+  const bR = document.getElementById("piiRight"), bW = document.getElementById("piiWrong");
+  function render(right){
+    bR.classList.toggle("active", right); bW.classList.toggle("active", !right);
+    let t = sample, n1, n2, n3;
+    t = t.replace(EMAIL_RE, "[EMAIL]");
+    if(right){ t = t.replace(PHONE_RE, "[PHONE]"); t = t.replace(ID_RE, "[ID_NUMBER]"); }
+    else { t = t.replace(ID_RE, "[ID_NUMBER]"); t = t.replace(PHONE_RE, "[PHONE]"); }
+    out.innerHTML = "Input:  " + esc(sample) + "<br>Output: <b>" + esc(t) + "</b><br><br>" +
+      (right ? "✅ SĐT → [PHONE], CCCD 12 số → [ID_NUMBER]. Mỗi thực thể đúng nhãn."
+             : "❌ SĐT 0912345678 (10 chữ số) bị regex id <b>nuốt trước</b> → thành [ID_NUMBER]! Mất thông tin 'đây là SĐT'.");
+  }
+  bR.addEventListener("click", ()=>render(true));
+  bW.addEventListener("click", ()=>render(false));
+  render(true);
+})();
+// --- Demo quality filter (logic y hệt Python) ---
+(function(){
+  const VI = new Set("àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđĐ");
+  const MARKS = ["{","}",";","def ","import ","class ","();"];
+  function qf(text){
+    if(!text) return [false, "empty", "chuỗi rỗng"];
+    const words = text.split(/\s+/).filter(Boolean);
+    if(words.length > 2000) return [false, "too_long", words.length + " từ > 2000"];
+    const cc = {}; for(const ch of text) cc[ch] = (cc[ch]||0)+1;
+    const topChar = Math.max(...Object.values(cc))/text.length;
+    let topWord = 0;
+    if(words.length >= 10){
+      const wc = {}; words.forEach(w=>wc[w]=(wc[w]||0)+1);
+      topWord = Math.max(...Object.values(wc))/words.length;
+    }
+    if(topChar > 0.3 || topWord > 0.3)
+      return [false, "repetitive", "ký tự/từ phổ biến nhất chiếm " + Math.max(topChar,topWord).toFixed(2)*100 + "% > 30%"];
+    if(words.length < 30) return [false, "too_short", words.length + " từ < 30"];
+    if(words.length > 20){
+      let diac = 0; for(const ch of text) if(VI.has(ch)) diac++;
+      const marks = MARKS.filter(m=>text.includes(m)).length;
+      if(diac/text.length < 0.05 && marks < 2)
+        return [false, "non_vietnamese", "ký tự có dấu chỉ " + (diac/text.length*100).toFixed(1) + "% < 5%"];
+    }
+    return [true, null, words.length + " từ, hợp lệ"];
+  }
+  document.getElementById("qfBtn").addEventListener("click", function(){
+    const t = document.getElementById("qfInput").value;
+    const r = qf(t);
+    document.getElementById("qfOut").innerHTML = r[0]
+      ? "✅ <b>GIỮ LẠI</b> — " + esc(r[2])
+      : "❌ <b>LOẠI</b> (lý do: <b>" + r[1] + "</b>) — " + esc(r[2]);
+  });
+})();
+// --- Demo Jaccard ---
+(function(){
+  function shingles(t, k){
+    t = t.replace(/ /g, "");
+    const s = new Set();
+    for(let i=0; i<Math.max(1, t.length-k+1); i++) s.add(t.slice(i, i+k));
+    return s;
+  }
+  function jaccard(a, b){
+    let inter = 0; a.forEach(x=>{ if(b.has(x)) inter++; });
+    const uni = new Set([...a, ...b]);
+    return inter/Math.max(1, uni.size);
+  }
+  document.getElementById("jcBtn").addEventListener("click", function(){
+    const a = document.getElementById("jcA").value, b = document.getElementById("jcB").value;
+    const j = jaccard(shingles(a,5), shingles(b,5));
+    const bar = document.getElementById("jcBar"), fa = document.getElementById("jcFillA");
+    bar.style.display = "flex"; fa.style.width = (j*100).toFixed(1) + "%";
+    document.getElementById("jcOut").innerHTML =
+      "Jaccard 5-gram = <b>" + j.toFixed(4) + "</b> (ngưỡng loại: &gt; 0.8)<br>" +
+      (j > 0.8 ? "❌ <b>LOẠI</b> — gần trùng, doc này bị vứt." : "✅ <b>GIỮ</b> — đủ khác nhau.") +
+      "<br><small style='color:#9ca3af'>Thanh xanh = % mảnh 5-gram chung</small>";
+  });
+})();
+// --- Demo contamination (10 câu test thật) ---
+(function(){
+  const QS = [
+    "Thủ đô của Việt Nam là thành phố nào?",
+    "Hàm băm SHA-256 tạo ra chuỗi dài bao nhiêu bit?",
+    "Vì sao phải loại bỏ dữ liệu trùng lặp trước khi huấn luyện mô hình?",
+    "Kỹ thuật nào giúp mô hình tập trung vào phần quan trọng của câu?",
+    "Món ăn nào nổi tiếng nhất của Hà Nội?",
+    "UTF-8 là gì?",
+    "Ôn tập ngắt quãng có tác dụng gì?",
+    "Vịnh Hạ Long được UNESCO công nhận vào năm nào?",
+    "Biểu thức chính quy dùng để làm gì?",
+    "Cà phê trứng có nguồn gốc từ đâu?"
+  ];
+  function shingles(t, k){
+    t = t.replace(/ /g, "");
+    const s = new Set();
+    for(let i=0; i<Math.max(1, t.length-k+1); i++) s.add(t.slice(i, i+k));
+    return s;
+  }
+  function jaccard(a, b){
+    let inter = 0; a.forEach(x=>{ if(b.has(x)) inter++; });
+    const uni = new Set([...a, ...b]);
+    return inter/Math.max(1, uni.size);
+  }
+  const qsh = QS.map(q=>[q, shingles(q, 8)]);
+  document.getElementById("ctBtn").addEventListener("click", function(){
+    const t = document.getElementById("ctInput").value;
+    let hit = null, why = "";
+    for(const q of QS){ if(t.includes(q)){ hit = q; why = "chứa NGUYÊN VĂN câu hỏi test"; break; } }
+    if(!hit){
+      const ds = shingles(t, 8);
+      for(const [q, qs] of qsh){
+        const j = jaccard(ds, qs);
+        if(j > 0.9){ hit = q; why = "Jaccard 8-gram = " + j.toFixed(3) + " > 0.9 (gần như y hệt)"; break; }
+      }
+    }
+    document.getElementById("ctOut").innerHTML = hit
+      ? "🚨 <b>Ô NHIỄM</b> — " + esc(why) + ":<br>“" + esc(hit) + "”<br>→ doc này bị <b>loại trước khi chia train/val</b>."
+      : "✅ <b>SẠCH</b> — không chứa/ gần giống câu test nào.";
+  });
+})();
+// --- Demo trainer: created_at ---
+(function(){
+  const out = document.getElementById("dtOut");
+  const bT = document.getElementById("dtToday"), bM = document.getElementById("dtTomorrow");
+  function cyrb(str, seed){
+    let h1 = 0xdeadbeef ^ seed, h2 = 0x41c6ce57 ^ seed;
+    for(let i=0;i<str.length;i++){ const ch = str.charCodeAt(i);
+      h1 = Math.imul(h1 ^ ch, 2654435761); h2 = Math.imul(h2 ^ ch, 1597334677); }
+    h1 = Math.imul(h1 ^ (h1>>>16), 2246822507) ^ Math.imul(h2 ^ (h2>>>13), 3266489909);
+    h2 = Math.imul(h2 ^ (h2>>>16), 2246822507) ^ Math.imul(h1 ^ (h1>>>13), 3266489909);
+    return (h2>>>0).toString(16).padStart(8,"0") + (h1>>>0).toString(16).padStart(8,"0");
+  }
+  function render(isToday){
+    bT.classList.toggle("active", isToday); bM.classList.toggle("active", !isToday);
+    const day = isToday ? "2026-10-18" : "2026-10-19";
+    const manifest = '{"created_at":"' + day + '","shards":[{"sha256":"a1b2..."}]}';
+    out.innerHTML = "manifest.json (rút gọn):<br>" + esc(manifest) + "<br>" +
+      "hash minh họa: <b>" + cyrb(manifest, 7) + "</b>" + (isToday ? "" : " ← khác hôm qua!") + "<br><br>" +
+      (isToday ? "Shard hash không đổi — chỉ <code>created_at</code> đổi cũng đủ làm md5 khác." :
+       "⚠️ Nếu tài liệu không ghi 'cùng ngày', người test hôm nay sẽ tưởng pipeline mất deterministic — oan!");
+  }
+  bT.addEventListener("click", ()=>render(true));
+  bM.addEventListener("click", ()=>render(false));
+  render(true);
+})();
+// --- Tabs 2 file source + copy ---
+(function(){
+  const tabP = document.getElementById("tabPrep"), tabD = document.getElementById("tabDirty");
+  const preP = document.getElementById("srcPrep"), preD = document.getElementById("srcDirty");
+  function showPrep(){
+    tabP.classList.add("active"); tabD.classList.remove("active");
+    preP.style.display = "block"; preD.style.display = "none";
+  }
+  function showDirty(){
+    tabD.classList.add("active"); tabP.classList.remove("active");
+    preD.style.display = "block"; preP.style.display = "none";
+  }
+  tabP.addEventListener("click", showPrep);
+  tabD.addEventListener("click", showDirty);
+  document.getElementById("copySrcBtn").addEventListener("click", function(){
+    const raw = (preP.style.display !== "none" ? preP : preD).textContent;
+    const msg = document.getElementById("copyMsg");
+    const done = function(){ msg.textContent = "Đã copy ✓"; setTimeout(function(){ msg.textContent = ""; }, 2000); };
+    if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(raw).then(done, done); }
+    else { const ta = document.createElement("textarea"); ta.value = raw; document.body.appendChild(ta); ta.select(); try{ document.execCommand("copy"); }catch(e){} document.body.removeChild(ta); done(); }
+  });
+})();
+</script>
+<script>
+// Tô màu cú pháp Python
+(function(){
+  function escHtml(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+  function highlightPython(src){
+    var re = /(#[^\n]*)|("""[\s\S]*?"""|"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*')|\b(import|from|def|class|return|if|elif|else|for|while|in|is|not|and|or|None|True|False|lambda|with|as|try|except|finally|raise|global|pass|break|continue)\b|(\b\d+(?:\.\d+)?\b)|(@[\w.]+)/g;
+    var out = "", last = 0, m;
+    while((m = re.exec(src))){
+      out += escHtml(src.slice(last, m.index));
+      var tok = m[0], cls = m[1] ? "cm" : m[2] ? "str" : m[3] ? "kw" : m[4] ? "num2" : "fn";
+      out += '<span class="' + cls + '">' + escHtml(tok) + "</span>";
+      last = m.index + tok.length;
+      if(tok.length === 0) re.lastIndex++;
+    }
+    return out + escHtml(src.slice(last));
+  }
+  document.querySelectorAll("pre.pysrc").forEach(function(pre){
+    var raw = pre.textContent;
+    pre.innerHTML = "<code>" + highlightPython(raw) + "</code>";
+  });
+})();
+</script>
+</body>
+</html>
