@@ -1,0 +1,10 @@
+{"id": "t01", "question": "Thủ đô của Việt Nam là thành phố nào?", "answer": "Hà Nội."}
+{"id": "t02", "question": "Hàm băm SHA-256 tạo ra chuỗi dài bao nhiêu bit?", "answer": "256 bit."}
+{"id": "t03", "question": "Vì sao phải loại bỏ dữ liệu trùng lặp trước khi huấn luyện mô hình?", "answer": "Vì dữ liệu trùng lặp khiến mô hình học đi học lại điều đã biết, tốn điện và dễ ghi nhớ máy móc."}
+{"id": "t04", "question": "Kỹ thuật nào giúp mô hình tập trung vào phần quan trọng của câu?", "answer": "Cơ chế chú ý (attention)."}
+{"id": "t05", "question": "Món ăn nào nổi tiếng nhất của Hà Nội?", "answer": "Phở bò."}
+{"id": "t06", "question": "UTF-8 là gì?", "answer": "Là chuẩn mã hóa ký tự phổ biến, tương thích ngược với ASCII."}
+{"id": "t07", "question": "Ôn tập ngắt quãng có tác dụng gì?", "answer": "Giúp ghi nhớ lâu hơn so với học dồn một lúc."}
+{"id": "t08", "question": "Vịnh Hạ Long được UNESCO công nhận vào năm nào?", "answer": "Năm 1994."}
+{"id": "t09", "question": "Biểu thức chính quy dùng để làm gì?", "answer": "Tìm kiếm và thay thế văn bản theo mẫu."}
+{"id": "t10", "question": "Cà phê trứng có nguồn gốc từ đâu?", "answer": "Hà Nội, Việt Nam."}

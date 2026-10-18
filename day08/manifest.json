@@ -1,0 +1,46 @@
+{
+  "created_at": "2026-10-18",
+  "source": "raw_docs.jsonl",
+  "license": "Du lieu tong hop cho muc dich hoc tap (khong dung that)",
+  "stage_report": {
+    "ingest": 200,
+    "pii_redactions": 30,
+    "quality": {
+      "non_vietnamese": 5,
+      "too_short": 4,
+      "too_long": 3,
+      "repetitive": 3
+    },
+    "exact_dedup": 20,
+    "near_dedup": 15,
+    "contamination": 3,
+    "final": 147,
+    "green_ratio": 270.07547169811323
+  },
+  "shards": [
+    {
+      "path": "shards/train-00000.jsonl",
+      "sha256": "4180e1874d6d9b1d5de6e6bbcac7956c82dc193dab9a7962d4e92d14a2f0b94f",
+      "num_docs": 50,
+      "num_tokens": 4889
+    },
+    {
+      "path": "shards/train-00001.jsonl",
+      "sha256": "24e7b7ecef6ad7ab1d3b10ea6ede44eff98564386ae0430a841fd5ee983fd769",
+      "num_docs": 50,
+      "num_tokens": 4831
+    },
+    {
+      "path": "shards/train-00002.jsonl",
+      "sha256": "ff524ea68859921331ce335031a06c09010f5d96bff37e1f10f3a272e02d6e79",
+      "num_docs": 32,
+      "num_tokens": 3125
+    },
+    {
+      "path": "shards/val-00000.jsonl",
+      "sha256": "ee12b84add8cb5c7ff8cce80de34c52f5896f7c9c5c3c083a79d89aaf80d6b7d",
+      "num_docs": 15,
+      "num_tokens": 1469
+    }
+  ]
+}
