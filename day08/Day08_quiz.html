@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quiz Ngày 8 — Pipeline dữ liệu huấn luyện LLM</title>
+<style>
+  :root{--bg:#0b1020;--card:#141b33;--line:#26314f;--txt:#e8ecf7;--muted:#9aa6c7;
+    --gold:#fbbf24;--blue:#60a5fa;--green:#34d399;--red:#f87171;}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  body{margin:0;background:var(--bg);color:var(--txt);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;line-height:1.7;font-size:16px;}
+  .wrap{max-width:760px;margin:0 auto;padding:0 18px 80px;}
+  .kicker{display:inline-block;margin:26px 0 10px;padding:6px 14px;border:1px solid var(--line);
+    border-radius:999px;color:var(--muted);font-size:13px;}
+  h1{font-size:clamp(24px,5vw,32px);margin:6px 0 4px;}
+  .sub{color:var(--muted);margin:0 0 18px;}
+  .q{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin:16px 0;}
+  .q h3{margin:0 0 10px;font-size:17px;}
+  .q h3 .qn{color:var(--gold);margin-right:6px;}
+  .tag{display:inline-block;font-size:12px;color:var(--muted);border:1px solid var(--line);
+    border-radius:999px;padding:2px 10px;margin-left:8px;}
+  label.opt{display:block;padding:10px 12px;border:1px solid var(--line);border-radius:10px;
+    margin:8px 0;cursor:pointer;}
+  label.opt:hover{border-color:var(--blue);}
+  label.opt input{margin-right:10px;transform:scale(1.2);}
+  .exp{display:none;margin-top:10px;padding:10px 12px;border-radius:10px;font-size:15px;}
+  .exp.ok{display:block;background:#0c2b1a;border:1px solid #14532d;}
+  .exp.no{display:block;background:#2a1420;border:1px solid #7f1d1d;}
+  .btnrow{display:flex;gap:12px;flex-wrap:wrap;margin:24px 0;}
+  button{flex:1 1 200px;padding:15px;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer;}
+  #submit{background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;}
+  #copy{background:linear-gradient(135deg,#34d399,#047857);color:#06281c;display:none;}
+  #score{font-size:19px;font-weight:800;margin:14px 0;display:none;}
+  .note{color:var(--muted);font-size:14px;border:1px dashed var(--line);border-radius:12px;padding:12px 14px;margin-top:18px;}
+  .back{display:inline-block;margin-top:10px;color:var(--blue);text-decoration:none;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <span class="kicker">Khóa AI Engineer (LLM) · Quiz Ngày 8/30 · Pipeline dữ liệu</span>
+  <h1>📝 Quiz Ngày 8 — 5 câu về pipeline dữ liệu</h1>
+  <p class="sub">Chọn đáp án rồi bấm <b>Nộp bài</b> để chấm điểm ngay trong file. Mục tiêu: ≥ 4/5 (dưới 70% → buổi sau ôn lại chỗ hổng).</p>
+
+  <div id="quiz"></div>
+
+  <div class="btnrow">
+    <button id="submit" onclick="grade()">Nộp bài</button>
+    <button id="copy" onclick="copyResult()">📋 Copy kết quả</button>
+  </div>
+  <div id="score"></div>
+
+  <div class="note">ℹ️ File HTML này chạy offline, <b>không tự gửi kết quả về được</b>. Sau khi bấm "Copy kết quả", bạn paste chuỗi kết quả vào chat để trợ lý ghi điểm và theo dõi tiến độ nhé.</div>
+  <a class="back" href="Day08_lesson.html">← Quay lại bài học</a>
+
+<script>
+const QUESTIONS = [
+ {q:"Vì sao bước chuẩn hóa (normalization) PHẢI chạy trước bước dedup trong pipeline?",
+  tag:"Thứ tự pipeline",
+  opts:["Vì normalize giúp văn bản hiển thị đẹp hơn trên màn hình",
+        "Vì hai document cùng nội dung nhưng khác rác định dạng sẽ cho mã băm khác nhau, khiến dedup không phát hiện được trùng lặp",
+        "Vì normalize chạy nhanh hơn dedup nên làm trước cho đỡ tốn thời gian",
+        "Vì dedup yêu cầu đầu vào bắt buộc là Unicode NFC"],
+  ans:1,
+  exp:"Dedup exact so sánh mã băm của chuỗi byte. 'Hello  world' và 'Hello world' cùng nội dung nhưng byte khác nhau → băm khác nhau → lọt lưới. Chuẩn hóa (NFKC, gộp whitespace, strip HTML) trước, so sánh sau."},
+ {q:"Cặp MinHash + LSH trong phát hiện near-duplicate có vai trò gì?",
+  tag:"Dedup",
+  opts:["Mã hóa document để bảo mật dữ liệu huấn luyện",
+        "Biến mỗi document thành 'dấu vân tay' ngắn (xấp xỉ độ giống Jaccard) rồi chỉ so sánh kỹ các cặp rơi cùng 'hộp', tránh so từng cặp O(n²)",
+        "Nén document để tiết kiệm dung lượng ổ cứng",
+        "Dịch mọi document về cùng một ngôn ngữ trước khi so sánh"],
+  ans:1,
+  exp:"MinHash biến document thành vân tay ngắn: càng giống nhau thì vân tay càng giống nhau. LSH 'xếp hộp' các vân tay na ná nhau — chỉ so sánh kỹ trong hộp. Nhờ vậy xử lý được hàng tỉ document; ngưỡng phổ biến Jaccard ≥ 0.8."},
+ {q:"Contamination là gì và vì sao nó nguy hiểm?",
+  tag:"Decontamination",
+  opts:["Là virus trong dữ liệu làm hỏng phần cứng GPU khi train",
+        "Là hiện tượng dữ liệu của bộ eval lọt vào tập train, khiến điểm benchmark cao một cách ảo tưởng",
+        "Là hiện tượng trộn lẫn hai ngôn ngữ trong cùng một câu",
+        "Là việc model học thuộc thông tin cá nhân của người dùng"],
+  ans:1,
+  exp:"Như học sinh được phát đúng đề thi để 'ôn' rồi đi thi được 10 điểm — điểm số vô nghĩa. Phòng thủ: loại document có đoạn 13 từ liên tiếp trùng eval (cách của GPT-3) và chèn canary string bí mật vào bộ eval để phát hiện rò rỉ."},
+ {q:"Theo luật heuristic của paper Gopher, document nào sau đây sẽ BỊ LOẠI?",
+  tag:"Quality filter",
+  opts:["Bài báo 2 000 từ, độ dài từ trung bình 5 ký tự, ít ký tự đặc biệt",
+        "Đoạn text 40 từ, trong đó hơn 30% là ký tự đặc biệt #@$% và độ dài từ trung bình chỉ 1.5 ký tự",
+        "Trang Wikipedia 5 000 từ về lịch sử Việt Nam",
+        "File code Python 800 dòng có comment rõ ràng"],
+  ans:1,
+  exp:"Gopher loại document vi phạm bất kỳ luật nào: quá ít từ (< 50), độ dài từ trung bình ngoài 3–10 ký tự, tỉ lệ ký tự đặc biệt/số từ > 0.1... Phương án B vi phạm cả ba. Đây là 'bảo vệ cổng' — nhanh, rẻ, dễ hiểu; phần tinh vi hơn để classifier lo."},
+ {q:"Vì sao dedup (loại trùng lặp) gián tiếp giúp bảo vệ thông tin cá nhân (PII)?",
+  tag:"PII",
+  opts:["Vì dedup tự động mã hóa mọi email thành dạng ẩn danh",
+        "Vì model chủ yếu 'học thuộc' những chuỗi lặp lại nhiều lần — loại trùng lặp khiến một chuỗi PII chỉ còn xuất hiện 1 lần, model khó ghi nhớ",
+        "Vì dedup tự động xóa mọi số điện thoại trong dữ liệu",
+        "Vì thông tin cá nhân luôn nằm trong các document bị trùng lặp"],
+  ans:1,
+  exp:"Nghiên cứu của Carlini và cộng sự (2021) chỉ ra memorization gắn chặt với số lần lặp lại: chuỗi xuất hiện 10 000 lần (do copy-paste khắp web) model nhớ như in; chỉ xuất hiện 1 lần thì gần như không nhớ được. Dedup vì vậy là một lớp bảo vệ PII miễn phí."}
+];
+let result = "";
+
+function render(){
+  const box = document.getElementById("quiz");
+  box.innerHTML = QUESTIONS.map((it,i)=>`
+    <div class="q" id="q${i}">
+      <h3><span class="qn">Câu ${i+1}.</span>${it.q}<span class="tag">${it.tag}</span></h3>
+      ${it.opts.map((o,j)=>`
+        <label class="opt"><input type="radio" name="q${i}" value="${j}">${"ABCD"[j]}. ${o}</label>`).join("")}
+      <div class="exp" id="exp${i}"></div>
+    </div>`).join("");
+}
+
+function grade(){
+  let correct = 0; const picks = [];
+  QUESTIONS.forEach((it,i)=>{
+    const sel = document.querySelector(`input[name=q${i}]:checked`);
+    const exp = document.getElementById(`exp${i}`);
+    if(!sel){ exp.className="exp no"; exp.textContent="⚠️ Bạn chưa chọn đáp án câu này."; picks.push("–"); return; }
+    const v = +sel.value; picks.push("ABCD"[v]);
+    if(v===it.ans){ correct++; exp.className="exp ok"; exp.innerHTML="✅ <b>Đúng.</b> "+it.exp; }
+    else{ exp.className="exp no"; exp.innerHTML=`❌ <b>Sai.</b> Đáp án đúng là <b>${"ABCD"[it.ans]}</b>. `+it.exp; }
+  });
+  const s = document.getElementById("score");
+  s.style.display = "block";
+  s.innerHTML = `Kết quả: <span style="color:${correct>=4?"var(--green)":"var(--red)}">${correct}/5</span>` +
+    (correct>=4 ? " — Đạt! 🎉 Sẵn sàng cho buổi thực hành tối nay (code prepare_data.py)." : " — Chưa đạt 70%. Hãy đọc lại phần tương ứng trong bài học rồi làm lại nhé. 💪");
+  result = `Day08 Quiz: ${picks.map((p,i)=>(i+1)+p).join(" ")} — ${correct}/5`;
+  document.getElementById("copy").style.display = "block";
+}
+
+function copyResult(){
+  navigator.clipboard.writeText(result).then(
+    ()=>{ document.getElementById("copy").textContent = "✅ Đã copy! Paste vào chat nhé"; },
+    ()=>{ prompt("Copy thủ công chuỗi này:", result); });
+}
+
+render();
+</script>
+</div>
+</body>
+</html>
