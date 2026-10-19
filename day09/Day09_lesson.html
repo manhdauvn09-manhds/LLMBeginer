@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ngày 9 — Training loop tốt phải tái lập và hồi phục được</title>
+<style>
+  :root{
+    --bg:#0b1020; --card:#141b33; --line:#26314f; --txt:#e8ecf7; --muted:#9aa6c7;
+    --gold:#fbbf24; --blue:#60a5fa; --green:#34d399; --red:#f87171; --violet:#a78bfa;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  body{margin:0; background:var(--bg); color:var(--txt);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    line-height:1.75; font-size:16.5px;}
+  .wrap{max-width:860px; margin:0 auto; padding:0 18px 80px;}
+  .kicker{display:inline-block; margin:26px 0 10px; padding:6px 14px; border:1px solid var(--line);
+    border-radius:999px; color:var(--muted); font-size:13px; letter-spacing:.4px;}
+  h1{font-size:clamp(26px,5.4vw,38px); line-height:1.3; margin:6px 0 8px;}
+  .sub{color:var(--muted); margin:0 0 6px;}
+  .meta{display:flex; gap:10px; flex-wrap:wrap; margin:14px 0 22px; color:var(--muted); font-size:14px;}
+  .meta span{background:var(--card); border:1px solid var(--line); border-radius:10px; padding:6px 12px;}
+  .hero{width:100%; border-radius:16px; border:1px solid var(--line); display:block;}
+  .cap{color:var(--muted); font-size:13.5px; margin:8px 2px 0;}
+  .goal{background:linear-gradient(135deg,#16213f,#101a36); border:1px solid var(--line);
+    border-radius:14px; padding:18px 20px; margin:26px 0;}
+  .goal h3{margin:0 0 10px; font-size:17px; color:var(--gold);}
+  .goal ul{margin:0; padding-left:20px;}
+  .goal li{margin:6px 0;}
+  section.card{background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:22px 20px; margin:22px 0;}
+  section.card h2{margin:0 0 4px; font-size:21px;}
+  section.card h2 .n{display:inline-flex; width:30px; height:30px; border-radius:9px;
+    background:var(--blue); color:#081226; font-size:16px; align-items:center; justify-content:center;
+    margin-right:8px; font-weight:800;}
+  section.card p.lead{color:var(--muted); margin:0 0 12px;}
+  .formula{background:#0b1226; border:1px dashed #33406b; border-radius:12px;
+    padding:14px 16px; margin:14px 0; font-family:"SF Mono",Consolas,Menlo,monospace;
+    font-size:15px; overflow-x:auto; white-space:nowrap;}
+  .formula b{color:var(--gold);}
+  .note{border-left:4px solid var(--green); background:#0f2233; border-radius:0 12px 12px 0;
+    padding:12px 16px; margin:14px 0;}
+  .warn{border-left:4px solid var(--red); background:#2a1420; border-radius:0 12px 12px 0;
+    padding:12px 16px; margin:14px 0;}
+  .green{border:1px solid #14532d; background:linear-gradient(135deg,#0c2b1a,#0a1f14);
+    border-radius:14px; padding:18px 20px; margin:22px 0;}
+  .green h3{margin:0 0 8px; color:var(--green); font-size:18px;}
+  .code{background:#070d1c; border:1px solid var(--line); border-radius:12px; padding:14px 16px;
+    font-family:"SF Mono",Consolas,Menlo,monospace; font-size:14px; overflow-x:auto;
+    white-space:pre; margin:14px 0; line-height:1.65;}
+  svg.diagram{width:100%; height:auto; border-radius:12px; background:#0b1226;
+    border:1px solid var(--line); margin:14px 0;}
+  .pill{display:inline-block; background:#0b1226; border:1px solid var(--line); border-radius:999px;
+    padding:3px 12px; font-size:13.5px; color:var(--muted); margin:2px 4px 2px 0;}
+  table.t{width:100%; border-collapse:collapse; margin:14px 0; font-size:15px;}
+  table.t th, table.t td{border:1px solid var(--line); padding:10px 12px; text-align:left; vertical-align:top;}
+  table.t th{background:#0b1226; color:var(--gold);}
+  .nav{display:flex; gap:12px; flex-wrap:wrap; margin:28px 0 10px;}
+  .nav a{flex:1 1 220px; text-align:center; text-decoration:none; font-weight:700;
+    padding:16px 18px; border-radius:14px; font-size:17px;}
+  .nav a.quiz{background:var(--gold); color:#241a04;}
+  .nav a.video{background:var(--violet); color:#150b33;}
+  footer{margin-top:44px; color:var(--muted); font-size:13.5px; text-align:center;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <span class="kicker">📚 LÝ THUYẾT • Buổi sáng Ngày 9 • 30 ngày thành AI Engineer (LLM)</span>
+  <h1>Ngày 9 — Training loop tốt phải tái lập và hồi phục được</h1>
+  <p class="sub">8 ngày qua ta đã xây "động cơ" (Transformer) và đổ "nhiên liệu" (dữ liệu).
+  Hôm nay ta học cách "lái xe đường dài": một vòng lặp huấn luyện chạy hàng giờ, hàng ngày
+  mà vẫn <b>tái lập được</b> (reproducible — chạy lại cho ra đúng kết quả cũ) và
+  <b>hồi phục được</b> (resumable — mất điện giữa chừng vẫn tiếp tục đúng chỗ đã dừng).</p>
+
+  <div class="meta">
+    <span>⏱️ ~35 phút đọc</span><span>🎯 Quiz 5 câu trong file riêng</span><span>🌙 Tối nay: nâng cấp train.py với AMP + accumulation + checkpoint</span>
+  </div>
+
+  <img class="hero" src="img/day09_hero.webp" alt="Minh họa vòng lặp huấn luyện AI trên GPU với các checkpoint">
+  <p class="cap">Minh họa: vòng lặp huấn luyện trên GPU — dữ liệu chảy qua các lớp mạng, checkpoint được lưu dọc đường.</p>
+
+  <div class="goal">
+    <h3>🎯 Mục tiêu buổi sáng</h3>
+    <ul>
+      <li>Tính được <b>token budget</b>: tokens mỗi bước = batch size × độ dài chuỗi; phân biệt batch nhỏ và batch lớn.</li>
+      <li>Giải thích được <b>AdamW</b> khác Adam ở đâu (weight decay tách riêng) và vì sao LLM nào cũng dùng nó.</li>
+      <li>Vẽ/kể được lịch learning rate <b>warmup + cosine decay</b> và lý do từng pha.</li>
+      <li>So sánh được <b>fp16 vs bf16</b>: vì sao bf16 không cần GradScaler, fp16 cần loss scaling.</li>
+      <li>Viết được <b>gradient accumulation</b> để mô phỏng batch lớn trên GPU nhỏ.</li>
+      <li>Liệt kê đủ thứ phải lưu trong <b>checkpoint</b> để resume tái lập hoàn toàn (kể cả trạng thái RNG).</li>
+      <li>Làm đúng ít nhất <b>4/5 câu quiz</b>. Dưới 70% → buổi sau ôn lại chỗ hổng trước.</li>
+    </ul>
+  </div>
+
+  <section class="card" id="s1">
+    <h2><span class="n">1</span>Batch và token budget — đơn vị đo của huấn luyện</h2>
+    <p class="lead">Trước khi nói về optimizer hay GPU, ta cần một "đơn vị đo" chung cho mọi thí nghiệm huấn luyện.</p>
+    <p>Đơn vị đó là <b>token</b>. Mỗi bước huấn luyện (step), model xử lý:</p>
+    <div class="formula"><b>tokens / step</b> = batch_size × seq_len</div>
+    <p>Ví dụ cụ thể: batch 512 chuỗi, mỗi chuỗi dài 2048 token →
+    mỗi step xử lý khoảng <b>1 triệu token</b>. Chạy 10 000 step ≈ 10 tỉ token.
+    Khi đọc paper thấy "train 1T tokens", bạn quy đổi ngay ra số step với batch của mình.</p>
+    <table class="t">
+      <tr><th></th><th>Batch nhỏ</th><th>Batch lớn</th></tr>
+      <tr><td><b>Gradient</b></td><td>Nhiễu cao — mỗi step là một "phỏng đoán" ồn ào</td><td>Ổn định — trung bình nhiều mẫu, ít nhiễu</td></tr>
+      <tr><td><b>GPU</b></td><td>Chạy không đầy tải, lãng phí</td><td>Chạy đầy tải, hiệu quả phần cứng cao</td></tr>
+      <tr><td><b>Learning rate</b></td><td>LR nhỏ là đủ</td><td>Phải tăng LR theo (linear scaling rule)</td></tr>
+      <tr><td><b>Rủi ro</b></td><td>Hội tụ chậm</td><td>Batch quá lớn → rơi vào "hố nông" (sharp minima), khái quát kém</td></tr>
+    </table>
+    <div class="note">💡 <b>Ví dụ đời thường:</b> batch như "số bài kiểm tra chấm một lúc trước khi rút kinh nghiệm".
+    Chấm 2 bài rồi rút kinh nghiệm (batch nhỏ): nhanh nhưng kết luận ồn ào, lúc đúng lúc sai.
+    Chấm 500 bài rồi rút kinh nghiệm (batch lớn): kết luận chắc chắn, nhưng nếu 500 bài toàn dạng dễ
+    thì kinh nghiệm rút ra "nông" — không khái quát được bài khó. Huấn luyện LLM chuộng batch lớn
+    (hàng triệu token/step) nhưng phải đi kèm learning rate và lịch trình phù hợp.</div>
+    <p>Batch "thật" mà optimizer nhìn thấy gọi là <b>effective batch</b>:</p>
+    <div class="formula">effective_batch = batch_mỗi_GPU × accum_steps × số_GPU</div>
+    <p>Hai hệ số sau (accumulation, số GPU) ta sẽ làm chủ trong các phần 5 và 6.</p>
+  </section>
+
+  <section class="card" id="s2">
+    <h2><span class="n">2</span>AdamW — optimizer mặc định của mọi LLM</h2>
+    <p class="lead">Từ GPT đến Llama, optimizer chuẩn là <b>AdamW</b>. Chữ W là weight decay —
+    và điểm mấu chốt nằm ở cách nó xử lý weight decay khác Adam cổ điển.</p>
+    <p><b>Adam cổ điển + L2:</b> weight decay được "nhúng" vào gradient dưới dạng L2 regularization
+    (cộng λ·θ vào gradient), rồi đi qua mẫu số thích ứng √(v̂)+ε của Adam. Hệ quả: những tham số có
+    gradient lớn (mẫu số lớn) thì weight decay bị "pha loãng" — tác dụng regularization không đồng đều,
+    méo mó.</p>
+    <p><b>AdamW</b> (Loshchilov &amp; Hutter, 2019) <b>tách riêng</b>: tính bước đi từ gradient như Adam
+    bình thường, rồi trừ thẳng một phần tỉ lệ của trọng số:</p>
+    <div class="formula"><b>θ ← θ − lr · ( m̂/(√v̂ + ε) + λ·θ )</b></div>
+    <p>Trong đó m̂, v̂ là moment bậc 1/2 đã hiệu chỉnh bias (giống Adam), còn <b>λ·θ</b> là weight decay
+    tách riêng — áp đồng đều lên mọi tham số, không bị mẫu số thích ứng làm méo.</p>
+    <p>Thực hành chuẩn khi dùng AdamW cho Transformer:</p>
+    <div class="code">decay, no_decay = [], []
+for n, p in model.named_parameters():
+    if not p.requires_grad: continue
+    # KHÔNG áp weight decay cho bias và LayerNorm
+    (no_decay if n.endswith("bias") or "norm" in n.lower() else decay).append(p)
+
+optimizer = torch.optim.AdamW(
+    [{"params": decay, "weight_decay": 0.1},
+     {"params": no_decay, "weight_decay": 0.0}],
+    lr=3e-4, betas=(0.9, 0.95), eps=1e-8)</div>
+    <div class="note">💡 <b>Giá trị khởi đầu an toàn</b> cho model cỡ vừa:
+    <span class="pill">lr = 3e-4</span><span class="pill">betas = (0.9, 0.95)</span>
+    <span class="pill">weight_decay = 0.1</span><span class="pill">eps = 1e-8</span>.
+    β₂ = 0.95 (thay vì 0.999 của Adam gốc) vì gradient của LLM nhiễu và "bùng" thất thường —
+    moment bậc 2 cần "quên" nhanh hơn để thích ứng kịp.</div>
+  </section>
+
+  <section class="card" id="s3">
+    <h2><span class="n">3</span>Lịch learning rate: warmup + cosine decay</h2>
+    <p class="lead">Learning rate không để cố định suốt quá trình train. Lịch chuẩn của LLM có 2 pha.</p>
+    <p><b>Pha 1 — Warmup:</b> tăng tuyến tính từ 0 lên max_lr trong W bước đầu (thường ~1–2% tổng số step,
+    ví dụ 2000 step). Vì sao? Đầu buổi train, trọng số còn ngẫu nhiên, gradient rất nhiễu —
+    "đạp ga" ngay bằng LR cao thì loss dễ bùng nổ (diverge). Warmup như "khởi động máy êm".</p>
+    <p><b>Pha 2 — Cosine decay:</b> giảm dần theo đường cosine từ max_lr về min_lr
+    (thường min_lr = max_lr / 10) cho đến hết quá trình train. Cosine giảm nhanh ở giữa, chậm dần ở cuối —
+    giúp model "hạ cánh" mượt vào vùng loss tốt thay vì nhảy qua nhảy lại.</p>
+    <svg class="diagram" viewBox="0 0 800 300" role="img" aria-label="Đường cong learning rate warmup và cosine decay">
+      <text x="400" y="28" fill="#e8ecf7" font-size="17" font-weight="700" text-anchor="middle">Lịch learning rate: warmup tuyến tính → cosine decay</text>
+      <line x1="40" y1="260" x2="770" y2="260" stroke="#26314f" stroke-width="1.5"/>
+      <line x1="40" y1="260" x2="40" y2="40" stroke="#26314f" stroke-width="1.5"/>
+      <text x="34" y="66" fill="#9aa6c7" font-size="13" text-anchor="end">max_lr</text>
+      <text x="34" y="250" fill="#9aa6c7" font-size="13" text-anchor="end">min_lr</text>
+      <text x="762" y="282" fill="#9aa6c7" font-size="13" text-anchor="end">steps</text>
+      <polyline points="40,260 90,60 174,67 258,87 341,117 425,152 509,188 593,218 676,238 760,245"
+        fill="none" stroke="#fbbf24" stroke-width="3"/>
+      <line x1="90" y1="60" x2="90" y2="260" stroke="#33406b" stroke-dasharray="5,5"/>
+      <text x="65" y="120" fill="#60a5fa" font-size="13.5" text-anchor="middle">warmup</text>
+      <text x="65" y="140" fill="#60a5fa" font-size="13.5" text-anchor="middle">2000 bước</text>
+      <text x="430" y="120" fill="#a78bfa" font-size="13.5" text-anchor="middle">cosine decay → min_lr = max_lr / 10</text>
+      <circle cx="90" cy="60" r="5" fill="#fbbf24"/>
+      <text x="108" y="56" fill="#fbbf24" font-size="13">đỉnh warmup = max_lr</text>
+    </svg>
+    <p>Công thức đầy đủ, đủ để tự code scheduler:</p>
+    <div class="code">import math
+
+def get_lr(step, warmup=2000, total=100_000, max_lr=3e-4, min_lr=3e-5):
+    if step &lt; warmup:                       # pha 1: tăng tuyến tính
+        return max_lr * step / warmup
+    p = (step - warmup) / (total - warmup)    # pha 2: cosine decay
+    return min_lr + 0.5 * (max_lr - min_lr) * (1 + math.cos(math.pi * p))</div>
+    <div class="warn">⚠️ <b>Lỗi kinh điển:</b> quên warmup (đặt LR cao ngay từ step 0) →
+    loss "nổ" thành NaN trong vài trăm step đầu, và NaN thì không cứu được — phải train lại từ đầu.
+    Trong PyTorch có thể dùng <span class="pill">LambdaLR</span> với hàm trên, hoặc scheduler
+    <span class="pill">get_cosine_schedule_with_warmup</span> của thư viện transformers.</div>
+  </section>
+
+  <section class="card" id="s4">
+    <h2><span class="n">4</span>Mixed precision — train nhanh gấp rưỡi với cùng một GPU</h2>
+    <p class="lead"><b>Mixed precision (AMP)</b>: giữ một bản trọng số fp32 làm "bản gốc",
+    nhưng tính forward + backward ở 16-bit. Cùng một GPU, train nhanh hơn ~1.5–2× và tốn ít VRAM hơn.</p>
+    <table class="t">
+      <tr><th></th><th>fp16</th><th>bf16 (brain float 16)</th></tr>
+      <tr><td><b>Cấu trúc bit</b></td><td>1 dấu – 5 mũ – 10 định trị</td><td>1 dấu – <b>8 mũ</b> – 7 định trị</td></tr>
+      <tr><td><b>Phạm vi biểu diễn</b></td><td>Hẹp (~6e-5 … 6.5e4)</td><td><b>Rộng như fp32</b> (~1e-38 … 3e38)</td></tr>
+      <tr><td><b>Vấn đề</b></td><td>Gradient nhỏ bị "tràn về 0" (underflow) → mất tín hiệu học</td><td>Hầu như không underflow</td></tr>
+      <tr><td><b>Cần GradScaler?</b></td><td><b>Có</b> — cần loss scaling</td><td><b>Không</b></td></tr>
+      <tr><td><b>Phần cứng</b></td><td>Mọi GPU hiện đại</td><td>NVIDIA Ampere trở lên (A100, RTX 30xx…), TPU</td></tr>
+    </table>
+    <p><b>Loss scaling</b> (chỉ cần cho fp16): nhân loss với một hệ số lớn S (ví dụ 2¹⁶) trước khi backward —
+    gradient cũng được nhân lên S lần nên thoát khỏi vùng underflow; trước khi optimizer.step thì
+    <b>chia lại</b> (unscale). <b>GradScaler</b> tự động hóa việc này: nếu phát hiện inf/NaN (tràn số),
+    nó <b>bỏ qua step đó</b> và giảm S; nếu ổn định, tăng S dần.</p>
+    <div class="code">from torch.amp import autocast, GradScaler
+
+# bf16: KHÔNG cần scaler.  fp16: scaler = GradScaler("cuda")
+optimizer.zero_grad()
+with autocast("cuda", dtype=torch.bfloat16):   # hoặc torch.float16
+    loss = model(batch)
+
+scaler.scale(loss).backward()      # fp16: nhân scale rồi backward
+scaler.unscale_(optimizer)         # chia lại về đúng độ lớn
+torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+scaler.step(optimizer)             # bỏ qua nếu có inf/NaN
+scaler.update()                    # điều chỉnh hệ số scale
+scheduler.step()</div>
+    <div class="note">💡 <b>autocast tự lo phần tinh tế:</b> những phép nhạy cảm với độ chính xác thấp
+    (softmax, layernorm, tính loss) nó vẫn chạy ở fp32, chỉ các phép matmul "nặng" mới xuống 16-bit.
+    Bạn không cần chọn tay từng layer. Quy tắc chọn: GPU hỗ trợ bf16 → dùng bf16 cho đơn giản;
+    không thì fp16 + GradScaler.</div>
+  </section>
+
+  <section class="card" id="s5">
+    <h2><span class="n">5</span>Gradient accumulation — batch lớn trên GPU nhỏ</h2>
+    <p class="lead">Không phải ai cũng có cụm GPU. <b>Gradient accumulation</b> cho phép mô phỏng
+    batch lớn trên GPU nhỏ: cộng dồn gradient qua K micro-batch rồi mới cập nhật một lần.</p>
+    <p>Ví dụ: GPU chỉ chứa được micro-batch 8 chuỗi, nhưng ta muốn effective batch 64 →
+    accumulation 8 lần (8 × 8 = 64). Về mặt toán học, gần như tương đương với batch 64 thật —
+    Transformer dùng LayerNorm (chuẩn hóa theo từng mẫu) chứ không dùng BatchNorm nên không bị
+    lệch thống kê giữa các micro-batch.</p>
+    <div class="code">ACCUM = 8
+optimizer.zero_grad()
+for i, batch in enumerate(loader):
+    with autocast("cuda", dtype=torch.bfloat16):
+        loss = model(batch) / ACCUM      # ⚠️ CHIA loss trước khi backward
+    loss.backward()                      # gradient cộng dồn, chưa step
+    if (i + 1) % ACCUM == 0:
+        torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+        optimizer.step()                 # cập nhật 1 lần cho cả K micro-batch
+        scheduler.step()
+        optimizer.zero_grad()</div>
+    <div class="warn">⚠️ <b>Lỗi kinh điển số 1:</b> quên chia loss cho ACCUM → gradient bị nhân lên K lần,
+    tương đương tăng learning rate lên K lần → loss nổ. <b>Lỗi số 2:</b> gọi
+    <span class="pill">optimizer.zero_grad()</span> sau mỗi micro-batch → xóa sạch gradient vừa cộng dồn,
+    accumulation thành vô nghĩa.</div>
+    <div class="note">💡 <b>Ví dụ đời thường:</b> như góp tiền mua món đồ lớn — mỗi ngày bỏ vào heo đất một ít
+    (micro-batch), đủ số tiền mới đi mua một lần (optimizer.step). Không ai "mua" sau mỗi lần bỏ heo.</div>
+  </section>
+
+  <section class="card" id="s6">
+    <h2><span class="n">6</span>Checkpoint + RNG — lưu đủ để "quay ngược thời gian"</h2>
+    <p class="lead">Huấn luyện LLM chạy hàng giờ, hàng ngày — mất điện, hết VRAM, lỗi code là chuyện thường.
+    Một checkpoint tốt phải lưu <b>đủ để resume đúng như chưa từng dừng</b>, không chỉ trọng số model.</p>
+    <p>Checklist 6 thứ phải lưu:</p>
+    <table class="t">
+      <tr><th>#</th><th>Lưu gì</th><th>Vì sao</th></tr>
+      <tr><td>1</td><td><span class="pill">model.state_dict()</span></td><td>Trọng số — hiển nhiên</td></tr>
+      <tr><td>2</td><td><span class="pill">optimizer.state_dict()</span></td><td>Chứa moment m, v của AdamW — mất thì optimizer "mất trí nhớ", train tiếp như khởi động lại</td></tr>
+      <tr><td>3</td><td><span class="pill">scheduler state</span></td><td>Để learning rate tiếp tục đúng pha cosine, không quay về đầu warmup</td></tr>
+      <tr><td>4</td><td><span class="pill">scaler.state_dict()</span></td><td>Hệ số loss scaling hiện tại (fp16)</td></tr>
+      <tr><td>5</td><td><span class="pill">step / epoch</span></td><td>Biết mình đang ở đâu để log và lên lịch tiếp</td></tr>
+      <tr><td>6</td><td><span class="pill">RNG states</span></td><td>Trạng thái bộ sinh số ngẫu nhiên — chi tiết quyết định <b>tái lập được</b> (xem dưới)</td></tr>
+    </table>
+    <p><b>RNG — chi tiết nhiều người bỏ sót:</b> tính ngẫu nhiên trong training đến từ 4 nguồn độc lập —
+    <span class="pill">random (Python)</span> <span class="pill">numpy</span>
+    <span class="pill">torch (CPU)</span> <span class="pill">torch.cuda</span>
+    (dropout, thứ tự shuffle dữ liệu…). Muốn chạy lại cho ra <b>đúng kết quả cũ</b> thì phải lưu trạng thái
+    của cả 4 bộ sinh số này vào checkpoint và khôi phục khi resume:</p>
+    <div class="code">import random, numpy as np, torch
+
+def save_ckpt(path, model, opt, sched, scaler, step):
+    torch.save({
+        "model": model.state_dict(),
+        "optimizer": opt.state_dict(),
+        "scheduler": sched.state_dict() if sched else None,
+        "scaler": scaler.state_dict(),
+        "step": step,
+        "rng": {"python": random.getstate(),
+                "numpy": np.random.get_state(),
+                "torch": torch.get_rng_state(),
+                "cuda": torch.cuda.get_rng_state_all()},
+    }, path)
+
+def load_ckpt(path, model, opt, sched, scaler, device="cuda"):
+    ckpt = torch.load(path, map_location=device, weights_only=False)
+    model.load_state_dict(ckpt["model"], strict=True)
+    opt.load_state_dict(ckpt["optimizer"])
+    if sched and ckpt["scheduler"]:
+        sched.load_state_dict(ckpt["scheduler"])
+    scaler.load_state_dict(ckpt["scaler"])
+    random.setstate(ckpt["rng"]["python"])
+    np.random.set_state(ckpt["rng"]["numpy"])
+    torch.set_rng_state(ckpt["rng"]["torch"])
+    torch.cuda.set_rng_state_all(ckpt["rng"]["cuda"])
+    return ckpt["step"]   # tiếp tục đúng step đã dừng</div>
+    <div class="warn">⚠️ Hai chi tiết nữa để <b>tái lập hoàn toàn</b>:
+    ① <b>Vị trí trong dataset</b> — DataLoader của PyTorch không tự lưu "đang đọc đến mẫu nào",
+    cần sampler khôi phục được hoặc tự lưu chỉ số mẫu.
+    ② <span class="pill">torch.load(..., weights_only=False)</span> — vì RNG state là object pickle,
+    chế độ weights_only=True (mặc định mới) sẽ từ chối tải; chỉ dùng False với file checkpoint
+    <b>do chính mình tạo ra</b>.</div>
+  </section>
+
+  <section class="card" id="s7">
+    <h2><span class="n">7</span>Ghép lại: vòng lặp huấn luyện hoàn chỉnh</h2>
+    <p class="lead">Nối 6 phần trên thành một vòng lặp duy nhất — đây chính là khung code tối nay ta sẽ viết.</p>
+    <svg class="diagram" viewBox="0 0 800 620" role="img" aria-label="Sơ đồ vòng lặp huấn luyện hoàn chỉnh">
+      <text x="400" y="28" fill="#e8ecf7" font-size="17" font-weight="700" text-anchor="middle">Training loop: tái lập được + hồi phục được</text>
+      <g font-size="14" text-anchor="middle">
+        <rect x="230" y="48" width="340" height="46" rx="10" fill="#141b33" stroke="#60a5fa"/>
+        <text x="400" y="76" fill="#e8ecf7">1. lấy micro-batch từ dataloader</text>
+        <text x="400" y="112" fill="#fbbf24" font-size="20">↓</text>
+        <rect x="230" y="122" width="340" height="46" rx="10" fill="#141b33" stroke="#60a5fa"/>
+        <text x="400" y="150" fill="#e8ecf7">2. forward trong autocast (bf16 / fp16)</text>
+        <text x="400" y="186" fill="#fbbf24" font-size="20">↓</text>
+        <rect x="230" y="196" width="340" height="46" rx="10" fill="#141b33" stroke="#60a5fa"/>
+        <text x="400" y="224" fill="#e8ecf7">3. loss = loss ÷ K → backward (cộng dồn)</text>
+        <polygon points="400,262 480,296 400,330 320,296" fill="#0b1226" stroke="#a78bfa" stroke-width="2"/>
+        <text x="400" y="292" fill="#a78bfa" font-size="13.5" font-weight="700">đủ K</text>
+        <text x="400" y="310" fill="#a78bfa" font-size="13.5" font-weight="700">micro-batch?</text>
+        <text x="270" y="300" fill="#9aa6c7" font-size="13">chưa → quay lại bước 1</text>
+        <path d="M320,296 L150,296 L150,71 L230,71" fill="none" stroke="#9aa6c7" stroke-width="1.5" stroke-dasharray="6,4"/>
+        <polygon points="230,71 218,65 218,77" fill="#9aa6c7"/>
+        <text x="400" y="352" fill="#fbbf24" font-size="20">↓ đủ</text>
+        <rect x="230" y="362" width="340" height="46" rx="10" fill="#0c2b1a" stroke="#34d399"/>
+        <text x="400" y="390" fill="#e8ecf7">4. unscale → clip grad → optimizer.step()</text>
+        <text x="400" y="426" fill="#fbbf24" font-size="20">↓</text>
+        <rect x="230" y="436" width="340" height="46" rx="10" fill="#0c2b1a" stroke="#34d399"/>
+        <text x="400" y="464" fill="#e8ecf7">5. scaler.update() → scheduler.step()</text>
+        <text x="400" y="500" fill="#fbbf24" font-size="20">↓</text>
+        <rect x="230" y="510" width="340" height="46" rx="10" fill="#0c2b1a" stroke="#34d399"/>
+        <text x="400" y="538" fill="#e8ecf7">6. log + lưu checkpoint định kỳ</text>
+      </g>
+      <rect x="40" y="560" width="720" height="44" rx="10" fill="#2a1420" stroke="#7f1d1d"/>
+      <text x="400" y="588" fill="#fca5a5" font-size="13.5" text-anchor="middle">mất điện giữa chừng → load_ckpt() → tiếp tục đúng step, đúng LR, đúng RNG</text>
+    </svg>
+    <div class="note">💡 Đọc sơ đồ từ trên xuống: 3 bước đầu lặp K lần để cộng dồn gradient (nhánh "chưa"),
+    đủ K mới đi tiếp 3 bước cập nhật. Tối nay ta hiện thực đúng sơ đồ này trong
+    <b>train.py</b>, thêm tham số dòng lệnh <span class="pill">--resume checkpoint.pt</span>
+    và <span class="pill">--accum 8</span>.</div>
+  </section>
+
+  <div class="green">
+    <h3>⚡ Góc tiết kiệm năng lượng</h3>
+    <img class="hero" src="img/day09_energy.webp" alt="Trung tâm dữ liệu AI tiết kiệm năng lượng" style="margin-bottom:12px">
+    <p><b>Training loop tốt cũng là training loop xanh.</b> Ba kỹ thuật hôm nay đều tiết kiệm điện theo cách riêng:</p>
+    <p>① <b>Mixed precision</b> rút ngắn thời gian train ~30–50% → cùng một lượng token, GPU chạy ít giờ hơn,
+    điện tiêu thụ giảm tương ứng. Đây là "món hời" lớn nhất: nhanh hơn <i>và</i> rẻ hơn mà chất lượng model
+    không đổi.<br>
+    ② <b>Gradient accumulation</b> giúp GPU luôn chạy đầy tải với micro-batch vừa VRAM, thay vì phải giảm
+    batch xuống mức GPU "ngáp" chờ — GPU chạy không đầy tải vẫn ngốn điện gần như đầy tải, nên để nó nhàn
+    là lãng phí.<br>
+    ③ <b>Checkpoint đầy đủ</b> tránh thảm họa "train lại từ đầu" khi sự cố — mỗi lần train lại là đốt lại
+    toàn bộ điện năng của những giờ đã chạy.</p>
+    <p style="margin-bottom:0"><b>Đo để quản lý</b> — đừng đoán. Thư viện <b>CodeCarbon</b> đo kWh và CO₂ ngay trong code:</p>
+    <div class="code">from codecarbon import EmissionsTracker
+tracker = EmissionsTracker()   # tự phát hiện GPU/CPU/region điện
+tracker.start()
+# ... vòng lặp huấn luyện ...
+tracker.stop()                 # in ra: kWh tiêu thụ + kg CO2</div>
+    <p style="margin-bottom:0"><b>Chỉ số nên theo dõi</b> (green checkpoint tối nay):
+    <span class="pill">kWh / 1 triệu token</span> và <span class="pill">tokens / giây</span>.
+    So sánh con số này khi bật/tắt AMP — bạn sẽ thấy tận mắt mixed precision "xanh" đến mức nào.</p>
+  </div>
+
+  <section class="card">
+    <h2><span class="n">✓</span>Tóm tắt 1 phút</h2>
+    <ul>
+      <li><b>Token budget:</b> tokens/step = batch_size × seq_len; effective_batch = batch/GPU × accum × số GPU.</li>
+      <li><b>AdamW:</b> θ ← θ − lr·(m̂/(√v̂+ε) + λθ) — weight decay tách riêng, không qua mẫu số thích ứng; không decay bias/LayerNorm.</li>
+      <li><b>LR schedule:</b> warmup tuyến tính (~2000 step) rồi cosine decay về max_lr/10.</li>
+      <li><b>Mixed precision:</b> bf16 phạm vi rộng như fp32 → không cần scaler; fp16 cần GradScaler + loss scaling (bỏ step khi inf/NaN).</li>
+      <li><b>Accumulation:</b> cộng dồn K micro-batch mới step; nhớ <b>chia loss cho K</b> và chỉ zero_grad sau khi step.</li>
+      <li><b>Checkpoint:</b> lưu model + optimizer + scheduler + scaler + step + <b>RNG (python/numpy/torch/cuda)</b> + vị trí dataset.</li>
+      <li><b>⚡ Năng lượng:</b> AMP giảm 30–50% giờ GPU; accumulation giữ GPU đầy tải; đo kWh/triệu token bằng CodeCarbon.</li>
+    </ul>
+  </section>
+
+  <div class="nav">
+    <a class="quiz" href="Day09_quiz.html">📝 Làm quiz 5 câu →</a>
+    <a class="video" href="Day09_video.mp4">🎬 Xem video giải thích →</a>
+  </div>
+
+  <footer>Khóa "Trở thành AI Engineer (LLM)" • Ngày 9/30 • Buổi sáng: lý thuyết + quiz</footer>
+
+</div>
+</body>
+</html>

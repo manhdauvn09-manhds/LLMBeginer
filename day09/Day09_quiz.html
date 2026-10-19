@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quiz Ngày 9 — Training loop: AMP, accumulation, checkpoint</title>
+<style>
+  :root{--bg:#0b1020;--card:#141b33;--line:#26314f;--txt:#e8ecf7;--muted:#9aa6c7;
+    --gold:#fbbf24;--blue:#60a5fa;--green:#34d399;--red:#f87171;}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  body{margin:0;background:var(--bg);color:var(--txt);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;line-height:1.7;font-size:16px;}
+  .wrap{max-width:760px;margin:0 auto;padding:0 18px 80px;}
+  .kicker{display:inline-block;margin:26px 0 10px;padding:6px 14px;border:1px solid var(--line);
+    border-radius:999px;color:var(--muted);font-size:13px;}
+  h1{font-size:clamp(24px,5vw,32px);margin:6px 0 4px;}
+  .sub{color:var(--muted);margin:0 0 18px;}
+  .q{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin:16px 0;}
+  .q h3{margin:0 0 10px;font-size:17px;}
+  .q h3 .qn{color:var(--gold);margin-right:6px;}
+  .tag{display:inline-block;font-size:12px;color:var(--muted);border:1px solid var(--line);
+    border-radius:999px;padding:2px 10px;margin-left:8px;}
+  label.opt{display:block;padding:10px 12px;border:1px solid var(--line);border-radius:10px;
+    margin:8px 0;cursor:pointer;}
+  label.opt:hover{border-color:var(--blue);}
+  label.opt input{margin-right:10px;transform:scale(1.2);}
+  .exp{display:none;margin-top:10px;padding:10px 12px;border-radius:10px;font-size:15px;}
+  .exp.ok{display:block;background:#0c2b1a;border:1px solid #14532d;}
+  .exp.no{display:block;background:#2a1420;border:1px solid #7f1d1d;}
+  .btnrow{display:flex;gap:12px;flex-wrap:wrap;margin:24px 0;}
+  button{flex:1 1 200px;padding:15px;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer;}
+  #submit{background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;}
+  #copy{background:linear-gradient(135deg,#34d399,#047857);color:#06281c;display:none;}
+  #score{font-size:19px;font-weight:800;margin:14px 0;display:none;}
+  .note{color:var(--muted);font-size:14px;border:1px dashed var(--line);border-radius:12px;padding:12px 14px;margin-top:18px;}
+  .back{display:inline-block;margin-top:10px;color:var(--blue);text-decoration:none;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <span class="kicker">Khóa AI Engineer (LLM) · Quiz Ngày 9/30 · Training loop</span>
+  <h1>📝 Quiz Ngày 9 — 5 câu về training loop</h1>
+  <p class="sub">Chọn đáp án rồi bấm <b>Nộp bài</b> để chấm điểm ngay trong file. Mục tiêu: ≥ 4/5 (dưới 70% → buổi sau ôn lại chỗ hổng).</p>
+
+  <div id="quiz"></div>
+
+  <div class="btnrow">
+    <button id="submit" onclick="grade()">Nộp bài</button>
+    <button id="copy" onclick="copyResult()">📋 Copy kết quả</button>
+  </div>
+  <div id="score"></div>
+
+  <div class="note">ℹ️ File HTML này chạy offline, <b>không tự gửi kết quả về được</b>. Sau khi bấm "Copy kết quả", bạn paste chuỗi kết quả vào chat để trợ lý ghi điểm và theo dõi tiến độ nhé.</div>
+  <a class="back" href="Day09_lesson.html">← Quay lại bài học</a>
+
+<script>
+const QUESTIONS = [
+ {q:"Vì sao huấn luyện với bf16 KHÔNG cần GradScaler, trong khi fp16 thì cần?",
+  tag:"Mixed precision",
+  opts:["Vì bf16 tính toán nhanh gấp đôi fp16 nên không kịp tràn số",
+        "Vì bf16 có 8 bit exponent — phạm vi biểu diễn rộng như fp32 — nên gradient nhỏ không bị underflow thành 0; fp16 chỉ có 5 bit exponent, phạm vi hẹp nên cần loss scaling",
+        "Vì bf16 tự động chuyển các layer nhạy cảm về fp32 còn fp16 thì không",
+        "Vì GradScaler chỉ tương thích với kiến trúc GPU cũ, không hỗ trợ bf16"],
+  ans:1,
+  exp:"Vấn đề của fp16 là phạm vi động hẹp (5 bit exponent): gradient nhỏ bị tràn về 0 (underflow), mất tín hiệu học → cần nhân loss với hệ số lớn (loss scaling) qua GradScaler. bf16 giữ 8 bit exponent như fp32 nên phạm vi rộng tương đương, không underflow, không cần scaler."},
+ {q:"GPU của bạn chỉ chứa được micro-batch 8 chuỗi, nhưng bạn muốn effective batch 64. Cách làm đúng với gradient accumulation là gì?",
+  tag:"Gradient accumulation",
+  opts:["Chạy 8 micro-batch, mỗi micro-batch backward bình thường, optimizer.step() sau mỗi micro-batch",
+        "Đặt accum_steps = 8, chia loss cho 8 trước khi backward, cộng dồn gradient qua 8 micro-batch rồi mới optimizer.step() một lần",
+        "Nhân loss với 8 trước khi backward để gradient đủ lớn rồi step một lần",
+        "Tăng learning rate lên 8 lần để bù cho batch nhỏ, không cần accumulation"],
+  ans:1,
+  exp:"Accumulation = cộng dồn gradient qua K micro-batch rồi step một lần, cho hiệu quả tương đương batch K×micro-batch. Bắt buộc: chia loss cho K trước khi backward (không thì gradient bị nhân K lần ≃ tăng LR K lần → loss nổ), và chỉ zero_grad sau khi đã step."},
+ {q:"Điểm khác biệt cốt lõi giữa AdamW và Adam (với L2 regularization) là gì?",
+  tag:"AdamW",
+  opts:["AdamW dùng moment bậc 3 còn Adam chỉ dùng đến bậc 2",
+        "AdamW tách weight decay ra khỏi gradient — trừ thẳng λ·θ vào trọng số — thay vì nhúng vào gradient như L2 rồi bị mẫu số thích ứng √(v̂)+ε làm méo mó",
+        "AdamW không cần learning rate vì tự điều chỉnh hoàn toàn",
+        "AdamW chỉ áp dụng được cho mô hình Transformer, Adam dùng cho mọi mô hình"],
+  ans:1,
+  exp:"Trong Adam + L2, weight decay bị cộng vào gradient rồi đi qua mẫu số thích ứng của Adam, khiến tác dụng regularization không đồng đều giữa các tham số. AdamW (Loshchilov & Hutter, 2019) tách riêng: θ ← θ − lr·(m̂/(√v̂+ε) + λθ). Thực hành: không áp weight decay cho bias và LayerNorm."},
+ {q:"Để resume training mà tái lập được hoàn toàn kết quả (reproducible), ngoài model / optimizer / scheduler / scaler / step, checkpoint BẮT BUỘC phải lưu thêm gì?",
+  tag:"Checkpoint & RNG",
+  opts:["Tên file log và đường dẫn thư mục output",
+        "Trạng thái của cả 4 bộ sinh số ngẫu nhiên: random (Python), numpy, torch CPU và torch CUDA — vì dropout và shuffle dữ liệu đều dùng chúng",
+        "Phiên bản hệ điều hành và driver GPU của máy train",
+        "Toàn bộ dataset huấn luyện để đảm bảo dữ liệu không đổi"],
+  ans:1,
+  exp:"Tính ngẫu nhiên trong training (dropout, shuffle...) đến từ 4 nguồn RNG độc lập. Chỉ lưu trọng số mà quên RNG → resume xong dãy số ngẫu nhiên khác hẳn, kết quả không bao giờ tái lập được. Kèm theo: vị trí đang đọc trong dataset (DataLoader không tự lưu) và lưu ý torch.load cần weights_only=False vì RNG state là object pickle."},
+ {q:"Vì sao lịch learning rate chuẩn của LLM luôn bắt đầu bằng pha warmup (tăng dần từ 0)?",
+  tag:"LR schedule",
+  opts:["Vì GPU cần thời gian làm nóng phần cứng trước khi chạy hết công suất",
+        "Vì đầu buổi train trọng số còn ngẫu nhiên, gradient rất nhiễu — dùng ngay LR cao có thể làm loss bùng nổ (diverge) thành NaN",
+        "Vì warmup giúp giảm dung lượng VRAM tiêu thụ trong các step đầu",
+        "Vì cosine decay chỉ hoạt động chính xác khi có warmup đứng trước"],
+  ans:1,
+  exp:"Warmup là 'khởi động máy êm': LR tăng tuyến tính từ 0 lên max_lr trong ~2000 step đầu để model ổn định trước khi vào pha học chính. Quên warmup mà đạp ga ngay là lỗi kinh điển — loss nổ thành NaN và không cứu được, phải train lại từ đầu."}
+];
+let result = "";
+
+function render(){
+  const box = document.getElementById("quiz");
+  box.innerHTML = QUESTIONS.map((it,i)=>`
+    <div class="q" id="q${i}">
+      <h3><span class="qn">Câu ${i+1}.</span>${it.q}<span class="tag">${it.tag}</span></h3>
+      ${it.opts.map((o,j)=>`
+        <label class="opt"><input type="radio" name="q${i}" value="${j}">${"ABCD"[j]}. ${o}</label>`).join("")}
+      <div class="exp" id="exp${i}"></div>
+    </div>`).join("");
+}
+
+function grade(){
+  let correct = 0; const picks = [];
+  QUESTIONS.forEach((it,i)=>{
+    const sel = document.querySelector(`input[name=q${i}]:checked`);
+    const exp = document.getElementById(`exp${i}`);
+    if(!sel){ exp.className="exp no"; exp.textContent="⚠️ Bạn chưa chọn đáp án câu này."; picks.push("–"); return; }
+    const v = +sel.value; picks.push("ABCD"[v]);
+    if(v===it.ans){ correct++; exp.className="exp ok"; exp.innerHTML="✅ <b>Đúng.</b> "+it.exp; }
+    else{ exp.className="exp no"; exp.innerHTML=`❌ <b>Sai.</b> Đáp án đúng là <b>${"ABCD"[it.ans]}</b>. `+it.exp; }
+  });
+  const s = document.getElementById("score");
+  s.style.display = "block";
+  s.innerHTML = `Kết quả: <span style="color:${correct>=4?"var(--green)":"var(--red)}">${correct}/5</span>` +
+    (correct>=4 ? " — Đạt! 🎉 Sẵn sàng cho buổi thực hành tối nay (nâng cấp train.py với AMP + accumulation + checkpoint)." : " — Chưa đạt 70%. Hãy đọc lại phần tương ứng trong bài học rồi làm lại nhé. 💪");
+  result = `Day09 Quiz: ${picks.map((p,i)=>(i+1)+p).join(" ")} — ${correct}/5`;
+  document.getElementById("copy").style.display = "block";
+}
+
+function copyResult(){
+  navigator.clipboard.writeText(result).then(
+    ()=>{ document.getElementById("copy").textContent = "✅ Đã copy! Paste vào chat nhé"; },
+    ()=>{ prompt("Copy thủ công chuỗi này:", result); });
+}
+
+render();
+</script>
+</div>
+</body>
+</html>
