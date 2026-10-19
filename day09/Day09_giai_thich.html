@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 09 — Training tái lập + checkpoint &amp; resume: giải thích cho người ngoại đạo</title>
+<style>
+  :root{
+    --bg:#fffdf4; --card:#ffffff; --ink:#23272f; --muted:#6b7280;
+    --accent:#a16207; --accent-soft:#fef9c3;
+    --blue:#2563eb; --blue-soft:#dbeafe;
+    --amber:#b45309; --amber-soft:#fef3c7;
+    --green:#047857; --green-soft:#d1fae5;
+    --rose:#be123c; --rose-soft:#ffe4e6;
+    --cyan:#0891b2; --cyan-soft:#cffafe;
+    --line:#ece5c8; --code-bg:#1e2230;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    line-height:1.75;font-size:16.5px}
+  .wrap{max-width:960px;margin:0 auto;padding:0 20px}
+  header.hero{background:linear-gradient(135deg,#422006 0%,#a16207 55%,#eab308 100%);
+    color:#fff;padding:64px 0 48px;margin-bottom:8px}
+  header.hero h1{margin:0 0 12px;font-size:2.1rem;line-height:1.3}
+  header.hero p{margin:6px 0;opacity:.92;max-width:720px}
+  .tag{display:inline-block;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.35);
+    border-radius:999px;padding:3px 14px;font-size:.85rem;margin-bottom:14px}
+  nav.sticky{position:sticky;top:0;z-index:50;background:rgba(255,253,244,.96);
+    backdrop-filter:blur(6px);border-bottom:1px solid var(--line)}
+  nav.sticky .wrap{display:flex;gap:4px;overflow-x:auto;padding:10px 20px;white-space:nowrap}
+  nav.sticky a{color:var(--muted);text-decoration:none;font-size:.88rem;padding:6px 10px;border-radius:8px}
+  nav.sticky a:hover{background:var(--accent-soft);color:var(--accent)}
+  section{padding:34px 0;border-bottom:1px solid var(--line)}
+  h2{font-size:1.55rem;margin:0 0 6px;color:#422006}
+  h2 .num{display:inline-block;background:var(--accent);color:#fff;font-size:.95rem;
+    width:34px;height:34px;line-height:34px;text-align:center;border-radius:10px;margin-right:10px;vertical-align:middle}
+  h3{font-size:1.15rem;margin:26px 0 8px}
+  .lead{color:#4b5563;font-size:1.05rem}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:20px 22px;margin:16px 0;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin:18px 0}
+  .concept{background:var(--card);border:1px solid var(--line);border-top:4px solid var(--accent);
+    border-radius:12px;padding:16px 18px}
+  .concept h4{margin:0 0 6px;font-size:1.02rem}
+  .concept p{margin:0;font-size:.93rem;color:#4b5563}
+  .concept.blue{border-top-color:var(--blue)} .concept.green{border-top-color:var(--green)}
+  .concept.rose{border-top-color:var(--rose)} .concept.cyan{border-top-color:var(--cyan)}
+  pre{background:var(--code-bg);color:#e8eaf2;border-radius:12px;padding:18px 20px;
+    overflow-x:auto;font-size:.86rem;line-height:1.6;margin:14px 0;max-height:560px;overflow-y:auto}
+  code{font-family:"SF Mono",Consolas,"Courier New",monospace}
+  p code, li code, td code{background:var(--accent-soft);padding:1px 7px;border-radius:6px;font-size:.88em;color:#854d0e}
+  pre code{background:none;padding:0;color:inherit}
+  .kw{color:#c792ea}.fn{color:#82aaff}.str{color:#c3e88d}.cm{color:#697098;font-style:italic}.num2{color:#f78c6c}
+  .diagram{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px 10px;margin:18px 0;text-align:center;overflow-x:auto}
+  .diagram svg{max-width:100%;height:auto}
+  .caption{font-size:.9rem;color:var(--muted);margin-top:10px;font-style:italic}
+  .analogy{background:#fefce8;border:1px solid #fde68a;border-left:6px solid var(--accent);
+    border-radius:10px;padding:16px 20px;margin:16px 0}
+  .analogy b{color:#854d0e}
+  .warn{background:#fffbeb;border:1px solid #fcd34d;border-left:6px solid var(--amber);
+    border-radius:10px;padding:16px 20px;margin:16px 0}
+  .warn b{color:#92400e}
+  .ok{background:#ecfdf5;border:1px solid #6ee7b7;border-left:6px solid var(--green);
+    border-radius:10px;padding:16px 20px;margin:16px 0}
+  table.mini{border-collapse:collapse;margin:14px auto;font-size:.9rem;min-width:70%}
+  table.mini th, table.mini td{border:1px solid var(--line);padding:8px 14px;text-align:left}
+  table.mini th{background:var(--accent-soft)}
+  table.mini td.num{font-family:monospace;text-align:center}
+  .demo{background:#fff;border:2px solid var(--accent);border-radius:16px;padding:24px;margin:18px 0}
+  .demo h3{margin-top:0}
+  .seg{display:flex;gap:8px;margin:10px 0;flex-wrap:wrap}
+  .seg button{border:2px solid var(--line);background:#fff;border-radius:10px;
+    padding:8px 18px;font-size:1rem;cursor:pointer}
+  .seg button.active{border-color:var(--accent);background:var(--accent-soft);font-weight:700}
+  .big-out{background:var(--code-bg);color:#e8eaf2;border-radius:12px;padding:18px 20px;
+    font-family:monospace;font-size:.92rem;margin-top:12px;line-height:1.9;word-break:break-word}
+  .btn{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:10px 22px;
+    font-size:1rem;cursor:pointer;margin:10px 8px 0 0}
+  .btn:hover{background:#854d0e}
+  .formula{text-align:center;font-size:1.15rem;background:#fefce8;border-radius:10px;
+    padding:18px;margin:14px 0;font-family:Georgia,serif}
+  .formula small{display:block;font-family:inherit;font-size:.85rem;color:var(--muted);margin-top:6px}
+  footer{padding:36px 0 60px;color:var(--muted);font-size:.9rem;text-align:center}
+  ul.tight li{margin-bottom:6px}
+  .flip{border:2px solid var(--line);border-radius:12px;padding:14px 18px;margin:8px 0;cursor:pointer;background:#fff}
+  .flip:hover{border-color:var(--accent)}
+  .flip .q{font-weight:700}
+  .flip .a{display:none;margin-top:8px;color:#4b5563;font-size:.95rem}
+  .flip.open .a{display:block}
+  .flip.open{border-color:var(--accent);background:#fffdf4}
+  .hashbox{font-family:monospace;font-size:.8rem;background:var(--code-bg);color:#c3e88d;
+    border-radius:10px;padding:12px 16px;margin:8px 0;word-break:break-all;line-height:1.7}
+  .match{color:#4ade80;font-weight:700}
+  .timeline{display:flex;gap:6px;align-items:stretch;margin:14px 0;overflow-x:auto;padding:6px 2px}
+  .ep{flex:1;min-width:86px;border:2px solid var(--line);border-radius:10px;padding:10px 8px;
+    text-align:center;font-size:.8rem;background:#fff}
+  .ep b{display:block;font-size:.9rem}
+  .ep.done{background:var(--green-soft);border-color:var(--green)}
+  .ep.crash{background:var(--rose-soft);border-color:var(--rose)}
+  .ep.resume{background:var(--accent-soft);border-color:var(--accent)}
+  @media(max-width:600px){header.hero h1{font-size:1.6rem}body{font-size:15.5px}}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="tag">📄 Phân tích: day09/train_repro.py</span>
+    <h1>Day 09 — Training tái lập<br>+ checkpoint &amp; resume</h1>
+    <p>Hai thí nghiệm chứng minh <b>tính tái lập tuyệt đối</b>: train 2 lần độc lập → trọng số giống nhau <b>từng bit</b> (SHA-256 khớp); "sập nguồn" giữa chừng → resume → <b>không phân biệt được</b> với chạy liên tục.</p>
+    <p style="font-size:.9rem;opacity:.8">Số liệu trong bài là kết quả chạy thật trên CPU.</p>
+  </div>
+</header>
+
+<nav class="sticky"><div class="wrap">
+  <a href="#tong-quan">🍿 Tóm tắt 30 giây</a>
+  <a href="#seed">🎲 Seed toàn diện</a>
+  <a href="#ckpt">💾 Checkpoint 6 món</a>
+  <a href="#tn1">🔬 TN1: tái lập</a>
+  <a href="#tn2">⚡ TN2: resume</a>
+  <a href="#source">📜 Source code</a>
+</div></nav>
+
+<div class="wrap">
+
+<!-- ================= TỔNG QUAN ================= -->
+<section id="tong-quan">
+  <h2><span class="num">🍿</span>Tóm tắt 30 giây cho người ngoại đạo</h2>
+  <p class="lead">Train model mà mỗi lần chạy ra một kết quả khác nhau thì không ai dám tin — không debug được, không so sánh được. Day 9 dạy cách <b>khóa mọi nguồn ngẫu nhiên</b> và <b>lưu đủ trạng thái</b> để train lại y hệt, hoặc "chết" giữa chừng rồi sống lại tiếp tục như chưa hề có cuộc chia ly.</p>
+  <div class="grid">
+    <div class="concept"><h4>🎲 seed_everything(42)</h4><p>Gieo hạt cho <b>mọi</b> nguồn ngẫu nhiên: Python, numpy, torch CPU, torch CUDA — cộng chế độ deterministic của cuDNN. Thiếu một là rò rỉ.</p></div>
+    <div class="concept blue"><h4>💾 Checkpoint đủ 6 món</h4><p>epoch, model, <b>optimizer</b> (momentum Adam!), <b>scheduler</b>, <b>RNG states</b> (kể cả DataLoader!), seed. Chỉ lưu model là Bẫy 1.</p></div>
+    <div class="concept green"><h4>🔬 TN1: tái lập tuyệt đối</h4><p>2 process riêng biệt, cùng seed → SHA-256 trọng số + loss <b>giống hệt từng bit</b>. Không phải "gần bằng" — là <b>bằng</b>.</p></div>
+    <div class="concept rose"><h4>⚡ TN2: sập nguồn &amp; resume</h4><p>Train 3 epoch → <b>kill process thật</b> → process mới nạp checkpoint train tiếp 3 epoch → khớp 100% với chạy 6 epoch liên tục.</p></div>
+  </div>
+  <div class="analogy"><b>🧭 Ví dụ — Nấu ăn theo công thức:</b> <b>Tái lập</b> = hai đầu bếp khác nhau, cùng công thức, ra hai đĩa ăn <b>giống hệt nhau</b> (chứ không phải "na ná"). <b>Resume</b> = đang nấu thì cúp điện, có điện lại thì <b>tiếp tục đúng bước đang dở</b> — không phải nấu lại từ đầu, cũng không phải đoán "lúc nãy cho bao nhiêu muối".</div>
+</section>
+
+<!-- ================= SEED ================= -->
+<section id="seed">
+  <h2><span class="num">🎲</span>seed_everything: gieo hạt cho mọi nguồn ngẫu nhiên</h2>
+  <p class="lead">Ngẫu nhiên trong training đến từ <b>nhiều nguồn độc lập</b>: khởi tạo trọng số (torch), thứ tự shuffle (DataLoader), augmentation (numpy/random)... Chỉ <code>torch.manual_seed</code> thôi là <b>chưa đủ</b>.</p>
+
+  <div class="analogy"><b>🔐 Ví dụ — Khóa 5 cánh cửa:</b> khóa 4 cánh mà quên 1 cánh thì trộm vẫn vào được. Mỗi nguồn random là một cánh cửa — phải khóa <b>tất cả</b> thì mới "tái lập" được.</div>
+
+  <div class="demo">
+    <h3>🖱️ Thử ngay: bấm từng nguồn xem "quên khóa" thì hỏng gì</h3>
+    <div class="flip" data-k="1"><div class="q">1️⃣ random.seed — Python chuẩn</div><div class="a">Dùng ở đâu cũng có: xáo trộn list, chọn mẫu… Quên → thứ tự dữ liệu khác mỗi lần chạy.</div></div>
+    <div class="flip" data-k="2"><div class="q">2️⃣ numpy.random.seed</div><div class="a">Nhiều pipeline tiền xử lý/augmentation dùng numpy. Quên → dữ liệu vào model đã khác nhau từ đầu.</div></div>
+    <div class="flip" data-k="3"><div class="q">3️⃣ torch.manual_seed — khởi tạo trọng số</div><div class="a"><code>nn.Linear</code> khởi tạo trọng số bằng RNG của torch. <b>Phải seed TRƯỚC khi tạo model</b> — seed sau là quá muộn (thủ phạm số 3 trong Q2 của bài)!</div></div>
+    <div class="flip" data-k="4"><div class="q">4️⃣ torch.cuda.manual_seed_all</div><div class="a">Trên GPU có RNG riêng. Code chạy đúng trên CPU nhưng lên GPU lại "lệch" nếu quên dòng này.</div></div>
+    <div class="flip" data-k="5"><div class="q">5️⃣ cudnn.deterministic + benchmark=False — Bẫy 2</div><div class="a"><code>benchmark=True</code> bảo cuDNN "tự chọn thuật toán nhanh nhất mỗi lần chạy" — thuật toán khác nhau cho kết quả float khác nhau ở chữ số cuối → phá vỡ mọi cố gắng deterministic. Hai dòng này <b>phải đi đôi</b>.</div></div>
+    <div class="flip" data-k="6"><div class="q">6️⃣ torch.use_deterministic_algorithms(True) — "nâng cao"</div><div class="a">Bật chế độ deterministic <b>thật</b>: op nào không hỗ trợ sẽ <b>báo lỗi ngay</b> thay vì âm thầm cho kết quả khác nhau. Với MLP này (Linear/ReLU/MSELoss/Adam) thì an toàn.</div></div>
+  </div>
+
+  <div class="warn"><b>⚠️ Điểm tinh tế 90% tutorial bỏ sót:</b> <code>shuffle</code> của DataLoader dùng <b>Generator riêng</b>, không ăn theo <code>torch.manual_seed</code>! Phải truyền <code>generator=torch.Generator().manual_seed(seed)</code> vào DataLoader — và <b>lưu state của generator này</b> vào checkpoint (xem phần tiếp).</div>
+</section>
+
+<!-- ================= CHECKPOINT ================= -->
+<section id="ckpt">
+  <h2><span class="num">💾</span>Checkpoint đủ 6 món: stateful thì lưu hết</h2>
+  <p class="lead">Quy tắc vàng: <b>cái gì có "trí nhớ" (stateful) thì phải lưu hết</b>. Chỉ lưu <code>model.state_dict()</code> là Bẫy 1 — resume được nhưng <b>không giống</b> chạy liên tục.</p>
+
+  <div class="analogy"><b>💾 Ví dụ — Save game:</b> save game xịn phải lưu <b>vị trí nhân vật + máu + đạn + bản đồ đã mở</b>. Chỉ lưu vị trí (model) mà quên số đạn (momentum) và bản đồ (RNG) thì load lại… chơi tiếp được, nhưng <b>không còn là ván cũ</b> nữa.</div>
+
+  <div class="demo">
+    <h3>🖱️ Thử ngay: bấm từng món xem "thiếu" thì hỏng gì</h3>
+    <div class="flip"><div class="q">1️⃣ epoch — đang ở epoch mấy</div><div class="a">Để resume biết train <b>tiếp từ epoch+1</b>, không train lại từ đầu cũng không bỏ sót epoch.</div></div>
+    <div class="flip"><div class="q">2️⃣ model.state_dict() — trọng số</div><div class="a">Hiển nhiên phải có. Nhưng <b>một mình nó là chưa đủ</b> — đó chính là Bẫy 1.</div></div>
+    <div class="flip"><div class="q">3️⃣ optimizer.state_dict() — momentum của Adam ⚠️</div><div class="a">Adam nhớ "đà" (momentum) của các bước trước. Thiếu → hướng đi sau resume <b>chệch</b> ngay bước đầu tiên. Đây là thứ hay bị quên nhất!</div></div>
+    <div class="flip"><div class="q">4️⃣ scheduler.state_dict() — learning rate đang ở đâu</div><div class="a">StepLR giảm lr mỗi 2 epoch (0.001 → 0.0005 → 0.00025…). Thiếu → lr <b>không khớp</b>, đường loss rẽ sang hướng khác. Log thật: <code>[0.001, 0.0005, 0.0005, 0.00025, 0.00025, 0.000125]</code>.</div></div>
+    <div class="flip"><div class="q">5️⃣ rng states — Python + numpy + torch + CUDA + <b>DataLoader</b> ⚠️</div><div class="a">Thiếu RNG → <b>thứ tự batch sau resume khác</b> → gradient khác → rẽ hướng. Điểm tinh tế: DataLoader dùng <b>Generator riêng</b>, không nằm trong <code>torch.get_rng_state()</code> — phải lưu <code>loader_gen.get_state()</code> riêng!</div></div>
+    <div class="flip"><div class="q">6️⃣ seed — hạt giống gốc</div><div class="a">Để biết checkpoint này thuộc về "vũ trụ" seed nào — tài liệu hóa, tránh nhầm lẫn khi có nhiều run.</div></div>
+  </div>
+
+  <div class="warn"><b>⚠️ Thứ tự khi nạp cũng quan trọng:</b> phải nạp <b>RNG state TRƯỚC</b> khi làm bất cứ việc ngẫu nhiên nào tiếp theo. Nạp model trước rồi mới nạp RNG thì… vẫn đúng ở đây, nhưng nguyên tắc "khôi phục ngẫu nhiên trước, dùng sau" tránh cả họ bug khó thấy.</div>
+  <div class="ok"><b>💡 Dọn dẹp checkpoint:</b> sau mỗi epoch, script giữ <b>bản mới nhất + bản mỗi 3 epoch</b>, xóa các bản lẻ ở giữa — checkpoint đầy đủ 6 món thì nặng, không thể giữ tất cả mà cũng không cần.</div>
+</section>
+
+<!-- ================= TN1 ================= -->
+<section id="tn1">
+  <h2><span class="num">🔬</span>Thí nghiệm 1: 2 process độc lập, 1 kết quả</h2>
+  <p class="lead">Train 2 lần <b>hoàn toàn độc lập</b> (2 process riêng, RAM riêng) với cùng seed 42, mỗi lần 6 epoch. So sánh bằng <b>SHA-256 của toàn bộ trọng số</b> — mạnh hơn nhiều so với "loss gần bằng".</p>
+
+  <div class="diagram">
+    <svg width="680" viewBox="0 0 680 190" font-family="inherit">
+      <text x="340" y="22" text-anchor="middle" font-size="15" font-weight="700">2 process riêng biệt · cùng seed=42 · 6 epoch</text>
+      <g font-size="13" text-anchor="middle">
+        <rect x="60" y="60" width="220" height="70" rx="10" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+        <text x="170" y="88" font-weight="700">Process 1</text>
+        <text x="170" y="110" fill="#6b7280" font-size="11">hash=21689b8b…</text>
+        <rect x="400" y="60" width="220" height="70" rx="10" fill="#d1fae5" stroke="#047857" stroke-width="2"/>
+        <text x="510" y="88" font-weight="700">Process 2</text>
+        <text x="510" y="110" fill="#6b7280" font-size="11">hash=21689b8b…</text>
+      </g>
+      <text x="340" y="95" text-anchor="middle" font-size="22">🟰</text>
+      <text x="340" y="160" text-anchor="middle" font-size="13" fill="#047857" font-weight="700">PASS — hash + train_loss + val_loss giống hệt từng bit</text>
+    </svg>
+  </div>
+
+  <div class="demo">
+    <h3>🔍 Soi 2 hash SHA-256 (kết quả chạy thật)</h3>
+    <p style="margin-top:0">SHA-256 của toàn bộ trọng số sau 6 epoch, 2 run độc lập:</p>
+    <div class="hashbox">Run 1: <span class="match">21689b8b76e79ac634efc2c7f5eb3a6ef59c35dc318a78eefe5274dae248be86</span></div>
+    <div class="hashbox">Run 2: <span class="match">21689b8b76e79ac634efc2c7f5eb3a6ef59c35dc318a78eefe5274dae248be86</span></div>
+    <p style="color:var(--muted);font-size:.93rem">Khớp <b>64/64 ký tự hex</b> — nghĩa là mọi trọng số giống nhau đến từng bit. train_loss cả hai: <code>7.0313516744</code> (in 10 chữ số thập phân để không "làm tròn cho qua").</p>
+  </div>
+
+  <div class="ok"><b>💡 Vì sao phải 2 process riêng?</b> Chạy 2 lần trong cùng process thì RAM, RNG global… còn "dư âm" lần trước — dễ PASS giả. Process riêng = <b>"sạch sẽ" tuyệt đối</b>, chứng minh mạnh nhất.</div>
+</section>
+
+<!-- ================= TN2 ================= -->
+<section id="tn2">
+  <h2><span class="num">⚡</span>Thí nghiệm 2: sập nguồn ở epoch 3, resume như chưa hề có cuộc chia ly</h2>
+  <p class="lead"><b>Run A:</b> train 6 epoch liên tục. <b>Run B:</b> train 3 epoch → <b>process kết thúc thật</b> (model bay khỏi RAM = "sập nguồn") → process <b>mới</b>, model <b>mới</b>, nạp checkpoint, train tiếp 3 epoch. So sánh hash + loss từng epoch 4, 5, 6.</p>
+
+  <div class="timeline">
+    <div class="ep done"><b>ep 1</b>15.614</div>
+    <div class="ep done"><b>ep 2</b>13.360</div>
+    <div class="ep done"><b>ep 3</b>11.131</div>
+    <div class="ep crash"><b>💥 SẬP</b>process chết</div>
+    <div class="ep resume"><b>ep 4</b>9.376</div>
+    <div class="ep resume"><b>ep 5</b>7.947</div>
+    <div class="ep resume"><b>ep 6</b>7.031</div>
+  </div>
+  <p class="caption" style="text-align:center">Run B: 3 epoch → sập nguồn → resume 3 epoch. Loss train từng epoch <b>khớp 100%</b> với Run A chạy liên tục: [15.614, 13.360, 11.131, 9.376, 7.947, 7.031].</p>
+
+  <div class="demo">
+    <h3>📊 Loss từng epoch: Run A (liên tục) vs Run B (resume)</h3>
+    <div class="big-out" id="lossCmp">Đang vẽ…</div>
+    <p style="color:var(--muted);font-size:.93rem;margin-bottom:0">Hash cuối: A = B = <code>21689b8b…be86</code> ✅ &nbsp;|&nbsp; Loss epoch 4,5,6 giống hệt nhau: <b>True</b> ✅</p>
+  </div>
+
+  <div class="ok"><b>⚡ Green checkpoint — resume tốt tiết kiệm bao nhiêu điện?</b> Train LLM thật tốn hàng tuần GPU. Sập nguồn ở 90% mà phải train lại từ đầu = <b>đốt tiền</b>. Checkpoint đúng (6 món) cho phép resume <b>chính xác từng bit</b> — 3 epoch đã train không hề uổng phí. Đó là lý do checkpoint không chỉ là "lưu cho chắc" mà là <b>kinh tế</b>.</div>
+  <div class="warn"><b>⚠️ Ghi chú trong code (checklist mục 5):</b> ở đây "crash" rơi đúng biên epoch nên checkpoint theo epoch là đủ. Với LLM thật, crash có thể rơi <b>giữa</b> epoch (mới train 70% batch) → muốn resume chính xác phải checkpoint theo <b>step</b>, lưu cả "đang đứng ở batch thứ mấy trong DataLoader".</div>
+</section>
+
+<!-- ================= SOURCE CODE ================= -->
+<section id="source">
+  <h2><span class="num">📜</span>Toàn bộ source code</h2>
+  <p class="lead">File <code>day09/train_repro.py</code> (384 dòng) — tô màu tự động, bấm nút để copy.</p>
+  <button class="btn" id="copySrcBtn">📋 Copy toàn bộ code</button>
+  <span id="copyMsg" style="margin-left:12px;color:var(--green);font-weight:700"></span>
+  <pre class="pysrc" id="fullsrc"><code>#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""Training loop tai lap + checkpoint &amp; resume (Day 09 - buoi toi).
+
+Muc dich:
+    - seed_everything: gieo hat toan dien (random/numpy/torch/cuda).
+    - Checkpoint DAY DU 6 thu: epoch, model, optimizer, scheduler,
+      RNG states, seed.
+    - Thi nghiem 1 (tai lap): train 2 lan doc lap (2 process rieng) -&gt;
+      SHA-256 trong so cuoi + loss cuoi Y HET nhau.
+    - Thi nghiem 2 (resume): train 6 epoch lien tuc == train 3 epoch -&gt;
+      "sap nguon" -&gt; resume 3 epoch (H_A == H_B).
+
+Cach chay:
+    python train_repro.py            # chay ca 2 thi nghiem
+    python train_repro.py --worker ...  # che do worker (duoc goi noi bo)
+
+Ghi chu: de bai nhac setup_day9.py "da viet san" nhung file do khong co
+trong repo, nen phan setup du lieu duoc nhung thang vao make_data().
+
+Chi can PyTorch (CPU la du).
+"""
+
+import argparse
+import hashlib
+import json
+import os
+import random
+import subprocess
+import sys
+
+import torch
+import torch.nn as nn
+
+try:
+    import numpy as np
+    _HAS_NUMPY = True
+except ImportError:  # torch CPU van chay duoc khi thieu numpy
+    np = None
+    _HAS_NUMPY = False
+
+# ---------------------------------------------------------------------------
+# Cau hinh (moi sieu tham so dat o day)
+# ---------------------------------------------------------------------------
+SEED = 42
+EPOCHS = 6
+BATCH_SIZE = 64
+LR = 1e-3
+N, D = 2000, 20          # kich thuoc du lieu tong hop
+N_TRAIN = 1800           # train 1800 / val 200
+
+
+# ---------------------------------------------------------------------------
+# Buoc 0 - Du lieu &amp; mo hinh (setup_day9.py duoc nhung vao day)
+# ---------------------------------------------------------------------------
+def make_data():
+    """Tao du lieu hoi quy tong hop + chia train/val DETERMINISTIC.
+
+    Du lieu luon giong nhau moi lan goi (dung generator rieng seed 0),
+    khong phu thuoc seed cua thi nghiem - seed thi nghiem chi anh huong
+    khoi tao model va thu tu shuffle.
+    """
+    g = torch.Generator().manual_seed(0)  # RNG rieng cho du lieu
+    X = torch.randn(N, D, generator=g)
+    true_w = torch.randn(D, 1, generator=g)
+    y = X @ true_w + 0.1 * torch.randn(N, 1, generator=g)
+    # Split deterministic: generator rieng seed 7 (nhu de bai).
+    perm = torch.randperm(N, generator=torch.Generator().manual_seed(7))
+    train_ds = torch.utils.data.TensorDataset(X[perm[:N_TRAIN]],
+                                              y[perm[:N_TRAIN]])
+    val_ds = torch.utils.data.TensorDataset(X[perm[N_TRAIN:]],
+                                            y[perm[N_TRAIN:]])
+    return train_ds, val_ds
+
+
+class TinyMLP(nn.Module):
+    """MLP nho: 20 -&gt; 64 (ReLU) -&gt; 1 (bai toan hoi quy)."""
+
+    def __init__(self):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(D, 64), nn.ReLU(), nn.Linear(64, 1))
+
+    def forward(self, x):
+        return self.net(x)
+
+
+# ---------------------------------------------------------------------------
+# Buoc 1 - seed_everything(seed): gieo hat toan dien
+# ---------------------------------------------------------------------------
+def seed_everything(seed):
+    """Gieo hat cho moi nguon ngau nhien, bat che do deterministic.
+
+    Bao gom: random (python), numpy, torch CPU, torch cuda (neu co).
+    cudnn.deterministic=True + benchmark=False phai di doi: benchmark=True
+    bao cuDNN "tu chon thuat toan nhanh nhat moi lan chay" - thuat toan
+    khac nhau cho ket qua float khac nhau o chu so cuoi, pha vo ngam moi
+    co gang deterministic (Bay 2).
+    """
+    random.seed(seed)
+    if _HAS_NUMPY:
+        np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    # Nang cao: bat che do deterministic that - op nao khong ho tro se
+    # bao loi ngay thay vi am tham cho ket qua khac nhau. Voi MLP nay
+    # (Linear/ReLU/MSELoss/Adam) thi an toan.
+    torch.use_deterministic_algorithms(True)
+    return seed
+
+
+# ---------------------------------------------------------------------------
+# Tien ich: hash trong so + checkpoint
+# ---------------------------------------------------------------------------
+def state_dict_hash(model):
+    """SHA-256 tren bytes cua toan bo tensor trong state_dict.
+
+    Dung de so sanh 2 run: hash giong het nhau = trong so giong nhau
+    den tung bit (manh hon nhieu so voi "loss gan bang").
+    """
+    h = hashlib.sha256()
+    for p in model.state_dict().values():
+        # contiguous + bytes(storage): khong can numpy van lay duoc bytes.
+        h.update(bytes(p.detach().cpu().contiguous().untyped_storage()))
+    return h.hexdigest()
+
+
+def save_checkpoint(path, epoch, model, opt, sched, loader_gen, seed):
+    """Luu checkpoint DAY DU 6 thu (quy tac: stateful thi luu het).
+
+    Thieu optimizer state (momentum Adam) -&gt; huong di sau resume chech.
+    Thieu RNG state -&gt; thu tu batch sau resume khac -&gt; gradient khac.
+    Thieu scheduler state -&gt; lr khong khop. Chi luu model.state_dict()
+    la Bay 1: resume duoc nhung khong giong run lien tuc.
+    """
+    ckpt = {
+        "epoch": epoch,
+        "seed": seed,
+        "model": model.state_dict(),
+        "optimizer": opt.state_dict(),   # momentum buffers cua Adam!
+        "scheduler": sched.state_dict(),  # step count cua StepLR
+        "rng": {
+            "python": random.getstate(),
+            "numpy": np.random.get_state() if _HAS_NUMPY else None,
+            "torch": torch.get_rng_state(),
+            "cuda": torch.cuda.get_rng_state_all()
+                    if torch.cuda.is_available() else None,
+            # TRANG THAI RIENG cua DataLoader shuffle: no dung Generator
+            # doc lap, khong nam trong torch.get_rng_state()!
+            "dataloader": loader_gen.get_state(),
+        },
+    }
+    torch.save(ckpt, path)
+    # Giu checkpoint moi nhat + moi 3 epoch mot ban (do ton dia).
+    d = os.path.dirname(path) or "."
+    for f in os.listdir(d):
+        if f.startswith("ckpt_epoch") and f.endswith(".pt"):
+            e = int(f[len("ckpt_epoch"):-len(".pt")])
+            if e != epoch and e % 3 != 0:
+                os.remove(os.path.join(d, f))
+
+
+def load_checkpoint(path, model, opt, sched, loader_gen):
+    """Nap checkpoint, phuc hoi TOAN BO trang thai. Tra ve (epoch, seed).
+
+    Thu tu cuc ky quan trong: nap RNG state TRUOC khi lam bat cu viec
+    ngau nhien nao tiep theo.
+    """
+    ckpt = torch.load(path, weights_only=False)
+    model.load_state_dict(ckpt["model"])
+    opt.load_state_dict(ckpt["optimizer"])
+    sched.load_state_dict(ckpt["scheduler"])
+    rng = ckpt["rng"]
+    random.setstate(rng["python"])
+    if _HAS_NUMPY and rng["numpy"] is not None:
+        np.random.set_state(rng["numpy"])
+    torch.set_rng_state(rng["torch"])
+    if torch.cuda.is_available() and rng["cuda"] is not None:
+        torch.cuda.set_rng_state_all(rng["cuda"])
+    loader_gen.set_state(rng["dataloader"])
+    return ckpt["epoch"], ckpt["seed"]
+
+
+# ---------------------------------------------------------------------------
+# Buoc 2 - train_one_run: vong lap train (+ resume)
+# ---------------------------------------------------------------------------
+def train_one_run(seed, epochs, log_path, ckpt_dir, resume_from=None):
+    """Train 1 run; neu resume_from thi nap checkpoint va train tiep.
+
+    Ghi moi epoch 1 dong JSONL vao log_path:
+        {"epoch": e, "train_loss": ..., "val_loss": ..., "lr": ...}
+
+    Returns:
+        Tuple (loss_train_cuoi, loss_val_cuoi, hash_trong_so, losses).
+    """
+    # Seed TRUOC KHI tao model/DataLoader: nn.Linear khoi tao trong so
+    # bang RNG cua torch - seed sau la qua muon (Q2, thu pham so 3).
+    seed_everything(seed)
+    train_ds, val_ds = make_data()
+
+    # DIEM 90% tutorial bo sot: shuffle cua DataLoader dung RNG RIENG,
+    # khong an theo torch.manual_seed. Phai truyen generator co seed.
+    # (num_workers=0 de tranh phuc tap worker_init_fn - co comment.)
+    loader_gen = torch.Generator().manual_seed(seed)
+    loader = torch.utils.data.DataLoader(
+        train_ds, batch_size=BATCH_SIZE, shuffle=True, generator=loader_gen)
+    val_x, val_y = val_ds.tensors
+
+    model = TinyMLP()
+    opt = torch.optim.Adam(model.parameters(), lr=LR)
+    sched = torch.optim.lr_scheduler.StepLR(opt, step_size=2, gamma=0.5)
+    criterion = nn.MSELoss()
+    os.makedirs(ckpt_dir, exist_ok=True)
+
+    start_epoch = 1
+    if resume_from is not None:
+        # Nap checkpoint TRUOC vong lap, tiep tuc tu epoch+1.
+        last_epoch, _ = load_checkpoint(resume_from, model, opt, sched,
+                                        loader_gen)
+        start_epoch = last_epoch + 1
+
+    # Resume thi GHI TIEP log (append), run moi thi ghi de (write).
+    log_mode = "a" if resume_from is not None else "w"
+    losses = []
+    with open(log_path, log_mode) as logf:
+        for epoch in range(start_epoch, epochs + 1):
+            model.train()
+            total, n = 0.0, 0
+            for xb, yb in loader:
+                opt.zero_grad()  # quen dong nay -&gt; grad cong don -&gt; NaN
+                loss = criterion(model(xb), yb)
+                loss.backward()
+                opt.step()
+                total += loss.item() * len(xb)
+                n += len(xb)
+            train_loss = total / n
+            model.eval()
+            with torch.no_grad():
+                val_loss = criterion(model(val_x), val_y).item()
+            sched.step()
+            lr = opt.param_groups[0]["lr"]
+            losses.append((epoch, train_loss, val_loss))
+            logf.write(json.dumps({"epoch": epoch, "train_loss": train_loss,
+                                   "val_loss": val_loss, "lr": lr}) + "\n")
+            logf.flush()
+            ckpt_path = os.path.join(ckpt_dir, f"ckpt_epoch{epoch}.pt")
+            save_checkpoint(ckpt_path, epoch, model, opt, sched,
+                            loader_gen, seed)
+
+    return train_loss, val_loss, state_dict_hash(model), losses
+
+
+# ---------------------------------------------------------------------------
+# Che do worker: 1 process train 1 run (duoc goi boi thi nghiem)
+# ---------------------------------------------------------------------------
+def run_worker(args):
+    """Worker: train xong in RESULT de tien trinh cha doc."""
+    tl, vl, h, _ = train_one_run(args.seed, args.epochs, args.log,
+                                 args.ckpt_dir, args.resume_from)
+    # In theo format co dinh de cha parse (khong in gi khac ra stdout).
+    print(f"RESULT hash={h} train_loss={tl:.10f} val_loss={vl:.10f}",
+          flush=True)
+
+
+def launch_worker(seed, epochs, log, ckpt_dir, tag, resume_from=None):
+    """Chay 1 worker tren process RIENG, tra ve dict ket qua."""
+    cmd = [sys.executable, os.path.abspath(__file__), "--worker",
+           "--seed", str(seed), "--epochs", str(epochs),
+           "--log", log, "--ckpt-dir", ckpt_dir, "--tag", tag]
+    if resume_from:
+        cmd += ["--resume-from", resume_from]
+    # stderr giu lai de thay loi worker (neu co); stdout chi co RESULT.
+    proc = subprocess.run(cmd, capture_output=True, text=True)
+    if proc.returncode != 0:
+        raise RuntimeError(f"worker {tag} loi:\n{proc.stderr[-2000:]}")
+    line = [l for l in proc.stdout.splitlines() if l.startswith("RESULT")]
+    if not line:
+        raise RuntimeError(
+            f"worker {tag} khong in RESULT:\n{proc.stderr[-2000:]}")
+    parts = dict(p.split("=") for p in line[0].split()[1:])
+    return parts
+
+
+# ---------------------------------------------------------------------------
+# Buoc 4 - Thi nghiem 1: chung minh TAI LAP (2 process doc lap)
+# ---------------------------------------------------------------------------
+def run_experiment_1():
+    """Train 2 lan cung seed tren 2 process rieng -&gt; hash + loss y het."""
+    print("=" * 64)
+    print("Thi nghiem 1 - TAI LAP: 2 process doc lap, cung seed=42")
+    print("=" * 64)
+    r1 = launch_worker(SEED, EPOCHS, "run_exp1a.jsonl", "ckpts_exp1a", "exp1a")
+    r2 = launch_worker(SEED, EPOCHS, "run_exp1b.jsonl", "ckpts_exp1b", "exp1b")
+    print(f"  Run 1: hash={r1['hash'][:16]}... train_loss={r1['train_loss']}")
+    print(f"  Run 2: hash={r2['hash'][:16]}... train_loss={r2['train_loss']}")
+    ok = (r1["hash"] == r2["hash"]
+          and r1["train_loss"] == r2["train_loss"]
+          and r1["val_loss"] == r2["val_loss"])
+    print("  =&gt; PASS: tai lap tuyet doi (hash + loss y het tung bit)"
+          if ok else "  =&gt; FAIL: con cho ro ri randomness!")
+    print("=" * 64)
+    return ok
+
+
+# ---------------------------------------------------------------------------
+# Buoc 5 - Thi nghiem 2: mo phong CRASH va resume
+# ---------------------------------------------------------------------------
+def run_experiment_2():
+    """Run A (6 epoch lien tuc) == Run B (3 epoch -&gt; crash -&gt; resume 3).
+
+    "Crash" that: process worker ket thuc han (model mat khoi RAM), roi
+    process moi nap checkpoint va train tiep.
+    """
+    print("=" * 64)
+    print("Thi nghiem 2 - RESUME: crash o epoch 3 roi train tiep")
+    print("=" * 64)
+    # Run A: 6 epoch lien tuc.
+    ra = launch_worker(SEED, EPOCHS, "run_A.jsonl", "ckpts_A", "exp2a")
+    print(f"  Run A (lien tuc 6 epoch): hash={ra['hash'][:16]}...")
+    # Run B pha 1: train 3 epoch roi "sap nguon" (process ket thuc).
+    launch_worker(SEED, 3, "run_B.jsonl", "ckpts_B", "exp2b_p1")
+    print("  Run B pha 1: train 3 epoch -&gt; SAP NGUON (process ket thuc)")
+    # Run B pha 2: process MOI, model MOI, nap checkpoint, train tiep.
+    rb = launch_worker(SEED, EPOCHS, "run_B.jsonl", "ckpts_B", "exp2b_p2",
+                       resume_from=os.path.join("ckpts_B", "ckpt_epoch3.pt"))
+    print(f"  Run B pha 2: resume tu ckpt_epoch3 -&gt; hash={rb['hash'][:16]}...")
+
+    h_ok = ra["hash"] == rb["hash"]
+    # So sanh loss tung epoch 4,5,6 (doc tu 2 file log JSONL).
+    def read_log(path):
+        return {r["epoch"]: r for r in
+                map(json.loads, open(path, encoding="utf-8"))}
+    la, lb = read_log("run_A.jsonl"), read_log("run_B.jsonl")
+    loss_ok = all(la[e]["train_loss"] == lb[e]["train_loss"]
+                  and la[e]["val_loss"] == lb[e]["val_loss"]
+                  for e in (4, 5, 6))
+    print("  Loss epoch 4,5,6 giong het nhau:", loss_ok)
+    ok = h_ok and loss_ok
+    print("  =&gt; PASS: H_A == H_B - resume khong phan biet duoc voi "
+          "chay lien tuc" if ok else "  =&gt; FAIL: checkpoint thieu trang thai!")
+    print("=" * 64)
+    return ok
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+def main():
+    """Chay tuan tu thi nghiem 1 -&gt; thi nghiem 2, bao cao PASS/FAIL."""
+    ok1 = run_experiment_1()
+    print()
+    ok2 = run_experiment_2()
+    print()
+    print("=" * 64)
+    if ok1 and ok2:
+        print("XONG - Ca 2 thi nghiem PASS: tai lap + resume dat.")
+    else:
+        print("CHUA DAT - xem FAIL o tren de tim cho ro ri.")
+    print("=" * 64)
+    # Ghi chu ve checkpoint muc epoch vs step (checklist muc 5):
+    # O day "crash" dung bien epoch nen checkpoint epoch la du. Voi LLM
+    # that, crash co the roi vao GIUA epoch (da train 70% batch): muon
+    # resume chinh xac phai checkpoint muc STEP - luu ca vi tri dang
+    # dung trong DataLoader (so batch da thay) chu khong chi epoch.
+    return ok1 and ok2
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--worker", action="store_true")
+    parser.add_argument("--seed", type=int, default=SEED)
+    parser.add_argument("--epochs", type=int, default=EPOCHS)
+    parser.add_argument("--log", default="run.log")
+    parser.add_argument("--ckpt-dir", default="ckpts")
+    parser.add_argument("--resume-from", default=None)
+    parser.add_argument("--tag", default="w")
+    args = parser.parse_args()
+    if args.worker:
+        run_worker(args)
+    else:
+        sys.exit(0 if main() else 1)
+</code></pre>
+</section>
+
+</div><!-- /wrap -->
+
+<footer>
+  <div class="wrap">
+    Được dựng từ <code>day09/train_repro.py</code> — giải thích bằng tiếng Việt, vẽ thành sơ đồ cho người ngoại đạo.<br>
+    Số liệu là kết quả chạy thật trên CPU. Sơ đồ là minh họa ý tưởng.
+  </div>
+</footer>
+
+<script>
+// --- Tiện ích ---
+function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+// --- Flip cards ---
+document.querySelectorAll(".flip").forEach(function(el){
+  el.addEventListener("click", function(){ el.classList.toggle("open"); });
+});
+// --- So sánh loss A vs B ---
+(function(){
+  const A = [15.614319, 13.360418, 11.130563, 9.376295, 7.946871, 7.031352];
+  const B = [15.614319, 13.360418, 11.130563, 9.376295, 7.946871, 7.031352];
+  const mx = Math.max.apply(null, A.concat(B));
+  let html = "";
+  for(let i=0;i<6;i++){
+    const wa = (A[i]/mx*100).toFixed(1), wb = (B[i]/mx*100).toFixed(1);
+    const same = A[i] === B[i];
+    html += "ep " + (i+1) + "  A " + "█".repeat(Math.max(1,Math.round(A[i]/mx*28))) + " " + A[i].toFixed(3) + "\n";
+    html += "      B " + "█".repeat(Math.max(1,Math.round(B[i]/mx*28))) + " " + B[i].toFixed(3) +
+            (same ? "  <span style='color:#4ade80'>= khớp</span>" : "  <span style='color:#f87171'>≠ LỆCH</span>") + "\n";
+  }
+  document.getElementById("lossCmp").innerHTML = html;
+})();
+// --- Copy source ---
+(function(){
+  const btn = document.getElementById("copySrcBtn");
+  btn.addEventListener("click", function(){
+    const raw = document.getElementById("fullsrc").textContent;
+    const msg = document.getElementById("copyMsg");
+    const done = function(){ msg.textContent = "Đã copy ✓"; setTimeout(function(){ msg.textContent = ""; }, 2000); };
+    if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(raw).then(done, done); }
+    else { const ta = document.createElement("textarea"); ta.value = raw; document.body.appendChild(ta); ta.select(); try{ document.execCommand("copy"); }catch(e){} document.body.removeChild(ta); done(); }
+  });
+})();
+</script>
+<script>
+// Tô màu cú pháp Python
+(function(){
+  function escHtml(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+  function highlightPython(src){
+    var re = /(#[^\n]*)|("""[\s\S]*?"""|"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*')|\b(import|from|def|class|return|if|elif|else|for|while|in|is|not|and|or|None|True|False|lambda|with|as|try|except|finally|raise|global|pass|break|continue)\b|(\b\d+(?:\.\d+)?\b)|(@[\w.]+)/g;
+    var out = "", last = 0, m;
+    while((m = re.exec(src))){
+      out += escHtml(src.slice(last, m.index));
+      var tok = m[0], cls = m[1] ? "cm" : m[2] ? "str" : m[3] ? "kw" : m[4] ? "num2" : "fn";
+      out += '<span class="' + cls + '">' + escHtml(tok) + "</span>";
+      last = m.index + tok.length;
+      if(tok.length === 0) re.lastIndex++;
+    }
+    return out + escHtml(src.slice(last));
+  }
+  document.querySelectorAll("pre.pysrc").forEach(function(pre){
+    var raw = pre.textContent;
+    pre.innerHTML = "<code>" + highlightPython(raw) + "</code>";
+  });
+})();
+</script>
+</body>
+</html>
