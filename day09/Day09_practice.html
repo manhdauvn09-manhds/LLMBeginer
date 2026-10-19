@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ngày 9 — Buổi tối: Thực hành training loop tái lập + checkpoint &amp; resume (train_repro.py)</title>
+<style>
+ :root{
+  --bg:#0b1020; --card:#141b33; --line:#26314f; --txt:#e8ecf7; --muted:#9aa6c7;
+  --gold:#fbbf24; --blue:#60a5fa; --green:#34d399; --red:#f87171; --violet:#a78bfa; --orange:#fb923c;
+ }
+ *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+ body{margin:0; background:var(--bg); color:var(--txt);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  line-height:1.75; font-size:16.5px;}
+ .wrap{max-width:900px; margin:0 auto; padding:0 18px 80px;}
+ .kicker{display:inline-block; margin:26px 0 10px; padding:6px 14px; border:1px solid var(--line);
+  border-radius:999px; color:var(--muted); font-size:13px; letter-spacing:.4px;}
+ h1{font-size:clamp(25px,5.4vw,36px); line-height:1.32; margin:6px 0 8px;}
+ .sub{color:var(--muted); margin:0 0 6px;}
+ .meta{display:flex; gap:10px; flex-wrap:wrap; margin:14px 0 22px; color:var(--muted); font-size:14px;}
+ .meta span{background:var(--card); border:1px solid var(--line); border-radius:10px; padding:6px 12px;}
+ .goal{background:linear-gradient(135deg,#16213f,#101a36); border:1px solid var(--line);
+  border-radius:14px; padding:18px 20px; margin:26px 0;}
+ .goal h3{margin:0 0 10px; font-size:17px; color:var(--gold);}
+ .goal ul{margin:0; padding-left:20px;}
+ .goal li{margin:6px 0;}
+ section.card{background:var(--card); border:1px solid var(--line); border-radius:16px;
+  padding:22px 20px; margin:22px 0;}
+ section.card h2{margin:0 0 4px; font-size:21px;}
+ section.card h2 .n{display:inline-flex; width:30px; height:30px; border-radius:9px;
+  background:var(--orange); color:#081226; font-size:16px; align-items:center; justify-content:center;
+  margin-right:8px; font-weight:800;}
+ section.card p.lead{color:var(--muted); margin:0 0 12px;}
+ .code{background:#070d1c; border:1px solid var(--line); border-radius:12px; padding:14px 16px;
+  font-family:"SF Mono",Consolas,Menlo,monospace; font-size:13.5px; overflow-x:auto;
+  white-space:pre; margin:14px 0; line-height:1.65; color:#dbe4f7;}
+ .code .todo{color:var(--gold); font-weight:700;}
+ .code .hint{color:var(--muted);}
+ .note{border-left:4px solid var(--green); background:#0f2233; border-radius:0 12px 12px 0;
+  padding:12px 16px; margin:14px 0;}
+ .warn{border-left:4px solid var(--red); background:#2a1420; border-radius:0 12px 12px 0;
+  padding:12px 16px; margin:14px 0;}
+ .green{border:1px solid #14532d; background:linear-gradient(135deg,#0c2b1a,#0a1f14);
+  border-radius:14px; padding:18px 20px; margin:22px 0;}
+ .green h3{margin:0 0 8px; color:var(--green); font-size:18px;}
+ .step{border:1px dashed #33406b; border-radius:12px; padding:14px 16px; margin:14px 0; background:#0b1226;}
+ .step h4{margin:0 0 8px; color:var(--blue); font-size:16.5px;}
+ .step ol{margin:6px 0; padding-left:20px;}
+ .step li{margin:8px 0;}
+ .hintbox{background:#101a36; border:1px solid var(--line); border-radius:10px; padding:10px 14px;
+  margin:10px 0; color:var(--muted); font-size:15px;}
+ .hintbox summary{cursor:pointer; color:var(--violet); font-weight:700;}
+ table.t{width:100%; border-collapse:collapse; margin:14px 0; font-size:15px;}
+ table.t th, table.t td{border:1px solid var(--line); padding:10px 12px; text-align:left; vertical-align:top;}
+ table.t th{background:#0b1226; color:var(--gold);}
+ .quizq{border:1px solid var(--line); border-radius:12px; padding:16px 18px; margin:14px 0; background:#0b1226;}
+ .quizq .qa{color:var(--muted); margin:8px 0 0; display:none;}
+ .quizq.show .qa{display:block;}
+ .quizq button{background:var(--violet); color:#150b33; border:none; border-radius:10px;
+  padding:10px 18px; font-size:15px; font-weight:700; cursor:pointer; margin-top:8px;}
+ .quizq button:hover{filter:brightness(1.08);}
+ .trap{background:#2a1420; border:1px solid #7f1d1d; border-radius:12px; padding:16px 18px; margin:14px 0;}
+ .trap h4{margin:0 0 6px; color:var(--red); font-size:16.5px;}
+ .checklist label{display:block; background:#0b1226; border:1px solid var(--line); border-radius:10px;
+  padding:10px 14px; margin:8px 0; cursor:pointer; font-size:15.5px;}
+ footer{margin-top:44px; color:var(--muted); font-size:13.5px; text-align:center;}
+ a{color:var(--blue);}
+ kbd{background:#0b1226; border:1px solid var(--line); border-radius:6px; padding:2px 8px;
+  font-family:inherit; font-size:14px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<span class="kicker">🛠️ THỰC HÀNH • Buổi tối Ngày 9 • 30 ngày thành AI Engineer (LLM)</span>
+<h1>Ngày 9 — Viết <code>train_repro.py</code>: seed toàn diện, checkpoint, và mô phỏng "crash"</h1>
+<p class="sub">Sáng nay ta học lý thuyết: training loop tốt phải <b>tái lập được</b> (chạy 2 lần ra kết quả y hệt) và <b>hồi phục được</b> (mất điện giữa chừng vẫn resume được). Tối nay ta code thật một training loop có cả hai tính chất, rồi <b>chứng minh bằng thí nghiệm</b> — không tin lời nói suông.</p>
+<div class="meta">
+ <span>⏱️ ~60–90 phút</span><span>🐍 Python 3 + PyTorch (CPU chạy được)</span><span>📤 Nộp code + output vào chat để được nhận xét</span>
+</div>
+
+<div class="goal">
+ <h3>🎯 Mục tiêu tối nay — đầu ra phải có</h3>
+ <ul>
+  <li>File <code>train_repro.py</code> chạy được: <code>seed_everything</code> + train loop có <b>checkpoint đầy đủ</b> (model, optimizer, scheduler, epoch, RNG states).</li>
+  <li><b>Thí nghiệm 1 — Tái lập:</b> train 2 lần cùng seed → SHA-256 của trọng số cuối + loss cuối <b>y hệt nhau</b>.</li>
+  <li><b>Thí nghiệm 2 — Resume:</b> train 6 epoch liên tục <b>==</b> train 3 epoch → lưu checkpoint → resume 3 epoch (kết quả y hệt, chứng tỏ checkpoint chứa đủ "trạng thái").</li>
+  <li>File <code>run.log</code> (loss từng epoch, JSONL) để đối chiếu 2 thí nghiệm.</li>
+ </ul>
+</div>
+
+<section class="card">
+ <h2><span class="n">0</span>Bối cảnh — mô hình &amp; dữ liệu</h2>
+ <p class="lead">Để tập trung vào <b>vòng lặp huấn luyện</b> chứ không phải kiến trúc, ta dùng bài toán nhỏ nhưng đủ thật: hồi quy trên dữ liệu tổng hợp, MLP 2 lớp, Adam + StepLR. Code khởi tạo dưới đây đã viết sẵn — bạn chạy trước, sau đó mới viết vòng lặp train của mình.</p>
+ <div class="code"><span class="hint"># setup_day9.py — ĐÃ VIẾT SẴN, bạn chỉ cần chạy để hiểu dữ liệu
+import torch, torch.nn as nn
+
+torch.manual_seed(0)
+N, D = 2000, 20
+X = torch.randn(N, D)
+true_w = torch.randn(D, 1)
+y = X @ true_w + 0.1 * torch.randn(N, 1)   # hồi quy tuyến tính + nhiễu
+
+class TinyMLP(nn.Module):                  # mô hình nhỏ: 20 -&gt; 64 -&gt; 1
+    def __init__(self):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(D, 64), nn.ReLU(), nn.Linear(64, 1))
+    def forward(self, x): return self.net(x)
+
+# Chia train/val: 1800 / 200 — nhớ: split này cũng phải DETERMINISTIC
+perm = torch.randperm(N, generator=torch.Generator().manual_seed(7))</span></div>
+ <div class="note">💡 <b>Vì sao dùng bài toán nhỏ?</b> Vì với model lớn, một thí nghiệm crash/resume tốn hàng giờ GPU. Nguyên tắc đúng trên bài toán nhỏ sẽ giữ nguyên trên bài toán lớn — chỉ khác ở chi phí khi ta làm sai.</div>
+</section>
+
+<section class="card">
+ <h2><span class="n">1</span>Bài tập chính: viết <code>train_repro.py</code></h2>
+ <p class="lead">Sườn dưới đây có cấu trúc đầy đủ. Nhiệm vụ của bạn: <b>tự viết phần chính</b> trong các hàm đánh dấu <code>TODO</code>. Mỗi bước đều có gợi ý — mở khi bí.</p>
+
+ <div class="step">
+  <h4>Bước 1 — <code>seed_everything(seed)</code>: gieo hạt toàn diện</h4>
+  <ol>
+   <li>Set seed cho <code>random</code>, <code>numpy</code>, <code>torch</code> (CPU) và <code>torch.cuda</code> (nếu có GPU).</li>
+   <li>Bật chế độ deterministic: <code>torch.backends.cudnn.deterministic = True</code> và <code>torch.backends.cudnn.benchmark = False</code> — và hiểu <b>vì sao 2 dòng này phải đi đôi với nhau</b> (xem Bẫy 2).</li>
+   <li>Trả về seed để ghi vào log — vì một thí nghiệm không ghi lại seed của nó thì không thể gọi là "tái lập".</li>
+  </ol>
+  <details class="hintbox"><summary>💡 Gợi ý code</summary>
+   <div class="code"><span class="hint">import random, numpy as np, torch
+
+def seed_everything(seed: int) -> int:
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    # TODO: thêm torch.cuda.manual_seed_all(seed) nếu torch.cuda.is_available()
+    # TODO: 2 dòng cudnn deterministic/benchmark
+    # (nâng cao) torch.use_deterministic_algorithms(True) — có thể làm 1 số op báo lỗi,
+    # với MLP này thì an toàn
+    return seed</span></div>
+  </details>
+ </div>
+
+ <div class="step">
+  <h4>Bước 2 — <code>train_one_run(seed, epochs, ckpt_path=None, resume_from=None)</code>: vòng lặp train</h4>
+  <ol>
+   <li>Gọi <code>seed_everything(seed)</code> <b>đầu tiên</b> — trước cả khi tạo model và DataLoader (vì <code>nn.Linear</code> khởi tạo trọng số bằng RNG của torch).</li>
+   <li>DataLoader: <code>shuffle=True</code> nhưng truyền <code>generator=torch.Generator().manual_seed(seed)</code> — <b>đây là điểm 90% tutorial trên mạng bỏ sót</b>: shuffle của DataLoader dùng RNG riêng, không ăn theo <code>torch.manual_seed</code>.</li>
+   <li>Mỗi epoch: train 1 vòng → tính train loss + val loss → <code>scheduler.step()</code> → ghi 1 dòng JSON vào <code>run.log</code>: <code>{"epoch": e, "train_loss": ..., "val_loss": ..., "lr": ...}</code>.</li>
+   <li>Cuối mỗi epoch: gọi <code>save_checkpoint(...)</code> (Bước 3).</li>
+   <li>Nếu <code>resume_from</code> khác None: load checkpoint <b>trước</b> vòng lặp, tiếp tục từ <code>epoch+1</code>.</li>
+  </ol>
+  <details class="hintbox"><summary>💡 Gợi ý DataLoader deterministic</summary>
+   <div class="code"><span class="hint">g = torch.Generator().manual_seed(seed)
+loader = torch.utils.data.DataLoader(
+    train_ds, batch_size=64, shuffle=True, generator=g)
+# Lưu ý: nếu dùng num_workers &gt; 0, cần thêm worker_init_fn gieo seed
+# cho từng worker — nếu không, thứ tự batch giữa 2 lần chạy sẽ khác nhau.</span></div>
+  </details>
+ </div>
+
+ <div class="step">
+  <h4>Bước 3 — <code>save_checkpoint</code> / <code>load_checkpoint</code>: checkpoint ĐẦY ĐỦ</h4>
+  <ol>
+   <li>Checkpoint phải chứa <b>6 thứ</b>: <code>epoch</code>, <code>model_state_dict</code>, <code>optimizer_state_dict</code>, <code>scheduler_state_dict</code>, <code>rng_states</code> (python/numpy/torch/cuda), <code>seed</code>.</li>
+   <li><code>rng_states</code>: <code>random.getstate()</code>, <code>np.random.get_state()</code>, <code>torch.get_rng_state()</code> (+ cuda nếu có). Khi resume, <b>phục hồi</b> cả 4 — nếu không, thứ tự batch và dropout/noise sau điểm resume sẽ khác, kết quả "gần giống" nhưng không y hệt.</li>
+   <li>Quy ước tên file: <code>ckpt_epoch{E}.pt</code>. Chỉ giữ checkpoint mới nhất + mỗi 3 epoch một bản (đỡ tốn đĩa).</li>
+  </ol>
+  <details class="hintbox"><summary>💡 Gợi ý cấu trúc checkpoint</summary>
+   <div class="code"><span class="hint">ckpt = {
+  "epoch": epoch,
+  "seed": seed,
+  "model": model.state_dict(),
+  "optimizer": opt.state_dict(),     # chứa momentum buffers của Adam!
+  "scheduler": sched.state_dict(),   # chứa step count của StepLR
+  "rng": {
+    "python": random.getstate(),
+    "numpy": np.random.get_state(),
+    "torch": torch.get_rng_state(),
+    # "cuda": torch.cuda.get_rng_state_all()  nếu có GPU
+  },
+}
+torch.save(ckpt, path)</span></div>
+  </details>
+ </div>
+
+ <div class="step">
+  <h4>Bước 4 — Thí nghiệm 1: chứng minh TÁI LẬP</h4>
+  <ol>
+   <li>Chạy <code>train_one_run(seed=42, epochs=6)</code> <b>hai lần độc lập</b> (2 process riêng càng tốt).</li>
+   <li>Sau mỗi lần chạy, tính SHA-256 của <code>model.state_dict()</code> (nối bytes của mọi tensor) và loss cuối.</li>
+   <li><b>Tiêu chí pass:</b> 2 hash y hệt nhau, 2 loss y hệt nhau đến chữ số thập phân cuối cùng. Nếu chỉ "gần bằng" → còn chỗ rò rỉ randomness, quay lại Bước 1–2 tìm.</li>
+  </ol>
+ </div>
+
+ <div class="step">
+  <h4>Bước 5 — Thí nghiệm 2: mô phỏng CRASH và resume</h4>
+  <ol>
+   <li><b>Run A (liên tục):</b> <code>train_one_run(seed=42, epochs=6)</code> — lưu hash cuối <code>H_A</code>.</li>
+   <li><b>Run B (gián đoạn):</b> train 3 epoch → "sập nguồn" (dừng chương trình, xóa model khỏi RAM cho chắc) → tạo model mới → <code>load_checkpoint("ckpt_epoch3.pt")</code> → resume 3 epoch còn lại — lưu hash cuối <code>H_B</code>.</li>
+   <li><b>Tiêu chí pass:</b> <code>H_A == H_B</code> và loss từng epoch 4,5,6 của 2 run y hệt nhau. Đây là bằng chứng checkpoint của bạn chứa <b>đủ trạng thái</b> — thiếu optimizer state hay RNG state là fail ngay.</li>
+  </ol>
+  <div class="warn">⚠️ <b>Bài học sáng nay:</b> "resume được" không có nghĩa là "train tiếp được". Resume đúng nghĩa là <b>không ai phân biệt được</b> run bị gián đoạn với run chạy liền mạch — kể cả máy tính. Tiêu chí <code>H_A == H_B</code> chính là định nghĩa đó.</div>
+ </div>
+</section>
+
+<div class="green">
+ <h3>⚡ Green checkpoint — resume tốt tiết kiệm bao nhiêu điện?</h3>
+ <p>Sau khi 2 thí nghiệm pass, trả lời 2 câu hỏi trong báo cáo nộp bài:</p>
+ <ol>
+  <li><b>Tính toán cụ thể:</b> giả sử train một LLM nhỏ tốn 10 ngày trên 8 GPU, điện + thuê máy ~2.000 USD/ngày. Nếu crash ở ngày thứ 7 mà <b>không có checkpoint</b>, thiệt hại là bao nhiêu? Nếu có checkpoint mỗi 6 giờ, thiệt hại còn bao nhiêu? (Viết phép tính, không cần chính xác tuyệt đối.)</li>
+  <li><b>Đánh đổi:</b> checkpoint mỗi 6 giờ "tốn" thời gian ghi đĩa. Vì sao với LLM lớn, chi phí ghi checkpoint (vài phút) luôn rẻ hơn chi phí mất trắng (vài ngày)? Nêu 1 trường hợp mà checkpoint quá thường xuyên lại gây hại.</li>
+ </ol>
+</div>
+
+<section class="card">
+ <h2><span class="n">2</span>3 câu tự kiểm tra nhanh</h2>
+ <p class="lead">Không chấm điểm — tự check hiểu bài. Bấm nút để hiện đáp án.</p>
+
+ <div class="quizq" id="q1">
+  <b>Câu 1.</b> Checkpoint đã có <code>model.state_dict()</code> và <code>optimizer.state_dict()</code>. Vì sao vẫn cần lưu thêm <code>rng_states</code>? Không lưu thì chuyện gì xảy ra khi resume?
+  <button onclick="document.getElementById('q1').classList.toggle('show')">Hiện đáp án</button>
+  <p class="qa">✅ Vì sau điểm resume, <b>thứ tự các batch</b> (do DataLoader shuffle) và mọi randomness còn lại (dropout, noise) đều do RNG quyết định. Không phục hồi RNG state, run resume sẽ thấy các batch theo thứ tự khác → gradient khác → trọng số sau vài epoch chệch dần khỏi run liên tục. Triệu chứng điển hình: loss "gần giống" nhưng hash trọng số khác — fail tiêu chí <code>H_A == H_B</code>.</p>
+ </div>
+
+ <div class="quizq" id="q2">
+  <b>Câu 2.</b> Bạn đã gọi <code>seed_everything(42)</code> đầy đủ, nhưng 2 lần chạy vẫn ra kết quả khác nhau. Liệt kê 3 "thủ phạm" cần kiểm tra đầu tiên.
+  <button onclick="document.getElementById('q2').classList.toggle('show')">Hiện đáp án</button>
+  <p class="qa">✅ <b>1. DataLoader shuffle:</b> chưa truyền <code>generator</code> có seed riêng (thủ phạm số 1). <b>2. cudnn benchmark:</b> <code>benchmark=True</code> cho phép cuDNN tự chọn thuật toán nhanh nhất mỗi lần chạy — thuật toán khác nhau cho kết quả float khác nhau ở chữ số cuối. <b>3. Thứ tự tạo object:</b> gọi <code>seed_everything</code> <u>sau</u> khi đã tạo model/DataLoader — lúc đó RNG đã bị "tiêu thụ" một đoạn, seed không còn tác dụng như mong đợi. (Ngoài ra: <code>num_workers&gt;0</code> thiếu <code>worker_init_fn</code>, hoặc dùng op không-deterministic mà chưa bật <code>use_deterministic_algorithms</code>.)</p>
+ </div>
+
+ <div class="quizq" id="q3">
+  <b>Câu 3.</b> Vì sao checkpoint lưu <code>optimizer.state_dict()</code> (chứa momentum của Adam) mà không chỉ lưu trọng số model? Điều gì xảy ra nếu resume mà khởi tạo optimizer mới từ đầu?
+  <button onclick="document.getElementById('q3').classList.toggle('show')">Hiện đáp án</button>
+  <p class="qa">✅ Adam không chỉ dùng gradient hiện tại — nó dùng <b>trung bình động của gradient (momentum) và bình phương gradient</b> tích lũy từ nhiều bước trước. Khởi tạo optimizer mới = xóa sạch "trí nhớ" này → vài chục/vài trăm bước đầu sau resume, hướng đi của optimizer khác hẳn → loss chệch khỏi run liên tục. Với LLM train hàng tuần, sai lệch này có thể làm mất cả ngày công "warm-up" lại optimizer.</p>
+ </div>
+</section>
+
+<section class="card">
+ <h2><span class="n">3</span>🪤 Bẫy thường gặp (3 lỗi dễ mắc nhất)</h2>
+
+ <div class="trap">
+  <h4>Bẫy 1 — Chỉ lưu <code>model.state_dict()</code>, quên optimizer + scheduler</h4>
+  <p>Triệu chứng: resume xong loss "nhảy" bất thường ở epoch đầu tiên sau resume, rồi mới ổn định lại. Cách phát hiện: so sánh loss epoch 4 của run A và run B trong Thí nghiệm 2 — khác nhau là dính bẫy. <b>Quy tắc:</b> checkpoint = toàn bộ <i>trạng thái có nhớ</i> (stateful), không chỉ trọng số.</p>
+ </div>
+
+ <div class="trap">
+  <h4>Bẫy 2 — Bật <code>cudnn.benchmark = True</code> cùng lúc với deterministic</h4>
+  <p><code>benchmark=True</code> bảo cuDNN: "mỗi lần chạy hãy đo và chọn thuật toán nhanh nhất" — mà thuật toán được chọn có thể khác nhau giữa 2 lần chạy, cho kết quả float khác nhau ở chữ số cuối. Nó <b>vô hiệu hóa ngầm</b> mọi cố gắng deterministic. <b>Quy tắc:</b> khi cần tái lập, luôn <code>deterministic=True, benchmark=False</code> — chấp nhận chậm hơn một chút để đổi lấy tính tái lập.</p>
+ </div>
+
+ <div class="trap">
+  <h4>Bẫy 3 — Checkpoint ở mức epoch nhưng resume kỳ vọng ở mức step</h4>
+  <p>Nếu crash <b>giữa</b> epoch 4 (đã train được 70% số batch), checkpoint epoch 3 bắt ta train lại cả epoch 4 từ đầu — các batch đã thấy sẽ bị thấy <b>lần 2</b>, thứ tự dữ liệu chệch khỏi run liên tục → fail <code>H_A == H_B</code>. <b>Cách sửa thật:</b> với bài tập này, checkpoint theo epoch là đủ (ta "crash" đúng biên epoch); nhưng hãy <b>viết 1 đoạn comment</b> trong code giải thích: với LLM thật, checkpoint phải ở mức step (lưu cả vị trí trong DataLoader) thì resume mới chính xác.</p>
+ </div>
+</section>
+
+<section class="card">
+ <h2><span class="n">4</span>✅ Checklist nộp bài</h2>
+ <p class="lead">Paste vào chat để được nhận xét chi tiết (trợ giảng sẽ review code như review bài Ngày 2):</p>
+ <div class="checklist">
+  <label><input type="checkbox"> 1. File <code>train_repro.py</code> (paste code hoặc mô tả ngắn các hàm đã viết)</label>
+  <label><input type="checkbox"> 2. Output Thí nghiệm 1: 2 hash SHA-256 + 2 loss cuối (chứng minh tái lập)</label>
+  <label><input type="checkbox"> 3. Output Thí nghiệm 2: H_A, H_B + loss epoch 4,5,6 của 2 run (chứng minh resume đúng)</label>
+  <label><input type="checkbox"> 4. Trả lời 2 câu hỏi Green checkpoint (phép tính thiệt hại khi crash + đánh đổi tần suất checkpoint)</label>
+  <label><input type="checkbox"> 5. (Tự nguyện) Đoạn comment về checkpoint mức step vs mức epoch trong code của bạn</label>
+ </div>
+ <div class="note">💬 <b>Nộp bài = paste code/kết quả vào chat.</b> Trợ giảng sẽ chạy thử logic, chỉ ra bug (nếu có) theo chuẩn review code có comment <code>[TRAINER]</code>, và gợi ý cải tiến cho buổi tiếp theo.</div>
+</section>
+
+<footer>
+ Khóa "Trở thành AI Engineer (LLM)" — Ngày 9 buổi tối · Bài thực hành training loop tái lập &amp; resume<br>
+ Gắn với bài học sáng: <i>Ngày 9 — Training loop tốt phải tái lập và hồi phục được</i>
+</footer>
+
+</div>
+</body>
+</html>
