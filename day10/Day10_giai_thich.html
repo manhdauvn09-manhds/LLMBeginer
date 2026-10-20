@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 10 — Health checks: "bác sĩ trực" cho training loop</title>
+<style>
+  :root{
+    --bg:#fff7f7; --card:#ffffff; --ink:#23272f; --muted:#6b7280;
+    --accent:#b91c1c; --accent-soft:#fee2e2;
+    --blue:#2563eb; --blue-soft:#dbeafe;
+    --amber:#b45309; --amber-soft:#fef3c7;
+    --green:#047857; --green-soft:#d1fae5;
+    --cyan:#0891b2; --cyan-soft:#cffafe;
+    --violet:#7c3aed; --violet-soft:#ede9fe;
+    --line:#f0d9d9; --code-bg:#1e2230;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    line-height:1.75;font-size:16.5px}
+  .wrap{max-width:960px;margin:0 auto;padding:0 20px}
+  header.hero{background:linear-gradient(135deg,#450a0a 0%,#b91c1c 55%,#f87171 100%);
+    color:#fff;padding:64px 0 48px;margin-bottom:8px}
+  header.hero h1{margin:0 0 12px;font-size:2.1rem;line-height:1.3}
+  header.hero p{margin:6px 0;opacity:.92;max-width:720px}
+  .tag{display:inline-block;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.35);
+    border-radius:999px;padding:3px 14px;font-size:.85rem;margin-bottom:14px}
+  nav.sticky{position:sticky;top:0;z-index:50;background:rgba(255,247,247,.96);
+    backdrop-filter:blur(6px);border-bottom:1px solid var(--line)}
+  nav.sticky .wrap{display:flex;gap:4px;overflow-x:auto;padding:10px 20px;white-space:nowrap}
+  nav.sticky a{color:var(--muted);text-decoration:none;font-size:.88rem;padding:6px 10px;border-radius:8px}
+  nav.sticky a:hover{background:var(--accent-soft);color:var(--accent)}
+  section{padding:34px 0;border-bottom:1px solid var(--line)}
+  h2{font-size:1.55rem;margin:0 0 6px;color:#450a0a}
+  h2 .num{display:inline-block;background:var(--accent);color:#fff;font-size:.95rem;
+    width:34px;height:34px;line-height:34px;text-align:center;border-radius:10px;margin-right:10px;vertical-align:middle}
+  h3{font-size:1.15rem;margin:26px 0 8px}
+  .lead{color:#4b5563;font-size:1.05rem}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:20px 22px;margin:16px 0;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin:18px 0}
+  .concept{background:var(--card);border:1px solid var(--line);border-top:4px solid var(--accent);
+    border-radius:12px;padding:16px 18px}
+  .concept h4{margin:0 0 6px;font-size:1.02rem}
+  .concept p{margin:0;font-size:.93rem;color:#4b5563}
+  .concept.blue{border-top-color:var(--blue)} .concept.green{border-top-color:var(--green)}
+  .concept.amber{border-top-color:var(--amber)} .concept.cyan{border-top-color:var(--cyan)}
+  .concept.violet{border-top-color:var(--violet)}
+  pre{background:var(--code-bg);color:#e8eaf2;border-radius:12px;padding:18px 20px;
+    overflow-x:auto;font-size:.86rem;line-height:1.6;margin:14px 0;max-height:560px;overflow-y:auto}
+  code{font-family:"SF Mono",Consolas,"Courier New",monospace}
+  p code, li code, td code{background:var(--accent-soft);padding:1px 7px;border-radius:6px;font-size:.88em;color:#991b1b}
+  pre code{background:none;padding:0;color:inherit}
+  .kw{color:#c792ea}.fn{color:#82aaff}.str{color:#c3e88d}.cm{color:#697098;font-style:italic}.num2{color:#f78c6c}
+  .diagram{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px 10px;margin:18px 0;text-align:center;overflow-x:auto}
+  .diagram svg{max-width:100%;height:auto}
+  .caption{font-size:.9rem;color:var(--muted);margin-top:10px;font-style:italic}
+  .analogy{background:#fef2f2;border:1px solid #fecaca;border-left:6px solid var(--accent);
+    border-radius:10px;padding:16px 20px;margin:16px 0}
+  .analogy b{color:#991b1b}
+  .warn{background:#fffbeb;border:1px solid #fcd34d;border-left:6px solid var(--amber);
+    border-radius:10px;padding:16px 20px;margin:16px 0}
+  .warn b{color:#92400e}
+  .ok{background:#ecfdf5;border:1px solid #6ee7b7;border-left:6px solid var(--green);
+    border-radius:10px;padding:16px 20px;margin:16px 0}
+  table.mini{border-collapse:collapse;margin:14px auto;font-size:.9rem;min-width:70%}
+  table.mini th, table.mini td{border:1px solid var(--line);padding:8px 14px;text-align:left}
+  table.mini th{background:var(--accent-soft)}
+  table.mini td.num{font-family:monospace;text-align:center}
+  .demo{background:#fff;border:2px solid var(--accent);border-radius:16px;padding:24px;margin:18px 0}
+  .demo h3{margin-top:0}
+  input[type=text]{width:100%;padding:10px 14px;font-size:.95rem;border:2px solid var(--line);
+    border-radius:10px;margin:8px 0;font-family:monospace}
+  .seg{display:flex;gap:8px;margin:10px 0;flex-wrap:wrap}
+  .seg button{border:2px solid var(--line);background:#fff;border-radius:10px;
+    padding:8px 18px;font-size:1rem;cursor:pointer}
+  .seg button.active{border-color:var(--accent);background:var(--accent-soft);font-weight:700}
+  .big-out{background:var(--code-bg);color:#e8eaf2;border-radius:12px;padding:18px 20px;
+    font-family:monospace;font-size:.92rem;margin-top:12px;line-height:1.9;word-break:break-word}
+  .btn{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:10px 22px;
+    font-size:1rem;cursor:pointer;margin:10px 8px 0 0}
+  .btn:hover{background:#991b1b}
+  .formula{text-align:center;font-size:1.15rem;background:#fef2f2;border-radius:10px;
+    padding:18px;margin:14px 0;font-family:Georgia,serif}
+  .formula small{display:block;font-family:inherit;font-size:.85rem;color:var(--muted);margin-top:6px}
+  footer{padding:36px 0 60px;color:var(--muted);font-size:.9rem;text-align:center}
+  ul.tight li{margin-bottom:6px}
+  .check-item{display:flex;gap:10px;align-items:flex-start;margin:8px 0;padding:10px 14px;
+    border:2px solid var(--line);border-radius:10px;background:#fff}
+  .check-item .st{font-size:1.2rem;flex-shrink:0}
+  .spike-row{display:flex;gap:8px;align-items:center;margin:6px 0;font-family:monospace;font-size:.9rem}
+  .loss-pill{padding:4px 12px;border-radius:8px;background:#f3f4f6;border:1px solid var(--line);min-width:70px;text-align:center}
+  .loss-pill.spike{background:var(--amber-soft);border-color:var(--amber);font-weight:700}
+  .loss-pill.kill{background:var(--accent-soft);border-color:var(--accent);font-weight:700}
+  @media(max-width:600px){header.hero h1{font-size:1.6rem}body{font-size:15.5px}}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="tag">📄 Phân tích: day10/health_checks.py + demo_train.py</span>
+    <h1>Day 10 — Health checks<br>"bác sĩ trực" cho training loop</h1>
+    <p>Train LLM tốn hàng tuần GPU — không thể "hy vọng nó tự hết" khi có sự cố. Day 10 xây <b>hệ thống giám sát sức khỏe</b>: bắt NaN, bắt loss spike, bắt batch trùng, kiểm tra token — và <b>dám kill run</b> khi bệnh nặng, kèm 3 thí nghiệm "cài bệnh" để kiểm chứng.</p>
+    <p style="font-size:.9rem;opacity:.8">Số liệu trong bài là kết quả chạy thật trên CPU.</p>
+  </div>
+</header>
+
+<nav class="sticky"><div class="wrap">
+  <a href="#tong-quan">🍿 Tóm tắt 30 giây</a>
+  <a href="#vitri">📍 Cắm monitor ở đâu</a>
+  <a href="#finite">🧪 Bắt NaN</a>
+  <a href="#spike">📈 Bắt spike</a>
+  <a href="#dedup">🔁 Batch trùng</a>
+  <a href="#smoke">🩺 Smoke test</a>
+  <a href="#tn">🔬 3 thí nghiệm</a>
+  <a href="#source">📜 Source code</a>
+</div></nav>
+
+<div class="wrap">
+
+<!-- ================= TỔNG QUAN ================= -->
+<section id="tong-quan">
+  <h2><span class="num">🍿</span>Tóm tắt 30 giây cho người ngoại đạo</h2>
+  <p class="lead">Ổn định khi train không phải là "may mắn" — nó là <b>năng lực chẩn đoán</b>. Mỗi bước train đều có "bác sĩ" kiểm tra: dữ liệu có sạch không, loss có bình thường không, gradient có "điên" không. Bệnh nhẹ → cảnh báo; bệnh nặng → <b>dừng run ngay</b>, đừng đốt GPU vô ích.</p>
+  <div class="grid">
+    <div class="concept"><h4>🧪 check_finite</h4><p>Soi NaN/Inf ở <b>3 nơi</b>: loss, trọng số, gradient — ghi rõ tên layer bị bệnh để biết "đau ở đâu".</p></div>
+    <div class="concept amber"><h4>📈 SpikeDetector</h4><p>loss tăng vọt &gt; 5× so với bước trước = 1 spike. Spike lẻ tẻ thì tha; <b>3 spike liên tiếp</b> → kill run.</p></div>
+    <div class="concept cyan"><h4>🔁 BatchDedup</h4><p>Băm SHA-256 từng batch; gặp lại hash trong 50 bước gần nhất → dataloader đang "kẹt", trả batch trùng.</p></div>
+    <div class="concept violet"><h4>🎯 check_token_range</h4><p>Token id phải nằm trong [0, vocab). Đây là <b>lỗi chí mạng</b> — Embedding crash chắc chắn → fail fast <b>trước</b> forward.</p></div>
+    <div class="concept blue"><h4>🩺 smoke_test</h4><p>Chạy thử <b>50 bước train thật</b> trước khi chạy dài: loss có giảm không, grad có "vọt" không, có alert nào không.</p></div>
+    <div class="concept green"><h4>🚨 HealthAlert</h4><p>Exception "bệnh nặng": ném ra là <b>dừng run ngay</b>. Triết lý: đừng "hy vọng nó tự hết".</p></div>
+  </div>
+  <div class="analogy"><b>🧭 Ví dụ — Phòng cấp cứu:</b> bệnh nhân (training run) được gắn máy đo <b>liên tục</b>: nhịp tim (loss), huyết áp (grad norm), nhiệt độ (NaN). Chỉ số hơi lệch → y tá ghi chú (warning); 3 lần nguy kịch liên tiếp → bác sĩ <b>dừng ca mổ</b> (kill run). Và trước ca mổ lớn luôn có <b>khám tổng quát</b> (smoke test).</div>
+</section>
+
+<!-- ================= VỊ TRÍ ================= -->
+<section id="vitri">
+  <h2><span class="num">📍</span>Cắm monitor ở đâu: trước forward, sau backward</h2>
+  <p class="lead">Thứ tự cắm là <b>checklist chẩn đoán</b>: kiểm tra <b>dữ liệu trước</b> (90% vấn đề nằm ở dữ liệu), kiểm tra <b>loss/gradient sau backward nhưng trước opt.step()</b> — để biết NaN xuất hiện ở khâu nào.</p>
+  <div class="diagram">
+    <svg width="700" viewBox="0 0 700 200" font-family="inherit">
+      <text x="350" y="22" text-anchor="middle" font-size="15" font-weight="700">Một bước train có "bác sĩ trực"</text>
+      <g font-size="12.5" text-anchor="middle">
+        <rect x="15" y="70" width="120" height="60" rx="10" fill="#ede9fe" stroke="#7c3aed" stroke-width="2"/>
+        <text x="75" y="96" font-weight="700">check_batch</text><text x="75" y="116" fill="#6b7280" font-size="11">token range + dedup</text>
+        <rect x="165" y="70" width="100" height="60" rx="10" fill="#f3f4f6" stroke="#9ca3af" stroke-width="2"/>
+        <text x="215" y="96" font-weight="700">forward</text>
+        <rect x="295" y="70" width="100" height="60" rx="10" fill="#f3f4f6" stroke="#9ca3af" stroke-width="2"/>
+        <text x="345" y="96" font-weight="700">backward</text>
+        <rect x="425" y="70" width="130" height="60" rx="10" fill="#fef2f2" stroke="#b91c1c" stroke-width="2"/>
+        <text x="490" y="96" font-weight="700">check_step</text><text x="490" y="116" fill="#6b7280" font-size="11">finite + spike</text>
+        <rect x="585" y="70" width="100" height="60" rx="10" fill="#f3f4f6" stroke="#9ca3af" stroke-width="2"/>
+        <text x="635" y="96" font-weight="700">opt.step()</text>
+      </g>
+      <g stroke="#9ca3af" stroke-width="2" fill="#9ca3af">
+        <line x1="135" y1="100" x2="161" y2="100"/><polygon points="161,100 154,95 154,105"/>
+        <line x1="265" y1="100" x2="291" y2="100"/><polygon points="291,100 284,95 284,105"/>
+        <line x1="395" y1="100" x2="421" y2="100"/><polygon points="421,100 414,95 414,105"/>
+        <line x1="555" y1="100" x2="581" y2="100"/><polygon points="581,100 574,95 574,105"/>
+      </g>
+      <text x="350" y="165" text-anchor="middle" font-size="13" fill="#b91c1c" font-weight="700">Token range fail → HealthAlert TRƯỚC forward (fail fast) · NaN sau backward → biết "bệnh" ở khâu nào</text>
+    </svg>
+    <p class="caption">Code thật trong demo_train.py: <code>alerts = mon.check_batch(batch, step)</code> → train_step → <code>alerts += mon.check_step(loss, model, step)</code>.</p>
+  </div>
+</section>
+
+<!-- ================= FINITE ================= -->
+<section id="finite">
+  <h2><span class="num">🧪</span>check_finite: soi NaN/Inf ở 3 nơi, ghi rõ "đau ở đâu"</h2>
+  <p class="lead">NaN là "ung thư" của training: một khi xuất hiện, nó <b>lan</b> — grad NaN ở bước này thành weight NaN ở bước sau, rồi lan ra cả model. Phải bắt ở <b>3 nơi</b>: loss, trọng số (<code>p.data</code>), gradient (<code>p.grad</code>).</p>
+  <div class="analogy"><b>🦠 Ví dụ — Truy vết F0:</b> không chỉ báo "có dịch" mà phải báo <b>"ca nhiễm ở layer nào"</b> — cảnh báo ghi tên param (<code>'net.0.weight'</code>) để biết "bệnh" ở lớp nào, thay vì mò mẫm cả model.</div>
+  <div class="demo">
+    <h3>💉 Thử ngay: tiêm NaN vào từng nơi, xem bác sĩ báo gì</h3>
+    <p style="margin-top:0">Mô phỏng logic <code>check_finite</code> (không cần chạy model thật):</p>
+    <div class="seg">
+      <button class="btn" id="nanLoss" style="margin:0">💉 Tiêm NaN vào loss</button>
+      <button class="btn" id="nanWeight" style="margin:0">💉 Tiêm NaN vào trọng số</button>
+      <button class="btn" id="nanGrad" style="margin:0">💉 Tiêm NaN vào gradient</button>
+    </div>
+    <div class="big-out" id="nanOut">Bấm một nút để "gây bệnh"…</div>
+    <p style="color:var(--muted);font-size:.93rem;margin-bottom:0">Lưu ý: dùng <code>.detach()</code> khi kiểm tra để không dính computation graph — chi tiết nhỏ nhưng quan trọng.</p>
+  </div>
+</section>
+
+<!-- ================= SPIKE ================= -->
+<section id="spike">
+  <h2><span class="num">📈</span>SpikeDetector: spike lẻ thì tha, 3 phát liên tiếp thì "rút ống thở"</h2>
+  <p class="lead">Công thức: <code>loss_t / loss_{t-1} &gt; 5.0</code> → 1 spike. Spike đơn lẻ thường <b>tự hồi phục</b> (đừng giết run vội); nhưng <b>3 spike liên tiếp</b> nghĩa là run đang "lao dốc" → <code>raise HealthAlert</code>, kill run để <b>đỡ đốt GPU vô ích</b> (Green checkpoint).</p>
+  <div class="formula">spike ⟺ loss<sub>t</sub> / loss<sub>t-1</sub> &gt; 5.0
+    <small>chỉ tính khi loss trước &gt; 0 (tránh chia cho 0 và loss âm) · streak reset về 0 khi có bước bình thường</small>
+  </div>
+  <div class="demo">
+    <h3>🎛️ Thử ngay: máy đếm spike</h3>
+    <p style="margin-top:0">Nhập dãy loss (cách nhau bằng dấu cách), xem streak:</p>
+    <input type="text" id="spikeInput" value="4.2 4.1 4.3 250.9 150.8 160.2 900.1 950.0 1200.5">
+    <div class="seg"><button class="btn" id="spikeBtn" style="margin:0">📈 Chạy detector</button></div>
+    <div id="spikeOut"></div>
+    <div class="big-out" id="spikeMsg">Bấm nút để chạy…</div>
+  </div>
+  <div class="ok"><b>💡 Số thật từ TN2:</b> LR nhảy 3e-4 → 2.0 ở step 5, detector báo <code>"[step 6] loss spike x51.4 (streak 1/3)"</code> — loss vọt <b>51 lần</b>! (Spike hiện ở step 6 vì loss step 5 tính trước khi update "điên" có hiệu lực.) Sau đó loss lẹt đẹt ở ~150–250 mà không spike tiếp → streak reset, run <b>không bị kill</b> — đúng triết lý "tha spike lẻ".</div>
+</section>
+
+<!-- ================= DEDUP ================= -->
+<section id="dedup">
+  <h2><span class="num">🔁</span>BatchDedup: dataloader "kẹt" thì batch lặp lại y hệt</h2>
+  <p class="lead">Băm SHA-256 <b>nội dung</b> từng batch (lấy bytes trực tiếp từ storage, không cần numpy). Gặp lại hash đã thấy trong <b>50 bước gần nhất</b> → dataloader đang trả batch trùng — bug kinh điển: dataloader "kẹt". Dict <code>seen</code> được dọn entry quá cũ để không phình vô hạn.</p>
+  <div class="analogy"><b>🔁 Ví dụ — Máy phát nhạc kẹt đĩa:</b> bài hát lặp đi lặp lại y hệt — tai người nghe ra ngay. BatchDedup là "cái tai" đó: <b>một hash duy nhất cho cả batch</b> vừa rẻ vừa đủ để bắt bệnh.</div>
+  <div class="ok"><b>💡 Số thật từ TN1:</b> steps 5–9 "kẹt" trả đúng 1 batch → cảnh báo từ <b>step 6</b>: <code>"[step 6] batch trung lap (da thay o step 5)"</code>, rồi 7, 8, 9. (Step 5 là lần đầu thấy batch đó nên chưa báo — logic "gặp <b>lại</b> mới báo".) Đây chỉ là <b>cảnh báo</b> (train vẫn chạy được), không phải lỗi chí mạng.</div>
+</section>
+
+<!-- ================= SMOKE ================= -->
+<section id="smoke">
+  <h2><span class="num">🩺</span>smoke_test: khám tổng quát 50 bước trước ca mổ lớn</h2>
+  <p class="lead">Trước khi train dài ngày, chạy thử <b>50 bước train thật</b> với model + optimizer <b>mới tinh</b> (đừng tái dùng model đã "bệnh"), cắm monitor đầy đủ. PASS khi đủ 4 điều kiện:</p>
+  <div class="demo" style="border-color:var(--green)">
+    <h3>✅ 4 tiêu chí PASS (số thật từ lần chạy)</h3>
+    <div class="check-item"><span class="st">✅</span><div><b>loss giảm:</b> 4.2282 → 4.1892 — model học được gì đó, không phải đang "đi ngang".</div></div>
+    <div class="check-item"><span class="st">✅</span><div><b>không NaN/Inf:</b> mọi loss hữu hạn trong 50 bước.</div></div>
+    <div class="check-item"><span class="st">✅</span><div><b>grad norm không vọt:</b> max 0.973 &lt; 10× median 10 bước đầu — gradient "hiền", không bùng nổ.</div></div>
+    <div class="check-item"><span class="st">✅</span><div><b>không alert:</b> monitor im lặng suốt 50 bước — không spike, không batch trùng, không token lạ.</div></div>
+    <p style="color:var(--muted);font-size:.93rem;margin-bottom:0"><b>→ smoke_test PASS.</b> Triết lý: 50 bước rẻ (vài giây) mà bắt được 90% lỗi config — đừng tiếc vài giây để rồi đốt cả tuần GPU.</p>
+  </div>
+</section>
+
+<!-- ================= 3 THÍ NGHIỆM ================= -->
+<section id="tn">
+  <h2><span class="num">🔬</span>3 thí nghiệm "cài bệnh": bác sĩ có bắt đúng bệnh?</h2>
+  <p class="lead"><code>demo_train.py</code> cố tình cài 3 "bệnh" vào run khỏe mạnh, xem monitor chẩn đoán đúng không. Mỗi thí nghiệm chạy 30 bước, model mới tinh.</p>
+  <table class="mini">
+    <tr><th>thí nghiệm</th><th>"bệnh" được cài</th><th>bác sĩ chẩn đoán (thật)</th><th>mức độ</th></tr>
+    <tr><td class="num">TN1</td><td>steps 5–9 dataloader "kẹt", trả đúng 1 batch</td><td class="num">step 6: "batch trung lap (da thay o step 5)" ×4</td><td class="num">⚠️ cảnh báo</td></tr>
+    <tr><td class="num">TN2</td><td>step 5: LR nhảy 3e-4 → 2.0</td><td class="num">step 6: "loss spike x51.4 (streak 1/3)"</td><td class="num">⚠️ cảnh báo</td></tr>
+    <tr><td class="num">TN3</td><td>step 5: token id = 64 (ngoài [0, 64))</td><td class="num">step 5: <b>DỪNG RUN</b> — "token ngoai range… dung truoc khi forward crash"</td><td class="num">🚨 HealthAlert</td></tr>
+  </table>
+  <div class="warn"><b>⚠️ 3 bài học từ 3 bệnh:</b><br>
+  <b>TN1:</b> batch trùng chỉ là <b>cảnh báo</b> — train vẫn chạy được (loss step 10 vẫn 4.17), nhưng đang <b>lãng phí</b> compute học đi học lại 1 batch.<br>
+  <b>TN2:</b> spike x51.4 nhưng chỉ <b>streak 1/3</b> → không kill. Sau cú sốc, loss "lẹt đẹt" ở ~150–250 mà tỉ lệ so với bước trước không còn &gt; 5 → streak reset. Đúng triết lý: <b>đừng giết run vì 1 cú sốc</b>.<br>
+  <b>TN3:</b> token ngoài range là <b>lỗi chí mạng</b> — <code>nn.Embedding</code> <b>chắc chắn</b> crash với IndexError → <b>fail fast trước forward</b>, đừng để nó nổ ở giữa.</div>
+  <div class="ok"><b>💡 "Ổn định khi train là năng lực chẩn đoán":</b> đây là câu kết của cả buổi — không phải "cầu cho run đừng hỏng", mà là <b>xây hệ thống tự phát hiện + tự dừng</b> khi hỏng. 3 thí nghiệm trên chính là "bài thi tay nghề" của bác sĩ trực.</div>
+</section>
+
+<!-- ================= SOURCE CODE ================= -->
+<section id="source">
+  <h2><span class="num">📜</span>Toàn bộ source code</h2>
+  <p class="lead">Day 10 có <b>2 file</b>: <code>health_checks.py</code> (bác sĩ) và <code>demo_train.py</code> (3 thí nghiệm). Bấm tab để đổi file, bấm nút để copy.</p>
+  <div class="seg">
+    <button id="tabHc" class="active">health_checks.py (273 dòng)</button>
+    <button id="tabDemo">demo_train.py (124 dòng)</button>
+  </div>
+  <button class="btn" id="copySrcBtn">📋 Copy file đang xem</button>
+  <span id="copyMsg" style="margin-left:12px;color:var(--green);font-weight:700"></span>
+  <pre class="pysrc" id="srcHc"><code>#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""Health checks - "bac si truc" cho training loop (Day 10 - buoi toi).
+
+Cac thanh phan:
+    HealthAlert: exception nem ra khi loi nghiem trong -&gt; dung run ngay.
+    check_finite: bat NaN/Inf o loss, trong so, gradient.
+    SpikeDetector: bat loss spike; qua nhieu spike lien tiep -&gt; kill run.
+    BatchDedup: bat dataloader tra batch trung lap.
+    check_token_range: token id phai nam trong [0, vocab_size).
+    grad_norm: chuan gradient toan cuc (da viet san theo de bai).
+    smoke_test: chay thu 50 buoc train that truoc khi chay full run.
+    HealthMonitor: lap rap theo checklist - du lieu truoc, loss/grad sau.
+
+Cach dung (xem demo_train.py):
+    mon = HealthMonitor(vocab_size=64)
+    alerts = mon.check_batch(batch, step)       # TRUOC forward
+    loss, gn = train_step(...)
+    alerts += mon.check_step(loss, model, step)  # SAU backward
+
+Chi can PyTorch (CPU la du).
+"""
+
+import hashlib
+import math
+
+import torch
+import torch.nn.functional as F
+
+
+class HealthAlert(Exception):
+    """Loi nghiem trong: dung run ngay, dung "hy vong no tu het"."""
+
+
+# ---------------------------------------------------------------------------
+# TODO 1 - check_finite: bat NaN/Inf o 3 noi
+# ---------------------------------------------------------------------------
+def check_finite(loss, model, step):
+    """Kiem tra NaN/Inf o loss, parameter va gradient.
+
+    (a) loss: loss la float (loss.item()) -&gt; goi vao tensor de kiem tra.
+    (b) moi parameter p.data: trong so NaN la dau hieu run da hong.
+    (c) moi gradient p.grad (neu khac None): grad NaN se lan sang trong
+        so o buoc opt.step() ke tiep.
+    Dung .detach() de khong dinh computation graph. Ghi ten param vao
+    canh bao de biet "benh" o lop nao.
+
+    Returns:
+        List[str] cac canh bao (rong neu khong co gi).
+    """
+    warnings = []
+    if not torch.isfinite(torch.tensor(loss)).all():
+        warnings.append(f"[step {step}] loss khong huu han: {loss}")
+    for name, p in model.named_parameters():
+        if not torch.isfinite(p.data.detach()).all():
+            warnings.append(f"[step {step}] trong so NaN/Inf tai '{name}'")
+        if p.grad is not None and not torch.isfinite(p.grad.detach()).all():
+            warnings.append(f"[step {step}] gradient NaN/Inf tai '{name}'")
+    return warnings
+
+
+# ---------------------------------------------------------------------------
+# TODO 2 - SpikeDetector: bat loss spike va dem lien tiep
+# ---------------------------------------------------------------------------
+class SpikeDetector:
+    """Phat hien loss spike: loss_t / loss_{t-1} &gt; ratio =&gt; 1 spike.
+
+    Spike don le thuong tu hoi phuc (dung giet run voi). Nhung qua
+    max_consecutive spike LIEN TIEP =&gt; run dang lao doc -&gt; raise
+    HealthAlert de kill run (Green checkpoint: dung dot GPU vo ich).
+    """
+
+    def __init__(self, ratio=5.0, max_consecutive=3):
+        self.ratio = ratio
+        self.max_consecutive = max_consecutive
+        self.prev = None
+        self.streak = 0
+
+    def step(self, loss, step):
+        """Cap nhat voi loss moi. Tra ve list[str] canh bao."""
+        warnings = []
+        # Chi tinh ti le khi prev &gt; 0: tranh chia cho 0 va loss am
+        # (CrossEntropy khong am nhung code nen chac chan).
+        if self.prev is not None and self.prev &gt; 0:
+            r = loss / self.prev
+            if r &gt; self.ratio:
+                self.streak += 1
+                warnings.append(
+                    f"[step {step}] loss spike x{r:.1f} "
+                    f"(streak {self.streak}/{self.max_consecutive})")
+            else:
+                self.streak = 0
+        if self.streak &gt;= self.max_consecutive:
+            raise HealthAlert(
+                f"{self.max_consecutive} loss spike lien tiep "
+                f"(lan cuoi tai step {step}) - kill run")
+        self.prev = loss
+        return warnings
+
+
+# ---------------------------------------------------------------------------
+# TODO 3 - BatchDedup: bat batch trung lap
+# ---------------------------------------------------------------------------
+class BatchDedup:
+    """Bat dataloader tra batch trung lap.
+
+    Hash noi dung batch; gap lai hash trong `window` buoc gan nhat =&gt;
+    dataloader dang tra batch trung (bug kinh dien: dataloader "ket").
+    Mot hash duy nhat cho ca batch vua re vua du de bat benh.
+    """
+
+    def __init__(self, window=50):
+        self.window = window
+        self.seen = {}  # hash -&gt; step thay lan cuoi
+
+    def step(self, batch, step):
+        """Kiem tra batch hien tai. Tra ve list[str] canh bao."""
+        warnings = []
+        # bytes truc tiep tu storage (khong can numpy).
+        h = hashlib.sha256(
+            bytes(batch.detach().cpu().contiguous().untyped_storage())
+        ).hexdigest()
+        if h in self.seen and step - self.seen[h] &lt;= self.window:
+            warnings.append(
+                f"[step {step}] batch trung lap (da thay o step "
+                f"{self.seen[h]}) - kiem tra dataloader/shuffle")
+        self.seen[h] = step
+        # Don entry qua cu de dict khong phinh vo han.
+        self.seen = {hh: s for hh, s in self.seen.items()
+                     if step - s &lt;= self.window}
+        return warnings
+
+
+# ---------------------------------------------------------------------------
+# TODO 4 - check_token_range + grad_norm + smoke_test
+# ---------------------------------------------------------------------------
+def check_token_range(batch, vocab_size, step):
+    """Token id phai nam trong [0, vocab_size). Tra ve list[str].
+
+    Day la LOI CHI MANG: nn.Embedding se crash voi IndexError neu token
+    vuot range - phai fail fast TRUOC khi forward.
+    """
+    bad = (batch &lt; 0) | (batch &gt;= vocab_size)
+    if bad.any():
+        return [f"[step {step}] token ngoai range [0, {vocab_size}): "
+                f"min={batch.min().item()}, max={batch.max().item()}"]
+    return []
+
+
+def grad_norm(model):
+    """Chuan gradient toan cuc (da viet san theo de bai).
+
+    Cong thuc: sqrt(sum(||g||^2)) tren moi parameter co grad.
+    """
+    total = 0.0
+    for p in model.parameters():
+        if p.grad is not None:
+            total += p.grad.detach().pow(2).sum().item()
+    return total ** 0.5
+
+
+class _SmokeModel(torch.nn.Module):
+    """Model nho dung RIENG cho smoke_test (khong phu thuoc demo_train).
+
+    Nhan batch (B, T) token id -&gt; logits (B, vocab_size). Kich thuoc
+    chuoi T duoc suy ra tu batch dau tien.
+    """
+
+    def __init__(self, vocab_size, seqlen):
+        super().__init__()
+        self.emb = torch.nn.Embedding(vocab_size, 16)
+        self.net = torch.nn.Sequential(
+            torch.nn.Flatten(1),
+            torch.nn.Linear(16 * seqlen, 32),
+            torch.nn.ReLU(),
+            torch.nn.Linear(32, vocab_size))
+
+    def forward(self, x):
+        return self.net(self.emb(x))
+
+
+def smoke_test(train_fn, vocab_size, steps=50):
+    """Green checkpoint: chay `steps` buoc train THAT truoc khi chay dai.
+
+    Moi buoc goi HealthMonitor day du. Tao model + optimizer MOI TINH
+    trong ham (dung tai dung model da "benh").
+
+    PASS khi: loss_end &lt; loss_start, khong NaN, grad norm khong vot qua
+    10x so voi trung vi 10 buoc dau, khong HealthAlert/canh bao.
+
+    Args:
+        train_fn: ham(step) -&gt; (batch, targets).
+        vocab_size: kich thuoc tu dien.
+        steps: so buoc chay thu.
+
+    Returns:
+        Dict {'ok', 'loss_start', 'loss_end', 'max_grad_norm', 'alerts'}.
+    """
+    torch.manual_seed(1234)  # smoke test cung phai tai lap duoc
+    model, opt, mon = None, None, HealthMonitor(vocab_size=vocab_size)
+    gns, losses, alerts = [], [], []
+    try:
+        for step in range(steps):
+            batch, targets = train_fn(step)
+            if model is None:  # suy kich thuoc chuoi tu batch dau tien
+                model = _SmokeModel(vocab_size, batch.shape[1])
+                opt = torch.optim.AdamW(model.parameters(), lr=3e-4)
+            alerts += mon.check_batch(batch, step)  # du lieu TRUOC forward
+            opt.zero_grad()
+            loss = F.cross_entropy(model(batch), targets)
+            loss.backward()
+            gns.append(grad_norm(model))
+            alerts += mon.check_step(loss.item(), model, step)  # SAU backward
+            opt.step()
+            losses.append(loss.item())
+    except HealthAlert as e:
+        alerts.append(f"HealthAlert: {e}")
+        return {"ok": False, "loss_start": None, "loss_end": None,
+                "max_grad_norm": None, "alerts": alerts}
+
+    loss_start, loss_end = losses[0], losses[-1]
+    max_gn = max(gns)
+    median = sorted(gns[:10])[len(gns[:10]) // 2]
+    problems = []
+    if not loss_end &lt; loss_start:
+        problems.append(
+            f"loss khong giam ({loss_start:.4f} -&gt; {loss_end:.4f})")
+    if not all(math.isfinite(x) for x in losses):
+        problems.append("loss co NaN/Inf")
+    if not max_gn &lt; 10 * median:
+        problems.append(f"grad norm vot ({max_gn:.2f} &gt;= 10x median "
+                        f"{median:.2f})")
+    if alerts:
+        problems.append(f"co {len(alerts)} canh bao monitor")
+    return {"ok": not problems, "loss_start": loss_start,
+            "loss_end": loss_end, "max_grad_norm": max_gn,
+            "alerts": alerts + problems}
+
+
+# ---------------------------------------------------------------------------
+# Lap rap - HealthMonitor (da viet san theo de bai, doc hieu)
+# ---------------------------------------------------------------------------
+class HealthMonitor:
+    """Cam vao training loop. Thu tu = checklist chan doan.
+
+    check_batch (du lieu) chay TRUOC forward - 90% van de nam o du lieu.
+    check_step (loss/gradient) chay SAU backward, TRUOC opt.step() - de
+    biet NaN xuat hien o khau nao (Bay 3).
+    """
+
+    def __init__(self, vocab_size, ratio=5.0, max_consecutive=3):
+        self.spike = SpikeDetector(ratio, max_consecutive)
+        self.dedup = BatchDedup()
+        self.vocab_size = vocab_size
+
+    def check_batch(self, batch, step):
+        """Kiem tra du lieu TRUOC forward.
+
+        Token range la LOI CHI MANG (forward chac chan crash) -&gt; fail fast
+        bang HealthAlert. Batch trung chi canh bao (train van chay duoc).
+        """
+        fatal = check_token_range(batch, self.vocab_size, step)
+        if fatal:
+            raise HealthAlert("; ".join(fatal) + " - dung truoc khi "
+                                        "forward crash")
+        return self.dedup.step(batch, step)
+
+    def check_step(self, loss, model, step):
+        """Kiem tra loss/gradient SAU backward.
+
+        SpikeDetector co the raise HealthAlert -&gt; caller dung run.
+        """
+        return check_finite(loss, model, step) + self.spike.step(loss, step)
+</code></pre>
+  <pre class="pysrc" id="srcDemo" style="display:none"><code>#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""Demo training loop de cam HealthMonitor + 3 thi nghiem pha run.
+
+De bai ghi file nay "da viet san" nhung thuc te chua co trong repo nen
+viet lai day du theo dac ta: make_model, train_step, run_experiment,
+3 ham fault_* va smoke_test o __main__.
+
+3 "benh" duoc cai san (moi thi nghiem dung 1 benh):
+    TN1 fault_duplicate: dataloader "ket", steps 5-9 tra dung 1 batch.
+    TN2 fault_lr_spike: step 5 learning rate nhay 3e-4 -&gt; 2.0.
+    TN3 fault_bad_token: step 5 batch chua token id = VOCAB (ngoai range).
+
+Cach chay:
+    python demo_train.py
+"""
+
+import torch
+import torch.nn as nn
+
+from health_checks import HealthAlert, HealthMonitor, grad_norm, smoke_test
+
+VOCAB, D, H, SEQLEN = 64, 16, 32, 8
+loss_fn = nn.CrossEntropyLoss()
+
+
+def make_model(seed=42):
+    """Tao model + optimizer MOI TINH (moi thi nghiem bat dau khoe manh)."""
+    torch.manual_seed(seed)
+    model = nn.Sequential(                 # LM ti hon: embed -&gt; MLP
+        nn.Embedding(VOCAB, D),
+        nn.Flatten(1),
+        nn.Linear(D * SEQLEN, H), nn.ReLU(),
+        nn.Linear(H, VOCAB))
+    opt = torch.optim.AdamW(model.parameters(), lr=3e-4)
+    return model, opt
+
+
+def train_step(model, opt, batch, targets):
+    """1 buoc train: bat mach (grad norm) TRUOC khi update."""
+    opt.zero_grad()
+    loss = loss_fn(model(batch), targets)
+    loss.backward()
+    gn = grad_norm(model)                  # bat mach truoc khi update
+    opt.step()
+    return loss.item(), gn
+
+
+def run_experiment(name, fault_fn, steps=30):
+    """Chay 1 thi nghiem, ghi lai canh bao DAU TIEN."""
+    model, opt = make_model()              # moi thi nghiem: model khoe
+    mon = HealthMonitor(vocab_size=VOCAB)
+    print(f"\n===== {name} =====")
+    first_alert = None
+    for step in range(steps):
+        batch, targets = fault_fn(step, opt)  # 3 ham fault cai "benh"
+        try:
+            alerts = mon.check_batch(batch, step)      # (1) du lieu TRUOC
+            loss, gn = train_step(model, opt, batch, targets)
+            alerts += mon.check_step(loss, model, step)  # (2) SAU backward
+        except HealthAlert as e:           # loi nghiem trong -&gt; dung ngay
+            print(f"  [step {step}] DUNG RUN: {e}")
+            first_alert = first_alert or f"HealthAlert: {e}"
+            break
+        for a in alerts:
+            print(f"  [step {step}] Canh bao: {a}")
+            first_alert = first_alert or a
+        if step % 10 == 0:
+            print(f"  [step {step}] loss={loss:.4f} grad_norm={gn:.3f}")
+    print(f"  =&gt; Canh bao dau tien: {first_alert}")
+
+
+# ---------------------------------------------------------------------------
+# 3 "benh" da cai san
+# ---------------------------------------------------------------------------
+def _rand_batch():
+    """1 batch ngau nhien khoe manh: (32, 8) token id + (32,) target."""
+    return (torch.randint(0, VOCAB, (32, SEQLEN)),
+            torch.randint(0, VOCAB, (32,)))
+
+
+_DUP = None
+
+
+def fault_duplicate(step, opt):
+    """Dataloader 'ket': steps 5-9 tra DUNG mot batch lap lai."""
+    global _DUP
+    if _DUP is None:
+        _DUP = _rand_batch()
+    return _DUP if 5 &lt;= step &lt; 10 else _rand_batch()
+
+
+def fault_lr_spike(step, opt):
+    """Bug lich trinh LR: step 5 learning rate nhay 3e-4 -&gt; 2.0."""
+    for g in opt.param_groups:
+        g['lr'] = 2.0 if step == 5 else 3e-4
+    return _rand_batch()
+
+
+def fault_bad_token(step, opt):
+    """Mot batch chua token id = VOCAB (ngoai pham vi tu dien)."""
+    b, t = _rand_batch()
+    if step == 5:
+        b[0, 0] = VOCAB
+    return b, t
+
+
+def healthy_train_fn(step):
+    """Ham sinh batch khoe manh cho smoke_test."""
+    return _rand_batch()
+
+
+if __name__ == "__main__":
+    run_experiment("TN1: batch trung lap", fault_duplicate)
+    run_experiment("TN2: learning rate bung no", fault_lr_spike)
+    run_experiment("TN3: token ngoai pham vi", fault_bad_token)
+
+    print("\n===== smoke_test(50) =====")
+    res = smoke_test(healthy_train_fn, VOCAB, steps=50)
+    print(f"  ok={res['ok']}, loss {res['loss_start']:.4f} -&gt; "
+          f"{res['loss_end']:.4f}, max_grad_norm={res['max_grad_norm']:.3f}")
+    if res["alerts"]:
+        print(f"  alerts: {res['alerts']}")
+    print("  =&gt; smoke_test " + ("PASS" if res["ok"] else "FAIL"))
+</code></pre>
+</section>
+
+</div><!-- /wrap -->
+
+<footer>
+  <div class="wrap">
+    Được dựng từ <code>day10/health_checks.py</code> + <code>day10/demo_train.py</code> — giải thích bằng tiếng Việt, vẽ thành sơ đồ cho người ngoại đạo.<br>
+    Số liệu là kết quả chạy thật trên CPU. Sơ đồ là minh họa ý tưởng.
+  </div>
+</footer>
+
+<script>
+// --- Tiện ích ---
+function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+// --- Demo: tiêm NaN ---
+(function(){
+  const out = document.getElementById("nanOut");
+  function show(title, warnings){
+    out.innerHTML = "<b>" + esc(title) + "</b><br>" +
+      (warnings.length ? warnings.map(w=>"⚠️ " + esc(w)).join("<br>") : "✅ Không có cảnh báo");
+  }
+  document.getElementById("nanLoss").addEventListener("click", function(){
+    show("Tiêm NaN vào loss:", ["[step 7] loss khong huu han: nan"]);
+  });
+  document.getElementById("nanWeight").addEventListener("click", function(){
+    show("Tiêm NaN vào trọng số layer 2:", ["[step 7] trong so NaN/Inf tai 'net.2.weight'"]);
+  });
+  document.getElementById("nanGrad").addEventListener("click", function(){
+    show("Tiêm NaN vào gradient layer 0:", ["[step 7] gradient NaN/Inf tai 'net.0.weight'",
+      "(để yên → opt.step() sẽ lan NaN sang trọng số ở bước sau!)"]);
+  });
+})();
+// --- Demo: SpikeDetector (logic y hệt Python) ---
+(function(){
+  document.getElementById("spikeBtn").addEventListener("click", function(){
+    const raw = document.getElementById("spikeInput").value.trim().split(/\s+/).map(Number);
+    const ratio = 5.0, maxC = 3;
+    let prev = null, streak = 0, html = "", killed = false, killStep = -1;
+    raw.forEach(function(loss, i){
+      let cls = "", note = "";
+      if(prev !== null && prev > 0){
+        const r = loss / prev;
+        if(r > ratio){
+          streak += 1; cls = "spike";
+          note = " ← spike x" + r.toFixed(1) + " (streak " + streak + "/" + maxC + ")";
+        } else { streak = 0; }
+      }
+      if(streak >= maxC && !killed){ killed = true; killStep = i; cls = "kill"; }
+      html += '<div class="spike-row"><span style="width:64px">step ' + i + '</span>' +
+              '<span class="loss-pill ' + cls + '">' + loss + '</span><span>' + note + '</span></div>';
+      prev = loss;
+    });
+    document.getElementById("spikeOut").innerHTML = html;
+    document.getElementById("spikeMsg").innerHTML = killed
+      ? "🚨 <b style='color:#f87171'>KILL RUN tại step " + killStep + "</b> — " + maxC + " spike liên tiếp, run đang lao dốc!"
+      : "✅ Run sống sót — không đủ " + maxC + " spike liên tiếp (spike lẻ tẻ được tha).";
+  });
+})();
+// --- Tabs 2 file source + copy ---
+(function(){
+  const tabH = document.getElementById("tabHc"), tabD = document.getElementById("tabDemo");
+  const preH = document.getElementById("srcHc"), preD = document.getElementById("srcDemo");
+  tabH.addEventListener("click", function(){
+    tabH.classList.add("active"); tabD.classList.remove("active");
+    preH.style.display = "block"; preD.style.display = "none";
+  });
+  tabD.addEventListener("click", function(){
+    tabD.classList.add("active"); tabH.classList.remove("active");
+    preD.style.display = "block"; preH.style.display = "none";
+  });
+  document.getElementById("copySrcBtn").addEventListener("click", function(){
+    const raw = (preH.style.display !== "none" ? preH : preD).textContent;
+    const msg = document.getElementById("copyMsg");
+    const done = function(){ msg.textContent = "Đã copy ✓"; setTimeout(function(){ msg.textContent = ""; }, 2000); };
+    if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(raw).then(done, done); }
+    else { const ta = document.createElement("textarea"); ta.value = raw; document.body.appendChild(ta); ta.select(); try{ document.execCommand("copy"); }catch(e){} document.body.removeChild(ta); done(); }
+  });
+})();
+</script>
+<script>
+// Tô màu cú pháp Python
+(function(){
+  function escHtml(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+  function highlightPython(src){
+    var re = /(#[^\n]*)|("""[\s\S]*?"""|"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*')|\b(import|from|def|class|return|if|elif|else|for|while|in|is|not|and|or|None|True|False|lambda|with|as|try|except|finally|raise|global|pass|break|continue)\b|(\b\d+(?:\.\d+)?\b)|(@[\w.]+)/g;
+    var out = "", last = 0, m;
+    while((m = re.exec(src))){
+      out += escHtml(src.slice(last, m.index));
+      var tok = m[0], cls = m[1] ? "cm" : m[2] ? "str" : m[3] ? "kw" : m[4] ? "num2" : "fn";
+      out += '<span class="' + cls + '">' + escHtml(tok) + "</span>";
+      last = m.index + tok.length;
+      if(tok.length === 0) re.lastIndex++;
+    }
+    return out + escHtml(src.slice(last));
+  }
+  document.querySelectorAll("pre.pysrc").forEach(function(pre){
+    var raw = pre.textContent;
+    pre.innerHTML = "<code>" + highlightPython(raw) + "</code>";
+  });
+})();
+</script>
+</body>
+</html>
