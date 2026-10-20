@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ngày 10 — Ổn định huấn luyện là năng lực chẩn đoán | Khóa LLM 30 ngày</title>
+<style>
+:root{--bg:#0a0f1e; --card:#101830; --line:#22305a; --gold:#f5c542; --green:#4ade80;
+ --red:#f87171; --violet:#a78bfa; --cyan:#67e8f9; --text:#e8edf7; --muted:#93a0bd;}
+*{box-sizing:border-box;}
+body{margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.75; font-size:16.5px;}
+.wrap{max-width:820px; margin:0 auto; padding:18px 16px 60px;}
+.kicker{display:inline-block; font-size:13px; letter-spacing:1px; color:var(--gold); font-weight:700; margin-bottom:8px;}
+h1{font-size:30px; line-height:1.3; margin:6px 0 10px;}
+h2{font-size:22px; margin:34px 0 10px; color:var(--cyan);}
+h3{font-size:18px; margin:22px 0 8px; color:var(--gold);}
+.sub{color:var(--muted); font-size:16.5px;}
+.meta{display:flex; gap:8px; flex-wrap:wrap; margin:14px 0 6px;}
+.meta span{font-size:13.5px; background:var(--card); border:1px solid var(--line); border-radius:999px; padding:5px 14px;}
+.hero{width:100%; border-radius:14px; margin:16px 0;}
+.card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px; margin:16px 0;}
+.note{border-left:4px solid var(--green); background:#0f2233; border-radius:0 12px 12px 0; padding:12px 16px; margin:14px 0;}
+.warn{border-left:4px solid var(--red); background:#2a1420; border-radius:0 12px 12px 0; padding:12px 16px; margin:14px 0;}
+.green{border:1px solid #14532d; background:linear-gradient(135deg,#0c2b1a,#0a1f14); border-radius:14px; padding:18px 20px; margin:22px 0;}
+.green h3{margin:0 0 8px; color:var(--green); font-size:18px;}
+.code{background:#070d1c; border:1px solid var(--line); border-radius:12px; padding:14px 16px;
+ font-family:"SF Mono",Consolas,Menlo,monospace; font-size:14px; overflow-x:auto; white-space:pre; margin:14px 0; line-height:1.65;}
+svg.diagram{width:100%; height:auto; border-radius:12px; background:#0b1226; border:1px solid var(--line); margin:14px 0;}
+.pill{display:inline-block; background:#0b1226; border:1px solid var(--line); border-radius:999px; padding:3px 12px; font-size:13.5px; color:var(--muted); margin:2px 4px 2px 0;}
+table.t{width:100%; border-collapse:collapse; margin:14px 0; font-size:15px;}
+table.t th, table.t td{border:1px solid var(--line); padding:10px 12px; text-align:left; vertical-align:top;}
+table.t th{background:#0b1226; color:var(--gold);}
+.nav{display:flex; gap:12px; flex-wrap:wrap; margin:28px 0 10px;}
+.nav a{flex:1 1 220px; text-align:center; text-decoration:none; font-weight:700; padding:16px 18px; border-radius:14px; font-size:17px;}
+.nav a.quiz{background:var(--gold); color:#241a04;}
+.nav a.video{background:var(--violet); color:#150b33;}
+footer{margin-top:44px; color:var(--muted); font-size:13.5px; text-align:center;}
+.fx{font-family:"SF Mono",Consolas,Menlo,monospace; background:#0b1226; border:1px solid var(--line); border-radius:6px; padding:1px 8px; font-size:0.95em;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<span class="kicker">📚 LÝ THUYẾT • Buổi sáng Ngày 10 • 30 ngày thành AI Engineer (LLM)</span>
+<h1>Ngày 10 — Ổn định huấn luyện là năng lực chẩn đoán</h1>
+<p class="sub">9 ngày qua ta đã xây "động cơ" (Transformer), đổ "nhiên liệu" (dữ liệu) và học cách "lái đường dài" (vòng lặp huấn luyện tái lập được).
+Hôm nay ta học kỹ năng của mọi kỹ sư huấn luyện chuyên nghiệp: <b>chẩn đoán</b> — phát hiện và xử lý
+<span class="fx">NaN</span>, loss spike (loss nhảy vọt đột ngột), overfit/underfit và bug trong dữ liệu.</p>
+
+<div class="meta">
+<span>⏱️ ~40 phút đọc</span><span>🎯 Quiz 5 câu trong file riêng</span><span>🌙 Tối nay: viết health_checks.py cảnh báo NaN, grad norm, batch trùng</span>
+</div>
+
+<img class="hero" src="img/day10_hero.webp" alt="Đường cong loss có cú nhảy vọt trên dashboard huấn luyện">
+
+<div class="card">
+<h3 style="margin-top:0">🎯 Mục tiêu bài học</h3>
+<ul>
+<li>Giải thích được 4 "triệu chứng" phổ biến: <b>loss spike</b>, <b>gradient explosion</b> (gradient bùng nổ), <b>NaN</b> và <b>train/val gap</b> (khoảng cách loss giữa tập huấn luyện và kiểm chứng).</li>
+<li>Biết <b>nguyên nhân gốc</b> của từng triệu chứng và cách xử lý tương ứng.</li>
+<li>Vẽ được mối liên hệ: <span class="fx">initialization</span> (khởi tạo trọng số) → <span class="fx">activation scale</span> (độ lớn tín hiệu qua các lớp) → gradient → loss.</li>
+<li>Lập được <b>checklist chẩn đoán</b> theo thứ tự: dữ liệu → shape → loss → optimizer → precision (độ chính xác số).</li>
+</ul>
+</div>
+
+<h2>1. Loss spike — "cơn sốt" đột ngột của quá trình huấn luyện</h2>
+<p>Hãy tưởng tượng bạn đang lái xe đường cao tốc và đồng hồ tua máy đột ngột vọt lên rồi lại hạ xuống.
+<b>Loss spike</b> chính là như vậy: đường loss đang giảm đều, bỗng <b>nhảy vọt lên cao trong vài bước</b> rồi (thường) tụt trở lại.</p>
+<p>Một cú spike đơn lẻ thường vô hại — mô hình sẽ tự hồi phục. Nhưng <b>spike lặp lại nhiều lần</b> là dấu hiệu của
+learning rate quá cao hoặc batch dữ liệu có vấn đề, và nó có thể là "tiền thân" của <span class="fx">NaN</span>.</p>
+
+<svg class="diagram" viewBox="0 0 700 320" role="img" aria-label="Đồ thị loss với cú nhảy vọt">
+<text x="20" y="30" fill="#e8edf7" font-size="17" font-weight="700">Đường loss theo bước huấn luyện</text>
+<line x1="60" y1="270" x2="680" y2="270" stroke="#3a4a7a" stroke-width="2"/>
+<line x1="60" y1="60" x2="60" y2="270" stroke="#3a4a7a" stroke-width="2"/>
+<text x="18" y="170" fill="#93a0bd" font-size="13" transform="rotate(-90 18 170)">loss</text>
+<text x="620" y="295" fill="#93a0bd" font-size="13">bước huấn luyện</text>
+<path d="M60,110 C120,120 160,135 210,150 C260,165 300,175 330,190 L370,140 L410,110 C450,105 520,95 600,90 C640,88 660,86 678,84"
+ stroke="#4ade80" stroke-width="4" fill="none" stroke-linecap="round"/>
+<path d="M330,190 L370,140" stroke="#f87171" stroke-width="4" stroke-linecap="round"/>
+<circle cx="370" cy="140" r="8" fill="#f87171"/>
+<text x="395" y="130" fill="#f87171" font-size="15" font-weight="700">loss spike!</text>
+<text x="330" y="300" fill="#f87171" font-size="13">batch dữ liệu xấu / learning rate quá cao</text>
+</svg>
+
+<p><b>Nguyên nhân thường gặp:</b></p>
+<ul>
+<li><b>Batch chứa mẫu "độc"</b>: một câu quá dài, token ngoài phạm vi từ điển, hoặc cặp câu-dữ liệu bị gán nhầm nhãn. Một batch như vậy có thể làm loss vọt gấp 10–100 lần.</li>
+<li><b>Learning rate quá cao</b>: bước cập nhật nhảy quá xa khỏi vùng tốt, loss bùng lên. Dấu hiệu: spike xuất hiện đều đặn, đặc biệt ngay sau khi tăng learning rate trong lịch trình.</li>
+<li><b>Gradient explosion cục bộ</b>: một vài lớp có gradient quá lớn → xem mục 2.</li>
+</ul>
+<div class="warn"><b>⚠️ Cách xử lý:</b> bật <span class="fx">gradient clipping</span> (cắt gradient khi chuẩn vượt ngưỡng, vd <span class="fx">max_norm=1.0</span>);
+giảm learning rate hoặc warm-up (khởi động) kỹ hơn; log <span class="fx">loss</span> từng batch để xác định batch xấu nào gây spike.</div>
+
+<h2>2. Gradient explosion và gradient vanishing — "mạch máu" của mô hình</h2>
+<p>Gradient là "tín hiệu" chỉ cho mô hình biết nên điều chỉnh trọng số theo hướng nào.
+Nếu tín hiệu này <b>quá lớn</b> (explosion — bùng nổ) → cập nhật nhảy loạn → loss spike → <span class="fx">NaN</span>.
+Nếu <b>quá nhỏ</b> (vanishing — tắt dần) → mô hình hầu như không học được gì, loss giảm cực chậm rồi đứng yên.</p>
+<p>Cách "bắt mạch" đơn giản nhất: theo dõi <b>chuẩn gradient toàn cục</b> (<span class="fx">grad norm</span>) mỗi bước.
+Giá trị khỏe mạnh thường ổn định trong một khoảng, không vọt gấp hàng chục lần.</p>
+
+<svg class="diagram" viewBox="0 0 700 340" role="img" aria-label="Chuẩn gradient theo bước: bùng nổ và tắt dần">
+<text x="20" y="30" fill="#e8edf7" font-size="17" font-weight="700">Chuẩn gradient (grad norm) theo bước</text>
+<line x1="60" y1="280" x2="680" y2="280" stroke="#3a4a7a" stroke-width="2"/>
+<line x1="60" y1="50" x2="60" y2="280" stroke="#3a4a7a" stroke-width="2"/>
+<text x="14" y="170" fill="#93a0bd" font-size="13" transform="rotate(-90 14 170)">grad norm</text>
+<path d="M60,230 C150,228 250,232 330,231 L380,60 L430,231 C500,230 600,229 678,229" stroke="#f87171" stroke-width="4" fill="none" stroke-linecap="round"/>
+<text x="395" y="70" fill="#f87171" font-size="14" font-weight="700">explosion → nguy cơ NaN</text>
+<path d="M60,150 C150,120 250,95 350,80 C450,66 550,60 678,58" stroke="#a78bfa" stroke-width="3" fill="none" stroke-dasharray="7 5"/>
+<text x="480" y="100" fill="#a78bfa" font-size="14">vanishing → không học được</text>
+<rect x="60" y="195" width="618" height="60" rx="10" fill="#4ade80" opacity="0.14"/>
+<text x="330" y="230" fill="#4ade80" font-size="14" font-weight="700">vùng khỏe mạnh</text>
+</svg>
+
+<div class="card">
+<h3 style="margin-top:0">🔧 Bộ công cụ chống explosion</h3>
+<ul>
+<li><b>Gradient clipping</b>: <span class="fx">torch.nn.utils.clip_grad_norm_(params, max_norm=1.0)</span> — "cầu chì" cắt dòng gradient khi quá lớn. Rẻ, hiệu quả, nên bật mặc định.</li>
+<li><b>Khởi tạo trọng số đúng</b> (xem mục 3): gốc rễ của explosion/vanishing nằm ở cách khởi tạo.</li>
+<li><b>Chuẩn hóa lớp</b> (LayerNorm/RMSNorm — đã học Ngày 4): giữ activation trong thang đo ổn định.</li>
+</ul>
+</div>
+<h2>3. Initialization và activation scale — gốc rễ nằm ở "điểm xuất phát"</h2>
+<p>Trước khi huấn luyện, trọng số được khởi tạo ngẫu nhiên. Nếu khởi tạo <b>quá lớn</b>, tín hiệu (activation)
+bị khuếch đại qua từng lớp → explosion. Nếu <b>quá nhỏ</b>, tín hiệu teo dần → vanishing.
+Đây là lý do ta cần <b>initialization có chủ đích</b>:</p>
+<ul>
+<li><b>Xavier/Glorot</b>: phương sai khởi tạo = <span class="fx">2 / (fan_in + fan_out)</span> — giữ tín hiệu ổn định qua các lớp dùng <span class="fx">tanh/sigmoid</span>.</li>
+<li><b>Kaiming/He</b>: phương sai = <span class="fx">2 / fan_in</span> — dành cho <span class="fx">ReLU</span> (ReLU "giết" một nửa tín hiệu nên cần bù gấp đôi).</li>
+<li><b>Residual scaling</b>: trong Transformer, lớp residual được khởi tạo nhỏ hơn (chia cho <span class="fx">√(2 × số lớp)</span>) để hàng chục lớp cộng dồn không làm tín hiệu phình to.</li>
+</ul>
+
+<svg class="diagram" viewBox="0 0 700 330" role="img" aria-label="Tín hiệu qua các lớp với khởi tạo đúng và sai">
+<text x="20" y="30" fill="#e8edf7" font-size="17" font-weight="700">Độ lớn tín hiệu (activation) qua các lớp</text>
+<line x1="80" y1="280" x2="680" y2="280" stroke="#3a4a7a" stroke-width="2"/>
+<line x1="80" y1="50" x2="80" y2="280" stroke="#3a4a7a" stroke-width="2"/>
+<text x="38" y="170" fill="#93a0bd" font-size="13" transform="rotate(-90 38 170)">độ lớn</text>
+<text x="640" y="305" fill="#93a0bd" font-size="13">lớp</text>
+<path d="M100,200 C200,60 300,40 400,35 C500,32 600,30 660,28" stroke="#f87171" stroke-width="4" fill="none" stroke-linecap="round"/>
+<text x="470" y="90" fill="#f87171" font-size="14" font-weight="700">khởi tạo quá lớn → explosion</text>
+<path d="M100,200 C200,240 300,255 400,262 C500,267 600,270 660,272" stroke="#a78bfa" stroke-width="4" fill="none" stroke-linecap="round" stroke-dasharray="8 5"/>
+<text x="440" y="245" fill="#a78bfa" font-size="14" font-weight="700">khởi tạo quá nhỏ → vanishing</text>
+<path d="M100,200 L660,200" stroke="#4ade80" stroke-width="4" stroke-linecap="round"/>
+<text x="470" y="188" fill="#4ade80" font-size="14" font-weight="700">khởi tạo chuẩn (Xavier/Kaiming)</text>
+</svg>
+
+<p><b>Activation scale</b> (thang đo tín hiệu) cũng phải được giám sát: log giá trị trung bình và lớn nhất của
+activation từng vài lớp. Nếu activation vượt quá ~10–100 ở lớp giữa, đó là "đèn vàng" trước khi explosion xảy ra.</p>
+
+<h2>4. Weight decay — "phanh hãm" cho trọng số phình to</h2>
+<p><b>Weight decay</b> (suy giảm trọng số) là một "lực kéo" nhẹ đưa mọi trọng số về gần 0 trong mỗi bước cập nhật.
+Nó ngăn trọng số <b>phình to vô tội vạ</b> — một trong những nguyên nhân làm mô hình <b>overfit</b> (học thuộc lòng dữ liệu huấn luyện).</p>
+<div class="code">optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4, weight_decay=0.1)
+# AdamW: weight decay được tách riêng khỏi gradient — cách làm chuẩn cho LLM.
+# Đừng áp weight decay lên bias và LayerNorm (không giúp gì, chỉ làm chậm).</div>
+<div class="note"><b>💡 Phân biệt:</b> weight decay kiểm soát <b>độ lớn trọng số</b>, còn gradient clipping kiểm soát
+<b>độ lớn bước cập nhật</b>. Hai cơ chế bổ sung cho nhau, không thay thế nhau.</div>
+
+<h2>5. Overfit vs underfit — đọc "khoảng cách" giữa train và validation</h2>
+<p><b>Train/val gap</b> là hiệu số <span class="fx">val_loss − train_loss</span>. Nó là "nhiệt kế" cho biết mô hình đang học thật hay chỉ học thuộc:</p>
+
+<svg class="diagram" viewBox="0 0 700 360" role="img" aria-label="Ba kịch bản: overfit, underfit, học tốt">
+<text x="20" y="30" fill="#e8edf7" font-size="17" font-weight="700">Loss huấn luyện (xanh lá) và kiểm chứng (vàng)</text>
+<line x1="60" y1="300" x2="680" y2="300" stroke="#3a4a7a" stroke-width="2"/>
+<line x1="60" y1="50" x2="60" y2="300" stroke="#3a4a7a" stroke-width="2"/>
+<text x="20" y="70" fill="#4ade80" font-size="13" font-weight="700">overfit</text>
+<text x="260" y="70" fill="#a78bfa" font-size="13" font-weight="700">underfit</text>
+<text x="500" y="70" fill="#67e8f9" font-size="13" font-weight="700">học tốt</text>
+<path d="M70,220 C100,190 130,170 190,155" stroke="#4ade80" stroke-width="3" fill="none"/>
+<path d="M70,220 C100,215 130,215 190,190 C205,230 205,270 200,290" stroke="#f5c542" stroke-width="3" fill="none"/>
+<text x="80" y="300" fill="#93a0bd" font-size="12">val vọt lên: khoảng cách mở rộng</text>
+<path d="M280,200 C330,195 400,192 470,190" stroke="#4ade80" stroke-width="3" fill="none"/>
+<path d="M280,210 C330,208 400,206 470,205" stroke="#f5c542" stroke-width="3" fill="none"/>
+<text x="300" y="300" fill="#93a0bd" font-size="12">cả hai đều cao, bám sát nhau</text>
+<path d="M520,230 C560,180 600,150 660,140" stroke="#4ade80" stroke-width="3" fill="none"/>
+<path d="M520,235 C560,190 600,165 660,158" stroke="#f5c542" stroke-width="3" fill="none"/>
+<text x="530" y="300" fill="#93a0bd" font-size="12">cả hai cùng giảm, gap nhỏ ổn định</text>
+</svg>
+
+<table class="t">
+<tr><th>Triệu chứng</th><th>Chẩn đoán</th><th>Thuốc</th></tr>
+<tr><td>train loss giảm, val loss <b>tăng trở lại</b> (gap mở rộng)</td><td><b>Overfit</b> — mô hình học thuộc dữ liệu train</td><td>Tăng weight decay, thêm dropout, tăng dữ liệu, dừng sớm (early stopping)</td></tr>
+<tr><td>Cả hai loss đều <b>cao và đứng yên</b></td><td><b>Underfit</b> — mô hình chưa đủ "sức" học</td><td>Tăng kích thước mô hình, tăng learning rate, kiểm tra bug (mục 6)</td></tr>
+<tr><td>Cả hai cùng <b>giảm đều</b>, gap nhỏ</td><td>Đang học tốt ✅</td><td>Không đụng vào — đừng "chữa" thứ đang khỏe</td></tr>
+</table>
+
+<h2>6. Data bug — thủ phạm bị đổ oan cho mô hình nhiều nhất</h2>
+<p>Kinh nghiệm của các kỹ sư huấn luyện: <b>phần lớn "mô hình không học được" là do dữ liệu</b>, không phải kiến trúc.
+Những bug kinh điển:</p>
+<ul>
+<li><b>Token ngoài phạm vi</b>: token id vượt quá kích thước từ điển → embedding lookup trả về rác hoặc crash.</li>
+<li><b>Batch trùng lặp</b>: cùng một batch được nạp đi nạp lại (do bug trong dataloader) — loss giảm "ảo" rồi đứng yên.</li>
+<li><b>Rò rỉ dữ liệu</b> (data leak): mẫu kiểm chứng lẫn vào tập huấn luyện — val loss "đẹp bất thường", nhưng mô hình thật ra không tổng quát được.</li>
+<li><b>Chuẩn hóa sai</b>: quên chuẩn hóa hoặc chuẩn hóa hai lần — activation lệch thang đo ngay từ đầu vào.</li>
+</ul>
+<div class="note"><b>💡 Nguyên tắc vàng:</b> trước khi tăng mô hình hay chỉnh siêu tham số, hãy <b>nhìn trực tiếp vào vài batch dữ liệu</b>
+(in ra vài câu đã giải mã token). 5 phút kiểm tra này cứu được hàng giờ huấn luyện vô ích.</div>
+
+<div class="green">
+<h3>⚡ Góc tiết kiệm năng lượng</h3>
+<p>Một run huấn luyện lỗi chạy 10 giờ trên GPU tốn điện bằng cả tuần dùng laptop.
+<b>Chẩn đoán sớm = tiết kiệm năng lượng thật</b>. Green checkpoint của khóa học:</p>
+<ul>
+<li><b>Smoke test 50 bước</b> trước mọi full run: chạy 50 bước, kiểm tra loss giảm, không NaN, grad norm ổn định — chỉ 2–3 phút GPU.</li>
+<li><b>Dừng sớm run lỗi</b>: loss spike 3 lần liên tiếp hoặc grad norm vọt gấp 10 lần → kill run ngay, đừng "hy vọng nó tự hết".</li>
+<li><b>Health check tự động</b> (bài tối nay): script <span class="fx">health_checks.py</span> cảnh báo NaN, grad norm bất thường, batch trùng, token ngoài range — "bác sĩ trực" 24/7 cho GPU của bạn.</li>
+</ul>
+<img src="img/day10_energy.webp" alt="Minh họa kiểm tra sức khỏe luồng dữ liệu huấn luyện" style="width:100%; border-radius:12px; margin-top:10px;">
+</div>
+
+<h2>7. Checklist chẩn đoán — thứ tự không được đảo</h2>
+<p>Khi loss có biểu hiện lạ, đi theo đúng thứ tự này. <b>90% vấn đề nằm ở 2 bước đầu</b>:</p>
+<table class="t">
+<tr><th>#</th><th>Bước</th><th>Kiểm tra gì</th></tr>
+<tr><td>1</td><td><b>Dữ liệu</b></td><td>In vài batch đã giải mã; kiểm tra token id trong range; không có batch trùng; không rò rỉ train↔val</td></tr>
+<tr><td>2</td><td><b>Shape</b></td><td>Mọi tensor đúng kích thước mong đợi; loss nhận đúng đầu vào (logits vs xác suất)</td></tr>
+<tr><td>3</td><td><b>Loss</b></td><td>Loss giảm ở 50 bước đầu? Có spike/NaN? So sánh train vs val</td></tr>
+<tr><td>4</td><td><b>Optimizer</b></td><td>Learning rate hợp lý? Warm-up đủ? Clipping đang bật? Weight decay đúng nhóm tham số?</td></tr>
+<tr><td>5</td><td><b>Precision</b></td><td>AMP/fp16 có gây tràn số? Thử lại bằng fp32 để loại trừ (Ngày 9)</td></tr>
+</table>
+
+<h2>📌 Tóm tắt</h2>
+<div class="card">
+<ul>
+<li><b>Loss spike</b>: nhảy vọt đột ngột, thường do batch xấu hoặc learning rate cao → xử lý bằng clipping + giảm lr.</li>
+<li><b>Gradient explosion/vanishing</b>: theo dõi <b>grad norm</b>; gốc rễ nằm ở <b>initialization</b> (Xavier/Kaiming) và chuẩn hóa lớp.</li>
+<li><b>Activation scale</b>: tín hiệu qua các lớp phải giữ ổn định, không phình/te theo cấp số nhân.</li>
+<li><b>Weight decay</b>: "phanh" chống trọng số phình to → chống overfit (AdamW, bỏ qua bias/LayerNorm).</li>
+<li><b>Train/val gap</b>: gap mở rộng = overfit; cả hai cao đứng yên = underfit; cùng giảm = khỏe.</li>
+<li><b>Data bug</b>: kiểm tra dữ liệu trước khi đổ lỗi cho mô hình.</li>
+<li>⚡ <b>Smoke test 50 bước + dừng sớm run lỗi</b> = tiết kiệm GPU và điện năng thật.</li>
+</ul>
+</div>
+
+<div class="nav">
+<a class="quiz" href="Day10_quiz.html">📝 Làm quiz 5 câu →</a>
+<a class="video" href="Day10_video.mp4">🎬 Xem video giải thích →</a>
+</div>
+
+<footer>Khóa học "Trở thành AI Engineer (LLM)" • Ngày 10/30 • Buổi sáng lý thuyết</footer>
+</div>
+</body>
+</html>

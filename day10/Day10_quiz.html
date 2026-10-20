@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quiz Ngày 10 — Chẩn đoán sự cố huấn luyện</title>
+<style>
+:root{--bg:#0a0f1e;--card:#101830;--line:#22305a;--gold:#f5c542;--green:#4ade80;--red:#f87171;--text:#e8edf7;--muted:#93a0bd;}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;line-height:1.7;font-size:16.5px;}
+.wrap{max-width:760px;margin:0 auto;padding:18px 16px 60px;}
+h1{font-size:26px;margin:6px 0 4px;}
+.sub{color:var(--muted);margin-bottom:18px;}
+.q{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin:14px 0;}
+.q h3{margin:0 0 10px;font-size:17px;}
+label.opt{display:block;background:#0b1226;border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin:8px 0;cursor:pointer;}
+label.opt:hover{border-color:var(--gold);}
+label.opt input{margin-right:10px;}
+.explain{display:none;margin-top:10px;padding:10px 14px;border-radius:10px;font-size:15px;}
+.explain.ok{display:block;background:#0c2b1a;border:1px solid #14532d;}
+.explain.no{display:block;background:#2a1420;border:1px solid #7f1d1d;}
+button.big{display:block;width:100%;margin:22px 0 10px;padding:16px;border:0;border-radius:14px;font-size:18px;font-weight:800;cursor:pointer;}
+#submit{background:var(--gold);color:#241a04;}
+#copy{background:#1d2a52;color:var(--text);display:none;}
+#score{display:none;text-align:center;font-size:20px;font-weight:800;margin:16px 0;}
+.note{color:var(--muted);font-size:14px;margin-top:16px;}
+.fx{font-family:Consolas,Menlo,monospace;background:#0b1226;border:1px solid var(--line);border-radius:6px;padding:1px 8px;font-size:.95em;}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>📝 Quiz Ngày 10 — Chẩn đoán sự cố huấn luyện</h1>
+<p class="sub">5 câu trắc nghiệm • Chọn đáp án rồi bấm "Nộp bài" để chấm điểm ngay trong file.<br>
+<b>Lưu ý:</b> file HTML không tự gửi kết quả về được — sau khi nộp bài, bấm "Copy kết quả" rồi <b>paste vào chat</b> để trợ lý ghi điểm cho bạn.</p>
+
+<div id="quiz"></div>
+<button class="big" id="submit" onclick="grade()">Nộp bài</button>
+<div id="score"></div>
+<button class="big" id="copy" onclick="copyResult()">📋 Copy kết quả</button>
+<p class="note">Đạt dưới 70% (dưới 4/5) → buổi học tiếp theo sẽ ôn lại chỗ hổng trước khi học bài mới.</p>
+</div>
+<script>
+const QUESTIONS=[
+{q:"Loss đang giảm đều, bỗng nhảy vọt lên cao trong vài bước rồi tụt lại. Hiện tượng này gọi là gì và nguyên nhân phổ biến nhất là gì?",
+ o:["Overfit — mô hình học thuộc dữ liệu","Loss spike — thường do batch dữ liệu xấu hoặc learning rate quá cao","Vanishing gradient — do khởi tạo trọng số quá nhỏ","Data leak — mẫu kiểm chứng lẫn vào tập huấn luyện"],
+ a:1,
+ e:"Đáp án B. Spike đơn lẻ thường vô hại; spike lặp lại nhiều lần là dấu hiệu learning rate quá cao hoặc batch xấu — và có thể là tiền thân của NaN."},
+{q:"Bạn theo dõi grad norm mỗi bước và thấy nó vọt gấp 30 lần rồi loss thành NaN. Biện pháp khắc phục ĐẦU TIÊN, rẻ nhất nên làm gì?",
+ o:["Tăng kích thước mô hình gấp đôi","Bật gradient clipping (vd max_norm=1.0)","Chuyển toàn bộ sang fp64","Xóa tập validation"],
+ a:1,
+ e:"Đáp án B. Gradient clipping là 'cầu chì' cắt dòng gradient khi quá lớn — rẻ, hiệu quả, nên bật mặc định. NaN sau explosion là chuỗi nhân-quả kinh điển."},
+{q:"Mô hình dùng ReLU, bạn khởi tạo trọng số với phương sai rất nhỏ. Tín hiệu qua các lớp teo dần, loss gần như đứng yên. Đây là hiện tượng gì và cách khởi tạo đúng cho ReLU?",
+ o:["Explosion — dùng Xavier","Vanishing — dùng Kaiming/He với phương sai 2/fan_in","Overfit — tăng weight decay","Underfit do thiếu dữ liệu — thu thập thêm"],
+ a:1,
+ e:"Đáp án B. Trọng số quá nhỏ → tín hiệu tắt dần (vanishing). ReLU 'giết' một nửa tín hiệu nên Kaiming/He bù gấp đôi: phương sai = 2/fan_in."},
+{q:"Đường train loss giảm đều, nhưng val loss sau một thời gian lại TĂNG trở lại, khoảng cách hai đường mở rộng. Chẩn đoán và cách xử lý đúng là gì?",
+ o:["Underfit — tăng kích thước mô hình","Overfit — tăng weight decay / dropout / dữ liệu, hoặc dừng sớm","Học tốt — không cần làm gì","Data bug — kiểm tra token id"],
+ a:1,
+ e:"Đáp án B. Train giảm + val tăng = overfit (học thuộc lòng). Thuốc: tăng regularization (weight decay, dropout), thêm dữ liệu, early stopping."},
+{q:"Mô hình 'không học được gì' sau 2 giờ chạy. Theo checklist chẩn đoán trong bài, thứ tự kiểm tra ĐÚNG là gì?",
+ o:["Tăng learning rate → đổi optimizer → tăng batch size","Precision → optimizer → loss → shape → dữ liệu","Dữ liệu → shape → loss → optimizer → precision","Đổi kiến trúc → thêm lớp → train lại"],
+ a:2,
+ e:"Đáp án C. 90% vấn đề nằm ở 2 bước đầu: kiểm tra dữ liệu (token, batch trùng, rò rỉ) rồi shape, trước khi đụng đến optimizer hay kiến trúc."}
+];
+let answers=new Array(QUESTIONS.length).fill(null);
+const box=document.getElementById('quiz');
+QUESTIONS.forEach((it,i)=>{
+ const d=document.createElement('div');d.className='q';
+ let h='<h3>Câu '+(i+1)+'. '+it.q+'</h3>';
+ it.o.forEach((op,j)=>{h+='<label class="opt"><input type="radio" name="q'+i+'" value="'+j+'" onchange="answers['+i+']='+j+'">'+String.fromCharCode(65+j)+'. '+op+'</label>';});
+ h+='<div class="explain" id="ex'+i+'"></div>';
+ d.innerHTML=h;box.appendChild(d);
+});
+function grade(){
+ let s=0;
+ QUESTIONS.forEach((it,i)=>{
+  const ex=document.getElementById('ex'+i);
+  const ok=answers[i]===it.a;
+  if(ok)s++;
+  ex.className='explain '+(ok?'ok':'no');
+  ex.innerHTML=(ok?'✅ Đúng. ':'❌ Sai. ')+it.e;
+ });
+ const sc=document.getElementById('score');
+ sc.style.display='block';
+ sc.innerHTML='Điểm của bạn: '+s+'/5 '+(s>=4?'🎉':'💪');
+ sc.style.color=s>=4?'#4ade80':'#f5c542';
+ document.getElementById('copy').style.display='block';
+ window._result={score:s,total:5,answers:answers};
+}
+function copyResult(){
+ const r=window._result;if(!r)return;
+ const letters=r.answers.map(a=>a==null?'?':String.fromCharCode(65+a));
+ const str='Day10 Quiz: '+letters.map((l,i)=>(i+1)+l).join(' ')+' — '+r.score+'/'+r.total;
+ navigator.clipboard.writeText(str).then(()=>{alert('Đã copy: '+str);}).catch(()=>{prompt('Copy thủ công:',str);});
+}
+</script>
+</body>
+</html>
