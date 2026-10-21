@@ -125,7 +125,11 @@ def report_same_compute(runs):
 def load_real_runs(path="runs.jsonl"):
     """Doc bang 9 run THAT tu train_grid.py (Phan B).
 
-    Tra ve (runs, "THAT") hoac (None, "MAU") neu chua train.
+    [TRAINER] Docstring cu ghi "tra ve (runs, 'THAT') hoac
+    (None, 'MAU')" nhung code thuc te chi tra ve list runs hoac None -
+    docstring sai khien nguoi doc tuong ham tra tuple. Da sua
+    docstring khop hanh vi that cua code.
+    Tra ve list runs, hoac None neu chua co file runs.jsonl.
     """
     import json
     if not os.path.exists(path):
@@ -136,11 +140,19 @@ def load_real_runs(path="runs.jsonl"):
 
 
 def load_run10_actual(path="runs_run10.jsonl"):
-    """Doc loss THAT cua run 10 (de so prediction vs actual)."""
+    """Doc loss THAT cua run 10 (de so prediction vs actual).
+
+    [TRAINER] Ban cu dung json.loads() tren TOAN BO noi dung file ->
+    crash JSONDecodeError "Extra data" khi file co >1 dong. train_grid
+    --run10 ghi che do APPEND nen chay lai run 10 lan 2 la file da co
+    2 dong (da tai hien loi). Sua: chi doc dong khong rong CUOI CUNG
+    (run moi nhat la run can so sanh).
+    """
     import json
     if not os.path.exists(path):
         return None
-    return json.loads(open(path, encoding="utf-8").read().strip())
+    lines = [l for l in open(path, encoding="utf-8") if l.strip()]
+    return json.loads(lines[-1]) if lines else None
 
 
 def main():

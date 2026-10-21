@@ -128,7 +128,11 @@ class TinyGPT(nn.Module):
 
     def forward(self, x):
         B_, T_ = x.shape
-        h = self.tok_emb(x) + self.pos_emb(torch.arange(T_))
+        # [TRAINER] torch.arange(T_) mac dinh tao tensor tren CPU - neu x
+        # nam tren GPU se crash device mismatch. Day 7 trainer da sua
+        # dung loi nay (fix #3), Day 11 tai pham do copy-paste model.
+        # Sua: tao arange tren CUNG device voi x.
+        h = self.tok_emb(x) + self.pos_emb(torch.arange(T_, device=x.device))
         h = self.blocks(h)
         return self.lm_head(self.ln_f(h))
 
