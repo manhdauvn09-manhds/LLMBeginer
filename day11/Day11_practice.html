@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ngày 11 — Buổi tối: Scaling Lab — từ 9 run nhỏ đến quyết định ngân sách</title>
+<style>
+ :root{
+  --bg:#0b1020; --card:#141b33; --line:#26314f; --txt:#e8ecf7; --muted:#9aa6c7;
+  --gold:#fbbf24; --blue:#60a5fa; --green:#34d399; --red:#f87171; --violet:#a78bfa; --orange:#fb923c;
+ }
+ *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+ body{margin:0; background:var(--bg); color:var(--txt);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  line-height:1.75; font-size:16.5px;}
+ .wrap{max-width:900px; margin:0 auto; padding:0 18px 80px;}
+ .kicker{display:inline-block; margin:26px 0 10px; padding:6px 14px; border:1px solid var(--line);
+  border-radius:999px; color:var(--muted); font-size:13px; letter-spacing:.4px;}
+ h1{font-size:clamp(25px,5.4vw,36px); line-height:1.32; margin:6px 0 8px;}
+ .sub{color:var(--muted); margin:0 0 6px;}
+ .meta{display:flex; gap:10px; flex-wrap:wrap; margin:14px 0 22px; color:var(--muted); font-size:14px;}
+ .meta span{background:var(--card); border:1px solid var(--line); border-radius:10px; padding:6px 12px;}
+ .goal{background:linear-gradient(135deg,#16213f,#101a36); border:1px solid var(--line);
+  border-radius:14px; padding:18px 20px; margin:26px 0;}
+ .goal h3{margin:0 0 10px; font-size:17px; color:var(--gold);}
+ .goal ul{margin:0; padding-left:20px;}
+ .goal li{margin:6px 0;}
+ section.card{background:var(--card); border:1px solid var(--line); border-radius:16px;
+  padding:22px 20px; margin:22px 0;}
+ section.card h2{margin:0 0 4px; font-size:21px;}
+ section.card h2 .n{display:inline-flex; width:30px; height:30px; border-radius:9px;
+  background:var(--orange); color:#081226; font-size:16px; align-items:center; justify-content:center;
+  margin-right:8px; font-weight:800;}
+ section.card p.lead{color:var(--muted); margin:0 0 12px;}
+ .code{background:#070d1c; border:1px solid var(--line); border-radius:12px; padding:14px 16px;
+  font-family:"SF Mono",Consolas,Menlo,monospace; font-size:13.5px; overflow-x:auto;
+  white-space:pre; margin:14px 0; line-height:1.65; color:#dbe4f7;}
+ .code .todo{color:var(--gold); font-weight:700;}
+ .code .hint{color:var(--muted);}
+ .note{border-left:4px solid var(--green); background:#0f2233; border-radius:0 12px 12px 0;
+  padding:12px 16px; margin:14px 0;}
+ .warn{border-left:4px solid var(--red); background:#2a1420; border-radius:0 12px 12px 0;
+  padding:12px 16px; margin:14px 0;}
+ .q{background:#0e1630; border:1px solid var(--line); border-radius:12px; padding:14px 16px; margin:12px 0;}
+ .q button{background:var(--blue); border:none; color:#081226; font-weight:700;
+  border-radius:9px; padding:8px 16px; cursor:pointer; margin-top:8px; font-size:14px;}
+ .q .ans{display:none; margin-top:10px; color:var(--green);}
+ table{width:100%; border-collapse:collapse; margin:14px 0; font-size:14px;}
+ th,td{border:1px solid var(--line); padding:8px 10px; text-align:right;}
+ th{background:#0e1630; color:var(--gold); font-weight:700;}
+ td:first-child, th:first-child{text-align:left;}
+ .chk li{list-style:none; margin:8px 0; padding-left:8px;}
+ .chk li::before{content:"☐ "; color:var(--muted);}
+ a{color:var(--blue);}
+ footer{color:var(--muted); font-size:13px; margin-top:30px; border-top:1px solid var(--line); padding-top:14px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<span class="kicker">🌙 NGÀY 11 — BUỔI TỐI · THỰC HÀNH</span>
+<h1>Scaling Lab: từ 9 run nhỏ đến quyết định ngân sách</h1>
+<p class="sub">Bài thực hành gắn với bài sáng "Scaling law: dùng để lập ngân sách, không phải khẩu hiệu".
+File này thuộc khóa <b>Trở thành AI Engineer (LLM)</b> — ôn lại công thức <b>C ≈ 6·N·D</b>, xem lại bài sáng
+<a href="Day11_lesson.html">tại đây</a> nếu cần.</p>
+<div class="meta">
+ <span>⏱️ Dự kiến: 60–90 phút</span>
+ <span>🐍 Python + PyTorch + numpy</span>
+ <span>📦 Đầu ra: scaling_lab.py + bảng 9 run + prediction vs actual</span>
+</div>
+
+<div class="goal">
+<h3>🎯 Mục tiêu buổi tối</h3>
+<ul>
+ <li>Hiểu scaling law bằng <b>tay làm thật</b>: train 3 kích thước mô hình × 3 token budget = <b>9 run</b>, ghi loss theo compute.</li>
+ <li>Fit đường <b>log-log</b> đơn giản, rồi <b>dự báo</b> loss cho run thứ 10 trước khi train thật → so sánh prediction vs actual.</li>
+ <li>Luyện quyết định ngân sách đúng kiểu engineer: chọn run dựa trên <b>cải thiện loss / kWh</b>, không phải "model càng to càng tốt".</li>
+ <li><b>Green checkpoint ⚡:</b> chọn run tối đa hóa cải thiện loss/kWh, không tối đa hóa tham số.</li>
+</ul>
+</div>
+
+<section class="card">
+<h2><span class="n">1</span>Lab code: scaling_lab.py</h2>
+<p class="lead">Lab gồm 2 phần. <b>Phần A</b> (làm ngay): dùng bảng 9 run mẫu của trợ giảng để fit đường log-log và dự báo run 10.
+<b>Phần B</b> (train thật, có thể để qua đêm): chạy lại 9 run bằng mô hình của bạn rồi thay số thật vào. Phần code skeleton đã viết sẵn — bạn điền 3 chỗ TODO.</p>
+
+<h3>Bảng 9 run mẫu (trợ giảng chạy trước trên Kaggle, tiny char-GPT, CPU ≈ 30 W)</h3>
+<p class="lead">C = 6·N·D (N: số tham số, D: số token). kWh ≈ giờ chạy × 30 W / 1000.</p>
+<table>
+<tr><th>Run</th><th>N (params)</th><th>D (tokens)</th><th>C = 6·N·D</th><th>Loss cuối</th><th>Giờ chạy</th><th>kWh</th></tr>
+<tr><td>S1</td><td>0.4 M</td><td>50 k</td><td>1.2e11</td><td>3.02</td><td>0.18</td><td>0.0054</td></tr>
+<tr><td>S2</td><td>0.4 M</td><td>150 k</td><td>3.6e11</td><td>2.87</td><td>0.54</td><td>0.0162</td></tr>
+<tr><td>S3</td><td>0.4 M</td><td>400 k</td><td>9.6e11</td><td>2.73</td><td>1.44</td><td>0.0432</td></tr>
+<tr><td>M1</td><td>1.2 M</td><td>50 k</td><td>3.6e11</td><td>2.90</td><td>0.54</td><td>0.0162</td></tr>
+<tr><td>M2</td><td>1.2 M</td><td>150 k</td><td>1.08e12</td><td>2.74</td><td>1.62</td><td>0.0486</td></tr>
+<tr><td>M3</td><td>1.2 M</td><td>400 k</td><td>2.88e12</td><td>2.60</td><td>4.32</td><td>0.1296</td></tr>
+<tr><td>L1</td><td>3.0 M</td><td>50 k</td><td>9.0e11</td><td>2.76</td><td>1.35</td><td>0.0405</td></tr>
+<tr><td>L2</td><td>3.0 M</td><td>150 k</td><td>2.7e12</td><td>2.62</td><td>4.05</td><td>0.1215</td></tr>
+<tr><td>L3</td><td>3.0 M</td><td>400 k</td><td>7.2e12</td><td>2.50</td><td>10.80</td><td>0.3240</td></tr>
+</table>
+<div class="note"><b>Quan sát trước khi code:</b> cùng compute C = 3.6e11, run S2 (nhỏ, data nhiều) loss 2.87 < run M1 (to, data ít) loss 2.90 —
+đây chính là bài học Chinchilla của bài sáng: phân bổ compute cho data thường "lời" hơn đổ vào tham số.</div>
+
+<h3>Skeleton — bạn điền 3 chỗ TODO</h3>
+<div class="code">import numpy as np, math
+
+# 9 run mẫu (thay bằng số thật của bạn sau khi chạy Phần B)
+runs = [
+    # (name, N, D, loss, kwh)
+    ("S1", 4e5, 5e4, 3.02, 0.0054), ("S2", 4e5, 1.5e5, 2.87, 0.0162),
+    ("S3", 4e5, 4e5, 2.73, 0.0432),
+    ("M1", 1.2e6, 5e4, 2.90, 0.0162), ("M2", 1.2e6, 1.5e5, 2.74, 0.0486),
+    ("M3", 1.2e6, 4e5, 2.60, 0.1296),
+    ("L1", 3e6, 5e4, 2.76, 0.0405), ("L2", 3e6, 1.5e5, 2.62, 0.1215),
+    ("L3", 3e6, 4e5, 2.50, 0.3240),
+]
+
+<span class="todo">TODO 1 — fit_scaling_law:</span> giả thiết loss = a * C^b  (tức log10(loss) tuyến tính theo log10(C)).
+Hãy fit bằng np.polyfit trên thang log10 và trả về (a, b). Gợi ý 2 dòng:
+<span class="hint">#   xs = log10(C_i), ys = log10(loss_i)
+#   b, loga = np.polyfit(xs, ys, 1);  a = 10**loga</span>
+def fit_scaling_law(runs):
+    <span class="todo">### ĐIỀN CODE CỦA BẠN Ở ĐÂY ###</span>
+    pass
+
+<span class="todo">TODO 2 — predict_loss:</span> với (a, b) đã fit, dự báo loss cho run 10:
+run 10 = gấp đôi compute của run rẻ nhất-đạt-loss-thấp (gợi ý: chọn M3, C = 5.76e12).
+def predict_loss(a, b, N, D):
+    <span class="todo">### ĐIỀN CODE CỦA BẠN Ở ĐÂY ###</span>
+    pass
+
+<span class="todo">TODO 3 — green checkpoint:</span> với mỗi run, tính "điểm hiệu quả"
+= (loss_run_trước - loss_run) / kWh_run, rồi chọn run có điểm cao nhất.
+(loss_run_trước = run rẻ hơn ngay trước nó theo C tăng dần.)
+def best_run_per_kwh(runs):
+    <span class="todo">### ĐIỀN CODE CỦA BẠN Ở ĐÂY ###</span>
+    pass
+
+if __name__ == "__main__":
+    a, b = fit_scaling_law(runs)
+    print(f"loss = {a:.3f} * C^({b:.3f})")
+    pred = predict_loss(a, b, 1.2e6, 8e5)   # run 10: M × 800k tokens
+    print(f"Dự báo loss run 10: {pred:.3f}  ← train thật rồi so sánh!")
+    print("Run tốt nhất theo loss/kWh:", best_run_per_kwh(runs))</div>
+
+<h3>Phần B — train thật (9 run, chạy qua đêm)</h3>
+<p class="lead">Dùng tiny char-level GPT (mẫu karpathy) trên file text ~200 KB. <b>Bước 0 — smoke test bắt buộc:</b>
+chạy đúng 1 run S1 với 50 bước trước — nếu loss không giảm mượt thì dừng, sửa bug rồi mới chạy full
+(đây là thói quen "mọi experiment có smoke test" của bài sáng Ngày 10–11).</p>
+<div class="code"><span class="hint"># Quy ước grid — copy vào file train của bạn:</span>
+CONFIGS = {
+    "S": dict(n_layer=2, n_embd=64,  n_head=2),   # ~0.4M params
+    "M": dict(n_layer=4, n_embd=128, n_head=4),   # ~1.2M params
+    "L": dict(n_layer=6, n_embd=192, n_head=6),   # ~3.0M params
+}
+TOKEN_BUDGETS = [50_000, 150_000, 400_000]        # D cho mỗi run
+<span class="hint"># steps = D // (batch_size * block_size); mỗi bước dùng đúng budget, không "train cho đã"</span>
+<span class="hint"># Ghi vào runs.jsonl mỗi run: name, N (đếm thật bằng sum(p.numel())), D, loss cuối, walltime</span></div>
+<div class="warn"><b>Budget là hợp đồng:</b> khi hết token budget thì dừng — kể cả loss vẫn đang giảm.
+Đó chính là ý nghĩa "scaling law dùng để lập ngân sách": quyết định trước, không chạy theo cảm xúc.</div>
+<div class="note"><b>Đầu ra buổi tối:</b> (1) file <code>scaling_lab.py</code> với 3 TODO đã điền, (2) bảng 9 run (của bạn hoặc của mẫu +
+ghi rõ nguồn), (3) <b>prediction vs actual cho run 10</b> — nếu chưa train kịp run 10 thì ghi "chưa chạy", không đoán mò.</div>
+</section>
+
+<section class="card">
+<h2><span class="n">2</span>Tự kiểm tra nhanh (không chấm điểm)</h2>
+<p class="lead">Bấm "Hiện đáp án" để tự đối chiếu — trung thực với chính mình là đủ.</p>
+<div class="q">
+<b>Câu 1.</b> Vì sao run S2 (0.4 M params, 150 k tokens, C = 3.6e11) đạt loss 2.87 tốt hơn run M1 (1.2 M params, 50 k tokens, C = 3.6e11) dù compute bằng nhau?
+<button onclick="this.nextElementSibling.style.display='block';this.style.display='none'">Hiện đáp án</button>
+<div class="ans">Vì compute-optimal: với cùng ngân sách C, chia cho data (token) thường "lời" hơn đổ vào tham số khi model đang thiếu data — đúng kết luận Chinchilla trong bài sáng. Nếu cứ tăng N mà D không tăng, model đói data, loss không cải thiện tương xứng.</div>
+</div>
+<div class="q">
+<b>Câu 2.</b> Khi fit đường log-log, ta fit log10(loss) theo log10(C) thay vì fit thẳng loss theo C. Vì sao?
+<button onclick="this.nextElementSibling.style.display='block';this.style.display='none'">Hiện đáp án</button>
+<div class="ans">Vì dạng power law loss = a·C^b trở thành tuyến tính trên thang log: log(loss) = log(a) + b·log(C). Fit tuyến tính đơn giản, ổn định số học (C trải nhiều bậc 10^11–10^12), và hệ số b chính là "độ dốc cải thiện" — mỗi lần tăng C gấp 10 thì loss nhân với 10^b.</div>
+</div>
+<div class="q">
+<b>Câu 3.</b> "Chọn run tối đa hóa cải thiện loss/kWh" — vì sao tiêu chí này quan trọng với người quan tâm tiết kiệm năng lượng?
+<button onclick="this.nextElementSibling.style.display='block';this.style.display='none'">Hiện đáp án</button>
+<div class="ans">Vì loss tuyệt đối thấp nhất thường đến từ run to nhất — nhưng mỗi điểm loss cuối cùng có thể "tốn" gấp chục lần điện so với run nhỏ hơn. Tiêu chí loss/kWh tìm điểm ngọt mà mỗi kWh bỏ ra vẫn mang lại cải thiện đáng kể — đúng Green checkpoint của buổi học, và là cách ra quyết định ngân sách của một AI engineer thực thụ.</div>
+</div>
+</section>
+
+<section class="card">
+<h2><span class="n">3</span>Bẫy thường gặp</h2>
+<p class="lead">3 lỗi dễ mắc nhất khi làm lab kiểu scaling:</p>
+<ul>
+<li><b>So sánh 9 run với learning rate khác nhau.</b> Loss chênh nhau có thể do LR chứ không phải do scale. Khóa LR (hoặc scale LR theo rule cố định, ví dụ µP đơn giản) cho cả 9 run — chỉ khác N và D.</li>
+<li><b>Đo "budget" bằng epoch thay vì token.</b> 1 epoch trên corpus khác nhau = token khác nhau. Scaling law nói về D = số token thực sự nhìn thấy, không phải số vòng lặp. Luôn log D thật.</li>
+<li><b>Nhầm "loss plateau" với "đã tới giới hạn scaling".</b> Plateau ở run nhỏ thường là do hết data đa dạng / LR sai, không phải scaling law hết hiệu lực. Trước khi kết luận, kiểm tra checklist Ngày 10 (data → shape → loss → optimizer → precision).</li>
+</ul>
+</section>
+
+<section class="card">
+<h2><span class="n">4</span>Checklist nộp bài</h2>
+<ul class="chk">
+<li>Paste file <code>scaling_lab.py</code> (3 TODO đã điền) vào chat.</li>
+<li>Paste bảng 9 run: ghi rõ số của <b>bạn</b> hay số <b>mẫu</b> của trợ giảng.</li>
+<li>Ghi kết quả fit: <code>loss = a × C^b</code> (a, b của bạn) + dự báo loss run 10.</li>
+<li>Nếu đã train run 10: ghi <b>prediction vs actual</b> và nhận xét độ lệch.</li>
+<li>Trả lời 1 câu: theo tiêu chí loss/kWh, bạn chọn run nào để "nâng cấp tiếp" và vì sao?</li>
+</ul>
+<p class="lead">Trợ giảng sẽ review code + nhận xét bảng số chi tiết trong chat. Quiz trắc nghiệm của buổi sáng đã ở
+<a href="Day11_quiz.html">Day11_quiz.html</a> — nhớ paste kết quả quiz vào chat để được chấm điểm nhé.</p>
+</section>
+
+<footer>Khóa "Trở thành AI Engineer (LLM)" — Ngày 11 buổi tối · Scaling Lab · Bài học buổi sáng:
+<a href="Day11_lesson.html">Day11_lesson.html</a></footer>
+</div>
+</body>
+</html>
