@@ -114,6 +114,7 @@
   <a href="#chinchilla">⚖️ Chinchilla bằng số thật</a>
   <a href="#green">⚡ Green checkpoint</a>
   <a href="#bay">🪤 3 bẫy</a>
+  <a href="#trainer">🛠️ Trainer đã sửa gì</a>
   <a href="#source">📜 Source code</a>
 </div></nav>
 
@@ -324,6 +325,47 @@
   </div>
 </section>
 
+<!-- ================= TRAINER ================= -->
+<section id="trainer">
+  <h2><span class="num">🛠️</span>Trainer đã sửa gì: trước → sau</h2>
+  <p class="lead">Review ngày 21/10, trainer sửa 3 điểm: 1 bug <b>tái phạm</b> từ Day 7, 1 docstring <b>sai sự thật</b>, và 1 bug <b>crash thật</b> đã tái hiện được.</p>
+
+  <div class="card">
+    <h3 style="margin-top:0">1. 🔌 <code>torch.arange(T_)</code> thiếu device — tái phạm lỗi Day 7!</h3>
+    <div class="bad"><b>TRƯỚC — arange nằm trên CPU</b><pre style="margin:8px 0 0">h = self.tok_emb(x) + self.pos_emb(torch.arange(T_))</pre></div>
+    <div class="ok"><b>SAU — arange đi theo device của input</b><pre style="margin:8px 0 0"><span class="cm"># [TRAINER] Day 7 trainer da sua dung loi nay (fix #3),
+# Day 11 tai pham do copy-paste model.</span>
+h = self.tok_emb(x) + self.pos_emb(torch.arange(T_, device=x.device))</pre></div>
+    <p><b>Vì sao gọi là "tái phạm"?</b> Day 7 trainer đã sửa <b>đúng chỗ này</b> trong <code>tinygpt.py</code> (fix #3). Sang Day 11, model được <b>copy-paste</b> sang file mới — và chi tiết <code>device=</code> "rơi rớt" trên đường copy. Trên CPU vẫn chạy ngon (bug ngủ yên), nhưng ai <code>.to('cuda')</code> là crash device mismatch ngay. Bài học: khi copy pattern từ file cũ, hãy copy cả những chi tiết "nhỏ".</p>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0">2. 📝 Docstring <code>load_real_runs</code> ghi sai kiểu trả về</h3>
+    <div class="bad"><b>TRƯỚC — docstring bịa kiểu tuple</b><pre style="margin:8px 0 0"><span class="cm">"""Doc bang 9 run THAT tu train_grid.py (Phan B).
+
+Tra ve (runs, "THAT") hoac (None, "MAU") neu chua train.
+"""</span></pre></div>
+    <div class="ok"><b>SAU — docstring khớp code thật</b><pre style="margin:8px 0 0"><span class="cm">"""Doc bang 9 run THAT tu train_grid.py (Phan B).
+
+[TRAINER] Docstring cu ghi ... nhung code thuc te chi tra ve
+list runs hoac None - docstring sai khien nguoi doc tuong
+ham tra tuple. Da sua docstring khop hanh vi that cua code.
+Tra ve list runs, hoac None neu chua co file runs.jsonl.
+"""</span></pre></div>
+    <p><b>Vì sao quan trọng?</b> Ai đọc docstring cũ sẽ viết code gọi hàm kiểu <code>runs, tag = load_real_runs()</code> — và crash ngay vì thực ra hàm chỉ trả về list. Docstring sai còn nguy hiểm hơn không có docstring, vì nó <b>chủ động đánh lừa</b> người đọc.</p>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0">3. 🐛 <code>load_run10_actual</code> crash khi file có &gt; 1 dòng — bug thật!</h3>
+    <div class="bad"><b>TRƯỚC — đọc cả file rồi parse một thể</b><pre style="margin:8px 0 0">return json.loads(open(path, encoding="utf-8").read().strip())</pre></div>
+    <div class="ok"><b>SAU — chỉ đọc dòng không rỗng cuối cùng</b><pre style="margin:8px 0 0">lines = [l for l in open(path, encoding="utf-8") if l.strip()]
+return json.loads(lines[-1]) if lines else None</pre></div>
+    <div class="warn"><b>⚠️ Bug này đã tái hiện thật:</b> <code>train_grid --run10</code> ghi file ở chế độ <b>APPEND</b> — chạy lại run 10 lần 2 là file có 2 dòng JSON. Bản cũ <code>json.loads()</code> cả file → crash <code>JSONDecodeError: Extra data</code> ngay. Bản sửa lấy <b>dòng cuối cùng</b> = run mới nhất = run cần so sánh. Đây là lỗi chỉ lộ ra khi <b>chạy lại</b> — lần chạy đầu tiên luôn "ngon".</div>
+  </div>
+
+  <div class="ok"><b>💡 Bài học chung của cả 3 điểm:</b> (1) regression núp ở chỗ copy-paste — chi tiết "nhỏ" như <code>device=</code> là thứ rơi đầu tiên; (2) docstring là <b>hợp đồng</b>, sai hợp đồng thì người dùng hàm trả giá; (3) bug chỉ lộ khi chạy lại / đổi môi trường — vì vậy mới cần smoke test và chạy thử nhiều lần như Day 9–10 đã dạy.</div>
+</section>
+
 <!-- ================= SOURCE CODE ================= -->
 <section id="source">
   <h2><span class="num">📜</span>Source code đầy đủ</h2>
@@ -458,7 +500,11 @@ def report_same_compute(runs):
 def load_real_runs(path="runs.jsonl"):
     <span class="cm">"""Doc bang 9 run THAT tu train_grid.py (Phan B).
 
-    Tra ve (runs, "THAT") hoac (None, "MAU") neu chua train.
+    [TRAINER] Docstring cu ghi "tra ve (runs, 'THAT') hoac
+    (None, 'MAU')" nhung code thuc te chi tra ve list runs hoac None -
+    docstring sai khien nguoi doc tuong ham tra tuple. Da sua
+    docstring khop hanh vi that cua code.
+    Tra ve list runs, hoac None neu chua co file runs.jsonl.
     """</span>
     import json
     if not os.path.exists(path):
@@ -469,11 +515,19 @@ def load_real_runs(path="runs.jsonl"):
 
 
 def load_run10_actual(path="runs_run10.jsonl"):
-    <span class="cm">"""Doc loss THAT cua run 10 (de so prediction vs actual)."""</span>
+    <span class="cm">"""Doc loss THAT cua run 10 (de so prediction vs actual).
+
+    [TRAINER] Ban cu dung json.loads() tren TOAN BO noi dung file -&gt;
+    crash JSONDecodeError "Extra data" khi file co &gt;1 dong. train_grid
+    --run10 ghi che do APPEND nen chay lai run 10 lan 2 la file da co
+    2 dong (da tai hien loi). Sua: chi doc dong khong rong CUOI CUNG
+    (run moi nhat la run can so sanh).
+    """</span>
     import json
     if not os.path.exists(path):
         return None
-    return json.loads(open(path, encoding="utf-8").read().strip())
+    lines = [l for l in open(path, encoding="utf-8") if l.strip()]
+    return json.loads(lines[-1]) if lines else None
 
 
 def main():
@@ -660,7 +714,11 @@ class TinyGPT(nn.Module):
 
     def forward(self, x):
         B_, T_ = x.shape
-        h = self.tok_emb(x) + self.pos_emb(torch.arange(T_))
+        <span class="cm"># [TRAINER] torch.arange(T_) mac dinh tao tensor tren CPU - neu x
+        # nam tren GPU se crash device mismatch. Day 7 trainer da sua
+        # dung loi nay (fix #3), Day 11 tai pham do copy-paste model.
+        # Sua: tao arange tren CUNG device voi x.</span>
+        h = self.tok_emb(x) + self.pos_emb(torch.arange(T_, device=x.device))
         h = self.blocks(h)
         return self.lm_head(self.ln_f(h))
 
