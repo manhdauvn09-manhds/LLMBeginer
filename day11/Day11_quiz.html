@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quiz Ngày 11 — Scaling law | Khóa LLM 30 ngày</title>
+<style>
+:root{--bg:#0a0f1e; --card:#101830; --line:#22305a; --gold:#f5c542; --green:#4ade80; --red:#f87171; --cyan:#67e8f9; --text:#e8edf7; --muted:#93a0bd;}
+*{box-sizing:border-box;}
+body{margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.7; font-size:16px;}
+.wrap{max-width:760px; margin:0 auto; padding:18px 16px 60px;}
+.kicker{font-size:13px; letter-spacing:1px; color:var(--gold); font-weight:700;}
+h1{font-size:26px; margin:6px 0 4px;}
+.sub{color:var(--muted);}
+.q{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px 18px; margin:16px 0;}
+.q p{font-weight:600; margin:0 0 10px;}
+label{display:block; background:#0a0f1e; border:1px solid var(--line); border-radius:10px; padding:10px 12px; margin:8px 0; cursor:pointer;}
+label:hover{border-color:var(--gold);}
+label input{margin-right:10px;}
+.expl{display:none; margin-top:10px; padding:10px 12px; border-radius:10px; font-size:15px;}
+.expl.ok{display:block; background:#0f2233; border-left:4px solid var(--green);}
+.expl.no{display:block; background:#23141a; border-left:4px solid var(--red);}
+.btn{display:inline-block; background:var(--gold); color:#14100a; font-weight:700; border:none; border-radius:10px; padding:12px 26px; font-size:16px; margin:14px 8px 0 0; cursor:pointer;}
+.btn.ghost{background:transparent; color:var(--gold); border:2px solid var(--gold);}
+#result{margin-top:18px; font-size:18px; font-weight:700;}
+.hint{color:var(--muted); font-size:14px; margin-top:12px;}
+#copyout{background:#060a14; border:1px dashed var(--cyan); border-radius:10px; padding:12px; margin-top:10px; font-family:monospace; display:none;}
+</style>
+</head>
+<body>
+<div class="wrap">
+<span class="kicker">NGÀY 11 · QUIZ — 5 CÂU</span>
+<h1>Scaling law: lập ngân sách trước khi train</h1>
+<p class="sub">Chọn 1 đáp án mỗi câu, bấm <b>Nộp bài</b> để chấm điểm ngay trong file. Dưới 70% (dưới 4/5) → ôn lại bài rồi hãy học tiếp.</p>
+
+<div class="q" id="q1">
+<p>Câu 1. Scaling law trong huấn luyện LLM mô tả quan hệ gì?</p>
+<label><input type="radio" name="q1" value="A"> A. Quan hệ giữa số layer và độ sâu của mạng neuron</label>
+<label><input type="radio" name="q1" value="B"> B. Quan hệ định luật (power law) giữa loss và số tham số N, số token D, compute C</label>
+<label><input type="radio" name="q1" value="C"> C. Quan hệ giữa learning rate và batch size tối ưu</label>
+<label><input type="radio" name="q1" value="D"> D. Quan hệ giữa độ dài context và chất lượng trả lời</label>
+<div class="expl" id="e1"></div>
+</div>
+
+<div class="q" id="q2">
+<p>Câu 2. Với mô hình N = 2 tỉ tham số, train trên D = 40 tỉ token, compute xấp xỉ là bao nhiêu (công thức C ≈ 6ND)?</p>
+<label><input type="radio" name="q2" value="A"> A. 4.8 × 10²⁰ FLOPs</label>
+<label><input type="radio" name="q2" value="B"> B. 8 × 10¹⁹ FLOPs</label>
+<label><input type="radio" name="q2" value="C"> C. 1.2 × 10²¹ FLOPs</label>
+<label><input type="radio" name="q2" value="D"> D. 4.8 × 10²¹ FLOPs</label>
+<div class="expl" id="e2"></div>
+</div>
+
+<div class="q" id="q3">
+<p>Câu 3. Kết luận chính của bài báo Chinchilla (Hoffmann et al., 2022) là gì?</p>
+<label><input type="radio" name="q3" value="A"> A. Nên tăng số tham số nhanh hơn nhiều so với số token (như GPT-3)</label>
+<label><input type="radio" name="q3" value="B"> B. Nên train càng nhiều epoch càng tốt trên cùng một tập data</label>
+<label><input type="radio" name="q3" value="C"> C. Với compute cố định, nên tăng N và D cân bằng (~20 token cho mỗi tham số)</label>
+<label><input type="radio" name="q3" value="D"> D. Scaling law không còn đúng với mô hình trên 100B tham số</label>
+<div class="expl" id="e3"></div>
+</div>
+
+<div class="q" id="q4">
+<p>Câu 4. Đâu KHÔNG phải là một giới hạn của scaling law?</p>
+<label><input type="radio" name="q4" value="A"> A. Không dự báo được các năng lực xuất hiện đột ngột (emergent abilities)</label>
+<label><input type="radio" name="q4" value="B"> B. Chất lượng dữ liệu có thể làm thay đổi hằng số của đường scaling</label>
+<label><input type="radio" name="q4" value="C"> C. Có thể tính chính xác điểm số của mô hình trên mọi benchmark downstream</label>
+<label><input type="radio" name="q4" value="D"> D. Lượng token chất lượng cao trên Internet là hữu hạn (data bottleneck)</label>
+<div class="expl" id="e4"></div>
+</div>
+
+<div class="q" id="q5">
+<p>Câu 5. Với ngân sách compute C = 10²¹ FLOPs, theo quy tắc compute-optimal (D ≈ 20N), số tham số tối ưu xấp xỉ là bao nhiêu?</p>
+<label><input type="radio" name="q5" value="A"> A. ~0.9B tham số</label>
+<label><input type="radio" name="q5" value="B"> B. ~2.9B tham số</label>
+<label><input type="radio" name="q5" value="C"> C. ~9.1B tham số</label>
+<label><input type="radio" name="q5" value="D"> D. ~29B tham số</label>
+<div class="expl" id="e5"></div>
+</div>
+
+<button class="btn" onclick="grade()">Nộp bài</button>
+<button class="btn ghost" onclick="copyResult()">Copy kết quả</button>
+<div id="result"></div>
+<div id="copyout"></div>
+<p class="hint">⚠️ File HTML tĩnh không tự gửi kết quả về được. Sau khi bấm <b>Copy kết quả</b>, bạn paste chuỗi kết quả vào chat để trợ lý ghi điểm nhé.</p>
+<p><a href="Day11_lesson.html" style="color:var(--gold)">← Quay lại bài học Ngày 11</a></p>
+</div>
+<script>
+const KEY = {q1:"B", q2:"A", q3:"C", q4:"C", q5:"B"};
+const EXPL = {
+q1:{ok:"Đúng. Scaling law là quan hệ power law giữa loss và 3 biến N (tham số), D (token), C (compute) — công cụ để lập ngân sách train.",
+     no:"Chưa đúng. Đáp án đúng là B: scaling law mô tả quan hệ định luật giữa loss và N, D, C — chứ không phải về layer, learning rate hay context."},
+q2:{ok:"Đúng. C ≈ 6 × 2×10⁹ × 40×10⁹ = 6 × 8×10¹⁹ = 4.8×10²⁰ FLOPs.",
+     no:"Chưa đúng. Tính: 6 × N × D = 6 × 2×10⁹ × 40×10⁹ = 4.8×10²⁰ FLOPs (đáp án A)."},
+q3:{ok:"Đúng. Chinchilla chứng minh tăng N và D cân bằng tỉ lệ ~1:1 (≈20 token/param) cho loss thấp nhất với cùng compute.",
+     no:"Chưa đúng. Đáp án đúng là C: Chinchilla sửa lại kết luận của Kaplan — tăng cân bằng N và D, khoảng 20 token cho mỗi tham số."},
+q4:{ok:"Đúng. Đây chính là điều scaling law KHÔNG làm được: nó dự báo loss, không dự báo điểm benchmark downstream hay năng lực đột phá.",
+     no:"Chưa đúng. Đáp án đúng là C — đó là điều scaling law không làm được. Các ý A, B, D đều là giới hạn thật của scaling law."},
+q5:{ok:"Đúng. N = √(C/120) = √(10²¹/120) ≈ 2.9×10⁹, D = 20N ≈ 58B token.",
+     no:"Chưa đúng. N = √(C/(6×20)) = √(10²¹/120) ≈ 2.9B tham số (đáp án B)."}
+};
+let lastResult = "";
+function grade(){
+  let score = 0, letters = [];
+  for(let i=1;i<=5;i++){
+    const name = "q"+i;
+    const sel = document.querySelector('input[name="'+name+'"]:checked');
+    const box = document.getElementById("e"+i);
+    const ans = sel ? sel.value : "–";
+    letters.push(i+ans);
+    if(ans === KEY[name]){ score++; box.className="expl ok"; box.textContent="✅ "+EXPL[name].ok; }
+    else { box.className="expl no"; box.textContent="❌ "+EXPL[name].no; }
+  }
+  lastResult = "Day11 Quiz: " + letters.join(" ") + " — " + score + "/5";
+  const r = document.getElementById("result");
+  r.textContent = "Kết quả: " + score + "/5" + (score>=4 ? " 🎉 Đạt — học tiếp bài mới!" : " 📚 Dưới 70% — hãy ôn lại bài rồi làm lại nhé.");
+  r.style.color = score>=4 ? "var(--green)" : "var(--red)";
+  const c = document.getElementById("copyout");
+  c.style.display = "block"; c.textContent = lastResult;
+}
+function copyResult(){
+  if(!lastResult){ alert("Hãy bấm Nộp bài trước đã nhé!"); return; }
+  navigator.clipboard.writeText(lastResult).then(()=>alert("Đã copy: "+lastResult), ()=>alert("Copy thất bại, hãy bôi đen dòng kết quả để copy tay."));
+}
+</script>
+</body>
+</html>
