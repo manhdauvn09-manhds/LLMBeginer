@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 11 — Scaling Lab: từ 9 run nhỏ đến quyết định ngân sách</title>
+<style>
+  :root{
+    --bg:#f6fef9; --card:#ffffff; --ink:#23272f; --muted:#6b7280;
+    --accent:#047857; --accent-dark:#064e3b; --accent-soft:#d1fae5;
+    --blue:#2563eb; --blue-soft:#dbeafe;
+    --amber:#b45309; --amber-soft:#fef3c7;
+    --red:#b91c1c; --red-soft:#fee2e2;
+    --cyan:#0891b2; --cyan-soft:#cffafe;
+    --violet:#7c3aed; --violet-soft:#ede9fe;
+    --line:#d3e8dc; --code-bg:#1e2230;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    line-height:1.75;font-size:16.5px}
+  .wrap{max-width:960px;margin:0 auto;padding:0 20px}
+  header.hero{background:linear-gradient(135deg,#064e3b 0%,#047857 55%,#34d399 100%);
+    color:#fff;padding:64px 0 48px;margin-bottom:8px}
+  header.hero h1{margin:0 0 12px;font-size:2.1rem;line-height:1.3}
+  header.hero p{margin:6px 0;opacity:.92;max-width:720px}
+  .tag{display:inline-block;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.35);
+    border-radius:999px;padding:3px 14px;font-size:.85rem;margin-bottom:14px}
+  nav.sticky{position:sticky;top:0;z-index:50;background:rgba(246,254,249,.96);
+    backdrop-filter:blur(6px);border-bottom:1px solid var(--line)}
+  nav.sticky .wrap{display:flex;gap:4px;overflow-x:auto;padding:10px 20px;white-space:nowrap}
+  nav.sticky a{color:var(--muted);text-decoration:none;font-size:.88rem;padding:6px 10px;border-radius:8px}
+  nav.sticky a:hover{background:var(--accent-soft);color:var(--accent-dark)}
+  section{padding:34px 0;border-bottom:1px solid var(--line)}
+  h2{font-size:1.55rem;margin:0 0 6px;color:#064e3b}
+  h2 .num{display:inline-block;background:var(--accent);color:#fff;font-size:.95rem;
+    width:34px;height:34px;line-height:34px;text-align:center;border-radius:10px;margin-right:10px;vertical-align:middle}
+  h3{font-size:1.15rem;margin:26px 0 8px}
+  .lead{color:#4b5563;font-size:1.05rem}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:20px 22px;margin:16px 0;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin:18px 0}
+  .concept{background:var(--card);border:1px solid var(--line);border-top:4px solid var(--accent);
+    border-radius:12px;padding:16px 18px}
+  .concept h4{margin:0 0 6px;font-size:1.02rem}
+  .concept p{margin:0;font-size:.93rem;color:#4b5563}
+  .concept.blue{border-top-color:var(--blue)} .concept.amber{border-top-color:var(--amber)}
+  .concept.cyan{border-top-color:var(--cyan)} .concept.violet{border-top-color:var(--violet)}
+  .concept.red{border-top-color:var(--red)}
+  pre{background:var(--code-bg);color:#e8eaf2;border-radius:12px;padding:18px 20px;
+    overflow-x:auto;font-size:.86rem;line-height:1.6;margin:14px 0;max-height:560px;overflow-y:auto}
+  code{font-family:"SF Mono",Consolas,"Courier New",monospace}
+  p code, li code, td code{background:var(--accent-soft);padding:1px 7px;border-radius:6px;font-size:.88em;color:#064e3b}
+  pre code{background:none;padding:0;color:inherit}
+  .cm{color:#7dd3a8;font-style:italic}
+  .diagram{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px 10px;margin:18px 0;text-align:center;overflow-x:auto}
+  .diagram svg{max-width:100%;height:auto}
+  .caption{font-size:.9rem;color:var(--muted);margin-top:10px;font-style:italic}
+  .analogy{background:#ecfdf5;border:1px solid #a7f3d0;border-left:6px solid var(--accent);
+    border-radius:10px;padding:16px 20px;margin:16px 0}
+  .analogy b{color:#064e3b}
+  .warn{background:#fffbeb;border:1px solid #fcd34d;border-left:6px solid var(--amber);
+    border-radius:10px;padding:16px 20px;margin:16px 0}
+  .warn b{color:#92400e}
+  .ok{background:#ecfdf5;border:1px solid #6ee7b7;border-left:6px solid var(--accent);
+    border-radius:10px;padding:16px 20px;margin:16px 0}
+  .bad{background:#fef2f2;border:1px solid #fecaca;border-left:6px solid var(--red);
+    border-radius:10px;padding:16px 20px;margin:16px 0}
+  table.mini{border-collapse:collapse;margin:14px auto;font-size:.9rem;min-width:70%}
+  table.mini th, table.mini td{border:1px solid var(--line);padding:8px 14px;text-align:left}
+  table.mini th{background:var(--accent-soft)}
+  table.mini td.num{font-family:monospace;text-align:center;white-space:nowrap}
+  table.mini tr.hl td{background:#ecfdf5;font-weight:700}
+  table.mini tr.badrow td{background:#fef2f2}
+  .demo{background:#fff;border:2px solid var(--accent);border-radius:16px;padding:24px;margin:18px 0}
+  .demo h3{margin-top:0}
+  input[type=number]{width:100%;padding:10px 14px;font-size:.95rem;border:2px solid var(--line);
+    border-radius:10px;margin:8px 0;font-family:monospace}
+  .frow{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .big-out{background:var(--code-bg);color:#e8eaf2;border-radius:12px;padding:18px 20px;
+    font-family:monospace;font-size:.92rem;margin-top:12px;line-height:1.9;word-break:break-word}
+  .btn{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:10px 22px;
+    font-size:1rem;cursor:pointer;margin:10px 8px 0 0}
+  .btn:hover{background:#064e3b}
+  .btn.ghost{background:#fff;color:var(--accent);border:2px solid var(--accent)}
+  .formula{text-align:center;font-size:1.15rem;background:#ecfdf5;border-radius:10px;
+    padding:18px;margin:14px 0;font-family:Georgia,serif}
+  .formula small{display:block;font-family:inherit;font-size:.85rem;color:var(--muted);margin-top:6px}
+  footer{padding:36px 0 60px;color:var(--muted);font-size:.9rem;text-align:center}
+  ul.tight li{margin-bottom:6px}
+  .q{background:#f0fdf4;border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin:12px 0}
+  .q button{background:var(--accent);border:none;color:#fff;font-weight:700;
+    border-radius:9px;padding:8px 16px;cursor:pointer;margin-top:8px;font-size:14px}
+  .q .ans{display:none;margin-top:10px;color:#064e3b}
+  @media(max-width:600px){header.hero h1{font-size:1.6rem}body{font-size:15.5px}.frow{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="tag">📄 Phân tích: day11/scaling_lab.py + train_grid.py</span>
+    <h1>Day 11 — Scaling Lab<br>từ 9 run nhỏ đến quyết định ngân sách</h1>
+    <p>Scaling law không phải khẩu hiệu treo tường — nó là <b>công cụ lập ngân sách</b>: trước khi bấm nút train, đoán được loss sẽ về đâu, và biết <b>mỗi kWh điện mua được bao nhiêu điểm loss</b>. Lab này train thật 9 run tí hon trên CPU, fit đường scaling, rồi <b>dự báo run 10 trước khi train</b> — sai số chỉ <b>3.2%</b>.</p>
+    <p style="font-size:.9rem;opacity:.8">Số liệu trong bài là kết quả chạy thật trên CPU (9 run ≈ 7 phút).</p>
+  </div>
+</header>
+
+<nav class="sticky"><div class="wrap">
+  <a href="#tong-quan">🍿 Tóm tắt 30 giây</a>
+  <a href="#c6nd">💰 Công thức C ≈ 6ND</a>
+  <a href="#fit">📉 Fit trên log-log</a>
+  <a href="#dudoan">🔮 Dự báo run 10</a>
+  <a href="#chinchilla">⚖️ Chinchilla bằng số thật</a>
+  <a href="#green">⚡ Green checkpoint</a>
+  <a href="#bay">🪤 3 bẫy</a>
+  <a href="#source">📜 Source code</a>
+</div></nav>
+
+<div class="wrap">
+
+<!-- ================= TỔNG QUAN ================= -->
+<section id="tong-quan">
+  <h2><span class="num">🍿</span>Tóm tắt 30 giây cho người ngoại đạo</h2>
+  <p class="lead">Train LLM giống như <b>nấu phở bán</b>: nồi càng to (tham số N), nước dùng càng nhiều (token D), ga càng tốn (compute C) thì phở càng ngon (loss càng thấp). Nhưng không phải "gấp đôi nồi là gấp đôi ngon" — nó tuân theo <b>quy luật mũ</b>: ban đầu cải thiện nhanh, càng về sau càng chững. Scaling law biến "train to hơn" thành <b>bài toán số học</b>: với ngân sách C cho trước, chia bao nhiêu cho N, bao nhiêu cho D để loss thấp nhất?</p>
+  <div class="grid">
+    <div class="concept"><h4>💰 C ≈ 6·N·D</h4><p>"Công thức tính tiền điện": mỗi token qua mô hình N tham số tốn ~6N FLOP (2N forward + 4N backward), nhân với D token.</p></div>
+    <div class="concept blue"><h4>📉 Power law trên log-log</h4><p>loss = a·C<sup>b</sup> trở thành <b>đường thẳng</b> trên thang log — fit 2 điểm là có thể <b>ngoại suy</b> cho run chưa train.</p></div>
+    <div class="concept amber"><h4>⚖️ Chinchilla</h4><p>Với compute cố định, nên tăng N và D <b>cân bằng</b> (~20 token cho mỗi tham số). Model to mà đói data thì phí điện.</p></div>
+    <div class="concept cyan"><h4>🔮 Dự báo trước khi train</h4><p>Fit 9 run nhỏ → dự báo run 10 = <b>2.4178</b>. Train thật ra <b>2.3425</b> — lệch chỉ <b>3.2%</b>. Đó là sức mạnh của scaling law.</p></div>
+    <div class="concept violet"><h4>⚡ Green checkpoint</h4><p>Không chọn model to nhất, mà chọn run có <b>cải thiện loss / kWh</b> cao nhất. Cả số mẫu lẫn số thật đều chỉ ra <b>S2</b>.</p></div>
+    <div class="concept red"><h4>🪤 Budget là hợp đồng</h4><p>Hết token budget thì dừng — kể cả loss vẫn đang giảm. Quyết định trước, không chạy theo cảm xúc.</p></div>
+  </div>
+  <div class="analogy"><b>🧭 Ví dụ — Mở quán phở:</b> bạn có 100 triệu (ngân sách C). Mua nồi to (N lớn) thì hết tiền mua xương (D ít) — nước lèo nhạt. Mua xương nhiều mà nồi bé thì ninh không hết. Công thức Chinchilla (~20 token/tham số) giống như <b>tỉ lệ xương : nước chuẩn</b> của quán: lệch quá là phí tiền. Scaling law chính là <b>bảng tính chi phí</b> để bạn quyết định mua nồi cỡ nào trước khi ký hợp đồng thuê mặt bằng.</div>
+</section>
+
+<!-- ================= C = 6ND ================= -->
+<section id="c6nd">
+  <h2><span class="num">💰</span>C ≈ 6·N·D — "công thức tính tiền điện"</h2>
+  <p class="lead">Compute trong pretraining tính bằng <b>FLOP</b> (số phép tính dấu chấm động). Với kiến trúc Transformer có một công thức xấp xỉ nổi tiếng — và nó dễ nhớ đến mức đáng ngờ:</p>
+  <div class="formula">C ≈ 6 · N · D
+    <small>N: số tham số · D: số token train · C: tổng FLOP</small>
+  </div>
+  <p class="lead">Vì sao là số 6? Mỗi token đi qua mô hình:</p>
+  <div class="diagram">
+    <svg width="680" viewBox="0 0 680 190" font-family="inherit">
+      <text x="340" y="20" text-anchor="middle" font-size="15" font-weight="700">Một token "đốt" bao nhiêu FLOP?</text>
+      <g font-size="13" text-anchor="middle">
+        <rect x="30" y="60" width="180" height="80" rx="10" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+        <text x="120" y="90" font-weight="700">Forward</text>
+        <text x="120" y="112" font-size="20" font-weight="800" fill="#2563eb">≈ 2N</text>
+        <text x="120" y="130" fill="#6b7280" font-size="11">mỗi tham số dùng 1 lần</text>
+        <text x="235" y="105" font-size="22" font-weight="800">+</text>
+        <rect x="260" y="60" width="180" height="80" rx="10" fill="#fef3c7" stroke="#b45309" stroke-width="2"/>
+        <text x="350" y="90" font-weight="700">Backward</text>
+        <text x="350" y="112" font-size="20" font-weight="800" fill="#b45309">≈ 4N</text>
+        <text x="350" y="130" fill="#6b7280" font-size="11">2N tính grad + 2N lan truyền</text>
+        <text x="465" y="105" font-size="22" font-weight="800">=</text>
+        <rect x="490" y="60" width="160" height="80" rx="10" fill="#d1fae5" stroke="#047857" stroke-width="2"/>
+        <text x="570" y="90" font-weight="700">Mỗi token</text>
+        <text x="570" y="112" font-size="20" font-weight="800" fill="#047857">≈ 6N</text>
+        <text x="570" y="130" fill="#6b7280" font-size="11">FLOP</text>
+      </g>
+      <text x="340" y="175" text-anchor="middle" font-size="13" fill="#6b7280">D token → C ≈ 6·N·D. (Bỏ qua chi phí attention bậc 2 — với context ngắn nó không đáng kể.)</text>
+    </svg>
+    <div class="caption">Forward "đọc" mỗi tham số 1 lần (~2N vì phép nhân-cộng), backward tốn gấp đôi để vừa tính gradient vừa lan truyền lỗi.</div>
+  </div>
+  <h3>Bảng 9 run thật (train_grid.py, CPU ~7 phút)</h3>
+  <p class="lead">3 kích thước model (S ≈ 112K, M ≈ 816K, L ≈ 2.7M params — đếm thật bằng <code>sum(p.numel())</code>) × 3 token budget. LR khóa cứng 3e-4 cho cả 9 run.</p>
+  <table class="mini">
+    <tr><th>Run</th><th>N (params)</th><th>D (tokens)</th><th class="num">C = 6·N·D</th><th class="num">Loss cuối</th></tr>
+    <tr><td class="num">S1</td><td class="num">112,000</td><td class="num">50,000</td><td class="num">3.36e10</td><td class="num">3.8126</td></tr>
+    <tr><td class="num">S2</td><td class="num">112,000</td><td class="num">150,000</td><td class="num">1.01e11</td><td class="num">3.1936</td></tr>
+    <tr><td class="num">S3</td><td class="num">112,000</td><td class="num">400,000</td><td class="num">2.69e11</td><td class="num">2.7712</td></tr>
+    <tr><td class="num">M1</td><td class="num">816,128</td><td class="num">50,000</td><td class="num">2.45e11</td><td class="num">3.1676</td></tr>
+    <tr><td class="num">M2</td><td class="num">816,128</td><td class="num">150,000</td><td class="num">7.35e11</td><td class="num">2.7236</td></tr>
+    <tr><td class="num">M3</td><td class="num">816,128</td><td class="num">400,000</td><td class="num">1.96e12</td><td class="num">2.5166</td></tr>
+    <tr><td class="num">L1</td><td class="num">2,702,208</td><td class="num">50,000</td><td class="num">8.11e11</td><td class="num">2.8313</td></tr>
+    <tr><td class="num">L2</td><td class="num">2,702,208</td><td class="num">150,000</td><td class="num">2.43e12</td><td class="num">2.5457</td></tr>
+    <tr class="hl"><td class="num">L3</td><td class="num">2,702,208</td><td class="num">400,000</td><td class="num">6.49e12</td><td class="num">2.3870</td></tr>
+  </table>
+  <div class="note ok"><b>Quan sát trước khi fit:</b> nhìn cột C và loss — C tăng ~193 lần (S1 → L3) mà loss chỉ giảm từ 3.81 xuống 2.39. Đó chính là "quy luật mũ": càng về sau càng chững. Fit đường cong này là việc của mục tiếp theo.</div>
+</section>
+
+<!-- ================= FIT LOG-LOG ================= -->
+<section id="fit">
+  <h2><span class="num">📉</span>Fit trên thang log-log: đường cong thành đường thẳng</h2>
+  <p class="lead">Giả thiết scaling law: <code>loss = a · C^b</code>. Lấy log10 hai vế:</p>
+  <div class="formula">log(loss) = log(a) + b · log(C)
+    <small>đường thẳng với độ dốc b — fit bằng hồi quy tuyến tính (np.polyfit) là xong</small>
+  </div>
+  <p class="lead">Vì sao không fit thẳng loss theo C? Vì C trải dài từ 10<sup>10</sup> đến 10<sup>12</sup> — fit trực tiếp sẽ mất ổn định số học, và hệ số <b>b chính là "độ dốc cải thiện"</b>: mỗi lần tăng C gấp 10 thì loss nhân với 10<sup>b</sup>.</p>
+  <div class="card">
+    <h3 style="margin-top:0">Kết quả fit — số mẫu vs số thật</h3>
+    <table class="mini">
+      <tr><th></th><th class="num">Công thức fit</th><th class="num">C tăng gấp 10 → loss ×</th></tr>
+      <tr><td><b>Phần A</b> (số mẫu trợ giảng, Kaggle)</td><td class="num">loss = 10.061 × C<sup>−0.047</sup></td><td class="num">0.897</td></tr>
+      <tr class="hl"><td><b>Phần B</b> (số train thật, CPU)</td><td class="num">loss = 27.707 × C<sup>−0.084</sup></td><td class="num"><b>0.824</b></td></tr>
+    </table>
+    <p class="lead">Số thật "dốc" hơn số mẫu (b = −0.084 so với −0.047): ở quy mô tí hon này, mỗi lần tăng compute gấp 10 thì loss giảm ~17.6%. Đừng ngoại suy con số này lên GPT-4 — miền fit khác nhau thì hằng số khác nhau, đó cũng là một giới hạn của scaling law.</p>
+  </div>
+  <div class="demo">
+    <h3>🔮 Demo: máy dự báo loss (dùng công thức fit từ số thật)</h3>
+    <p class="lead">Nhập N và D của một cấu hình <i>tưởng tượng</i>, máy sẽ tính C = 6ND rồi dự báo loss bằng <code>27.707 × C<sup>−0.084</sup></code>.</p>
+    <div class="frow">
+      <div><label>N — số tham số (triệu)</label><input type="number" id="inN" value="0.8" step="0.1" min="0.05"></div>
+      <div><label>D — số token (nghìn)</label><input type="number" id="inD" value="400" step="50" min="10"></div>
+    </div>
+    <button class="btn" onclick="duBao()">Dự báo loss</button>
+    <div class="big-out" id="outBao">Bấm "Dự báo loss" để xem kết quả…</div>
+    <p class="caption">Miền fit tin cậy: C từ 3.36e10 đến 6.49e12. Ra ngoài miền này là "đoán mò có công thức" — scaling law chỉ đáng tin khi ngoại suy gần.</p>
+  </div>
+</section>
+
+<!-- ================= DỰ BÁO RUN 10 ================= -->
+<section id="dudoan">
+  <h2><span class="num">🔮</span>Dự báo run 10 <i>trước khi</i> train — sai số 3.2%</h2>
+  <p class="lead">Đây là "khoảnh khắc phép thuật" của lab: dùng đường fit từ 9 run để <b>đoán loss của run 10</b> (M × 800k token, C = 3.92e12 — gấp đôi compute của M3) <b>trước khi bấm nút train</b>, rồi train thật để đối chiếu.</p>
+  <div class="diagram">
+    <svg width="700" viewBox="0 0 700 320" font-family="inherit">
+      <text x="350" y="18" text-anchor="middle" font-size="15" font-weight="700">9 run thật + đường fit trên thang log-log</text>
+      <text x="350" y="36" text-anchor="middle" font-size="12" fill="#6b7280">trục x: log₁₀(C) · trục y: log₁₀(loss) — đường thẳng = power law</text>
+      <line x1="60" y1="280" x2="640" y2="280" stroke="#9ca3af" stroke-width="1"/>
+      <line x1="60" y1="40" x2="60" y2="280" stroke="#9ca3af" stroke-width="1"/>
+      <line x1="60" y1="84.7" x2="640" y2="272" stroke="#047857" stroke-width="2.5"/>
+      <text x="648" y="276" font-size="11" fill="#047857">fit: b=−0.084</text>
+      <g font-size="11" text-anchor="middle">
+        <circle cx="311.3" cy="73.3" r="6" fill="#2563eb"/><text x="311.3" y="62" fill="#2563eb" font-weight="700">S1</text>
+        <circle cx="194.5" cy="139.2" r="6" fill="#2563eb"/><text x="194.5" y="128" fill="#2563eb" font-weight="700">S2</text>
+        <circle cx="289.6" cy="192" r="6" fill="#2563eb"/><text x="289.6" y="214" fill="#2563eb" font-weight="700">S3</text>
+        <circle cx="280.7" cy="142.2" r="6" fill="#b45309"/><text x="280.7" y="131" fill="#b45309" font-weight="700">M1</text>
+        <circle cx="387" cy="198.5" r="6" fill="#b45309"/><text x="387" y="220" fill="#b45309" font-weight="700">M2</text>
+        <circle cx="482.1" cy="227.9" r="6" fill="#b45309"/><text x="482.1" y="249" fill="#b45309" font-weight="700">M3</text>
+        <circle cx="396.6" cy="184" r="6" fill="#7c3aed"/><text x="396.6" y="173" fill="#7c3aed" font-weight="700">L1</text>
+        <circle cx="503" cy="223.6" r="6" fill="#7c3aed"/><text x="503" y="212" fill="#7c3aed" font-weight="700">L2</text>
+        <circle cx="598.1" cy="247.5" r="6" fill="#7c3aed"/><text x="598.1" y="269" fill="#7c3aed" font-weight="700">L3</text>
+      </g>
+      <polygon points="549.2,234.7 557.2,242.7 549.2,250.7 541.2,242.7" fill="none" stroke="#b45309" stroke-width="3"/>
+      <text x="549.2" y="228" text-anchor="middle" font-size="11" fill="#b45309" font-weight="700">dự báo 2.4178</text>
+      <polygon points="549.2,246.5 557.2,254.5 549.2,262.5 541.2,254.5" fill="#047857"/>
+      <text x="549.2" y="282" text-anchor="middle" font-size="11" fill="#047857" font-weight="700">thực tế 2.3425</text>
+      <text x="60" y="300" font-size="11" fill="#6b7280">10.4</text>
+      <text x="630" y="300" font-size="11" fill="#6b7280">13.0 → log₁₀(C)</text>
+    </svg>
+    <div class="caption">Chấm xanh/cam/tím: 9 run thật (S/M/L). Hình thoi viền cam: điểm dự báo <b>trước khi train</b>. Hình thoi xanh lá: loss <b>train thật</b> — suýt trùng nhau.</div>
+  </div>
+  <table class="mini">
+    <tr><th></th><th class="num">Loss run 10</th><th>Ghi chú</th></tr>
+    <tr><td><b>Dự báo</b> (fit số thật)</td><td class="num">2.4178</td><td>Tính <i>trước</i> khi train</td></tr>
+    <tr class="hl"><td><b>Thực tế</b> (train 800k token)</td><td class="num"><b>2.3425</b></td><td>Sai số tương đối <b>3.2%</b></td></tr>
+    <tr><td><b>Dự báo</b> (fit số mẫu)</td><td class="num">2.525</td><td>Chưa có actual để đối chiếu</td></tr>
+  </table>
+  <div class="ok"><b>Vì sao 3.2% là chuyện lớn?</b> Scaling law dự báo khá chuẩn <b>ngay cả với 9 run tí hon trên CPU</b> — không cần cluster nghìn GPU mới thấy quy luật. Trong thực tế, người ta dùng chính cách này để quyết định "có đáng đốt thêm 1 triệu đô GPU cho run tiếp theo không" <i>trước khi</i> đốt.</div>
+  <div class="warn"><b>Nhưng đừng thần thánh hóa:</b> scaling law <b>không</b> dự báo được năng lực xuất hiện đột ngột (emergent abilities — ví dụ bỗng dưng biết làm toán), chất lượng dữ liệu có thể làm dịch chuyển cả đường cong, và nó không tính được điểm benchmark downstream cụ thể. Đó là 3 trong số các giới hạn của bài sáng.</div>
+</section>
+
+<!-- ================= CHINCHILLA ================= -->
+<section id="chinchilla">
+  <h2><span class="num">⚖️</span>Chinchilla bằng số thật: model to mà đói data thì phí điện</h2>
+  <p class="lead">Kết luận Chinchilla (DeepMind, 2022): với compute cố định, nên tăng N và D <b>cân bằng</b> — khoảng <b>20 token cho mỗi tham số</b>. Lab này kiểm chứng bằng 2 cặp "cùng tiền, khác cách tiêu":</p>
+  <div class="card">
+    <h3 style="margin-top:0">Cặp 1: S3 vs M1 — cùng compute ~2.5e11</h3>
+    <table class="mini">
+      <tr><th>Run</th><th>N</th><th>D</th><th class="num">C</th><th class="num">Loss</th></tr>
+      <tr class="hl"><td><b>S3</b> — model nhỏ, data nhiều</td><td class="num">112K</td><td class="num">400K</td><td class="num">2.69e11</td><td class="num"><b>2.7712</b> ✅</td></tr>
+      <tr><td><b>M1</b> — model to, data ít</td><td class="num">816K</td><td class="num">50K</td><td class="num">2.45e11</td><td class="num">3.1676</td></tr>
+    </table>
+    <p class="lead">Cùng "tiền" compute, đổ vào <b>data</b> (S3) thắng đổ vào <b>tham số</b> (M1) tới <b>0.4 điểm loss</b> — đúng bài học Chinchilla của bài sáng, nhưng lần này là số do chính tay mình train ra.</p>
+  </div>
+  <div class="card">
+    <h3 style="margin-top:0">Cặp 2: L1 thua cả M2 — "nồi to, xương ít"</h3>
+    <table class="mini">
+      <tr><th>Run</th><th>N</th><th>D</th><th class="num">Loss</th><th class="num">D/N (token/param)</th></tr>
+      <tr><td><b>M2</b></td><td class="num">816K</td><td class="num">150K</td><td class="num"><b>2.7236</b> ✅</td><td class="num">0.18</td></tr>
+      <tr class="badrow"><td><b>L1</b> — to gấp 3.3 lần M2</td><td class="num">2.7M</td><td class="num">50K</td><td class="num">2.8313 ❌</td><td class="num">0.02</td></tr>
+    </table>
+    <p class="lead">L1 to gấp 3.3 lần M2 mà loss còn <b>tệ hơn</b> — vì D/N = 0.02, model "đói data" trầm trọng. Chinchilla khuyến nghị D/N ≈ 20; cả 9 run của lab đều <b>thiếu data</b> theo chuẩn này (cao nhất S3 cũng chỉ 3.57) — đó chính là lý do <i>tăng token luôn thắng tăng params</i> ở quy mô này. Về lại ví dụ quán phở: mua nồi 200 lít mà chỉ có 4 lít nước xương — phở nhạt là đúng rồi.</p>
+  </div>
+</section>
+
+<!-- ================= GREEN CHECKPOINT ================= -->
+<section id="green">
+  <h2><span class="num">⚡</span>Green checkpoint: mỗi kWh mua được bao nhiêu điểm loss?</h2>
+  <p class="lead">Loss tuyệt đối thấp nhất luôn thuộc về run to nhất (L3) — nhưng mỗi điểm loss cuối cùng có thể "tốn" gấp chục lần điện. Tiêu chí của engineer tiết kiệm:</p>
+  <div class="formula">điểm hiệu quả = (loss<sub>run trước</sub> − loss<sub>run này</sub>) / kWh<sub>run này</sub>
+    <small>các run xếp theo C tăng dần — mỗi kWh bỏ <i>thêm</i> ra mua được bao nhiêu điểm loss</small>
+  </div>
+  <p class="lead">kWh ước lượng với giả định CPU 30W (VM không đo được điện năng thật — code ghi rõ giả định này).</p>
+  <table class="mini">
+    <tr><th>Run</th><th class="num">C</th><th class="num">Loss</th><th class="num">Điểm loss/kWh</th></tr>
+    <tr><td class="num">S1</td><td class="num">3.36e10</td><td class="num">3.8126</td><td class="num">— (mốc so sánh)</td></tr>
+    <tr class="hl"><td class="num"><b>S2</b></td><td class="num">1.01e11</td><td class="num">3.1936</td><td class="num"><b>21,856.7</b> 🏆</td></tr>
+    <tr><td class="num">M1</td><td class="num">2.45e11</td><td class="num">3.1676</td><td class="num">524.4</td></tr>
+    <tr><td class="num">S3</td><td class="num">2.69e11</td><td class="num">2.7712</td><td class="num">5,004.2</td></tr>
+    <tr><td class="num">M2</td><td class="num">7.35e11</td><td class="num">2.7236</td><td class="num">327.4</td></tr>
+    <tr class="badrow"><td class="num">L1</td><td class="num">8.11e11</td><td class="num">2.8313</td><td class="num"><b>−747.8</b> ⚠️</td></tr>
+    <tr><td class="num">M3</td><td class="num">1.96e12</td><td class="num">2.5166</td><td class="num">835.3</td></tr>
+    <tr class="badrow"><td class="num">L2</td><td class="num">2.43e12</td><td class="num">2.5457</td><td class="num"><b>−64.3</b> ⚠️</td></tr>
+    <tr><td class="num">L3</td><td class="num">6.49e12</td><td class="num">2.3870</td><td class="num">142.5</td></tr>
+  </table>
+  <div class="bad"><b>Điểm âm nghĩa là gì?</b> L1 tốn thêm điện so với M2 mà loss còn <b>tệ hơn</b> (−747.8) — đúng nghĩa "đốt tiền". L2 cũng âm nhẹ so với M3. Đây là bằng chứng số học cho câu "model to mà đói data thì phí điện".</div>
+  <div class="ok"><b>Kết luận engineer:</b> nếu được "nâng cấp tiếp", chọn <b>S2</b> — từ S1 lên S2, mỗi kWh bỏ ra mua được nhiều điểm loss nhất (21,856.7). Sau đó hiệu quả giảm dần. Đáng chú ý: <b>cả số mẫu của trợ giảng lẫn số train thật đều cho cùng đáp án S2</b> — quy luật ổn định, không phải may mắn.</div>
+  <div class="q">
+    <b>Tự kiểm tra:</b> Vì sao tiêu chí loss/kWh quan trọng với người quan tâm tiết kiệm năng lượng?
+    <button onclick="this.nextElementSibling.style.display='block';this.style.display='none'">Hiện đáp án</button>
+    <div class="ans">Vì loss tuyệt đối thấp nhất thường đến từ run to nhất — nhưng mỗi điểm loss cuối cùng có thể "tốn" gấp chục lần điện so với run nhỏ hơn. Tiêu chí loss/kWh tìm điểm ngọt mà mỗi kWh bỏ ra vẫn mang lại cải thiện đáng kể — đúng Green checkpoint của buổi học, và là cách ra quyết định ngân sách của một AI engineer thực thụ.</div>
+  </div>
+</section>
+
+<!-- ================= 3 BẪY ================= -->
+<section id="bay">
+  <h2><span class="num">🪤</span>3 bẫy thường gặp khi làm lab kiểu scaling</h2>
+  <div class="card">
+    <h3 style="margin-top:0">Bẫy 1 — So sánh 9 run với learning rate khác nhau</h3>
+    <p>Loss chênh nhau có thể do LR chứ không phải do scale. <b>Khóa LR</b> (lab này: 3e-4 cho cả 9 run) — chỉ khác N và D. Đây cũng là lý do smoke test S1/50 bước là bước 0 bắt buộc: loss 4.29 → 3.30 mượt thì mới chạy full.</p>
+  </div>
+  <div class="card">
+    <h3 style="margin-top:0">Bẫy 2 — Đo "budget" bằng epoch thay vì token</h3>
+    <p>1 epoch trên corpus khác nhau = số token khác nhau. Scaling law nói về <b>D = số token thực sự nhìn thấy</b>, không phải số vòng lặp. Công thức trong code: <code>steps = D // (batch_size * block_size)</code> — mỗi bước "tiêu" đúng batch×block token.</p>
+  </div>
+  <div class="card">
+    <h3 style="margin-top:0">Bẫy 3 — Nhầm "loss plateau" với "đã tới giới hạn scaling"</h3>
+    <p>Plateau ở run nhỏ thường là do hết data đa dạng / LR sai, không phải scaling law hết hiệu lực. Trước khi kết luận, chạy lại checklist Ngày 10: data → shape → loss → optimizer → precision.</p>
+  </div>
+</section>
+
+<!-- ================= SOURCE CODE ================= -->
+<section id="source">
+  <h2><span class="num">📜</span>Source code đầy đủ</h2>
+  <p class="lead">Cả hai file đã chạy thật và push lên GitHub. Bấm "Copy" để lấy code.</p>
+
+  <h3>scaling_lab.py — fit log-log + dự báo + green checkpoint (Phần A)</h3>
+  <button class="btn ghost" onclick="copyCode('code1')">📋 Copy scaling_lab.py</button>
+  <pre><code id="code1">#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+<span class="cm">"""Scaling Lab - tu 9 run nho den quyet dinh ngan sach (Day 11).
+
+Phan A (lam ngay): dung bang 9 run mau de fit duong log-log
+loss = a * C^b, du bao loss cho run 10 TRUOC KHI train that, roi chon
+run toi uu theo tieu chi cai thien loss/kWh (Green checkpoint).
+
+Phan B (train that, co the de qua dem): chay lai 9 run bang train_grid.py
+roi thay so that vao bang `runs` duoi day.
+
+Cach chay:
+    python scaling_lab.py
+
+Chi can numpy.
+"""</span>
+
+import math
+import os
+
+import numpy as np
+
+<span class="cm"># ---------------------------------------------------------------------------
+# Bang 9 run MAU (tro giang chay truoc tren Kaggle, tiny char-GPT).
+# NGUON SO LIEU: mau - thay bang so that cua ban sau khi chay Phan B.
+# (name, N params, D tokens, loss cuoi, kWh)
+# ---------------------------------------------------------------------------</span>
+runs = [
+    ("S1", 4e5, 5e4, 3.02, 0.0054), ("S2", 4e5, 1.5e5, 2.87, 0.0162),
+    ("S3", 4e5, 4e5, 2.73, 0.0432),
+    ("M1", 1.2e6, 5e4, 2.90, 0.0162), ("M2", 1.2e6, 1.5e5, 2.74, 0.0486),
+    ("M3", 1.2e6, 4e5, 2.60, 0.1296),
+    ("L1", 3e6, 5e4, 2.76, 0.0405), ("L2", 3e6, 1.5e5, 2.62, 0.1215),
+    ("L3", 3e6, 4e5, 2.50, 0.3240),
+]
+
+<span class="cm"># Run 10 (du bao): gap doi compute cua M3 (run re nhat-dat-loss-thap).
+# M3: C = 6*1.2e6*4e5 = 2.88e12 -&gt; run 10: C = 5.76e12 (M x 800k token).</span>
+RUN10_N, RUN10_D = 1.2e6, 8e5
+
+
+def compute_of(n_params, n_tokens):
+    <span class="cm">"""Compute C = 6*N*D (uoc luong FLOPs train cua Transformer)."""</span>
+    return 6 * n_params * n_tokens
+
+
+<span class="cm"># ---------------------------------------------------------------------------
+# TODO 1 - fit_scaling_law: fit loss = a * C^b tren thang log-log
+# ---------------------------------------------------------------------------</span>
+def fit_scaling_law(runs):
+    <span class="cm">"""Fit power law loss = a * C^b bang hoi quy tuyen tinh tren log10.
+
+    Vi sao fit tren log: loss = a*C^b &lt;=&gt; log(loss) = log(a) + b*log(C)
+    la duong thang; C trai nhieu bac 10^11-10^12 nen fit truc tiep se
+    mat on dinh so hoc. He so b la "do doc cai thien": C gap 10 lan thi
+    loss nhan voi 10^b.
+
+    Returns:
+        Tuple (a, b).
+    """</span>
+    xs = np.log10([compute_of(n, d) for _, n, d, _, _ in runs])
+    ys = np.log10([loss for _, _, _, loss, _ in runs])
+    b, loga = np.polyfit(xs, ys, 1)  <span class="cm"># ys = b*xs + loga</span>
+    return 10 ** loga, b
+
+
+<span class="cm"># ---------------------------------------------------------------------------
+# TODO 2 - predict_loss: du bao loss cho run 10 (TRUOC KHI train that)
+# ---------------------------------------------------------------------------</span>
+def predict_loss(a, b, n_params, n_tokens):
+    <span class="cm">"""Du bao loss = a * C^b voi C = 6*N*D cua cau hinh moi."""</span>
+    return a * compute_of(n_params, n_tokens) ** b
+
+
+<span class="cm"># ---------------------------------------------------------------------------
+# TODO 3 - green checkpoint: chon run theo cai thien loss/kWh
+# ---------------------------------------------------------------------------</span>
+def best_run_per_kwh(runs):
+    <span class="cm">"""Chon run co diem hieu qua cao nhat.
+
+    Diem = (loss_run_truoc - loss_run) / kWh_run, voi cac run xep theo C
+    tang dan. Y nghia: moi kWh bo them ra mua duoc bao nhieu diem loss.
+    Run re nhat lam moc (khong co "run truoc" de so).
+
+    Returns:
+        Ten run tot nhat.
+    """</span>
+    ordered = sorted(runs, key=lambda r: compute_of(r[1], r[2]))
+    best, best_score = None, float("-inf")
+    prev_loss = None
+    for name, n, d, loss, kwh in ordered:
+        if prev_loss is not None:
+            score = (prev_loss - loss) / kwh
+            print(f"  {name}: C={compute_of(n, d):.2e}, loss={loss:.2f}, "
+                  f"kWh={kwh:.4f} -&gt; diem={score:.2f} loss/kWh")
+            if score &gt; best_score:
+                best, best_score = name, score
+        else:
+            print(f"  {name}: C={compute_of(n, d):.2e}, loss={loss:.2f}, "
+                  f"kWh={kwh:.4f} -&gt; moc so sanh")
+        prev_loss = loss
+    return best
+
+
+<span class="cm"># ---------------------------------------------------------------------------
+# Phan tich bo sung kieu engineer (ngoai 3 TODO)
+# ---------------------------------------------------------------------------</span>
+def report_same_compute(runs):
+    <span class="cm">"""So 2 run cung compute C.
+
+    Tien do vao data hay vao params: voi cung C, cach chia N/D nao cho
+    loss thap hon?
+    """</span>
+    by_c = {}
+    for name, n, d, loss, kwh in runs:
+        by_c.setdefault(compute_of(n, d), []).append((name, n, d, loss))
+    print("\nCung compute, khac cach chia N/D:")
+    for c in sorted(by_c):
+        if len(by_c[c]) &gt; 1:
+            for name, n, d, loss in sorted(by_c[c]):
+                print(f"  C={c:.2e}: {name} (N={n:.0e}, D={d:.0e}) "
+                      f"-&gt; loss {loss:.2f}")
+
+
+def load_real_runs(path="runs.jsonl"):
+    <span class="cm">"""Doc bang 9 run THAT tu train_grid.py (Phan B).
+
+    Tra ve (runs, "THAT") hoac (None, "MAU") neu chua train.
+    """</span>
+    import json
+    if not os.path.exists(path):
+        return None
+    recs = [json.loads(l) for l in open(path, encoding="utf-8")]
+    runs = [(r["name"], r["N"], r["D"], r["loss"], r["kwh"]) for r in recs]
+    return runs
+
+
+def load_run10_actual(path="runs_run10.jsonl"):
+    <span class="cm">"""Doc loss THAT cua run 10 (de so prediction vs actual)."""</span>
+    import json
+    if not os.path.exists(path):
+        return None
+    return json.loads(open(path, encoding="utf-8").read().strip())
+
+
+def main():
+    <span class="cm">"""Chay Phan A (so mau) + Phan B (so that, neu co)."""</span>
+    print("=" * 64)
+    print("Phan A - Fit scaling law tu 9 run mau")
+    print("=" * 64)
+    a, b = fit_scaling_law(runs)
+    print(f"loss = {a:.3f} * C^({b:.3f})")
+    print(f"(C tang gap 10 -&gt; loss nhan voi 10^{b:.3f} = {10 ** b:.3f})")
+
+    print("\nDu bao run 10 (TRUOC KHI train that):")
+    pred = predict_loss(a, b, RUN10_N, RUN10_D)  <span class="cm"># run 10: M x 800k token</span>
+    c10 = compute_of(RUN10_N, RUN10_D)
+    print(f"  Run 10: N={RUN10_N:.1e}, D={RUN10_D:.1e}, C={c10:.2e}")
+    print(f"  Du bao loss run 10: {pred:.3f}  &lt;- train that roi so sanh!")
+
+    report_same_compute(runs)
+
+    print("\nGreen checkpoint - diem hieu qua loss/kWh (xep theo C tang):")
+    best = best_run_per_kwh(runs)
+    print(f"\nRun tot nhat theo loss/kWh: {best}")
+
+    <span class="cm"># ---- Phan B: fit lai bang so that ----</span>
+    real = load_real_runs()
+    if real:
+        print("\n" + "=" * 64)
+        print("Phan B - Fit lai bang SO THAT (train_grid.py, 9 run)")
+        print("=" * 64)
+        a2, b2 = fit_scaling_law(real)
+        print(f"loss = {a2:.3f} * C^({b2:.3f})  (so that)")
+        <span class="cm"># Run 10 that: lay N, D that tu file.</span>
+        r10 = load_run10_actual()
+        if r10:
+            pred2 = predict_loss(a2, b2, r10["N"], r10["D"])
+            actual = r10["loss"]
+            err = abs(pred2 - actual) / actual * 100
+            print(f"\nRun 10 that: N={r10['N']:,}, D={r10['D']:,}, "
+                  f"C={compute_of(r10['N'], r10['D']):.2e}")
+            print(f"  Du bao (fit so that): {pred2:.4f}")
+            print(f"  Thuc te train:        {actual:.4f}")
+            print(f"  Do lech tuong doi: {err:.1f}%")
+        print("\nGreen checkpoint (so that):")
+        best2 = best_run_per_kwh(real)
+        print(f"\nRun tot nhat theo loss/kWh (so that): {best2}")
+    else:
+        print("\n(Phan B: chua co runs.jsonl - chay 'python train_grid.py')")
+    print("=" * 64)
+
+
+if __name__ == "__main__":
+    main()
+</code></pre>
+
+  <h3>train_grid.py — train thật 9 run với token budget (Phần B)</h3>
+  <button class="btn ghost" onclick="copyCode('code2')">📋 Copy train_grid.py</button>
+  <pre><code id="code2">#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+<span class="cm">"""Train that 9 run cho Scaling Lab - Phan B (Day 11).
+
+Grid: 3 kich thuoc mo hinh (S/M/L) x 3 token budget (50k/150k/400k).
+Quy tac NGHEM NGAT (tranh Bay 1, 2):
+    - Khoa learning rate cho ca 9 run (chi khac N va D).
+    - Budget = so token that nhin thay: steps = D // (batch*block_size).
+      Het budget la dung, ke ca loss van giam ("budget la hop dong").
+    - Moi run: seed rieng, dem N that bang sum(p.numel()).
+
+Dau ra: runs.jsonl - moi dong 1 run:
+    {"name", "N", "D", "loss", "walltime_s", "kwh"}
+
+Cach chay:
+    python train_grid.py --smoke     # smoke test bat buoc: S1, 50 buoc
+    python train_grid.py             # chay full 9 run
+    python train_grid.py --run10     # train run 10 (M x 800k token)
+
+kWh uoc luong voi gia dinh CPU 30W (giong bang mau cua tro giang) vi VM
+khong do duoc dien nang that - GHI RO trong bao cao.
+
+Chi can PyTorch (CPU).
+"""</span>
+
+import argparse
+import json
+import math
+import os
+import time
+import urllib.request
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+<span class="cm"># ---------------------------------------------------------------------------
+# Cau hinh grid (copy tu de bai) + sieu tham so train (KHOA cho moi run)
+# ---------------------------------------------------------------------------</span>
+CONFIGS = {
+    "S": dict(n_layer=2, n_embd=64, n_head=2),    <span class="cm"># ~0.4M params</span>
+    "M": dict(n_layer=4, n_embd=128, n_head=4),   <span class="cm"># ~1.2M params</span>
+    "L": dict(n_layer=6, n_embd=192, n_head=6),   <span class="cm"># ~3.0M params</span>
+}
+TOKEN_BUDGETS = [50_000, 150_000, 400_000]  <span class="cm"># D cho moi run</span>
+BATCH_SIZE = 32
+BLOCK_SIZE = 64
+LR = 3e-4            <span class="cm"># khoa cung cho ca 9 run (Bay 1)</span>
+WATTS = 30           <span class="cm"># gia dinh CPU 30W de uoc luong kWh</span>
+DATA_URL = ("https://raw.githubusercontent.com/karpathy/char-rnn/master/"
+            "data/tinyshakespeare/input.txt")
+
+
+<span class="cm"># ---------------------------------------------------------------------------
+# Du lieu: tai tiny-shakespeare (giong Day 7), tokenizer char-level
+# ---------------------------------------------------------------------------</span>
+def ensure_data(path="input.txt"):
+    <span class="cm">"""Tai du lieu neu chua co. Tra ve van ban."""</span>
+    if os.path.exists(path):
+        with open(path, encoding="utf-8") as f:
+            return f.read()
+    print("  dang tai du lieu...")
+    with urllib.request.urlopen(DATA_URL, timeout=120) as r:
+        text = r.read().decode("utf-8")
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(text)
+    return text
+
+
+def build_tokenizer(text):
+    <span class="cm">"""Char-level tokenizer. Tra ve (encode, decode, vocab_size)."""</span>
+    chars = sorted(set(text))
+    stoi = {ch: i for i, ch in enumerate(chars)}
+    itos = {i: ch for i, ch in enumerate(chars)}
+    return (lambda s: [stoi.get(ch, 0) for ch in s],
+            lambda ids: "".join(itos[i] for i in ids), len(chars))
+
+
+<span class="cm"># ---------------------------------------------------------------------------
+# Model: TinyGPT tham so hoa (khoa Day 7, gon lai)
+# ---------------------------------------------------------------------------</span>
+class Block(nn.Module):
+    <span class="cm">"""Transformer block chuan pre-norm: x + Attn(LN(x)), x + MLP(LN(x))."""</span>
+
+    def __init__(self, n_embd, n_head, block_size):
+        super().__init__()
+        self.ln1 = nn.LayerNorm(n_embd)
+        self.ln2 = nn.LayerNorm(n_embd)
+        self.n_head = n_head
+        hs = n_embd // n_head
+        self.qkv = nn.Linear(n_embd, 3 * n_embd, bias=False)
+        self.proj = nn.Linear(n_embd, n_embd, bias=False)
+        self.register_buffer("tril", torch.tril(torch.ones(block_size,
+                                                           block_size)))
+        self.mlp = nn.Sequential(nn.Linear(n_embd, 4 * n_embd), nn.GELU(),
+                                 nn.Linear(4 * n_embd, n_embd))
+
+    def forward(self, x):
+        B_, T_, _ = x.shape
+        <span class="cm"># Nhanh attention (pre-norm): 1 phep chieu QKV roi tach head.</span>
+        h = self.ln1(x)
+        q, k, v = self.qkv(h).chunk(3, dim=-1)
+        q = q.view(B_, T_, self.n_head, -1).transpose(1, 2)
+        k = k.view(B_, T_, self.n_head, -1).transpose(1, 2)
+        v = v.view(B_, T_, self.n_head, -1).transpose(1, 2)
+        scores = (q @ k.transpose(-2, -1)) / math.sqrt(q.shape[-1])
+        scores = scores.masked_fill(self.tril[:T_, :T_] == 0, float("-inf"))
+        o = (F.softmax(scores, dim=-1) @ v).transpose(1, 2)
+        o = o.reshape(B_, T_, -1)
+        x = x + self.proj(o)
+        <span class="cm"># Nhanh MLP (pre-norm) + residual.</span>
+        return x + self.mlp(self.ln2(x))
+
+
+class TinyGPT(nn.Module):
+    <span class="cm">"""GPT thu nho voi kich thuoc cau hinh duoc."""</span>
+
+    def __init__(self, vocab_size, n_layer, n_embd, n_head,
+                 block_size=BLOCK_SIZE):
+        super().__init__()
+        self.tok_emb = nn.Embedding(vocab_size, n_embd)
+        self.pos_emb = nn.Embedding(block_size, n_embd)
+        self.blocks = nn.Sequential(*[
+            Block(n_embd, n_head, block_size) for _ in range(n_layer)])
+        self.ln_f = nn.LayerNorm(n_embd)
+        self.lm_head = nn.Linear(n_embd, vocab_size, bias=False)
+        self.block_size = block_size
+
+    def forward(self, x):
+        B_, T_ = x.shape
+        h = self.tok_emb(x) + self.pos_emb(torch.arange(T_))
+        h = self.blocks(h)
+        return self.lm_head(self.ln_f(h))
+
+    def count_params(self):
+        <span class="cm">"""Dem that so tham so (dung cho cot N trong bang)."""</span>
+        return sum(p.numel() for p in self.parameters())
+
+
+<span class="cm"># ---------------------------------------------------------------------------
+# Train 1 run voi token budget
+# ---------------------------------------------------------------------------</span>
+def get_batch(data, batch_size=BATCH_SIZE, block_size=BLOCK_SIZE):
+    <span class="cm">"""Batch ngau nhien: x (B, T), y = x dich phai 1."""</span>
+    ix = torch.randint(0, len(data) - block_size - 1, (batch_size,))
+    x = torch.stack([data[i:i + block_size] for i in ix])
+    y = torch.stack([data[i + 1:i + block_size + 1] for i in ix])
+    return x, y
+
+
+def train_run(name, cfg, budget, data, encode, vocab_size, seed,
+              log_path="runs.jsonl", max_steps_override=None):
+    <span class="cm">"""Train 1 run den het token budget. Tra ve dict ket qua.
+
+    steps = D // (batch_size * block_size): moi buoc "tieu" dung
+    batch*block token. Het budget la dung - ke ca loss van giam.
+    """</span>
+    torch.manual_seed(seed)
+    model = TinyGPT(vocab_size, cfg["n_layer"], cfg["n_embd"],
+                    cfg["n_head"])
+    n_params = model.count_params()
+    opt = torch.optim.AdamW(model.parameters(), lr=LR)
+    steps = max_steps_override or (budget // (BATCH_SIZE * BLOCK_SIZE))
+    print(f"[{name}] N={n_params:,} params, D={budget:,} tokens, "
+          f"steps={steps}, seed={seed}")
+    model.train()
+    t0 = time.perf_counter()
+    for step in range(1, steps + 1):
+        x, y = get_batch(data)
+        opt.zero_grad()
+        loss = F.cross_entropy(model(x).view(-1, vocab_size), y.view(-1))
+        loss.backward()
+        torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+        opt.step()
+        if step == 1 or step % max(1, steps // 5) == 0 or step == steps:
+            print(f"  step {step}/{steps}: loss={loss.item():.4f}")
+    walltime = time.perf_counter() - t0
+    <span class="cm"># Loss cuoi: trung binh 20 batch (bot nhieu).</span>
+    model.eval()
+    with torch.no_grad():
+        ls = []
+        for _ in range(20):
+            x, y = get_batch(data)
+            ls.append(F.cross_entropy(model(x).view(-1, vocab_size),
+                                      y.view(-1)).item())
+    final_loss = sum(ls) / len(ls)
+    kwh = walltime / 3600 * WATTS / 1000
+    rec = {"name": name, "N": n_params, "D": budget, "loss": final_loss,
+           "walltime_s": walltime, "kwh": kwh}
+    with open(log_path, "a", encoding="utf-8") as f:
+        f.write(json.dumps(rec) + "\n")
+    print(f"[{name}] XONG: loss={final_loss:.4f}, "
+          f"{walltime / 60:.1f} phut, kWh~{kwh:.4f}")
+    return rec
+
+
+def main():
+    <span class="cm">"""Chay smoke test / full grid / run 10 tuy tham so dong lenh."""</span>
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--smoke", action="store_true",
+                    help="smoke test bat buoc: S1, 50 buoc")
+    ap.add_argument("--run10", action="store_true",
+                    help="train run 10 (M x 800k token)")
+    args = ap.parse_args()
+
+    text = ensure_data()
+    encode, _, vocab_size = build_tokenizer(text)
+    data = torch.tensor(encode(text), dtype=torch.long)
+    print(f"Du lieu: {len(text):,} ky tu, vocab={vocab_size}")
+
+    if args.smoke:
+        <span class="cm"># Buoc 0 BAT BUOC: S1 voi 50 buoc - loss phai giam muot.</span>
+        print("SMOKE TEST: S1, 50 buoc (vuot budget 24 buoc de kiem tra)")
+        rec = train_run("S1-smoke", CONFIGS["S"], TOKEN_BUDGETS[0], data,
+                        encode, vocab_size, seed=1234,
+                        log_path="runs_smoke.jsonl", max_steps_override=50)
+        print(f"Smoke test: loss cuoi={rec['loss']:.4f} "
+              f"(so voi ~4.2 ban dau - phai giam ro)")
+        return
+
+    if args.run10:
+        <span class="cm"># Run 10: M x 800k token (gap doi compute cua M3).</span>
+        rec = train_run("R10", CONFIGS["M"], 800_000, data, encode,
+                        vocab_size, seed=999, log_path="runs_run10.jsonl")
+        print(f"Run 10: loss that = {rec['loss']:.4f} (so voi du bao!)")
+        return
+
+    <span class="cm"># Full grid 9 run.</span>
+    if os.path.exists("runs.jsonl"):
+        os.remove("runs.jsonl")
+    order = [("S1", "S", 0), ("S2", "S", 1), ("S3", "S", 2),
+             ("M1", "M", 0), ("M2", "M", 1), ("M3", "M", 2),
+             ("L1", "L", 0), ("L2", "L", 1), ("L3", "L", 2)]
+    t0 = time.perf_counter()
+    for i, (name, size, bi) in enumerate(order):
+        train_run(name, CONFIGS[size], TOKEN_BUDGETS[bi], data, encode,
+                  vocab_size, seed=1000 + i)
+    print(f"\nTONG: 9 run xong trong {(time.perf_counter() - t0) / 60:.1f} "
+          "phut. Ket qua trong runs.jsonl")
+
+
+if __name__ == "__main__":
+    main()
+</code></pre>
+</section>
+
+<footer>
+  Khóa "Trở thành AI Engineer (LLM)" — Ngày 11 buổi tối · Scaling Lab<br>
+  Bài học buổi sáng: <a href="Day11_lesson.html">Day11_lesson.html</a> ·
+  Đề bài thực hành: <a href="Day11_practice.html">Day11_practice.html</a> ·
+  Quiz: <a href="Day11_quiz.html">Day11_quiz.html</a><br>
+  <span style="font-size:.85rem">Review của trainer cho Day 10 vẫn đang chờ — có review sẽ bổ sung như mọi khi.</span>
+</footer>
+
+</div>
+
+<script>
+function duBao(){
+  var N = parseFloat(document.getElementById('inN').value) * 1e6;   // trieu params
+  var D = parseFloat(document.getElementById('inD').value) * 1e3;   // nghin tokens
+  var out = document.getElementById('outBao');
+  if(!(N > 0) || !(D > 0)){ out.textContent = 'Nhập N và D là số dương nhé.'; return; }
+  var C = 6 * N * D;
+  var a = 27.707, b = -0.0841;
+  var pred = a * Math.pow(C, b);
+  var ratio = D / N;
+  var msg = 'C = 6 × ' + N.toExponential(1) + ' × ' + D.toExponential(1) + ' = ' + C.toExponential(2) + ' FLOP\n'
+          + 'Dự báo loss = 27.707 × C^(−0.084) = ' + pred.toFixed(4) + '\n'
+          + 'D/N = ' + ratio.toFixed(2) + ' token/param '
+          + (ratio < 20 ? '(thiếu data so với chuẩn Chinchilla ~20 — tăng D sẽ "lời" hơn tăng N)'
+                        : '(đủ data theo chuẩn Chinchilla ~20)');
+  if(C < 3.36e10 || C > 6.49e12) msg += '\n⚠️ C nằm NGOÀI miền đã fit — dự báo này chỉ để tham khảo, đừng tin như số thật.';
+  out.textContent = msg;
+}
+function copyCode(id){
+  var el = document.getElementById(id);
+  var t = el.innerText || el.textContent;
+  navigator.clipboard.writeText(t).then(function(){
+    alert('Đã copy ' + el.id + ' (' + t.length + ' ký tự)');
+  });
+}
+</script>
+</body>
+</html>
