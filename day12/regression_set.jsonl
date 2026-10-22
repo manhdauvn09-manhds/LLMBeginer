@@ -1,0 +1,30 @@
+{"prompt": "Thu do cua Viet Nam la gi?", "expected": "Ha Noi"}
+{"prompt": "15 + 27 = ?", "expected": "42"}
+{"prompt": "7 x 8 = ?", "expected": "56"}
+{"prompt": "Thu do cua Nhat Ban la gi?", "expected": "Tokyo"}
+{"prompt": "100 - 37 = ?", "expected": "63"}
+{"prompt": "Hanh tinh gan Mat Troi nhat ten gi?", "expected": "Sao Thuy"}
+{"prompt": "12 x 12 = ?", "expected": "144"}
+{"prompt": "2^10 bang bao nhieu?", "expected": "1024"}
+{"prompt": "Mot nam nhuan co bao nhieu ngay?", "expected": "366"}
+{"prompt": "Dai duong lon nhat the gioi la gi?", "expected": "Thai Binh Duong"}
+{"prompt": "Dich sang tieng Viet: 'hello'", "expected": "xin chao"}
+{"prompt": "Dich sang tieng Anh: 'con meo'", "expected": "cat"}
+{"prompt": "Tu trai nghia voi 'nhanh' la gi?", "expected": "cham"}
+{"prompt": "Viet dung chinh ta: 'sach se' hay 'sach se'?", "expected": "sach se"}
+{"prompt": "So 5 viet bang chu tieng Viet", "expected": "nam"}
+{"prompt": "Dem so tu trong cau 'Toi yeu Viet Nam'", "expected": "4"}
+{"prompt": "Tu 'vui ve' co may tieng?", "expected": "2"}
+{"prompt": "Dich sang tieng Viet: 'thank you'", "expected": "cam on"}
+{"prompt": "Chu cai dau cua ten rieng co viet hoa khong? (co/khong)", "expected": "co"}
+{"prompt": "'mat troi' dich sang tieng Anh", "expected": "sun"}
+{"prompt": "Viet tu 'perplexity' bang chu in hoa", "expected": "PERPLEXITY"}
+{"prompt": "Viet tu 'PYTHON' bang chu thuong", "expected": "python"}
+{"prompt": "Tu 'hello' co bao nhieu ky tu?", "expected": "5"}
+{"prompt": "Viet so 100 bang chu (tieng Viet)", "expected": "mot tram"}
+{"prompt": "Sap xep tang dan cac so 3, 1, 2 (cach nhau boi dau phay)", "expected": "1, 2, 3"}
+{"prompt": "Viet ngay 1 thang 1 nam 2026 dang YYYY-MM-DD", "expected": "2026-01-01"}
+{"prompt": "Tra loi bang so: 9 + 10 = ?", "expected": "19"}
+{"prompt": "Viet 'dung' 3 lan, cach nhau boi dau phay", "expected": "dung, dung, dung"}
+{"prompt": "1 gio co bao nhieu phut?", "expected": "60"}
+{"prompt": "Dem ky tu trong 'abc' (khong tinh khoang trang)", "expected": "3"}
