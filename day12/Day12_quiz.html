@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quiz Ngày 12 — Đánh giá mô hình LLM | Khóa LLM 30 ngày</title>
+<style>
+:root{--bg:#0a0f1e; --card:#101830; --line:#22305a; --gold:#f5c542; --green:#4ade80;
+ --red:#f87171; --violet:#a78bfa; --cyan:#67e8f9; --text:#e8edf7; --muted:#93a0bd;}
+*{box-sizing:border-box;}
+body{margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.7; font-size:16.5px;}
+.wrap{max-width:760px; margin:0 auto; padding:18px 16px 60px;}
+.kicker{display:inline-block; font-size:13px; letter-spacing:1px; color:var(--gold); font-weight:700; margin-bottom:8px;}
+h1{font-size:26px; margin:6px 0 4px;}
+.sub{color:var(--muted);}
+.q{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px 18px; margin:16px 0;}
+.q h3{margin:0 0 10px; font-size:17px; color:var(--cyan);}
+label.opt{display:block; background:#0a0f1e; border:1px solid var(--line); border-radius:10px; padding:10px 14px; margin:8px 0; cursor:pointer;}
+label.opt:hover{border-color:var(--gold);}
+label.opt input{margin-right:10px;}
+.explain{display:none; border-left:4px solid var(--green); background:#0f2233; border-radius:0 10px 10px 0; padding:10px 14px; margin-top:10px; font-size:15px;}
+.explain.bad{border-color:var(--red); background:#23141a;}
+.btn{display:inline-block; background:var(--gold); color:#14100a; font-weight:700; border-radius:10px; padding:12px 24px; margin:12px 8px 0 0; border:none; font-size:16px; cursor:pointer;}
+.btn.ghost{background:transparent; color:var(--gold); border:2px solid var(--gold);}
+#result{display:none; margin-top:20px; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px;}
+#copystr{background:#060a14; border:1px dashed var(--violet); border-radius:8px; padding:10px 14px; margin:10px 0; font-size:15px; word-break:break-all;}
+.footer{color:var(--muted); font-size:14px; margin-top:30px;}
+.correct{color:var(--green); font-weight:700;} .wrong{color:var(--red); font-weight:700;}
+</style>
+</head>
+<body>
+<div class="wrap">
+<span class="kicker">QUIZ NGÀY 12 · ĐÁNH GIÁ MÔ HÌNH LLM</span>
+<h1>📝 Quiz — 5 câu trắc nghiệm</h1>
+<p class="sub">Chọn đáp án rồi bấm <b>Nộp bài</b> để chấm điểm ngay. Dưới 70% (dưới 4/5) → báo cho trợ lý để được học bù trước bài mới.</p>
+
+<div class="q" id="q1"><h3>Câu 1. Perplexity thấp có nghĩa là gì?</h3>
+<label class="opt"><input type="radio" name="q1" value="A"> A. Mô hình luôn trả lời đúng mọi câu hỏi của người dùng</label>
+<label class="opt"><input type="radio" name="q1" value="B"> B. Mô hình gán xác suất cao cho các từ thật trong tập eval — ít "bối rối" khi đoán từ tiếp theo</label>
+<label class="opt"><input type="radio" name="q1" value="C"> C. Mô hình chạy nhanh hơn và tốn ít điện hơn</label>
+<label class="opt"><input type="radio" name="q1" value="D"> D. Mô hình đã thấy trước toàn bộ đề thi trong lúc train</label>
+<div class="explain" id="e1"></div></div>
+
+<div class="q" id="q2"><h3>Câu 2. Đáp án chuẩn là "hà nội", mô hình trả lời "thủ đô hà nội". EM và F1 bằng bao nhiêu?</h3>
+<label class="opt"><input type="radio" name="q2" value="A"> A. EM = 1, F1 = 1</label>
+<label class="opt"><input type="radio" name="q2" value="B"> B. EM = 0, F1 = 0</label>
+<label class="opt"><input type="radio" name="q2" value="C"> C. EM = 0, F1 = 0.8</label>
+<label class="opt"><input type="radio" name="q2" value="D"> D. EM = 0.8, F1 = 0</label>
+<div class="explain" id="e2"></div></div>
+
+<div class="q" id="q3"><h3>Câu 3. Regression set (30 prompt cố định) dùng để làm gì?</h3>
+<label class="opt"><input type="radio" name="q3" value="A"> A. Đo năng lực mới của mô hình trên task chưa từng thấy</label>
+<label class="opt"><input type="radio" name="q3" value="B"> B. Phát hiện mô hình mới làm hỏng những thứ mô hình cũ đã làm đúng</label>
+<label class="opt"><input type="radio" name="q3" value="C"> C. Tính khoảng tin cậy cho chỉ số accuracy</label>
+<label class="opt"><input type="radio" name="q3" value="D"> D. Chấm các câu trả lời mở không có đáp án chuẩn</label>
+<div class="explain" id="e3"></div></div>
+
+<div class="q" id="q4"><h3>Câu 4. Mô hình mới đạt 82% ± 3%, mô hình cũ 80% ± 4% (khoảng tin cậy 95%). Kết luận đúng là gì?</h3>
+<label class="opt"><input type="radio" name="q4" value="A"> A. Mô hình mới chắc chắn tốt hơn vì 82 lớn hơn 80</label>
+<label class="opt"><input type="radio" name="q4" value="B"> B. Chưa đủ bằng chứng — hai khoảng tin cậy chồng lấn lên nhau</label>
+<label class="opt"><input type="radio" name="q4" value="C"> C. Nên loại bỏ mô hình mới vì chênh lệch quá nhỏ</label>
+<label class="opt"><input type="radio" name="q4" value="D"> D. Cần train lại mô hình cũ với nhiều dữ liệu hơn</label>
+<div class="explain" id="e4"></div></div>
+
+<div class="q" id="q5"><h3>Câu 5. Khi dùng LLM làm giám khảo so sánh 2 câu trả lời, cách nào giảm được position bias (thiên vị đáp án đứng trước)?</h3>
+<label class="opt"><input type="radio" name="q5" value="A"> A. Cho giám khảo biết tên mô hình để chấm công bằng hơn</label>
+<label class="opt"><input type="radio" name="q5" value="B"> B. Đảo thứ tự hai đáp án, chấm 2 lần rồi lấy trung bình</label>
+<label class="opt"><input type="radio" name="q5" value="C"> C. Chỉ chấm những câu trả lời ngắn gọn</label>
+<label class="opt"><input type="radio" name="q5" value="D"> D. Dùng chính mô hình đang được đánh giá làm giám khảo</label>
+<div class="explain" id="e5"></div></div>
+
+<button class="btn" onclick="grade()">Nộp bài</button>
+<button class="btn ghost" onclick="copyResult()" id="copybtn" style="display:none;">📋 Copy kết quả</button>
+
+<div id="result">
+<h3 id="scoreline" style="margin-top:0;"></h3>
+<div id="copystr"></div>
+<p style="color:var(--muted); font-size:14.5px;">Bấm <b>Copy kết quả</b> rồi paste vào chat để trợ lý ghi điểm nhé. File HTML này không tự gửi kết quả về được.</p>
+</div>
+
+<div class="footer"><a href="Day12_lesson.html" style="color:var(--gold);">← Quay lại bài học Ngày 12</a></div>
+</div>
+<script>
+const KEY = {q1:"B", q2:"C", q3:"B", q4:"B", q5:"B"};
+const WHY = {
+q1:"Perplexity = e^(loss): đo mức độ 'bối rối' trung bình khi đoán từ tiếp theo trên văn bản thật. Nó không đảm bảo trả lời đúng câu hỏi (đáp án A sai), không liên quan tốc độ (C sai); còn 'thấy trước đề thi' là leakage (D sai).",
+q2:"Sau chuẩn hóa, 'thủ đô hà nội' ≠ 'hà nội' nên EM = 0. Túi từ chung {hà, nội}: precision = 2/3, recall = 2/2 = 1, F1 = 2·(2/3)·1/(2/3+1) = 0.8.",
+q3:"Regression set = 'bộ phanh xe': chạy lại sau mỗi thay đổi để bắt lỗi hồi quy — cái cũ đang đúng bỗng thành sai. Đo năng lực mới là task set (A), khoảng tin cậy là bootstrap (C), chấm câu mở là LLM-judge (D).",
+q4:"82±3 → [79, 85]; 80±4 → [76, 84]. Hai khoảng chồng lấn mạnh → chênh lệch có thể chỉ là may rủi của bộ đề. Quy tắc: chỉ tuyên bố 'tốt hơn' khi CI không chồng lấn.",
+q5:"Đảo thứ tự A↔B và chấm 2 lần rồi trung bình hóa sẽ triệt tiêu thiên vị vị trí. Cho biết tên model (A) gây thiên vị; chỉ chấm câu ngắn (C) không liên quan; dùng chính model làm giám khảo (D) gây self-preference."
+};
+let graded = false, answers = {};
+function grade(){
+  graded = true; answers = {}; let score = 0;
+  for(let i=1;i<=5;i++){
+    const sel = document.querySelector('input[name=q'+i+']:checked');
+    const v = sel ? sel.value : "–"; answers["q"+i] = v;
+    const ok = (v === KEY["q"+i]); if(ok) score++;
+    const box = document.getElementById("e"+i);
+    box.style.display = "block";
+    box.className = "explain" + (ok ? "" : " bad");
+    box.innerHTML = (ok ? '<span class="correct">✔ Đúng.</span> ' : '<span class="wrong">✘ Sai.</span> Đáp án đúng: <b>'+KEY["q"+i]+'</b>. ') + WHY["q"+i];
+  }
+  const r = document.getElementById("result"); r.style.display = "block";
+  document.getElementById("scoreline").innerHTML = "Kết quả: <b>"+score+"/5</b> " + (score>=4 ? "🎉 Đạt!" : "🔁 Dưới 70% — báo trợ lý để học bù nhé.");
+  document.getElementById("copystr").textContent = copyString();
+  document.getElementById("copybtn").style.display = "inline-block";
+  r.scrollIntoView({behavior:"smooth"});
+}
+function copyString(){
+  let s = "Day12 Quiz:";
+  for(let i=1;i<=5;i++) s += " " + i + answers["q"+i];
+  let sc = 0; for(let i=1;i<=5;i++) if(answers["q"+i]===KEY["q"+i]) sc++;
+  return s + " — " + sc + "/5";
+}
+function copyResult(){
+  if(!graded) return;
+  const t = copyString();
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(t).then(()=>{document.getElementById("copybtn").textContent="✅ Đã copy!";});
+  } else {
+    const ta = document.createElement("textarea"); ta.value = t; document.body.appendChild(ta);
+    ta.select(); document.execCommand("copy"); document.body.removeChild(ta);
+    document.getElementById("copybtn").textContent="✅ Đã copy!";
+  }
+}
+</script>
+</body>
+</html>
