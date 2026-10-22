@@ -37,6 +37,11 @@ def exact_match(pred, gold):
 def f1(pred, gold):
     """F1 tren tap tu (do gan dung)."""
     p, g = normalize(pred).split(), normalize(gold).split()
+    # [TRAINER] Ca pred va gold deu rong = khop hoan toan -> F1 = 1.0
+    # (chuan SQuAD, nhat quan voi exact_match("", "") == 1). Thieu dong
+    # nay thi truong hop bien tra 0.0, mau thuan voi EM cua chinh no.
+    if not p and not g:
+        return 1.0
     common = sum(min(p.count(w), g.count(w)) for w in set(g))
     if common == 0:
         return 0.0
@@ -115,6 +120,11 @@ def bootstrap_ci(scores, n_boot=1000, alpha=0.05):
 
     Tra ve (mean, bien duoi, bien tren) cua khoang tin cay (1-alpha).
     """
+    # [TRAINER] scores rong -> sum(scores)/n chia cho 0 (ZeroDivisionError
+    # kho hieu). Nem ValueError ro rang ngay tu dau de nguoi goi biet
+    # phai truyen danh sach diem khong rong.
+    if not scores:
+        raise ValueError("bootstrap_ci: scores khong duoc rong")
     means = []
     n = len(scores)
     for _ in range(n_boot):
