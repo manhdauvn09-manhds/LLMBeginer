@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 12 — Eval Lab: đo model bằng thước thật</title>
+<style>
+  :root{
+    --bg:#fdf4ff; --card:#ffffff; --ink:#23272f; --muted:#6b7280;
+    --accent:#a21caf; --accent-dark:#701a75; --accent-soft:#fae8ff;
+    --blue:#2563eb; --blue-soft:#dbeafe;
+    --amber:#b45309; --amber-soft:#fef3c7;
+    --green:#047857; --green-soft:#d1fae5;
+    --red:#b91c1c; --red-soft:#fee2e2;
+    --cyan:#0891b2; --cyan-soft:#cffafe;
+    --line:#f0d3f5; --code-bg:#1e2230;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    line-height:1.75;font-size:16.5px}
+  .wrap{max-width:960px;margin:0 auto;padding:0 20px}
+  header.hero{background:linear-gradient(135deg,#701a75 0%,#a21caf 55%,#e879f9 100%);
+    color:#fff;padding:64px 0 48px;margin-bottom:8px}
+  header.hero h1{margin:0 0 12px;font-size:2.1rem;line-height:1.3}
+  header.hero p{margin:6px 0;opacity:.92;max-width:720px}
+  .tag{display:inline-block;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.35);
+    border-radius:999px;padding:3px 14px;font-size:.85rem;margin-bottom:14px}
+  nav.sticky{position:sticky;top:0;z-index:50;background:rgba(253,244,255,.96);
+    backdrop-filter:blur(6px);border-bottom:1px solid var(--line)}
+  nav.sticky .wrap{display:flex;gap:4px;overflow-x:auto;padding:10px 20px;white-space:nowrap}
+  nav.sticky a{color:var(--muted);text-decoration:none;font-size:.88rem;padding:6px 10px;border-radius:8px}
+  nav.sticky a:hover{background:var(--accent-soft);color:var(--accent-dark)}
+  section{padding:34px 0;border-bottom:1px solid var(--line)}
+  h2{font-size:1.55rem;margin:0 0 6px;color:#701a75}
+  h2 .num{display:inline-block;background:var(--accent);color:#fff;font-size:.95rem;
+    width:34px;height:34px;line-height:34px;text-align:center;border-radius:10px;margin-right:10px;vertical-align:middle}
+  h3{font-size:1.15rem;margin:26px 0 8px}
+  .lead{color:#4b5563;font-size:1.05rem}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:20px 22px;margin:16px 0;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin:18px 0}
+  .concept{background:var(--card);border:1px solid var(--line);border-top:4px solid var(--accent);
+    border-radius:12px;padding:16px 18px}
+  .concept h4{margin:0 0 6px;font-size:1.02rem}
+  .concept p{margin:0;font-size:.93rem;color:#4b5563}
+  .concept.blue{border-top-color:var(--blue)} .concept.amber{border-top-color:var(--amber)}
+  .concept.green{border-top-color:var(--green)} .concept.red{border-top-color:var(--red)}
+  .concept.cyan{border-top-color:var(--cyan)}
+  pre{background:var(--code-bg);color:#e8eaf2;border-radius:12px;padding:18px 20px;
+    overflow-x:auto;font-size:.86rem;line-height:1.6;margin:14px 0;max-height:560px;overflow-y:auto}
+  code{font-family:"SF Mono",Consolas,"Courier New",monospace}
+  p code, li code, td code{background:var(--accent-soft);padding:1px 7px;border-radius:6px;font-size:.88em;color:#701a75}
+  pre code{background:none;padding:0;color:inherit}
+  .kw{color:#c792ea}.fn{color:#82aaff}.str{color:#c3e88d}.cm{color:#697098;font-style:italic}.num2{color:#f78c6c}
+  pre.before{background:#2a1a12;border:1px solid #7c2d12}
+  pre.after{background:#0f2a1a;border:1px solid #047857}
+  .diff-tag{display:inline-block;font-size:.78rem;font-weight:700;border-radius:6px;padding:2px 10px;margin-bottom:6px}
+  .diff-tag.old{background:var(--amber-soft);color:var(--amber)}
+  .diff-tag.new{background:var(--green-soft);color:var(--green)}
+  .diagram{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px 10px;margin:18px 0;text-align:center;overflow-x:auto}
+  .diagram svg{max-width:100%;height:auto}
+  .caption{font-size:.9rem;color:var(--muted);margin-top:10px;font-style:italic}
+  .analogy{background:#fdf4ff;border:1px solid #f0abfc;border-left:6px solid var(--accent);
+    border-radius:10px;padding:16px 20px;margin:16px 0}
+  .analogy b{color:#701a75}
+  .warn{background:#fffbeb;border:1px solid #fcd34d;border-left:6px solid var(--amber);
+    border-radius:10px;padding:16px 20px;margin:16px 0}
+  .warn b{color:#92400e}
+  .ok{background:#ecfdf5;border:1px solid #6ee7b7;border-left:6px solid var(--green);
+    border-radius:10px;padding:16px 20px;margin:16px 0}
+  .bad{background:#fef2f2;border:1px solid #fecaca;border-left:6px solid var(--red);
+    border-radius:10px;padding:16px 20px;margin:16px 0}
+  table.mini{border-collapse:collapse;margin:14px auto;font-size:.9rem;min-width:70%}
+  table.mini th, table.mini td{border:1px solid var(--line);padding:8px 14px;text-align:left}
+  table.mini th{background:var(--accent-soft)}
+  table.mini td.num{font-family:monospace;text-align:center;white-space:nowrap}
+  table.mini tr.hl td{background:#fae8ff;font-weight:700}
+  .demo{background:#fff;border:2px solid var(--accent);border-radius:16px;padding:24px;margin:18px 0}
+  .demo h3{margin-top:0}
+  input[type=text], input[type=number]{width:100%;padding:10px 14px;font-size:.95rem;border:2px solid var(--line);
+    border-radius:10px;margin:8px 0;font-family:monospace}
+  .seg{display:flex;gap:8px;margin:10px 0;flex-wrap:wrap}
+  .seg button{border:2px solid var(--line);background:#fff;border-radius:10px;
+    padding:8px 18px;font-size:1rem;cursor:pointer}
+  .seg button.active{border-color:var(--accent);background:var(--accent-soft);font-weight:700}
+  .big-out{background:var(--code-bg);color:#e8eaf2;border-radius:12px;padding:18px 20px;
+    font-family:monospace;font-size:.92rem;margin-top:12px;line-height:1.9;word-break:break-word}
+  .btn{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:10px 22px;
+    font-size:1rem;cursor:pointer;margin:10px 8px 0 0}
+  .btn:hover{background:#701a75}
+  .formula{text-align:center;font-size:1.15rem;background:#fdf4ff;border-radius:10px;
+    padding:18px;margin:14px 0;font-family:Georgia,serif}
+  .formula small{display:block;font-family:inherit;font-size:.85rem;color:var(--muted);margin-top:6px}
+  footer{padding:36px 0 60px;color:var(--muted);font-size:.9rem;text-align:center}
+  ul.tight li{margin-bottom:6px}
+  .ci-bar{position:relative;height:44px;background:#f3f4f6;border-radius:10px;margin:10px 0;border:1px solid var(--line)}
+  .ci-range{position:absolute;top:12px;height:20px;border-radius:6px;opacity:.85}
+  .ci-mean{position:absolute;top:6px;width:3px;height:32px;background:#111827;border-radius:2px}
+  .ci-lab{font-family:monospace;font-size:.8rem;color:var(--muted);margin-bottom:2px}
+  .prompt-item{border:1px solid var(--line);border-radius:8px;padding:8px 12px;margin:6px 0;
+    font-size:.9rem;background:#fff;display:flex;gap:10px;align-items:baseline}
+  .prompt-item .pn{font-family:monospace;color:var(--muted);flex-shrink:0;min-width:36px}
+  .prompt-item .pe{margin-left:auto;font-family:monospace;color:var(--green);flex-shrink:0}
+  .cat-tag{display:inline-block;font-size:.72rem;font-weight:700;border-radius:6px;padding:1px 8px;margin-right:8px;flex-shrink:0}
+  @media(max-width:600px){header.hero h1{font-size:1.6rem}body{font-size:15.5px}}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="tag">📄 Phân tích: day12/evaluate.py</span>
+    <h1>Day 12 — Eval Lab<br>đo model bằng thước thật</h1>
+    <p>Train xong mà không đo đạc tử tế thì mọi con số đều là "cảm giác". Day 12 xây <b>pipeline đánh giá mini từ đầu</b>: EM/F1 chấm đáp án, perplexity từ loss thật Day 11, bootstrap để biết chênh lệch 2% có đáng tin không, regression set "đạp thử phanh", và quét rò rỉ đề thi.</p>
+    <p style="font-size:.9rem;opacity:.8">Số liệu trong bài là kết quả chạy thật (chỉ dùng thư viện chuẩn Python).</p>
+  </div>
+</header>
+
+<nav class="sticky"><div class="wrap">
+  <a href="#tong-quan">🍿 Tóm tắt 30 giây</a>
+  <a href="#emf1">🎯 EM &amp; F1</a>
+  <a href="#ppl">🌀 Perplexity</a>
+  <a href="#boot">📊 Bootstrap CI</a>
+  <a href="#regress">🛑 Regression set</a>
+  <a href="#decontam">🕵️ Decontamination</a>
+  <a href="#trainer">🛠️ Trainer đã sửa gì</a>
+  <a href="#source">📜 Source code</a>
+</div></nav>
+
+<div class="wrap">
+
+<!-- ================= TỔNG QUAN ================= -->
+<section id="tong-quan">
+  <h2><span class="num">🍿</span>Tóm tắt 30 giây cho người ngoại đạo</h2>
+  <p class="lead">5 phần A → E, mỗi phần trả lời một câu hỏi khác nhau về model. Điểm chung: <b>mọi con số đều phải kèm "độ tin cậy"</b> — không có thước đo thì "model mới tốt hơn" chỉ là lời quảng cáo.</p>
+  <div class="grid">
+    <div class="concept"><h4>🎯 A. EM &amp; F1</h4><p>EM = khớp tuyệt đối (khắt khe), F1 = khớp gần đúng theo từng từ. Đáp án ngắn phải báo <b>cả hai</b> — chỉ báo EM dễ hiểu lầm model "sai hoàn toàn".</p></div>
+    <div class="concept blue"><h4>🌀 B. Perplexity</h4><p>PPL = e<sup>loss</sup>: model càng "chắc chắn" vào từ đúng thì PPL càng thấp. Dùng <b>số loss thật</b> từ Day 11: 45.3 → 10.9.</p></div>
+    <div class="concept amber"><h4>📊 C. Bootstrap CI</h4><p>82% vs 80% — hơn 2% có đáng tin? Bootstrap 1000 lần → khoảng tin cậy <b>chồng lấn</b> → "chưa đủ bằng chứng".</p></div>
+    <div class="concept green"><h4>🛑 D. Regression set</h4><p>30 prompt model <b>đã làm đúng</b> — "đạp thử phanh" trước mỗi lần thay model, phát hiện hồi quy (đúng → sai).</p></div>
+    <div class="concept red"><h4>🕵️ E. Decontamination</h4><p>Quét n-gram đề thi có lọt vào dữ liệu train không + chuỗi canary bí mật + scorecard kèm <b>chỉ số năng lượng</b>.</p></div>
+  </div>
+  <div class="analogy"><b>🧭 Ví dụ — Khám sức khỏe tổng quát:</b> EM/F1 là <b>đo huyết áp</b> (chỉ số trực tiếp), PPL là <b>xét nghiệm máu</b> (chỉ số gián tiếp), bootstrap là <b>độ sai số của máy đo</b>, regression set là <b>tiêm phòng nhắc lại</b>, decontamination là <b>kiểm tra mẫu thử có bị nhiễm bẩn không</b>. Thiếu một khâu là kết luận có thể sai.</div>
+</section>
+
+<!-- ================= EM/F1 ================= -->
+<section id="emf1">
+  <h2><span class="num">🎯</span>EM &amp; F1: thước cứng và thước mềm</h2>
+  <p class="lead"><b>EM</b> (Exact Match) = 1 chỉ khi khớp <b>tuyệt đối</b> sau normalize. <b>F1</b> đo "gần đúng": từ chung / trung bình điều hòa của precision và recall trên tập từ.</p>
+
+  <div class="analogy"><b>🎯 Ví dụ — Chấm thi:</b> EM như <b>trắc nghiệm</b>: sai 1 chữ là 0 điểm. F1 như <b>tự luận</b>: đúng ý được điểm từng phần. Cặp <code>("Ha Noi la thu do", "ha noi")</code>: EM = <b>0</b> nhưng F1 = <b>0.57</b> — model "gần đúng", không phải "sai hoàn toàn".</div>
+
+  <div class="formula">F1 = 2 × (precision × recall) / (precision + recall)
+    <small>precision = từ chung / từ trong pred · recall = từ chung / từ trong gold</small>
+  </div>
+
+  <div class="demo">
+    <h3>🧮 Thử ngay: máy chấm EM/F1</h3>
+    <p style="margin-top:0">Nhập đáp án model (pred) và đáp án chuẩn (gold):</p>
+    <input type="text" id="emf1Pred" value="Ha Noi la thu do">
+    <input type="text" id="emf1Gold" value="ha noi">
+    <div class="seg"><button class="btn" id="emf1Btn" style="margin:0">🧮 Chấm điểm</button></div>
+    <div class="big-out" id="emf1Out">Bấm nút để chấm…</div>
+  </div>
+
+  <table class="mini">
+    <tr><th>pred</th><th>gold</th><th>EM</th><th>F1</th></tr>
+    <tr><td class="num">"Thu do Ha Noi"</td><td class="num">"ha noi"</td><td class="num">0</td><td class="num">0.67</td></tr>
+    <tr><td class="num">"ha noi"</td><td class="num">"ha noi"</td><td class="num">1</td><td class="num">1.00</td></tr>
+    <tr><td class="num">"Paris"</td><td class="num">"paris"</td><td class="num">1</td><td class="num">1.00</td></tr>
+    <tr class="hl"><td class="num">"Ha Noi la thu do"</td><td class="num">"ha noi"</td><td class="num">0</td><td class="num">0.57</td></tr>
+  </table>
+  <p class="caption" style="text-align:center">Kết quả chạy thật từ <code>evaluate.py</code>. "Paris" vs "paris": normalize viết thường trước nên EM=1 — normalize "cứu" được đáp án chỉ lệch chữ hoa.</p>
+</section>
+
+<!-- ================= PPL ================= -->
+<section id="ppl">
+  <h2><span class="num">🌀</span>Perplexity: model "bối rối" đến mức nào?</h2>
+  <p class="lead"><b>PPL = e<sup>loss</sup></b> — loss càng thấp (model càng "chắc chắn" vào từ đúng) thì PPL càng thấp. Dùng <b>số loss thật</b> từ Day 11: model cũ S1 (loss 3.8126) → PPL <b>45.3</b>; model mới L3 (loss 2.3870) → PPL <b>10.9</b>.</p>
+
+  <div class="analogy"><b>🎲 Ví dụ — Đoán số:</b> PPL = 45 nghĩa là mỗi lần đoán, model "phân vân" giữa ~45 khả năng như nhau; PPL = 10.9 nghĩa là chỉ phân vân giữa ~11 khả năng. Càng ít phân vân càng tốt.</div>
+
+  <div class="demo">
+    <h3>🧮 Thử ngay: máy tính PPL</h3>
+    <p style="margin-top:0">Nhập loss trung bình (cross-entropy):</p>
+    <input type="number" id="pplIn" value="2.3870" step="0.1">
+    <div class="seg"><button class="btn" id="pplBtn" style="margin:0">🌀 Tính PPL</button></div>
+    <div class="big-out" id="pplOut">Bấm nút để tính…</div>
+  </div>
+
+  <div class="warn"><b>⚠️ TODO 3 — PPL thấp KHÔNG đồng nghĩa trả lời hay hơn!</b> PPL chỉ đo khả năng đoán token tiếp theo trên một corpus cụ thể — nó không đo instruction-following, tính đúng sự thật, hay năng lực làm đúng nhiệm vụ. Model có thể PPL thấp nhờ <b>học thuộc lòng corpus eval (leakage!)</b> mà vẫn trả lời tệ. Luôn đi kèm metric nhiệm vụ (EM/F1/accuracy) — PPL một mình là "cảm giác", không phải năng lực.</div>
+</section>
+
+<!-- ================= BOOTSTRAP ================= -->
+<section id="boot">
+  <h2><span class="num">📊</span>Bootstrap CI: 82% vs 80% — hơn 2% có đáng tin?</h2>
+  <p class="lead">Model mới đúng 82%, cũ đúng 80% trên 500 câu. "Hơn 2%" nghe hay — nhưng có chắc không phải <b>may mắn</b>? Bootstrap: lấy mẫu <b>có hoàn lại</b> 1000 lần, mỗi lần tính lại accuracy → xem 95% các lần rơi vào khoảng nào.</p>
+
+  <div class="analogy"><b>🗳️ Ví dụ — Thăm dò bầu cử:</b> ứng viên A 52%, B 48% — nhưng sai số ±3% thì <b>chưa thể tuyên bố ai thắng</b>. Khoảng tin cậy chồng lấn = "hòa về mặt thống kê". Kết luận đúng không phải "mới tốt hơn" mà là <b>"chưa đủ bằng chứng"</b> — rồi đi thu thêm dữ liệu eval hoặc chấp nhận hòa.</div>
+
+  <div class="demo">
+    <h3>📊 Thử ngay: bootstrap 1000 lần trên số liệu thật</h3>
+    <p style="margin-top:0">Chạy bootstrap ngay trong trình duyệt (seed cố định, logic y hệt Python):</p>
+    <div class="seg"><button class="btn" id="bootBtn" style="margin:0">📊 Chạy bootstrap</button></div>
+    <div id="bootOut"><p class="caption">Bấm nút để chạy…</p></div>
+  </div>
+
+  <div class="ok"><b>💡 Kết quả chạy thật:</b> cũ 80% CI=[76%, 83%] · mới 82% CI=[79%, 85%] → hai khoảng <b>chồng lấn</b> → kết luận: <b>"chưa đủ bằng chứng 'mới tốt hơn'"</b>. Quy tắc: chỉ khi CI <b>tách rời</b> mới được tuyên bố thắng.</div>
+</section>
+
+<!-- ================= REGRESSION ================= -->
+<section id="regress">
+  <h2><span class="num">🛑</span>Regression set: "đạp thử phanh" trước khi xuất xưởng</h2>
+  <p class="lead">30 prompt mà model <b>đã làm đúng</b>: 10 kiến thức + 10 tiếng Việt + 10 format → ghi vào <code>regression_set.jsonl</code>. Mỗi lần thay model, chạy lại bộ này trước — prompt nào từ đúng thành sai là <b>hồi quy</b>, phải dừng lại xem.</p>
+
+  <div class="analogy"><b>🚗 Ví dụ — Đạp thử phanh:</b> trước khi xe xuất xưởng, thợ đạp thử phanh — không phải để xem xe chạy <b>nhanh hơn</b> (đó là việc của task set), mà để chắc phanh <b>vẫn ăn</b> như cũ. Regression set cũng vậy: nhiệm vụ duy nhất là phát hiện <b>đúng → sai</b>.</div>
+
+  <div class="demo">
+    <h3>📋 30 prompt trong regression_set.jsonl</h3>
+    <div class="seg">
+      <button class="active" data-cat="all">Tất cả (30)</button>
+      <button data-cat="k">🧠 Kiến thức (10)</button>
+      <button data-cat="v">🇻🇳 Tiếng Việt (10)</button>
+      <button data-cat="f">🔤 Format (10)</button>
+    </div>
+    <div id="regList"></div>
+  </div>
+
+  <div class="warn"><b>⚠️ TODO 6 — Đừng trộn prompt khó vào regression set!</b> Prompt khó/chưa làm được thuộc về <b>task set</b> (đo năng lực). Trộn vào regression set thì lần nào chạy cũng đỏ → mất tác dụng cảnh báo. Hai bộ có hai nhiệm vụ khác nhau: một đo "có thụt lùi không", một đo "có tiến bộ không".</div>
+</section>
+
+<!-- ================= DECONTAMINATION ================= -->
+<section id="decontam">
+  <h2><span class="num">🕵️</span>Decontamination + canary + scorecard</h2>
+  <p class="lead"><b>E1 — Quét rò rỉ:</b> mọi 8-gram của đề thi (eval) có lọt trong dữ liệu train không? Chạy thật: <b>OK</b>, không n-gram nào lọt. Detector còn tự kiểm tra bằng cách <b>cài sẵn 1 leak</b> (n=4) — bắt được mới tin nó hoạt động.</p>
+
+  <div class="analogy"><b>🕵️ Ví dụ — Niêm phong đề thi:</b> trước kỳ thi, người ta kiểm tra xem đề có bị <b>lộ</b> ra ngoài không. Nếu model đã "đọc trộm" đáp án trong lúc train thì điểm cao là <b>gian lận</b> — đây là lý do Day 8 cũng có bước chống rò rỉ, và ở đây nó quay lại dưới dạng <b>quét tự động</b>.</div>
+
+  <div class="card">
+    <h3 style="margin-top:0">🐤 Canary — "chim hoàng yến" trong dữ liệu</h3>
+    <p>Nhúng chuỗi bí mật <code>canary-9f3k-llm-eval-ngay12</code> vào eval set, rồi <b>assert nó không xuất hiện</b> trong dữ liệu train. Nếu một ngày thấy chuỗi này trong train → biết ngay có rò rỉ. Như thợ mỏ mang chim hoàng yến xuống hầm: chim chết là biết có khí độc.</p>
+    <p style="margin-bottom:0"><b>Kết quả chạy thật:</b> Canary check OK ✅</p>
+  </div>
+
+  <h3>📋 Scorecard — đọc cả cột năng lượng, không chỉ accuracy</h3>
+  <table class="mini">
+    <tr><th>metric</th><th>cũ</th><th>mới</th></tr>
+    <tr><td>Perplexity (thấp tốt)</td><td class="num">45.3</td><td class="num"><b>10.9</b></td></tr>
+    <tr><td>EM trên QA set (cao tốt)</td><td class="num">61%</td><td class="num"><b>66%</b></td></tr>
+    <tr><td>F1 trên QA set (cao tốt)</td><td class="num">0.74</td><td class="num"><b>0.79</b></td></tr>
+    <tr><td>Accuracy/task set (cao tốt)</td><td class="num">80% ±4%</td><td class="num">82% ±4%</td></tr>
+    <tr class="hl"><td><b>Energy efficiency</b> (acc/Wh, cao tốt)</td><td class="num"><b>16.00</b></td><td class="num">10.25 ⚠️</td></tr>
+  </table>
+  <div class="warn"><b>⚠️ Plot twist:</b> model mới thắng mọi cột… trừ <b>năng lượng</b>! 80%/5Wh = 16.0 %/Wh vs 82%/8Wh = 10.25 %/Wh — model mới <b>kém hiệu quả năng lượng</b> hơn. Bài học: đọc scorecard phải đọc <b>cả cột energy</b>, không chỉ accuracy. Đây chính là Green checkpoint của buổi.</div>
+</section>
+
+<!-- ================= TRAINER ================= -->
+<section id="trainer">
+  <h2><span class="num">🛠️</span>Trainer đã sửa gì: trước → sau</h2>
+  <p class="lead">Review ngày 22/10, trainer sửa <b>2 điểm</b> — cả hai đều là <b>trường hợp biên</b> (edge case): code chạy "ngon" với dữ liệu thường, nhưng xử lý sai (hoặc crash khó hiểu) ở biên.</p>
+
+  <div class="card">
+    <h3 style="margin-top:0">1. 🎯 <code>f1("", "")</code> phải = 1.0, không phải 0.0</h3>
+    <span class="diff-tag old">TRƯỚC — trường hợp biên trả 0.0</span>
+<pre class="before"><code>    p, g = normalize(pred).split(), normalize(gold).split()
+    common = sum(min(p.count(w), g.count(w)) for w in set(g))
+    if common == 0:
+        return 0.0   <span class="cm"># ("","") roi vao day -> 0.0 ❌</span></code></pre>
+    <span class="diff-tag new">SAU — khớp chuẩn SQuAD</span>
+<pre class="after"><code>    p, g = normalize(pred).split(), normalize(gold).split()
+    <span class="cm"># [TRAINER] Ca pred va gold deu rong = khop hoan toan -> F1 = 1.0</span>
+    if not p and not g:
+        return 1.0
+    common = sum(min(p.count(w), g.count(w)) for w in set(g))
+    if common == 0:
+        return 0.0</code></pre>
+    <p><b>Vì sao?</b> Cả hai cùng rỗng nghĩa là <b>khớp hoàn toàn</b> — chuẩn SQuAD quy định F1 = 1.0, nhất quán với <code>exact_match("", "") == 1</code> của chính hàm bên cạnh. Thiếu dòng này, F1("", "") trả 0.0 → <b>mâu thuẫn với EM của chính nó</b>: cùng một cặp input, EM bảo "đúng tuyệt đối" còn F1 bảo "sai hoàn toàn".</p>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0">2. 📊 <code>bootstrap_ci([])</code> phải báo lỗi rõ ràng, không phải ZeroDivisionError</h3>
+    <span class="diff-tag old">TRƯỚC — crash với lỗi khó hiểu</span>
+<pre class="before"><code>    means = []
+    n = len(scores)   <span class="cm"># n = 0 ...</span>
+    for _ in range(n_boot):
+        sample = [random.choice(scores) for _ in range(n)]
+        means.append(sum(sample) / n)   <span class="cm"># ZeroDivisionError ❌</span></code></pre>
+    <span class="diff-tag new">SAU — fail fast với thông điệp rõ ràng</span>
+<pre class="after"><code>    <span class="cm"># [TRAINER] scores rong -> sum(scores)/n chia cho 0</span>
+    if not scores:
+        raise ValueError("bootstrap_ci: scores khong duoc rong")
+    means = []
+    ...</code></pre>
+    <p><b>Vì sao?</b> <code>ZeroDivisionError: division by zero</code> không nói cho người gọi biết họ đã làm gì sai — họ phải mò vào code mới hiểu "à, hóa ra list rỗng". <code>ValueError("bootstrap_ci: scores khong duoc rong")</code> nói thẳng nguyên nhân và cách sửa ngay tại chỗ gọi. Đây là triết lý <b>fail fast</b> đã gặp ở Day 8–11: lỗi phải "chết" sớm với thông điệp rõ ràng, đừng để nó đi xa rồi mới nổ.</p>
+  </div>
+
+  <div class="ok"><b>💡 Bài học chung:</b> cả hai fix đều không thay đổi hành vi với dữ liệu <b>bình thường</b> — chúng chỉ sửa hành vi ở <b>biên</b>. Viết code "chạy được" là xong 80%; 20% còn lại là hỏi: "input rỗng thì sao? list rỗng thì sao? hai cái cùng rỗng thì sao?" — và trả lời nhất quán.</div>
+</section>
+
+<!-- ================= SOURCE CODE ================= -->
+<section id="source">
+  <h2><span class="num">📜</span>Toàn bộ source code</h2>
+  <p class="lead">File <code>day12/evaluate.py</code> (chỉ dùng thư viện chuẩn Python) — tô màu tự động, bấm nút để copy.</p>
+  <button class="btn" id="copySrcBtn">📋 Copy toàn bộ code</button>
+  <span id="copyMsg" style="margin-left:12px;color:var(--green);font-weight:700"></span>
+  <pre class="pysrc" id="fullsrc"><code>#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""Eval Lab - pipeline danh gia mini xay tu dau (Day 12 - buoi toi).
+
+5 phan (A-&gt;E), 7 cho TODO da dien day du:
+    A. EM &amp; F1: metric tra loi dung/sai, kem test tu viet.
+    B. Perplexity tu log-prob trung binh (so that tu Day 11).
+    C. Bootstrap CI: dung tin chenh lech 1-2% khi CI chong lan.
+    D. Regression set: 30 prompt model DA lam dung ("dap thu phanh").
+    E. Decontamination scan + canary + scorecard (kem energy metric).
+
+Cach chay:
+    python evaluate.py        # khong can GPU, chi can stdlib
+
+Dau ra: regression_set.jsonl (30 prompt).
+"""
+
+import json
+import math
+import random
+
+print("=" * 64)
+print("Phan A - EM &amp; F1")
+print("=" * 64)
+
+
+def normalize(s):
+    """Viet thuong, gom khoang trang."""
+    return " ".join(s.lower().strip().split())
+
+
+def exact_match(pred, gold):
+    """1 neu khop tuyet doi sau normalize, nguoc lai 0."""
+    return int(normalize(pred) == normalize(gold))
+
+
+def f1(pred, gold):
+    """F1 tren tap tu (do gan dung)."""
+    p, g = normalize(pred).split(), normalize(gold).split()
+    # [TRAINER] Ca pred va gold deu rong = khop hoan toan -&gt; F1 = 1.0
+    # (chuan SQuAD, nhat quan voi exact_match("", "") == 1). Thieu dong
+    # nay thi truong hop bien tra 0.0, mau thuan voi EM cua chinh no.
+    if not p and not g:
+        return 1.0
+    common = sum(min(p.count(w), g.count(w)) for w in set(g))
+    if common == 0:
+        return 0.0
+    prec, rec = common / len(p), common / len(g)
+    return 2 * prec * rec / (prec + rec)
+
+
+# TODO 1 - them cap (pred, gold) cua CHINH MINH + tu tinh tay truoc.
+# Cap cua toi: ("Ha Noi la thu do", "ha noi").
+#   normalize: pred -&gt; "ha noi la thu do" (5 tu), gold -&gt; "ha noi" (2 tu).
+#   EM = 0 (hai chuoi khac nhau).
+#   common = 2 ("ha", "noi"); prec = 2/5 = 0.4; rec = 2/2 = 1.0.
+#   F1 = 2*0.4*1.0/(0.4+1.0) = 0.8/1.4 = 0.5714 -&gt; 0.57.
+qa_tests = [
+    ("Thu do Ha Noi", "ha noi"),
+    ("ha noi", "ha noi"),
+    ("Paris", "paris"),
+    ("Ha Noi la thu do", "ha noi"),  # cap cua toi (TODO 1)
+]
+
+for pred, gold in qa_tests:
+    print(f"pred={pred!r:24} gold={gold!r:12} "
+          f"EM={exact_match(pred, gold)} F1={f1(pred, gold):.2f}")
+
+# Cam nhan (TODO 1): EM=0 du chi lech 1 tu -&gt; voi dap an ngan/that,
+# bao ca EM (khop tuyet doi) LAN F1 (do gan dung). Chi bao EM don le
+# de hieu lam model "sai hoan toan" trong khi no gan dung.
+
+print()
+print("=" * 64)
+print("Phan B - Perplexity tu log-probabilities")
+print("=" * 64)
+
+# TODO 2 - dung SO THAT tu Day 11 (train_grid.py, cross-entropy = -logprob).
+#   Model "cu" = S1 (N=112k): loss 3.8126 -&gt; avg_logprob = -3.8126.
+#   Model "moi" = L3 (N=2.7M): loss 2.3870 -&gt; avg_logprob = -2.3870.
+MODEL_A_avg_logprob = -3.8126   # mo hinh "cu" (S1, Day 11)
+MODEL_B_avg_logprob = -2.3870   # mo hinh "moi" cua ban (L3, Day 11)
+
+
+def perplexity(avg_logprob):
+    """Tinh perplexity tu log-prob trung binh.
+
+    PPL = exp(-trung binh log p(w)): mo hinh cang "chac chan" vao tu dung
+    thi PPL cang thap.
+    """
+    return math.exp(-avg_logprob)
+
+
+print(f"PPL model cu: {perplexity(MODEL_A_avg_logprob):.1f}")
+print(f"PPL model moi: {perplexity(MODEL_B_avg_logprob):.1f}")
+
+# TODO 3 - PPL thap hon KHONG dong nghia tra loi cau hoi user tot hon.
+# Ly do: PPL chi do kha nang du doan token tiep theo tren mot corpus
+# cu the - no khong do instruction-following, tinh dung su that, hay
+# kha nang lam dung nhiem vu. Model co the PPL thap nho hoc thuoc long
+# corpus eval (leakage!) ma van tra loi te. Luon di kem metric nhiem vu
+# (EM/F1/accuracy) - PPL mot minh la "cam giac", khong phai nang luc.
+
+print()
+print("=" * 64)
+print("Phan C - Bootstrap CI: dung tin chenh lech 1-2%")
+print("=" * 64)
+
+random.seed(42)  # cung seed -&gt; cung ket qua (reproducible)
+
+# Ket qua mau: 1 = dung, 0 = sai. Model moi dat 82%, cu 80%.
+old = [1] * 400 + [0] * 100
+new = [1] * 410 + [0] * 90
+random.shuffle(old)
+random.shuffle(new)
+
+
+def bootstrap_ci(scores, n_boot=1000, alpha=0.05):
+    """Uoc luong khoang tin cay bang bootstrap co hoan lai.
+
+    Tra ve (mean, bien duoi, bien tren) cua khoang tin cay (1-alpha).
+    """
+    # [TRAINER] scores rong -&gt; sum(scores)/n chia cho 0 (ZeroDivisionError
+    # kho hieu). Nem ValueError ro rang ngay tu dau de nguoi goi biet
+    # phai truyen danh sach diem khong rong.
+    if not scores:
+        raise ValueError("bootstrap_ci: scores khong duoc rong")
+    means = []
+    n = len(scores)
+    for _ in range(n_boot):
+        sample = [random.choice(scores) for _ in range(n)]
+        means.append(sum(sample) / n)
+    means.sort()
+    lo = means[int((alpha / 2) * n_boot)]
+    hi = means[int((1 - alpha / 2) * n_boot)]
+    return sum(scores) / n, lo, hi
+
+
+acc_old, lo_old, hi_old = bootstrap_ci(old)
+acc_new, lo_new, hi_new = bootstrap_ci(new)
+print(f"Cu:  {acc_old:.0%}  CI=[{lo_old:.0%}, {hi_old:.0%}]")
+print(f"Moi: {acc_new:.0%} CI=[{lo_new:.0%}, {hi_new:.0%}]")
+
+# TODO 4 - CI chong lan -&gt; "chua du bang chung" (khong duoc tuyen bo
+# "moi tot hon"). Quyet dinh dung: thu them du lieu eval hoac chap
+# nhan hoa. Chi khi CI tach roi moi ket luan "moi tot hon that".
+overlap = not (hi_old &lt; lo_new or hi_new &lt; lo_old)
+conclusion = ("chua du bang chung 'moi tot hon' (CI chong lan)"
+              if overlap else "moi tot hon that (CI tach roi)")
+print("Ket luan:", conclusion)
+
+print()
+print("=" * 64)
+print("Phan D - Regression set: 'dap thu phanh' cua model")
+print("=" * 64)
+
+# TODO 5 - 30 prompt model DA lam dung: 10 kien thuc + 10 tieng Viet +
+# 10 format. Moi dong 1 JSON {"prompt", "expected"}.
+regression = [
+    # 10 kien thuc.
+    {"prompt": "Thu do cua Viet Nam la gi?", "expected": "Ha Noi"},
+    {"prompt": "15 + 27 = ?", "expected": "42"},
+    {"prompt": "7 x 8 = ?", "expected": "56"},
+    {"prompt": "Thu do cua Nhat Ban la gi?", "expected": "Tokyo"},
+    {"prompt": "100 - 37 = ?", "expected": "63"},
+    {"prompt": "Hanh tinh gan Mat Troi nhat ten gi?",
+     "expected": "Sao Thuy"},
+    {"prompt": "12 x 12 = ?", "expected": "144"},
+    {"prompt": "2^10 bang bao nhieu?", "expected": "1024"},
+    {"prompt": "Mot nam nhuan co bao nhieu ngay?", "expected": "366"},
+    {"prompt": "Dai duong lon nhat the gioi la gi?",
+     "expected": "Thai Binh Duong"},
+    # 10 tieng Viet (dich, chinh ta).
+    {"prompt": "Dich sang tieng Viet: 'hello'", "expected": "xin chao"},
+    {"prompt": "Dich sang tieng Anh: 'con meo'", "expected": "cat"},
+    {"prompt": "Tu trai nghia voi 'nhanh' la gi?", "expected": "cham"},
+    {"prompt": "Viet dung chinh ta: 'sach se' hay 'sach se'?",
+     "expected": "sach se"},
+    {"prompt": "So 5 viet bang chu tieng Viet", "expected": "nam"},
+    {"prompt": "Dem so tu trong cau 'Toi yeu Viet Nam'", "expected": "4"},
+    {"prompt": "Tu 'vui ve' co may tieng?", "expected": "2"},
+    {"prompt": "Dich sang tieng Viet: 'thank you'", "expected": "cam on"},
+    {"prompt": "Chu cai dau cua ten rieng co viet hoa khong? (co/khong)",
+     "expected": "co"},
+    {"prompt": "'mat troi' dich sang tieng Anh", "expected": "sun"},
+    # 10 format (in hoa, do dai, sap xep).
+    {"prompt": "Viet tu 'perplexity' bang chu in hoa",
+     "expected": "PERPLEXITY"},
+    {"prompt": "Viet tu 'PYTHON' bang chu thuong", "expected": "python"},
+    {"prompt": "Tu 'hello' co bao nhieu ky tu?", "expected": "5"},
+    {"prompt": "Viet so 100 bang chu (tieng Viet)", "expected": "mot tram"},
+    {"prompt": "Sap xep tang dan cac so 3, 1, 2 (cach nhau boi dau phay)",
+     "expected": "1, 2, 3"},
+    {"prompt": "Viet ngay 1 thang 1 nam 2026 dang YYYY-MM-DD",
+     "expected": "2026-01-01"},
+    {"prompt": "Tra loi bang so: 9 + 10 = ?", "expected": "19"},
+    {"prompt": "Viet 'dung' 3 lan, cach nhau boi dau phay",
+     "expected": "dung, dung, dung"},
+    {"prompt": "1 gio co bao nhieu phut?", "expected": "60"},
+    {"prompt": "Dem ky tu trong 'abc' (khong tinh khoang trang)",
+     "expected": "3"},
+]
+
+assert len(regression) == 30, f"thieu prompt: {len(regression)}/30"
+with open("regression_set.jsonl", "w", encoding="utf-8") as f:
+    for item in regression:
+        f.write(json.dumps(item, ensure_ascii=False) + "\n")
+print(f"Da ghi {len(regression)} prompt vao regression_set.jsonl")
+
+# TODO 6 - Vi sao regression set PHAI gom prompt model DA lam dung?
+# Vi nhiem vu cua no la phat hien HOI QUY (dung -&gt; sai) sau moi thay doi
+# model - nhu "dap thu phanh" truoc khi xuat xuong. Prompt kho/chua lam
+# duoc thuoc ve task set (do nang luc). Tron prompt kho vao regression
+# set thi moi lan chay deu do, mat tac dung canh bao.
+
+print()
+print("=" * 64)
+print("Phan E - Leakage scan + canary + scorecard")
+print("=" * 64)
+
+# --- E1: Decontamination scan ---
+
+
+def ngrams(text, n=8):
+    """Tap cac n-gram (chuoi n tu lien tiep) cua text."""
+    toks = text.lower().split()
+    return {" ".join(toks[i:i + n]) for i in range(len(toks) - n + 1)}
+
+
+def find_leakage(train_corpus, eval_set, n=8):
+    """Tra ve [(idx_eval, ngram)] cac n-gram cua eval lot trong train."""
+    train_ng = set()
+    for doc in train_corpus:
+        train_ng |= ngrams(doc, n)
+    leaks = []
+    for i, q in enumerate(eval_set):
+        for ng in ngrams(q, n):
+            if ng in train_ng:
+                leaks.append((i, ng))
+                break  # moi cau eval chi can 1 bang chung ro ri
+    return leaks
+
+
+train_corpus = [
+    "mo hinh ngon ngu hoc tu van ban tieng viet ve lich su dia ly "
+    "va khoa hoc pho thong trong nhieu linh vuc khac nhau",
+    "du lieu train gom sach giao khoa va bao chi da duoc lam sach "
+    "loai bo thong tin ca nhan truoc khi dua vao huan luyen",
+]
+eval_set = [
+    "thu do cua viet nam la gi",
+    "giai thich hien tuong nhat thuc xay ra khi nao trong nam",
+]
+
+# TODO 7 - quet moi n-gram cua eval_set trong train_corpus.
+leaks = find_leakage(train_corpus, eval_set, n=8)
+if leaks:
+    for i, ng in leaks:
+        print(f"LEAKAGE: eval[{i}] trung 8-gram voi train: '{ng}'")
+else:
+    print("Decontamination scan: OK (khong n-gram eval nao lot trong "
+          "train)")
+
+# Tu kiem detector: cai san 1 leak de chung minh no bat duoc.
+_self_test = find_leakage(["khoa hoc du lieu la mot linh vuc rat thu vi"],
+                          ["linh vuc rat thu vi va day trien vong"], n=4)
+assert _self_test, "detector hong: khong bat duoc leak cai san!"
+print("Tu kiem detector: OK (bat duoc leak cai san voi n=4)")
+
+CANARY = "canary-9f3k-llm-eval-ngay12"
+for doc in train_corpus:
+    assert CANARY not in doc, "RO RI: canary xuat hien trong du lieu train!"
+print("Canary check: OK (khong co ro ri chuoi bi mat)")
+
+# --- E2: Scorecard + energy metric ---
+print("\n=== SCORECARD ===")
+scorecard = [
+    ("Perplexity (thap tot)", "45.3", "10.9"),
+    ("EM tren QA set (cao tot)", "61%", "66%"),
+    ("F1 tren QA set (cao tot)", "0.74", "0.79"),
+    ("Accuracy/task set (cao tot)", "80% ±4%", "82% ±4%"),
+]
+for name, old_v, new_v in scorecard:
+    print(f"{name:28} | cu: {old_v:10} | moi: {new_v}")
+# Energy: accuracy / watt-hour (Green checkpoint).
+#   cu: 5 Wh/1000 req -&gt; 80/5 = 16.0 %/Wh ; moi: 8 Wh -&gt; 82/8 = 10.25 %/Wh
+eff_old, eff_new = 80 / 5, 82 / 8
+print(f"Energy efficiency (acc/Wh): cu {eff_old:.2f} | moi {eff_new:.2f} "
+      "&lt;- model moi KEM hieu qua nang luong!")
+print("Bai hoc: doc scorecard phai doc ca cot energy, khong chi accuracy.")
+print("=" * 64)
+</code></pre>
+</section>
+
+</div><!-- /wrap -->
+
+<footer>
+  <div class="wrap">
+    Được dựng từ <code>day12/evaluate.py</code> — giải thích bằng tiếng Việt, vẽ thành sơ đồ cho người ngoại đạo.<br>
+    Số liệu là kết quả chạy thật (chỉ dùng thư viện chuẩn Python). Sơ đồ là minh họa ý tưởng.
+  </div>
+</footer>
+
+<script>
+// --- Tiện ích ---
+function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function norm(s){ return s.toLowerCase().trim().split(/\s+/).filter(Boolean).join(" "); }
+// --- Demo EM/F1 (logic y hệt Python) ---
+(function(){
+  document.getElementById("emf1Btn").addEventListener("click", function(){
+    const pred = document.getElementById("emf1Pred").value;
+    const gold = document.getElementById("emf1Gold").value;
+    const p = norm(pred).split(" ").filter(Boolean), g = norm(gold).split(" ").filter(Boolean);
+    const em = norm(pred) === norm(gold) ? 1 : 0;
+    let f1;
+    if(p.length === 0 && g.length === 0){ f1 = 1.0; }
+    else {
+      const setG = [...new Set(g)];
+      let common = 0;
+      setG.forEach(w => { common += Math.min(p.filter(x=>x===w).length, g.filter(x=>x===w).length); });
+      if(common === 0){ f1 = 0.0; }
+      else { const prec = common/p.length, rec = common/g.length; f1 = 2*prec*rec/(prec+rec); }
+    }
+    const commonWords = [...new Set(g)].filter(w => p.includes(w));
+    document.getElementById("emf1Out").innerHTML =
+      "normalize: pred=" + esc(JSON.stringify(norm(pred))) + " (" + p.length + " từ), gold=" + esc(JSON.stringify(norm(gold))) + " (" + g.length + " từ)<br>" +
+      "từ chung: [" + commonWords.map(esc).join(", ") + "]<br>" +
+      "<b>EM = " + em + "</b> &nbsp; <b>F1 = " + f1.toFixed(2) + "</b>" +
+      (em === 0 && f1 > 0 ? "<br>→ EM=0 nhưng F1>0: model 'gần đúng', đừng báo EM đơn lẻ!" : "");
+  });
+})();
+// --- Demo PPL ---
+(function(){
+  document.getElementById("pplBtn").addEventListener("click", function(){
+    const nll = parseFloat(document.getElementById("pplIn").value);
+    if(!(nll >= 0)){ document.getElementById("pplOut").textContent = "Nhập loss >= 0 nhé."; return; }
+    const ppl = Math.exp(nll);
+    document.getElementById("pplOut").innerHTML =
+      "PPL = e^" + nll + " = <b>" + ppl.toFixed(1) + "</b><br>" +
+      "→ mỗi lần đoán, model 'phân vân' giữa ~" + Math.round(ppl) + " khả năng như nhau" +
+      "<br><small style='color:#9ca3af'>Số thật: S1 loss 3.8126 → PPL 45.3 · L3 loss 2.3870 → PPL 10.9</small>";
+  });
+})();
+// --- Demo Bootstrap (logic y hệt Python, seed 42) ---
+(function(){
+  function mulberry32(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+  document.getElementById("bootBtn").addEventListener("click", function(){
+    const rnd = mulberry32(42);
+    const old = Array(400).fill(1).concat(Array(100).fill(0));
+    const nw  = Array(410).fill(1).concat(Array(90).fill(0));
+    // shuffle
+    [old, nw].forEach(arr => { for(let i=arr.length-1;i>0;i--){ const j=Math.floor(rnd()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; } });
+    function ci(scores){
+      const n = scores.length, means = [];
+      for(let b=0;b<1000;b++){ let s=0; for(let i=0;i<n;i++) s+=scores[Math.floor(rnd()*n)]; means.push(s/n); }
+      means.sort((a,b)=>a-b);
+      const mean = scores.reduce((a,b)=>a+b,0)/n;
+      return [mean, means[25], means[975]];
+    }
+    const [m0, lo0, hi0] = ci(old), [m1, lo1, hi1] = ci(nw);
+    const overlap = !(hi0 < lo1 || hi1 < lo0);
+    function bar(lo, hi, mean, color){
+      const x = v => Math.max(0, Math.min(100, (v-0.7)/0.2*100));
+      return '<div class="ci-lab">CI=[' + (lo*100).toFixed(0) + '%, ' + (hi*100).toFixed(0) + '%]</div>' +
+        '<div class="ci-bar"><div class="ci-range" style="left:' + x(lo) + '%;width:' + Math.max(1,x(hi)-x(lo)) + '%;background:' + color + '"></div>' +
+        '<div class="ci-mean" style="left:calc(' + x(mean) + '% - 1px)"></div></div>';
+    }
+    document.getElementById("bootOut").innerHTML =
+      "<p><b>Cũ (80%):</b></p>" + bar(lo0, hi0, m0, "#2563eb") +
+      "<p><b>Mới (82%):</b></p>" + bar(lo1, hi1, m1, "#a21caf") +
+      '<div class="big-out">' + (overlap
+        ? "⚠️ Hai khoảng CHỒNG LẤN → <b>chưa đủ bằng chứng 'mới tốt hơn'</b>"
+        : "✅ Hai khoảng TÁCH RỜI → <b>mới tốt hơn thật</b>") + "</div>";
+  });
+})();
+// --- Regression set: 30 prompts ---
+(function(){
+  const PROMPTS = [
+    ["k","🧠","Thu do cua Viet Nam la gi?","Ha Noi"],["k","🧠","15 + 27 = ?","42"],
+    ["k","🧠","7 x 8 = ?","56"],["k","🧠","Thu do cua Nhat Ban la gi?","Tokyo"],
+    ["k","🧠","100 - 37 = ?","63"],["k","🧠","Hanh tinh gan Mat Troi nhat ten gi?","Sao Thuy"],
+    ["k","🧠","12 x 12 = ?","144"],["k","🧠","2^10 bang bao nhieu?","1024"],
+    ["k","🧠","Mot nam nhuan co bao nhieu ngay?","366"],["k","🧠","Dai duong lon nhat the gioi la gi?","Thai Binh Duong"],
+    ["v","🇻🇳","Dich sang tieng Viet: 'hello'","xin chao"],["v","🇻🇳","Dich sang tieng Anh: 'con meo'","cat"],
+    ["v","🇻🇳","Tu trai nghia voi 'nhanh' la gi?","cham"],["v","🇻🇳","Viet dung chinh ta: 'sach se' hay 'sach se'?","sach se"],
+    ["v","🇻🇳","So 5 viet bang chu tieng Viet","nam"],["v","🇻🇳","Dem so tu trong cau 'Toi yeu Viet Nam'","4"],
+    ["v","🇻🇳","Tu 'vui ve' co may tieng?","2"],["v","🇻🇳","Dich sang tieng Viet: 'thank you'","cam on"],
+    ["v","🇻🇳","Chu cai dau cua ten rieng co viet hoa khong? (co/khong)","co"],["v","🇻🇳","'mat troi' dich sang tieng Anh","sun"],
+    ["f","🔤","Viet tu 'perplexity' bang chu in hoa","PERPLEXITY"],["f","🔤","Viet tu 'PYTHON' bang chu thuong","python"],
+    ["f","🔤","Tu 'hello' co bao nhieu ky tu?","5"],["f","🔤","Viet so 100 bang chu (tieng Viet)","mot tram"],
+    ["f","🔤","Sap xep tang dan cac so 3, 1, 2 (cach nhau boi dau phay)","1, 2, 3"],
+    ["f","🔤","Viet ngay 1 thang 1 nam 2026 dang YYYY-MM-DD","2026-01-01"],
+    ["f","🔤","Tra loi bang so: 9 + 10 = ?","19"],["f","🔤","Viet 'dung' 3 lan, cach nhau boi dau phay","dung, dung, dung"],
+    ["f","🔤","1 gio co bao nhieu phut?","60"],["f","🔤","Dem ky tu trong 'abc' (khong tinh khoang trang)","3"]
+  ];
+  const list = document.getElementById("regList");
+  function render(cat){
+    list.innerHTML = "";
+    PROMPTS.forEach((pr, i) => {
+      if(cat !== "all" && pr[0] !== cat) return;
+      const d = document.createElement("div");
+      d.className = "prompt-item";
+      d.innerHTML = '<span class="pn">' + (i+1) + '</span><span class="cat-tag" style="background:#fae8ff;color:#701a75">' + pr[1] + '</span>' +
+        '<span>' + esc(pr[2]) + '</span><span class="pe">→ ' + esc(pr[3]) + '</span>';
+      list.appendChild(d);
+    });
+  }
+  document.querySelectorAll("[data-cat]").forEach(btn => {
+    btn.addEventListener("click", function(){
+      document.querySelectorAll("[data-cat]").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      render(btn.dataset.cat);
+    });
+  });
+  render("all");
+})();
+// --- Copy source ---
+(function(){
+  const btn = document.getElementById("copySrcBtn");
+  btn.addEventListener("click", function(){
+    const raw = document.getElementById("fullsrc").textContent;
+    const msg = document.getElementById("copyMsg");
+    const done = function(){ msg.textContent = "Đã copy ✓"; setTimeout(function(){ msg.textContent = ""; }, 2000); };
+    if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(raw).then(done, done); }
+    else { const ta = document.createElement("textarea"); ta.value = raw; document.body.appendChild(ta); ta.select(); try{ document.execCommand("copy"); }catch(e){} document.body.removeChild(ta); done(); }
+  });
+})();
+</script>
+<script>
+// Tô màu cú pháp Python
+(function(){
+  function escHtml(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+  function highlightPython(src){
+    var re = /(#[^\n]*)|("""[\s\S]*?"""|"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*')|\b(import|from|def|class|return|if|elif|else|for|while|in|is|not|and|or|None|True|False|lambda|with|as|try|except|finally|raise|global|pass|break|continue)\b|(\b\d+(?:\.\d+)?\b)|(@[\w.]+)/g;
+    var out = "", last = 0, m;
+    while((m = re.exec(src))){
+      out += escHtml(src.slice(last, m.index));
+      var tok = m[0], cls = m[1] ? "cm" : m[2] ? "str" : m[3] ? "kw" : m[4] ? "num2" : "fn";
+      out += '<span class="' + cls + '">' + escHtml(tok) + "</span>";
+      last = m.index + tok.length;
+      if(tok.length === 0) re.lastIndex++;
+    }
+    return out + escHtml(src.slice(last));
+  }
+  document.querySelectorAll("pre.pysrc").forEach(function(pre){
+    var raw = pre.textContent;
+    pre.innerHTML = "<code>" + highlightPython(raw) + "</code>";
+  });
+})();
+</script>
+</body>
+</html>
