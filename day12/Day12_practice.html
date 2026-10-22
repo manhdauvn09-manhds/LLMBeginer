@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ngày 12 — Buổi tối: Eval Lab — xây pipeline đánh giá từ đầu</title>
+<style>
+:root{--bg:#0f172a;--card:#1e293b;--accent:#38bdf8;--accent2:#a78bfa;--ok:#34d399;--warn:#fbbf24;--txt:#e2e8f0;--muted:#94a3b8}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;background:var(--bg);color:var(--txt);line-height:1.7;padding:0 0 3rem}
+header{background:linear-gradient(135deg,#1e3a8a,#6d28d9);padding:2rem 1.25rem;text-align:center}
+header h1{font-size:1.35rem;line-height:1.4}
+header p{color:#cbd5e1;font-size:.9rem;margin-top:.5rem}
+.wrap{max-width:820px;margin:0 auto;padding:0 1rem}
+.card{background:var(--card);border-radius:14px;padding:1.25rem;margin:1rem 0;border:1px solid #334155}
+h2{color:var(--accent);font-size:1.15rem;margin-bottom:.75rem}
+h3{color:var(--accent2);font-size:1rem;margin:1rem 0 .5rem}
+p{margin:.6rem 0}
+ul,ol{margin:.5rem 0 .5rem 1.2rem}
+li{margin:.3rem 0}
+code{background:#0b1220;color:#7dd3fc;padding:.15rem .4rem;border-radius:6px;font-size:.85em;word-break:break-word}
+pre{background:#0b1220;border:1px solid #334155;border-radius:10px;padding:1rem;overflow-x:auto;margin:.8rem 0;font-size:.83rem;line-height:1.55}
+pre code{background:none;padding:0;color:#e2e8f0}
+.todo{color:var(--warn);font-weight:700}
+.note{border-left:3px solid var(--accent);padding:.5rem .9rem;color:var(--muted);margin:.8rem 0;font-size:.92rem}
+.green{background:rgba(52,211,153,.08);border:1px solid #065f46;border-radius:10px;padding:.8rem 1rem;margin:.8rem 0;font-size:.92rem}
+.btn{background:#2563eb;color:#fff;border:none;border-radius:8px;padding:.45rem 1rem;cursor:pointer;font-size:.9rem;margin-top:.5rem}
+.btn:active{transform:scale(.97)}
+.answer{display:none;background:#0b1220;border:1px dashed var(--accent);border-radius:10px;padding:.8rem 1rem;margin-top:.5rem;font-size:.92rem}
+.kv{display:flex;gap:.6rem;flex-wrap:wrap;margin:.6rem 0}
+.kv span{background:#0b1220;border:1px solid #334155;border-radius:8px;padding:.25rem .7rem;font-size:.82rem}
+table{width:100%;border-collapse:collapse;margin:.8rem 0;font-size:.85rem}
+th,td{border:1px solid #334155;padding:.5rem .6rem;text-align:left}
+th{background:#0b1220;color:var(--accent)}
+.checklist li{list-style:none;margin:.5rem 0}
+.checklist input{margin-right:.5rem;accent-color:var(--ok)}
+footer{text-align:center;color:var(--muted);font-size:.8rem;margin-top:2rem}
+</style>
+</head>
+<body>
+<header>
+<h1>🌙 Ngày 12 — Buổi tối: Eval Lab<br>xây pipeline đánh giá từ con số 0</h1>
+<p>Bài thực hành gắn với bài sáng "Đánh giá mô hình LLM: tách năng lực khỏi cảm giác" · ⏱️ Dự kiến: 60–90 phút · 🐍 Python stdlib (không cần GPU)</p>
+</header>
+<div class="wrap">
+
+<div class="card">
+<div class="kv">
+<span>🎯 Mục tiêu</span><span>📦 Đầu ra: <code>evaluate.py</code> + <code>regression_set.jsonl</code></span>
+</div>
+<p>Buổi sáng bạn đã học <em>khái niệm</em>: perplexity, EM/F1, task set, regression set, bootstrap CI, leakage, LLM-judge, scorecard. Tối nay bạn sẽ <strong>tự tay code</strong> một pipeline eval mini hoàn chỉnh — đủ để ngày mai có thể áp lên bất kỳ mô hình nào bạn train.</p>
+<div class="green">⚡ Green checkpoint: ở mỗi phần lab đều có một câu hỏi <strong>energy metric</strong> — hãy tính <code>accuracy / watt-hour</code>, đừng chỉ nhìn accuracy. Mô hình "giỏi hơn 1%" nhưng tốn gấp đôi điện thì không phải lúc nào cũng thắng.</div>
+</div>
+
+<div class="card">
+<h2>1 · Lab code: evaluate.py</h2>
+<p>Pipeline gồm 5 phần (A→E). Skeleton đã viết sẵn — bạn điền <span class="todo">7 chỗ TODO</span>. Cuối cùng chạy <code>python evaluate.py</code> và kiểm tra output đúng như kỳ vọng.</p>
+
+<h3>Phần A — EM &amp; F1 (mở rộng từ bài sáng)</h3>
+<pre><code>import json, math, random
+
+def normalize(s: str) -&gt; str:
+    """Viết thường, gom khoảng trắng."""
+    return " ".join(s.lower().strip().split())
+
+def exact_match(pred: str, gold: str) -&gt; int:
+    return int(normalize(pred) == normalize(gold))
+
+def f1(pred: str, gold: str) -&gt; float:
+    p, g = normalize(pred).split(), normalize(gold).split()
+    common = sum(min(p.count(w), g.count(w)) for w in set(g))
+    if common == 0:
+        return 0.0
+    prec, rec = common / len(p), common / len(g)
+    return 2 * prec * rec / (prec + rec)
+
+# TODO 1: thêm cặp (pred, gold) của CHÍNH BẠN vào danh sách test bên dưới,
+#         rồi dự đoán bằng tay EM và F1 trước khi chạy code kiểm chứng.
+qa_tests = [
+    ("Thủ đô Hà Nội", "hà nội"),
+    ("hà nội", "hà nội"),
+    ("Paris", "paris"),
+    # ("<câu trả lời bạn tự nghĩ>", "<đáp án chuẩn>"),
+]
+
+for pred, gold in qa_tests:
+    print(f"pred={pred!r:28} gold={gold!r:12} EM={exact_match(pred,gold)} F1={f1(pred,gold):.2f}")</code></pre>
+<div class="note">💡 Chú ý: với đáp án ngắn, EM = 0 dù chỉ lệch một từ — hãy ghi lại cảm nhận của bạn: khi nào nên báo cả EM lẫn F1 thay vì một số duy nhất?</div>
+
+<h3>Phần B — Perplexity từ log-probabilities</h3>
+<p>Giả sử một mô hình toy đã "đọc" một đoạn văn bản và gán xác suất cho từng từ thật. Bạn tính PPL từ công thức: <code>PPL = exp(−trung bình log p(w))</code>.</p>
+<pre><code># TODO 2: điền log-prob trung bình mà BẠN ước lượng cho mô hình của mình
+#         (ví dụ model rất giỏi: -1.2, model trung bình: -2.8, model kém: -4.5)
+MODEL_A_avg_logprob = <span class="todo">___</span>   # mô hình "cũ"
+MODEL_B_avg_logprob = <span class="todo">___</span>   # mô hình "mới" của bạn
+
+def perplexity(avg_logprob: float) -&gt; float:
+    return math.exp(-avg_logprob)
+
+print(f"PPL model cũ: {perplexity(MODEL_A_avg_logprob):.1f}")
+print(f"PPL model mới: {perplexity(MODEL_B_avg_logprob):.1f}")
+
+# TODO 3: trả lời trong comment — PPL thấp hơn có ĐỒNG NGHĨA model mới
+#         trả lời đúng câu hỏi user hơn không? Vì sao?</code></pre>
+
+<h3>Phần C — Bootstrap CI: đừng tin chênh lệch 1–2%</h3>
+<p>Bạn có kết quả đúng/sai của 500 câu hỏi cho 2 phiên bản model. Hãy bootstrap 1000 lần để ra khoảng tin cậy 95%, rồi quyết định "mới có thật sự tốt hơn không".</p>
+<pre><code>random.seed(42)  # reproducibility: cùng seed → cùng kết quả
+
+# Kết quả mẫu: 1 = đúng, 0 = sai. Model mới đạt 82%, cũ 80%.
+old = [1]*400 + [0]*100
+new = [1]*410 + [0]*90
+random.shuffle(old); random.shuffle(new)
+
+def bootstrap_ci(scores, n_boot=1000, alpha=0.05):
+    means = []
+    n = len(scores)
+    for _ in range(n_boot):
+        sample = [random.choice(scores) for _ in range(n)]
+        means.append(sum(sample) / n)
+    means.sort()
+    lo = means[int((alpha/2) * n_boot)]
+    hi = means[int((1 - alpha/2) * n_boot)]
+    return sum(scores)/n, lo, hi
+
+acc_old, lo_old, hi_old = bootstrap_ci(old)
+acc_new, lo_new, hi_new = bootstrap_ci(new)
+print(f"Cũ: {acc_old:.0%}  CI=[{lo_old:.0%}, {hi_old:.0%}]")
+print(f"Mới: {acc_new:.0%} CI=[{lo_new:.0%}, {hi_new:.0%}]")
+
+# TODO 4: điền kết luận của bạn (ghi đè câu dưới):
+#         CI chồng lấn → "chưa đủ bằng chứng"; CI tách rời → "mới tốt hơn thật"
+conclusion = "<span class="todo">điền kết luận của bạn</span>"
+print("Kết luận:", conclusion)</code></pre>
+
+<h3>Phần D — Regression set: "đạp thử phanh" của model</h3>
+<p>Tạo file <code>regression_set.jsonl</code> gồm <strong>30 prompt</strong> mà model của bạn hiện tại đã làm <em>đúng</em> — mỗi dòng một JSON <code>{"prompt": ..., "expected": ...}</code>. Sau mỗi lần thay đổi model (train tiếp, đổi prompt hệ thống, đổi temperature), chạy lại 30 prompt này; prompt nào "từ đúng thành sai" → ghi lại để điều tra.</p>
+<pre><code># TODO 5: điền thêm cho đủ 30 prompt.
+#         Gợi ý trộn: 10 kiến thức (vd thủ đô, phép tính), 10 tiếng Việt
+#         (dịch, chính tả), 10 format (in hoa, liệt kê, độ dài tối đa).
+regression = [
+    {"prompt": "Thủ đô của Việt Nam là gì?", "expected": "Hà Nội"},
+    {"prompt": "15 + 27 = ?", "expected": "42"},
+    {"prompt": "Viết từ 'perplexity' bằng chữ in hoa", "expected": "PERPLEXITY"},
+    # ... thêm đến khi đủ 30 dòng
+]
+
+with open("regression_set.jsonl", "w", encoding="utf-8") as f:
+    for item in regression:
+        f.write(json.dumps(item, ensure_ascii=False) + "\n")
+print(f"Đã ghi {len(regression)} prompt vào regression_set.jsonl")
+
+# TODO 6: trả lời trong comment — vì sao regression set phải gồm những prompt
+#         model ĐÃ làm đúng, mà không phải prompt khó/chưa làm được?</code></pre>
+
+<h3>Phần E — Leakage &amp; Scorecard tổng hợp</h3>
+<pre><code># --- E1: Decontamination scan ---
+def ngrams(text, n=8):
+    toks = text.lower().split()
+    return {" ".join(toks[i:i+n]) for i in range(len(toks)-n+1)}
+
+train_corpus = ["đoạn văn bản train mẫu của bạn ...", "thêm đoạn khác ..."]
+eval_set = ["câu hỏi eval của bạn ...", "câu eval khác ..."]
+
+# TODO 7: viết vòng lặp kiểm tra mọi n-gram của eval_set có lọt trong
+#         train_corpus không; nếu có → in cảnh báo LEAKAGE.
+#         (Gợi ý: hợp nhất tất cả ngram train thành một set rồi kiểm tra giao.)
+
+CANARY = "canary-9f3k-llm-eval-ngay12"
+for doc in train_corpus:
+    assert CANARY not in doc, "RÒ RỈ: canary string xuất hiện trong dữ liệu train!"
+print("Canary check: OK (không có rò rỉ chuỗi bí mật)")
+
+# --- E2: Scorecard mẫu + energy metric ---
+print("\n=== SCORECARD ===")
+scorecard = [
+    ("Perplexity (↓ tốt)", "14.1", "12.2"),
+    ("EM trên QA set (↑ tốt)", "61%", "66%"),
+    ("F1 trên QA set (↑ tốt)", "0.74", "0.79"),
+    ("Accuracy/task set (↑ tốt)", "80% ±4%", "82% ±4%"),
+]
+for name, old_v, new_v in scorecard:
+    print(f"{name:32} | cũ: {old_v:10} | mới: {new_v}")
+# Energy: model cũ 5 Wh / 1000 request → 80%/5Wh = 16 %/Wh
+#         model mới 8 Wh / 1000 request → 82%/8Wh = 10.25 %/Wh
+print("Energy efficiency (acc/Wh):  cũ 16.0  |  mới 10.25  ← model mới KÉM hiệu quả năng lượng!")
+print("Bài học: đọc scorecard phải đọc cả cột energy, không chỉ accuracy.")</code></pre>
+<div class="note">📌 Nộp bài: paste code <code>evaluate.py</code> đã điền xong + toàn bộ output terminal vào chat. Trợ giảng sẽ review 7 chỗ TODO của bạn và cho nhận xét.</div>
+</div>
+
+<div class="card">
+<h2>2 · Tự kiểm tra nhanh (không chấm điểm)</h2>
+
+<h3>Câu 1 — Vì sao phải dùng seed cố định trong bootstrap CI?</h3>
+<button class="btn" onclick="this.nextElementSibling.style.display='block'">Hiện đáp án</button>
+<div class="answer">Vì bootstrap dùng random sampling có hoàn lại. Không seed → mỗi lần chạy ra CI khác nhau → kết quả không tái lập được (reproducible). Eval chuẩn phải: cùng code + cùng dữ liệu + cùng seed → cùng con số. Đây cũng là lý do file regression_set và task set phải được version (lưu commit hash).</div>
+
+<h3>Câu 2 — Model mới 82% vs model cũ 80%, CI đều ±4%. Tuyên bố "mới tốt hơn" được không?</h3>
+<button class="btn" onclick="this.nextElementSibling.style.display='block'">Hiện đáp án</button>
+<div class="answer">Không. Hai khoảng [78%, 86%] và [76%, 84%] chồng lấn → chênh 2% có thể chỉ là may rủi của bộ đề. Đúng chuẩn phải nói "chưa đủ bằng chứng", rồi hoặc thu thêm dữ liệu eval, hoặc chấp nhận hòa. Nguyên tắc vàng buổi sáng: không số liệu trên cùng một bộ eval = cảm giác.</div>
+
+<h3>Câu 3 — Bạn phát hiện 1 câu hỏi trong eval set trùng nguyên văn với dữ liệu train. Việc này làm điểm số thay đổi theo hướng nào, và bước khắc phục đầu tiên là gì?</h3>
+<button class="btn" onclick="this.nextElementSibling.style.display='block'">Hiện đáp án</button>
+<div class="answer">Điểm bị thổi phồng (model chỉ nhớ đáp án, không chứng tỏ năng lực). Bước đầu tiên: loại bỏ câu đó (và mọi n-gram trùng lặp ≥ 8 từ) khỏi train HOẶC loại câu đó khỏi eval set, rồi chạy lại eval. Lâu dài: nhúng canary string vào eval set và giữ bộ đề quan trọng nhất bí mật, không public.</div>
+</div>
+
+<div class="card">
+<h2>3 · Bẫy thường gặp</h2>
+<ul>
+<li><strong>Bootstrap mà quên shuffle/cố định seed:</strong> kết quả CI thay đổi mỗi lần chạy, rồi tự nhủ "lần này mới tốt hơn thật". Luôn <code>random.seed(...)</code> và ghi lại seed trong report.</li>
+<li><strong>F1 cao nhưng EM = 0 rồi kết luận model "sai hoàn toàn":</strong> hai metric đo hai thứ khác nhau — F1 đo độ gần đúng, EM đo khớp tuyệt đối. Với đáp án dài/tự do, F1 (hoặc LLM-judge có rubric) mới là metric chính; EM chỉ hợp với đáp án ngắn, chuẩn.</li>
+<li><strong>Regression set viết toàn prompt khó:</strong> sai mục đích — regression set là "phanh xe", chỉ để phát hiện <em>hồi quy</em> (đúng → sai). Prompt khó/chưa làm được thuộc về task set. Trộn lẫn hai loại thì mỗi lần chạy đều đỏ, mất tác dụng cảnh báo.</li>
+</ul>
+</div>
+
+<div class="card">
+<h2>4 · Checklist nộp bài</h2>
+<ul class="checklist">
+<li><input type="checkbox"> Điền xong 7 chỗ TODO trong <code>evaluate.py</code></li>
+<li><input type="checkbox"> Chạy <code>python evaluate.py</code> thành công, không lỗi</li>
+<li><input type="checkbox"> Tạo được <code>regression_set.jsonl</code> đúng 30 prompt</li>
+<li><input type="checkbox"> Paste <strong>code + toàn bộ output terminal</strong> vào chat để được nhận xét chi tiết</li>
+</ul>
+<p style="margin-top:.8rem">📝 File bài học sáng nay: xem lại tại <code>files/day12/Day12_lesson.html</code> khi cần tra công thức.</p>
+</div>
+
+</div>
+<footer>Khóa "Trở thành AI Engineer (LLM)" — Ngày 12 · Buổi tối · Thực hành</footer>
+<script>
+document.querySelectorAll('.checklist input').forEach(cb=>{cb.addEventListener('change',()=>{cb.parentElement.style.opacity=cb.checked?'.5':'1'})});
+</script>
+</body>
+</html>
