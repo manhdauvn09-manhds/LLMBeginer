@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quiz Ngày 13 — Profiling biến tối ưu hóa thành khoa học | Khóa LLM 30 ngày</title>
+<style>
+:root{--bg:#0a0f1e; --card:#101830; --line:#22305a; --gold:#f5c542; --green:#4ade80;
+ --red:#f87171; --violet:#a78bfa; --cyan:#67e8f9; --text:#e8edf7; --muted:#93a0bd;}
+*{box-sizing:border-box;}
+body{margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.7; font-size:16.5px;}
+.wrap{max-width:760px; margin:0 auto; padding:18px 16px 60px;}
+.kicker{display:inline-block; font-size:13px; letter-spacing:1px; color:var(--gold); font-weight:700; margin-bottom:8px;}
+h1{font-size:26px; margin:6px 0 4px;}
+.sub{color:var(--muted);}
+.q{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px 18px; margin:16px 0;}
+.q h3{margin:0 0 10px; font-size:17px; color:var(--cyan);}
+label.opt{display:block; background:#0a0f1e; border:1px solid var(--line); border-radius:10px; padding:10px 14px; margin:8px 0; cursor:pointer;}
+label.opt:hover{border-color:var(--gold);}
+label.opt input{margin-right:10px;}
+.explain{display:none; border-left:4px solid var(--green); background:#0f2233; border-radius:0 10px 10px 0; padding:10px 14px; margin-top:10px; font-size:15px;}
+.explain.bad{border-color:var(--red); background:#23141a;}
+.btn{display:inline-block; background:var(--gold); color:#14100a; font-weight:700; border-radius:10px; padding:12px 24px; margin:12px 8px 0 0; border:none; font-size:16px; cursor:pointer;}
+.btn.ghost{background:transparent; color:var(--gold); border:2px solid var(--gold);}
+#result{display:none; margin-top:20px; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px;}
+#copystr{background:#060a14; border:1px dashed var(--violet); border-radius:8px; padding:10px 14px; margin:10px 0; font-size:15px; word-break:break-all;}
+.footer{color:var(--muted); font-size:14px; margin-top:30px;}
+.correct{color:var(--green); font-weight:700;} .wrong{color:var(--red); font-weight:700;}
+</style>
+</head>
+<body>
+<div class="wrap">
+<span class="kicker">QUIZ NGÀY 13 · PROFILING BIẾN TỐI ƯU HÓA THÀNH KHOA HỌC</span>
+<h1>📝 Quiz — 5 câu trắc nghiệm</h1>
+<p class="sub">Chọn đáp án rồi bấm <b>Nộp bài</b> để chấm điểm ngay. Dưới 70% (dưới 4/5) → báo cho trợ lý để được học bù trước bài mới.</p>
+
+<div class="q" id="q1"><h3>Câu 1. Hai model cùng quảng cáo "100 TFLOPS". Model A đo được 800 tokens/s, model B đo được 1.500 tokens/s trên cùng phần cứng và batch size. Kết luận đúng là gì?</h3>
+<label class="opt"><input type="radio" name="q1" value="A"> A. Hai model nhanh như nhau vì FLOPS lý thuyết bằng nhau</label>
+<label class="opt"><input type="radio" name="q1" value="B"> B. Model B nhanh hơn trong thực tế — tokens/s đo được phản ánh đúng trải nghiệm thật, FLOPS quảng cáo không tính overhead và nghẽn</label>
+<label class="opt"><input type="radio" name="q1" value="C"> C. Model A tốt hơn vì ít token hơn nghĩa là tiết kiệm bộ nhớ</label>
+<label class="opt"><input type="radio" name="q1" value="D"> D. Không thể so sánh vì FLOPS là đơn vị duy nhất chuẩn</label>
+<div class="explain" id="e1"></div></div>
+
+<div class="q" id="q2"><h3>Câu 2. Bạn train và thấy GPU utilization chỉ 30%, trace profiler cho thấy các kernel GPU có khoảng trống (gap) xen kẽ, trước mỗi gap là một thanh CPU dài của dataloader. Can thiệp đúng nhất là gì?</h3>
+<label class="opt"><input type="radio" name="q2" value="A"> A. Nâng cấp lên GPU mạnh hơn vì GPU đang là bottleneck</label>
+<label class="opt"><input type="radio" name="q2" value="B"> B. Giảm batch size để GPU đỡ quá tải</label>
+<label class="opt"><input type="radio" name="q2" value="C"> C. Tăng num_workers và bật pin_memory=True — đây là data stall: GPU đói việc vì dataloader chuẩn bị batch không kịp</label>
+<label class="opt"><input type="radio" name="q2" value="D"> D. Chuyển sang dùng optimizer SGD thay vì Adam để giảm tính toán</label>
+<div class="explain" id="e2"></div></div>
+
+<div class="q" id="q3"><h3>Câu 3. Bạn muốn train model 1B tham số bằng Adam fp32 trên GPU 24 GB. Ước lượng nhanh phần VRAM "cứng" (weights + gradients + optimizer states, chưa tính activations) là bao nhiêu?</h3>
+<label class="opt"><input type="radio" name="q3" value="A"> A. ~2 GB — vì fp16 chỉ tốn 2 bytes/tham số</label>
+<label class="opt"><input type="radio" name="q3" value="B"> B. ~6 GB — vì Adam chỉ lưu thêm 1 state/tham số</label>
+<label class="opt"><input type="radio" name="q3" value="C"> C. ~12 GB — weights 2 + gradients ~2–4 + Adam states 8 bytes/tham số; cộng activations nữa là rất sát trần 24 GB</label>
+<label class="opt"><input type="radio" name="q3" value="D"> D. ~40 GB — nên bắt buộc phải dùng 2 GPU</label>
+<div class="explain" id="e3"></div></div>
+
+<div class="q" id="q4"><h3>Câu 4. Trên biểu đồ roofline, phép attention với batch = 1 nằm ở vùng memory-bound (dưới mái dốc). Điều này có nghĩa là gì và cách tăng tốc đúng là gì?</h3>
+<label class="opt"><input type="radio" name="q4" value="A"> A. Bị giới hạn bởi sức tính toán — cần GPU có nhiều CUDA core hơn</label>
+<label class="opt"><input type="radio" name="q4" value="B"> B. Bị giới hạn bởi băng thông đọc/ghi bộ nhớ (đọc nhiều, tính ít) — cần giảm lượng dữ liệu đọc/ghi, ví dụ dùng FlashAttention, chứ không phải tăng sức tính</label>
+<label class="opt"><input type="radio" name="q4" value="C"> C. Bị giới hạn bởi CPU — cần tăng num_workers</label>
+<label class="opt"><input type="radio" name="q4" value="D"> D. Không thể tăng tốc vì đã chạm trần phần cứng tuyệt đối</label>
+<div class="explain" id="e4"></div></div>
+
+<div class="q" id="q5"><h3>Câu 5. Bạn thử đồng thời 3 thay đổi: num_workers 0→8, batch size ×2, bật torch.compile — và thấy tokens/s tăng 40%. Theo quy trình profiling 5 bước, vấn đề của thí nghiệm này là gì?</h3>
+<label class="opt"><input type="radio" name="q5" value="A"> A. Không có vấn đề gì — tăng 40% là thành công, giữ cả 3 thay đổi</label>
+<label class="opt"><input type="radio" name="q5" value="B"> B. Đổi 3 biến cùng lúc nên không biết cái nào có tác dụng, cái nào vô hại hay thậm chí làm chậm — phải thử từng biến một với bảng before/after riêng</label>
+<label class="opt"><input type="radio" name="q5" value="C"> C. Vấn đề là quên đo peak VRAM</label>
+<label class="opt"><input type="radio" name="q5" value="D"> D. Vấn đề là chưa chạy đủ 1000 bước để kết luận</label>
+<div class="explain" id="e5"></div></div>
+
+<button class="btn" onclick="grade()">Nộp bài</button>
+<button class="btn ghost" onclick="copyResult()" id="copybtn" style="display:none;">📋 Copy kết quả</button>
+
+<div id="result">
+<h3 id="scoreline" style="margin-top:0;"></h3>
+<div id="copystr"></div>
+<p style="color:var(--muted); font-size:14.5px;">Bấm <b>Copy kết quả</b> rồi paste vào chat để trợ lý ghi điểm nhé. File HTML này không tự gửi kết quả về được.</p>
+</div>
+
+<div class="footer"><a href="Day13_lesson.html" style="color:var(--gold);">← Quay lại bài học Ngày 13</a></div>
+</div>
+<script>
+const KEY = {q1:"B", q2:"C", q3:"C", q4:"B", q5:"B"};
+const WHY = {
+q1:"FLOPS là con số lý thuyết trong điều kiện hoàn hảo; tokens/s đo bằng wall time thực tế, đã bao gồm overhead framework, chờ dữ liệu và mọi nghẽn. Người dùng chỉ cảm nhận được con số đo được — đó là lý do bài học gọi tokens/s là 'chỉ số vàng'.",
+q2:"GPU util 30% + gap trong trace + thanh CPU dataloader dài = data stall điển hình: GPU đói việc vì dữ liệu tới không kịp. Thuốc đúng là num_workers↑ + pin_memory=True. Nâng cấp GPU (A) là sửa sai chỗ; giảm batch (B) càng làm GPU đói hơn; đổi optimizer (D) không liên quan.",
+q3:"Quy tắc ước lượng nhanh: weights fp16 ≈ 2, gradients ≈ 2–4, Adam lưu 2 state fp32 (m, v) ≈ 8 bytes/tham số → tổng ≈ 12 GB cho 1B tham số, chưa tính activations. Cộng activations vào là rất sát trần 24 GB — cần tính trước khi chạy để tránh OOM.",
+q4:"Memory-bound nghĩa là hiệu năng bị chặn bởi băng thông đọc/ghi bộ nhớ (arithmetic intensity thấp: đọc nhiều, tính ít), không phải bởi sức tính toán. Vì vậy tăng CUDA core (A) vô ích; cách đúng là giảm lượng đọc/ghi như FlashAttention — đúng bài học 'sửa đúng mái'.",
+q5:"Quy tắc sắt của profiling: một biến một lần. Đổi 3 thứ cùng lúc thì không thể quy kết (attribute) cải thiện cho biến nào — có thể 1 trong 3 thậm chí làm chậm mà bị che lấp. Làm lại: baseline → đổi từng biến → bảng before/after riêng, chỉ giữ biến nào đo được lợi ích."
+};
+let graded = false, answers = {};
+function grade(){
+  graded = true; answers = {}; let score = 0;
+  for(let i=1;i<=5;i++){
+    const sel = document.querySelector('input[name=q'+i+']:checked');
+    const v = sel ? sel.value : "–"; answers["q"+i] = v;
+    const ok = (v === KEY["q"+i]); if(ok) score++;
+    const box = document.getElementById("e"+i);
+    box.style.display = "block";
+    box.className = "explain" + (ok ? "" : " bad");
+    box.innerHTML = (ok ? '<span class="correct">✔ Đúng.</span> ' : '<span class="wrong">✘ Sai.</span> Đáp án đúng: <b>'+KEY["q"+i]+'</b>. ') + WHY["q"+i];
+  }
+  const r = document.getElementById("result"); r.style.display = "block";
+  document.getElementById("scoreline").innerHTML = "Kết quả: <b>"+score+"/5</b> " + (score>=4 ? "🎉 Đạt!" : "🔁 Dưới 70% — báo trợ lý để học bù nhé.");
+  document.getElementById("copystr").textContent = copyString();
+  document.getElementById("copybtn").style.display = "inline-block";
+  r.scrollIntoView({behavior:"smooth"});
+}
+function copyString(){
+  let s = "Day13 Quiz:";
+  for(let i=1;i<=5;i++) s += " " + i + answers["q"+i];
+  let sc = 0; for(let i=1;i<=5;i++) if(answers["q"+i]===KEY["q"+i]) sc++;
+  return s + " — " + sc + "/5";
+}
+function copyResult(){
+  if(!graded) return;
+  const t = copyString();
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(t).then(()=>{document.getElementById("copybtn").textContent="✅ Đã copy!";});
+  } else {
+    const ta = document.createElement("textarea"); ta.value = t; document.body.appendChild(ta);
+    ta.select(); document.execCommand("copy"); document.body.removeChild(ta);
+    document.getElementById("copybtn").textContent="✅ Đã copy!";
+  }
+}
+</script>
+</body>
+</html>
