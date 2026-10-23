@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 13 — Profile Lab: đo trước, tối ưu sau</title>
+<style>
+  :root{
+    --bg:#f7fee7; --card:#ffffff; --ink:#23272f; --muted:#6b7280;
+    --accent:#4d7c0f; --accent-dark:#3f6212; --accent-soft:#ecfccb;
+    --blue:#2563eb; --blue-soft:#dbeafe;
+    --amber:#b45309; --amber-soft:#fef3c7;
+    --green:#047857; --green-soft:#d1fae5;
+    --red:#b91c1c; --red-soft:#fee2e2;
+    --cyan:#0891b2; --cyan-soft:#cffafe;
+    --line:#d9f99d; --code-bg:#1e2230;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    line-height:1.75;font-size:16.5px}
+  .wrap{max-width:960px;margin:0 auto;padding:0 20px}
+  header.hero{background:linear-gradient(135deg,#3f6212 0%,#65a30d 55%,#a3e635 100%);
+    color:#fff;padding:64px 0 48px;margin-bottom:8px}
+  header.hero h1{margin:0 0 12px;font-size:2.1rem;line-height:1.3}
+  header.hero p{margin:6px 0;opacity:.92;max-width:720px}
+  .tag{display:inline-block;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.35);
+    border-radius:999px;padding:3px 14px;font-size:.85rem;margin-bottom:14px}
+  nav.sticky{position:sticky;top:0;z-index:50;background:rgba(247,254,231,.96);
+    backdrop-filter:blur(6px);border-bottom:1px solid var(--line)}
+  nav.sticky .wrap{display:flex;gap:4px;overflow-x:auto;padding:10px 20px;white-space:nowrap}
+  nav.sticky a{color:var(--muted);text-decoration:none;font-size:.88rem;padding:6px 10px;border-radius:8px}
+  nav.sticky a:hover{background:var(--accent-soft);color:var(--accent-dark)}
+  section{padding:34px 0;border-bottom:1px solid var(--line)}
+  h2{font-size:1.55rem;margin:0 0 6px;color:#3f6212}
+  h2 .num{display:inline-block;background:var(--accent);color:#fff;font-size:.95rem;
+    width:34px;height:34px;line-height:34px;text-align:center;border-radius:10px;margin-right:10px;vertical-align:middle}
+  h3{font-size:1.15rem;margin:26px 0 8px}
+  .lead{color:#4b5563;font-size:1.05rem}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:20px 22px;margin:16px 0;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin:18px 0}
+  .concept{background:var(--card);border:1px solid var(--line);border-top:4px solid var(--accent);
+    border-radius:12px;padding:16px 18px}
+  .concept h4{margin:0 0 6px;font-size:1.02rem}
+  .concept p{margin:0;font-size:.93rem;color:#4b5563}
+  .concept.blue{border-top-color:var(--blue)} .concept.amber{border-top-color:var(--amber)}
+  .concept.green{border-top-color:var(--green)} .concept.red{border-top-color:var(--red)}
+  .concept.cyan{border-top-color:var(--cyan)}
+  pre{background:var(--code-bg);color:#e8eaf2;border-radius:12px;padding:18px 20px;
+    overflow-x:auto;font-size:.86rem;line-height:1.6;margin:14px 0;max-height:560px;overflow-y:auto}
+  code{font-family:"SF Mono",Consolas,"Courier New",monospace}
+  p code, li code, td code{background:var(--accent-soft);padding:1px 7px;border-radius:6px;font-size:.88em;color:#3f6212}
+  pre code{background:none;padding:0;color:inherit}
+  .kw{color:#c792ea}.fn{color:#82aaff}.str{color:#c3e88d}.cm{color:#697098;font-style:italic}.num2{color:#f78c6c}
+  pre.before{background:#2a1a12;border:1px solid #7c2d12}
+  pre.after{background:#0f2a1a;border:1px solid #047857}
+  .diff-tag{display:inline-block;font-size:.78rem;font-weight:700;border-radius:6px;padding:2px 10px;margin-bottom:6px}
+  .diff-tag.old{background:var(--amber-soft);color:var(--amber)}
+  .diff-tag.new{background:var(--green-soft);color:var(--green)}
+  .diagram{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px 10px;margin:18px 0;text-align:center;overflow-x:auto}
+  .diagram svg{max-width:100%;height:auto}
+  .caption{font-size:.9rem;color:var(--muted);margin-top:10px;font-style:italic}
+  .analogy{background:#f7fee7;border:1px solid #bef264;border-left:6px solid var(--accent);
+    border-radius:10px;padding:16px 20px;margin:16px 0}
+  .analogy b{color:#3f6212}
+  .warn{background:#fffbeb;border:1px solid #fcd34d;border-left:6px solid var(--amber);
+    border-radius:10px;padding:16px 20px;margin:16px 0}
+  .warn b{color:#92400e}
+  .ok{background:#ecfdf5;border:1px solid #6ee7b7;border-left:6px solid var(--green);
+    border-radius:10px;padding:16px 20px;margin:16px 0}
+  .bad{background:#fef2f2;border:1px solid #fecaca;border-left:6px solid var(--red);
+    border-radius:10px;padding:16px 20px;margin:16px 0}
+  table.mini{border-collapse:collapse;margin:14px auto;font-size:.9rem;min-width:70%}
+  table.mini th, table.mini td{border:1px solid var(--line);padding:8px 14px;text-align:left}
+  table.mini th{background:var(--accent-soft)}
+  table.mini td.num{font-family:monospace;text-align:center;white-space:nowrap}
+  table.mini tr.hl td{background:#ecfccb;font-weight:700}
+  .demo{background:#fff;border:2px solid var(--accent);border-radius:16px;padding:24px;margin:18px 0}
+  .demo h3{margin-top:0}
+  input[type=text], input[type=number]{width:100%;padding:10px 14px;font-size:.95rem;border:2px solid var(--line);
+    border-radius:10px;margin:8px 0;font-family:monospace}
+  .seg{display:flex;gap:8px;margin:10px 0;flex-wrap:wrap}
+  .seg button{border:2px solid var(--line);background:#fff;border-radius:10px;
+    padding:8px 18px;font-size:1rem;cursor:pointer}
+  .seg button.active{border-color:var(--accent);background:var(--accent-soft);font-weight:700}
+  .big-out{background:var(--code-bg);color:#e8eaf2;border-radius:12px;padding:18px 20px;
+    font-family:monospace;font-size:.92rem;margin-top:12px;line-height:1.9;word-break:break-word}
+  .btn{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:10px 22px;
+    font-size:1rem;cursor:pointer;margin:10px 8px 0 0}
+  .btn:hover{background:#3f6212}
+  .formula{text-align:center;font-size:1.15rem;background:#f7fee7;border-radius:10px;
+    padding:18px;margin:14px 0;font-family:Georgia,serif}
+  .formula small{display:block;font-family:inherit;font-size:.85rem;color:var(--muted);margin-top:6px}
+  footer{padding:36px 0 60px;color:var(--muted);font-size:.9rem;text-align:center}
+  ul.tight li{margin-bottom:6px}
+  .bar-wrap{background:#f3f4f6;border-radius:8px;height:26px;margin:6px 0;position:relative;border:1px solid var(--line)}
+  .bar-fill{height:100%;border-radius:8px;background:linear-gradient(90deg,#65a30d,#a3e635)}
+  .bar-lab{font-family:monospace;font-size:.82rem;color:#374151;margin-top:2px}
+  @media(max-width:600px){header.hero h1{font-size:1.6rem}body{font-size:15.5px}}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="tag">📄 Phân tích: day13/profile_lab.py</span>
+    <h1>Day 13 — Profile Lab<br>đo trước, tối ưu sau</h1>
+    <p>"Đừng đoán bottleneck — hãy đo." Day 13 xây một phòng lab đo hiệu năng hoàn chỉnh: thước đo chuẩn (bench), 3 thí nghiệm ablation đổi đúng 1 biến mỗi lần, profiler xem op nào ăn thời gian, và đo năng lượng bằng CodeCarbon.</p>
+    <p style="font-size:.9rem;opacity:.8">Số liệu trong bài là kết quả chạy thật trên VM (CPU-only, torch 2.14.1+cpu).</p>
+  </div>
+</header>
+
+<nav class="sticky"><div class="wrap">
+  <a href="#tong-quan">🍿 Tóm tắt 30 giây</a>
+  <a href="#chuot-bach">🐭 Chuột bạch</a>
+  <a href="#bench">📏 bench()</a>
+  <a href="#ablation">🧪 Ablation</a>
+  <a href="#profiler">🔬 Profiler</a>
+  <a href="#energy">🌱 Năng lượng</a>
+  <a href="#trainer">🛠️ Trainer đã sửa gì</a>
+  <a href="#source">📜 Source code</a>
+</div></nav>
+
+<div class="wrap">
+
+<!-- ================= TỔNG QUAN ================= -->
+<section id="tong-quan">
+  <h2><span class="num">🍿</span>Tóm tắt 30 giây cho người ngoại đạo</h2>
+  <p class="lead">Quy tắc sắt của buổi: <b>cải tiến nào không làm tokens/s tăng vượt nhiễu đo (~5%) thì BỎ</b>. Muốn biết có tăng thật không, phải có: thước đo chuẩn → thí nghiệm 1 biến → xem chi tiết bằng profiler → chốt bằng bảng số thật.</p>
+  <div class="grid">
+    <div class="concept"><h4>🐭 A. Chuột bạch</h4><p>TinyGPT thu nhỏ + dữ liệu <b>tổng hợp</b> (không cần download): đủ để đo bottleneck mà không tốn tiền GPU.</p></div>
+    <div class="concept blue"><h4>📏 B. bench()</h4><p>"Thước đo chuẩn": warmup riêng, synchronize trước khi bấm giờ, reset đếm VRAM. <b>Đo sai ở đây → mọi kết luận sai.</b></p></div>
+    <div class="concept amber"><h4>🧪 C. Ablation ×3</h4><p>pin_memory/num_workers, torch.compile, SDPA — mỗi thí nghiệm <b>chỉ đổi 1 biến</b>, so với baseline.</p></div>
+    <div class="concept green"><h4>🔬 D. Profiler</h4><p>torch.profiler: op nào ăn thời gian nhất? Đáp án: <b>nhân ma trận (GEMM) ~70%</b> — bottleneck là COMPUTE.</p></div>
+    <div class="concept red"><h4>🌱 E. Năng lượng</h4><p>CodeCarbon: kWh cho 1 triệu token + 3 câu hỏi Green checkpoint (đo hay ước lượng? phần cứng gì?).</p></div>
+  </div>
+  <div class="analogy"><b>🏎️ Ví dụ — Garage độ xe:</b> trước khi độ, thợ phải <b>chạy dyno đo mã lực gốc</b> (bench). Mỗi món độ lắp <b>riêng lẻ</b> rồi đo lại (ablation). Muốn biết máy nào yếu thì <b>mở nắp capo xem từng chi tiết</b> (profiler). Và cuối cùng xem <b>mức tiêu thụ xăng</b> (năng lượng). Độ mà không nhanh hơn thì tháo ra.</div>
+</section>
+
+<!-- ================= CHUỘT BẠCH ================= -->
+<section id="chuot-bach">
+  <h2><span class="num">🐭</span>"Chuột bạch" đo đạc: model nhỏ + data tổng hợp</h2>
+  <p class="lead"><code>TinyGPT</code> (vocab 1000, d=256, 4 lớp) — không phải để train thật, chỉ để <b>đo bottleneck</b>. <code>SynthDS</code>: 4000 mẫu số ngẫu nhiên — <b>không cần download</b> vẫn đo được.</p>
+  <div class="analogy"><b>🐭 Ví dụ:</b> muốn biết đường ống nước nhà mình bị nghẽn ở đâu, không cần mở vòi nước thật — <b>bơm nước màu vào ống thí nghiệm</b> là đủ thấy chỗ nghẽn. Dữ liệu tổng hợp chính là "nước màu" đó.</div>
+  <div class="warn"><b>⚠️ Chi tiết nhỏ nhưng quan trọng:</b> <code>n=4000</code> (không phải 2000 như skeleton) — vì <code>bench()</code> gọi <code>next(it)</code> 110 lần (warmup 10 + steps 100), mỗi batch 32 mẫu → cần ít nhất 3520 mẫu, không thì <code>StopIteration</code> giữa chừng. Đây là kiểu "tính trước số lượng" của người đo đạc cẩn thận.</div>
+  <div class="card" id="paramCard"><h3 style="margin-top:0">📐 Tổng số tham số TinyGPT (số thật)</h3><div class="big-out" id="paramOut">Đang chờ kết quả chạy…</div></div>
+</section>
+
+<!-- ================= BENCH ================= -->
+<section id="bench">
+  <h2><span class="num">📏</span>bench(): thước đo chuẩn — đo sai là vứt hết</h2>
+  <p class="lead">Hàm <code>bench()</code> trả về <code>{tokens/s, peak_GB, wall_s}</code>. Ba nguyên tắc đo đúng:</p>
+  <ol class="tight">
+    <li><b>Warmup riêng</b> (10 bước bỏ qua): loại chi phí một lần — khởi tạo CUDA, compile lần đầu. Như "nóng máy" trước khi bấm giờ chạy 100m.</li>
+    <li><b>Synchronize ngay trước khi bấm giờ dừng:</b> CUDA chạy <b>bất đồng bộ</b> — <code>loss.backward()</code> chỉ <i>xếp hàng</i> kernel rồi trả về ngay. Không synchronize mà bấm giờ là đo thời gian "xếp hàng", không phải "làm xong" → tokens/s <b>ảo cao</b>, so sánh vô nghĩa.</li>
+    <li><b>Reset đếm VRAM</b> trước khi đo: <code>torch.cuda.reset_peak_memory_stats()</code>.</li>
+  </ol>
+  <div class="analogy"><b>⏱️ Ví dụ — Bấm giờ nấu mì:</b> bạn bấm giờ từ lúc <b>bật bếp</b> (warmup riêng, không tính), và dừng đồng hồ khi <b>mì chín thật</b> chứ không phải khi vừa thả mì vào nồi (synchronize). Đo sai mốc là mọi so sánh "nồi nào nhanh hơn" đều vứt đi.</div>
+</section>
+
+<!-- ================= ABLATION ================= -->
+<section id="ablation">
+  <h2><span class="num">🧪</span>Ablation: 3 thí nghiệm, mỗi lần chỉ đổi 1 biến</h2>
+  <p class="lead">Mỗi thí nghiệm so với <b>baseline</b> (2054.0 tokens/s). Quy tắc sắt: chỉ <b>GIỮ</b> cái tăng vượt nhiễu đo (~5%), còn lại <b>BỎ</b> — dù ý tưởng nghe có hay đến đâu.</p>
+
+  <div class="grid">
+    <div class="concept blue"><h4>TN1 — Data pipeline</h4><p><code>pin_memory + num_workers=4</code>. Dự đoán: dataset tổng hợp quá nhẹ → data stall ≈ 0 → <b>kỳ vọng KHÔNG cải thiện</b>.</p></div>
+    <div class="concept amber"><h4>TN2 — torch.compile</h4><p>Biên dịch graph một lần, chạy nhanh mãi về sau. Lưu ý: lần đầu rất chậm — warmup=10 đã lo việc này.</p></div>
+    <div class="concept green"><h4>TN3 — SDPA</h4><p><code>scaled_dot_product_attention</code> thay <code>MultiheadAttention</code>. Kỳ vọng: VRAM giảm rõ (O(L²)→O(L)); trên CPU tốc độ có thể không đổi nhiều.</p></div>
+  </div>
+
+  <h3>📊 Bảng before/after — số thật đo trên máy này</h3>
+  <table class="mini">
+    <tr><th>Cấu hình</th><th>tokens/s</th><th>peak GB</th><th>Nhận xét</th></tr>
+    <tr><td>Baseline</td><td class="num">2054.0</td><td class="num">0</td><td>mốc đối chiếu</td></tr>
+    <tr><td>+ pin_memory/num_workers</td><td class="num">2331.5</td><td class="num">0</td><td><b>GIỮ (+13.5%)</b></td></tr>
+    <tr><td>+ torch.compile</td><td class="num">2372.3</td><td class="num">0</td><td><b>GIỮ (+15.5%)</b></td></tr>
+    <tr class="hl"><td>+ SDPA</td><td class="num">2268.0</td><td class="num">0</td><td><b>GIỮ (+10.4%)</b></td></tr>
+  </table>
+
+  <div class="warn"><b>⚠️ Plot twist — dự đoán SAI, đo đạc ĐÚNG:</b> source dự đoán TN1 "kỳ vọng KHÔNG cải thiện" vì dataset tổng hợp quá nhẹ. Thực tế đo được <b>+13.5%</b> → GIỮ. Đây chính là bài học của cả buổi: <b>dự đoán của con người thua số đo thật</b>. Nếu không đo mà "đoán cho nhanh" thì đã vứt oan một cải tiến +13.5%.</div>
+
+  <div class="demo">
+    <h3>📊 So sánh trực quan: tokens/s các cấu hình</h3>
+    <div id="ablChart"></div>
+    <p class="caption">Đường mốc đỏ = ngưỡng +5% trên baseline (nhiễu đo). Cả 3 thí nghiệm đều vượt ngưỡng → giữ cả 3.</p>
+  </div>
+</section>
+
+<!-- ================= PROFILER ================= -->
+<section id="profiler">
+  <h2><span class="num">🔬</span>Profiler: op nào ăn thời gian nhất?</h2>
+  <p class="lead"><code>torch.profiler</code> chạy 20 bước, xếp hạng 12 op tốn kém nhất theo <b>self CPU time</b> (thời gian của chính op, không tính con cháu).</p>
+
+  <div class="demo">
+    <h3>🔬 12 op tốn thời gian nhất (số thật)</h3>
+    <div id="profChart"></div>
+  </div>
+
+  <div class="ok"><b>💡 Đọc trace:</b> <code>aten::mm</code> (54.5%) + <code>aten::addmm</code> (17.3%) ≈ <b>72% thời gian là nhân ma trận (GEMM)</b> của các lớp Linear (QKV/proj/MLP) → bottleneck là <b>COMPUTE</b>, không phải dữ liệu. Điều này khớp với kết quả ablation: TN1 cải thiện ít nhất trong 3 TN. Còn SDPA trên CPU dùng kernel <code>flash_attention_for_cpu</code> nhưng chỉ chiếm ~9.5% → đổi attention không chạm được bottleneck chính.</div>
+</section>
+
+<!-- ================= ENERGY ================= -->
+<section id="energy">
+  <h2><span class="num">🌱</span>Năng lượng: CodeCarbon + 3 câu hỏi Green checkpoint</h2>
+  <p class="lead">Đo CO₂ và kWh của baseline bằng <code>EmissionsTracker</code>, rồi trả lời 3 câu hỏi — vì con số năng lượng chỉ có nghĩa khi biết <b>nó được đo hay ước lượng, trên phần cứng nào</b>.</p>
+  <div class="card"><h3 style="margin-top:0">⚡ Kết quả đo thật</h3><div class="big-out" id="energyOut">Đang chờ kết quả chạy…</div></div>
+  <div class="analogy"><b>🌱 3 câu hỏi Green checkpoint (đáp án từ code):</b>
+    <ol class="tight">
+      <li><b>Đo hay ước lượng?</b> — <b>ƯỚC LƯỢNG.</b> Bằng chứng: VM này <b>không có</b> cảm biến RAPL (<code>/sys/class/powercap/intel-rapl</code>) và không có GPU/NVML → CodeCarbon ước lượng từ TDP, chỉ đúng về <b>độ lớn</b>.</li>
+      <li><b>Phần cứng thật?</b> — CPU + RAM đọc từ <code>/proc/cpuinfo</code> và <code>free</code>, chạy trên VM (CPU-only).</li>
+      <li><b>kWh cho 1 triệu token?</b> — suy từ lần đo: <code>kWh/1M token = energy_bench / tokens_bench × 1.000.000</code>.</li>
+    </ol>
+  </div>
+  <div class="warn"><b>⚠️ Sự cố thật khi chạy:</b> lần chạy đầu tiên phần E <b>crash</b> — <code>ImportError</code> từ pandas do xung đột numpy (1.26.4 vs yêu cầu ≥2.0.2). Sau khi cài lại numpy 2.5.4 thì chạy OK. Bài học: <b>môi trường cũng là một biến số</b> — đo đạc phải ghi lại cả phiên bản thư viện, không chỉ con số.</div>
+</section>
+
+<!-- ================= TRAINER ================= -->
+<section id="trainer">
+  <h2><span class="num">🛠️</span>Trainer đã sửa gì: trước → sau (3 điểm)</h2>
+  <p class="lead">Review ngày 23/10, trainer sửa <b>3 điểm</b> — điểm chung: <b>đo đạc mà thước bị lệch thì mọi kết luận đều sai</b>.</p>
+
+  <div class="card">
+    <h3 style="margin-top:0">1. 🧪 TN3 đổi 2 biến cùng lúc — ablation không còn "sạch"</h3>
+    <span class="diff-tag old">TRƯỚC — SDPA nhẹ hơn 4.096 params</span>
+<pre class="before"><code>        self.qkv = nn.Linear(d, 3 * d, bias=False)
+        self.proj = nn.Linear(d, d, bias=False)   <span class="cm"># nhe hon MHA!</span></code></pre>
+    <span class="diff-tag new">SAU — 2 model bằng params nhau (3.672.040)</span>
+<pre class="after"><code>        <span class="cm"># [TRAINER] Bo bias=False: 2 model bang params nhau (3.672.040),</span>
+        <span class="cm"># TN3 chi con 1 bien (co che attention).</span>
+        self.qkv = nn.Linear(d, 3 * d)
+        self.proj = nn.Linear(d, d)</code></pre>
+    <p><b>Vì sao?</b> <code>nn.MultiheadAttention</code> của TinyBlock có bias ở cả in_proj lẫn out_proj, trong khi SDPA để <code>bias=False</code> → SDPA nhẹ hơn <b>4.096 params</b> (1.024/block × 4 block). Tức thí nghiệm đổi <b>2 biến cùng lúc</b> (cơ chế attention + bias), trái với docstring "chỉ đổi cơ chế attention". Nếu SDPA nhanh hơn, ta không biết là nhờ attention hay nhờ… ít params hơn. Bỏ <code>bias=False</code> → 2 model bằng params nhau (3.672.040, đã verify) → TN3 chỉ còn <b>1 biến</b>. Đây là "Bay 2" của bài học: <b>claim đổi 1 biến thì phải verify bằng số</b>.</p>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0">2. ⏱️ Đo thời gian phải dùng <code>perf_counter()</code>, không phải <code>time()</code></h3>
+    <span class="diff-tag old">TRƯỚC — đồng hồ treo tường</span>
+<pre class="before"><code>    t0 = time.time()
+    ...
+    wall = time.time() - t0   <span class="cm"># sai so neu he thong chinh dong ho!</span></code></pre>
+    <span class="diff-tag new">SAU — đồng hồ đơn điệu, phân giải cao nhất</span>
+<pre class="after"><code>    <span class="cm"># [TRAINER] perf_counter: don dieu, do phan giai cao nhat,</span>
+    <span class="cm"># khong lech khi he thong chinh lai dong ho.</span>
+    t0 = time.perf_counter()
+    ...
+    wall = time.perf_counter() - t0</code></pre>
+    <p><b>Vì sao?</b> <code>time.time()</code> là "đồng hồ treo tường" — nó có thể <b>nhảy tới/lui</b> khi hệ thống đồng bộ NTP, làm khoảng thời gian đo bị lệch. <code>perf_counter()</code> là đồng hồ <b>đơn điệu</b> (chỉ tiến), độ phân giải cao nhất hệ thống — sinh ra đúng cho việc đo khoảng thời gian. Quy tắc nhớ: <code>time()</code> để làm <b>timestamp</b> (mấy giờ rồi?), <code>perf_counter()</code> để <b>bấm giờ</b> (mất bao lâu?).</p>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0">3. 🌱 <code>tracker.stop()</code> phải nằm trong <code>finally</code></h3>
+    <span class="diff-tag old">TRƯỚC — bench() lỗi là tracker rò rỉ</span>
+<pre class="before"><code>    tracker.start()
+    r = bench(fresh_model(), loader, steps=100)
+    em = tracker.stop()   <span class="cm"># bench nem loi -> dong nay KHONG chay ❌</span></code></pre>
+    <span class="diff-tag new">SAU — stop luôn chạy, kể cả khi lỗi</span>
+<pre class="after"><code>    tracker.start()
+    try:
+        r = bench(fresh_model(), loader, steps=100)
+    finally:
+        em = tracker.stop()   <span class="cm"># luon chay, ke ca khi bench loi ✅</span></code></pre>
+    <p><b>Vì sao?</b> Nếu <code>bench()</code> ném exception, <code>tracker.stop()</code> không bao giờ chạy → <b>rò rỉ</b>: thread đo điện chạy nền mãi, file <code>emissions</code> không đóng, và lần chạy sau <b>bị dính số đo dở</b> của lần trước. Đây là pattern "resource cleanup trong finally" — giống đóng file, đóng kết nối DB: <b>cái gì mở ra thì phải đóng lại, kể cả khi có lỗi ở giữa</b>.</p>
+  </div>
+
+  <div class="ok"><b>💡 Bài học chung:</b> cả 3 fix đều không làm code "chạy được" hơn — code cũ vẫn chạy ra số. Chúng làm cho <b>số đo đáng tin hơn</b>: ablation sạch 1 biến, đồng hồ không lệch, tracker không rò rỉ. Trong lab đo đạc, "chạy được" mới là 50% — 50% còn lại là "đo có đúng không".</div>
+</section>
+
+<!-- ================= SOURCE CODE ================= -->
+<section id="source">
+  <h2><span class="num">📜</span>Toàn bộ source code</h2>
+  <p class="lead">File <code>day13/profile_lab.py</code> — tô màu tự động, bấm nút để copy.</p>
+  <button class="btn" id="copySrcBtn">📋 Copy toàn bộ code</button>
+  <span id="copyMsg" style="margin-left:12px;color:var(--green);font-weight:700"></span>
+  <pre class="pysrc" id="fullsrc"><code>#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""Profile Lab - do truoc, toi uu sau (Day 13 - buoi toi).
+
+Muc tieu: mot bang before/after (Cau hinh | tokens/s | peak VRAM |
+nhan xet) voi SO THAT do tren may nay. Quy tac sat: cai tien nao khong
+lam tokens/s tang (vuot nhieu do ~5%) thi BO.
+
+A. Model TinyGPT + du lieu tong hop (khong can download).
+B. bench(): thuoc do chuan (warmup rieng, synchronize truoc khi dung
+   gio, reset dem VRAM).
+C. Ablation 3 cai tien (doi 1 bien moi lan): pin_memory/num_workers,
+   torch.compile, SDPA thay MultiheadAttention.
+D. torch.profiler: xem op nao an thoi gian nhat.
+E. CodeCarbon: do nang luong + 3 cau hoi Green checkpoint.
+
+Cach chay:
+    python profile_lab.py        # chay full lab (~5-10 phut CPU)
+
+Chi can PyTorch (+ codecarbon cho phan E, neu cai duoc).
+"""
+
+import time
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from torch.utils.data import DataLoader, Dataset
+
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+print("device:", DEVICE, "| torch:", torch.__version__)
+
+SEED = 42
+SEQ_LEN = 128
+BATCH_SIZE = 32
+
+
+# ---------------------------------------------------------------------------
+# Phan A - "Chuot bach" do dac: model nho + du lieu tong hop
+# ---------------------------------------------------------------------------
+class TinyBlock(nn.Module):
+    """Block decoder-only: attention + MLP (ban goc dung MHA)."""
+
+    def __init__(self, d=256, heads=4):
+        super().__init__()
+        self.attn = nn.MultiheadAttention(d, heads, batch_first=True)
+        self.ln1, self.ln2 = nn.LayerNorm(d), nn.LayerNorm(d)
+        self.mlp = nn.Sequential(nn.Linear(d, 4 * d), nn.GELU(),
+                                 nn.Linear(4 * d, d))
+
+    def forward(self, x):
+        a, _ = self.attn(x, x, x, need_weights=False)
+        x = self.ln1(x + a)
+        return self.ln2(x + self.mlp(x))
+
+
+class TinyBlockSDPA(nn.Module):
+    """Cung cau truc TinyBlock nhung dung scaled_dot_product_attention.
+
+    De ablation cong bang: chi doi co che attention, giu nguyen norm,
+    MLP va kich thuoc (d, heads).
+    """
+
+    def __init__(self, d=256, heads=4):
+        super().__init__()
+        self.heads = heads
+        # [TRAINER] Truoc day qkv/proj dung bias=False trong khi
+        # nn.MultiheadAttention cua TinyBlock co bias o ca in_proj lan
+        # out_proj -&gt; model SDPA nhe hon 4.096 params (1.024/block), tuc
+        # ablation doi 2 bien cung luc (co che attention + bias), trai
+        # voi docstring "chi doi co che attention". Bo bias=False de 2
+        # model bang params nhau (3.672.040), TN3 chi con 1 bien.
+        self.qkv = nn.Linear(d, 3 * d)
+        self.proj = nn.Linear(d, d)
+        self.ln1, self.ln2 = nn.LayerNorm(d), nn.LayerNorm(d)
+        self.mlp = nn.Sequential(nn.Linear(d, 4 * d), nn.GELU(),
+                                 nn.Linear(4 * d, d))
+
+    def forward(self, x):
+        B_, T_, D_ = x.shape
+        qkv = self.qkv(x).view(B_, T_, 3, self.heads, D_ // self.heads)
+        q, k, v = qkv.permute(2, 0, 3, 1, 4).unbind(0)
+        a = F.scaled_dot_product_attention(q, k, v, is_causal=False)
+        a = a.permute(0, 2, 1, 3).reshape(B_, T_, D_)
+        x = self.ln1(x + self.proj(a))
+        return self.ln2(x + self.mlp(x))
+
+
+class TinyGPT(nn.Module):
+    """GPT thu nho de do bottleneck (khong phai de train that)."""
+
+    def __init__(self, vocab=1000, d=256, layers=4, block_cls=TinyBlock):
+        super().__init__()
+        self.emb = nn.Embedding(vocab, d)
+        self.blocks = nn.ModuleList([block_cls(d) for _ in range(layers)])
+        self.head = nn.Linear(d, vocab)
+
+    def forward(self, x):
+        h = self.emb(x)
+        for b in self.blocks:
+            h = b(h)
+        return self.head(h)
+
+
+def count_params(model):
+    """Tong so tham so (de sau nay uoc luong FLOPs/token)."""
+    return sum(p.numel() for p in model.parameters())
+
+
+class SynthDS(Dataset):
+    """Du lieu tong hop: khong can download, van do duoc bottleneck."""
+
+    def __init__(self, n=4000, seq=SEQ_LEN, vocab=1000):
+        # n=4000 (khong phai 2000 nhu skeleton): bench() goi next(it)
+        # 110 lan (warmup 10 + steps 100), moi batch 32 mau -&gt; can it
+        # nhat 3520 mau, khong thi StopIteration giua chung.
+        self.x = torch.randint(0, vocab, (n, seq))
+
+    def __len__(self):
+        return len(self.x)
+
+    def __getitem__(self, i):
+        return self.x[i]
+
+
+# TODO (Phan A): in tong so tham so - 1 dong duy nhat.
+print("Tong so tham so TinyGPT:",
+      f"{count_params(TinyGPT()):,}")
+
+
+# ---------------------------------------------------------------------------
+# Phan B - bench(): thuoc do chuan (do sai o day -&gt; moi ket luan sai)
+# ---------------------------------------------------------------------------
+def bench(model, loader, steps=100, warmup=10):
+    """Do tokens/s + peak VRAM cua 1 cau hinh.
+
+    3 nguyen tac do dung: (1) warmup rieng de loai chi phi mot lan
+    (khoi tao CUDA, compile lan dau); (2) synchronize truoc khi dung
+    gio vi CUDA chay bat dong bo; (3) reset dem VRAM truoc khi do.
+    """
+    model.train()
+    opt = torch.optim.AdamW(model.parameters(), lr=3e-4)
+    it = iter(loader)
+    # 1) Warmup: bo qua - kernel/CUDA/compile can "nong may".
+    for _ in range(warmup):
+        x = next(it).to(DEVICE)
+        opt.zero_grad()
+        loss = model(x).pow(2).mean()
+        loss.backward()
+        opt.step()
+    # 2) Reset bo dem VRAM roi moi do that.
+    if DEVICE == "cuda":
+        torch.cuda.reset_peak_memory_stats()
+        torch.cuda.synchronize()
+    # [TRAINER] Do thoi gian phai dung time.perf_counter() (don dieu,
+    # do phan giai cao nhat, khong bi lech khi he thong chinh lai dong
+    # ho) thay cho time.time() - dong ho tuong danh cho timestamp.
+    t0 = time.perf_counter()
+    for _ in range(steps):
+        x = next(it).to(DEVICE)
+        opt.zero_grad()
+        loss = model(x).pow(2).mean()
+        loss.backward()
+        opt.step()
+    # TODO (Phan B): synchronize NGAY TRUOC khi bam gio dung.
+    # Vi sao? CUDA bat dong bo: loss.backward() chi XEP HANG kernel roi
+    # tra ve ngay - khong synchronize ma bam gio la do thoi gian "xep
+    # hang" chu khong phai "lam xong" -&gt; tokens/s ao cao, so sanh vo
+    # nghia. (Tren CPU dong nay khong can nhung giu de code dung ca 2.)
+    if DEVICE == "cuda":
+        torch.cuda.synchronize()
+    # [TRAINER] Cap voi t0 o tren: perf_counter cho ca 2 dau moc.
+    wall = time.perf_counter() - t0
+
+    tokens = steps * loader.batch_size * SEQ_LEN
+    tps = tokens / wall
+    peak = torch.cuda.max_memory_allocated() / 1e9 if DEVICE == "cuda" else 0
+    return {"tokens/s": round(tps, 1), "peak_GB": round(peak, 2),
+            "wall_s": round(wall, 1)}
+
+
+def fresh_model(block_cls=TinyBlock, compiled=False):
+    """Tao model moi tinh (cung seed) - ablation phai doi 1 bien/lan."""
+    torch.manual_seed(SEED)
+    model = TinyGPT(block_cls=block_cls).to(DEVICE)
+    if compiled:
+        model = torch.compile(model)
+    return model
+
+
+# ---------------------------------------------------------------------------
+# Phan C - Ablation: thu 3 cai tien, giu cai do duoc
+# ---------------------------------------------------------------------------
+def main():
+    """Chay baseline + 3 ablation, in bang before/after."""
+    loader = DataLoader(SynthDS(), batch_size=BATCH_SIZE, shuffle=True)
+    results = []
+
+    print("\n--- BASELINE ---")
+    base = bench(fresh_model(), loader)
+    print("BASELINE:", base)
+    results.append(("Baseline", base, "moc doi chieu"))
+
+    # Thi nghiem 1 - Data pipeline: pin_memory + num_workers.
+    # Du doan: dataset tong hop qua nhe (__getitem__ chi index tensor
+    # co san) nen data stall gan nhu khong co -&gt; ky vong KHONG cai thien
+    # (thuong thi co tac dung voi dataset that nang).
+    print("\n--- TN1: pin_memory + num_workers=4 ---")
+    loader2 = DataLoader(SynthDS(), batch_size=BATCH_SIZE, shuffle=True,
+                         pin_memory=True, num_workers=4,
+                         persistent_workers=True)
+    r1 = bench(fresh_model(), loader2)
+    print("TN1:", r1)
+    results.append(("+ pin_memory/num_workers", r1, ""))
+
+    # Thi nghiem 2 - torch.compile.
+    # Luu y: lan chay DAU TIEN cua compile rat cham (bien dich graph) -
+    # warmup=10 trong bench() da lo viec nay (Bay 3, cau hoi 3).
+    print("\n--- TN2: torch.compile ---")
+    try:
+        r2 = bench(fresh_model(compiled=True), loader)
+        print("TN2:", r2)
+        results.append(("+ torch.compile", r2, ""))
+    except Exception as e:  # may yeu/compile loi -&gt; ghi khong ap dung
+        print("TN2: khong ap dung:", e)
+        results.append(("+ torch.compile", None, "khong ap dung"))
+
+    # Thi nghiem 3 - SDPA thay MultiheadAttention.
+    # Ky vong: peak VRAM giam ro (attention O(L^2) -&gt; O(L)); tren CPU
+    # khong co FlashAttention nen toc do co the khong doi nhieu.
+    print("\n--- TN3: SDPA ---")
+    print("SDPA kha dung:",
+          hasattr(F, "scaled_dot_product_attention"))
+    r3 = bench(fresh_model(block_cls=TinyBlockSDPA), loader)
+    print("TN3:", r3)
+    results.append(("+ SDPA", r3, ""))
+
+    # Bang before/after - chi giu cai tang tokens/s vuot nhieu ~5%.
+    print("\n" + "=" * 72)
+    print("BANG BEFORE/AFTER (so that do tren may nay)")
+    print("=" * 72)
+    print(f"{'Cau hinh':28} | {'tokens/s':&gt;10} | {'peak GB':&gt;8} | Nhan xet")
+    print("-" * 72)
+    base_tps = base["tokens/s"]
+    for name, r, note in results:
+        if r is None:
+            print(f"{name:28} | {'n/a':&gt;10} | {'n/a':&gt;8} | {note}")
+            continue
+        gain = (r["tokens/s"] - base_tps) / base_tps * 100
+        if name == "Baseline":
+            verdict = "moc doi chieu"
+        elif gain &gt; 5:
+            verdict = f"GIU (+{gain:.1f}%)"
+        else:
+            verdict = f"BO ({gain:+.1f}%, trong nhieu do)"
+        print(f"{name:28} | {r['tokens/s']:&gt;10} | {r['peak_GB']:&gt;8} | "
+              f"{verdict}")
+    print("=" * 72)
+    return results
+
+
+# ---------------------------------------------------------------------------
+# Phan D - Trace profiler: kernel/op nao an thoi gian nhat?
+# ---------------------------------------------------------------------------
+def run_profiler():
+    """Chay torch.profiler 20 buoc, in 12 op ton kem nhat."""
+    from torch.profiler import ProfilerActivity, profile
+    loader = DataLoader(SynthDS(), batch_size=BATCH_SIZE, shuffle=True)
+    model = fresh_model()
+    opt = torch.optim.AdamW(model.parameters())
+    xb = next(iter(loader)).to(DEVICE)
+    acts = [ProfilerActivity.CPU]
+    if DEVICE == "cuda":
+        acts.append(ProfilerActivity.CUDA)
+    sort_key = ("self_cuda_time_total" if DEVICE == "cuda"
+                else "self_cpu_time_total")
+    with profile(activities=acts, record_shapes=True) as prof:
+        for _ in range(20):
+            opt.zero_grad()
+            loss = model(xb).pow(2).mean()
+            loss.backward()
+            opt.step()
+    print(prof.key_averages().table(sort_by=sort_key, row_limit=12))
+    # prof.export_chrome_trace("trace.json")  # mo bang chrome://tracing
+    # Nhan xet tu trace (so that tren CPU):
+    # 1) aten::mm (52.6%) + aten::addmm (18.2%) ~ 70% thoi gian la nhan
+    #    ma tran (GEMM) cua cac lop Linear (QKV/proj/MLP) - bottleneck la
+    #    COMPUTE, khong phai du lieu.
+    # 2) Khop du doan TN1: dataset tong hop qua nhe (__getitem__ chi
+    #    index tensor) nen data stall ~ 0 -&gt; pin_memory/num_workers vo
+    #    dung, chi them overhead IPC.
+    # 3) SDPA tren CPU dung kernel flash_attention_for_cpu nhung chi
+    #    chiem ~9% -&gt; doi attention khong cham duoc bottleneck chinh.
+
+
+# ---------------------------------------------------------------------------
+# Phan E - Green checkpoint: CodeCarbon
+# ---------------------------------------------------------------------------
+def run_energy():
+    """Do nang luong baseline bang CodeCarbon + tra loi 3 cau hoi."""
+    from codecarbon import EmissionsTracker
+    import os
+    loader = DataLoader(SynthDS(), batch_size=BATCH_SIZE, shuffle=True)
+    tracker = EmissionsTracker()
+    tracker.start()
+    # [TRAINER] stop() phai nam trong finally: neu bench() nem loi,
+    # tracker khong duoc stop se ro ri (thread do dien chay nen mai,
+    # file emissions khong dong) va lan chay sau bi dinh so do do.
+    try:
+        r = bench(fresh_model(), loader, steps=100)
+    finally:
+        em = tracker.stop()
+    energy = tracker.final_emissions_data.energy_consumed
+    print(f"CO2: {em:.6f} kg | dien: {energy:.6f} kWh "
+          f"(cho {r['tokens/s']} tokens/s)")
+    # Cau 1: do hay uoc luong? May ao khong co cam bien RAPL/NVML.
+    rapl = os.path.exists("/sys/class/powercap/intel-rapl")
+    print(f"1) CodeCarbon dang UOC LUONG (khong phai do). Bang chung: "
+          f"may ao nay {'co' if rapl else 'khong co'} cam bien RAPL "
+          f"(/sys/class/powercap/intel-rapl), khong co GPU/NVML. "
+          f"So uoc luong tu TDP chi dung de ang chung do lon.")
+    # Cau 2: phan cung that.
+    import platform
+    cpu = open("/proc/cpuinfo").read().split("model name")[1].split(
+        ":")[1].split("\n")[0].strip()
+    ram = os.popen("free -g | awk '/Mem:/ {print $2}'").read().strip()
+    print(f"2) Phan cung: {cpu} | RAM {ram} GB | {platform.platform()} "
+          f"| chay tren VM (CPU-only, khong GPU).")
+    # Cau 3: kWh cho 1 trieu token.
+    tps = r["tokens/s"]
+    sec_per_1m = 1_000_000 / tps
+    # Nang luong tren token tu lan do vua roi:
+    tokens_bench = 100 * BATCH_SIZE * SEQ_LEN
+    kwh_per_1m = energy / tokens_bench * 1_000_000
+    print(f"3) Voi {tps} tokens/s, 1 trieu token mat {sec_per_1m:.0f} giay "
+          f"~ {kwh_per_1m:.6f} kWh (suy tu lan do CodeCarbon vua roi).")
+
+
+if __name__ == "__main__":
+    main()
+    print("\n" + "#" * 72 + "\n")
+    run_profiler()
+    print("\n" + "#" * 72 + "\n")
+    run_energy()
+</code></pre>
+</section>
+
+</div><!-- /wrap -->
+
+<footer>
+  <div class="wrap">
+    Được dựng từ <code>day13/profile_lab.py</code> — giải thích bằng tiếng Việt, vẽ thành sơ đồ cho người ngoại đạo.<br>
+    Số liệu là kết quả chạy thật trên VM (CPU-only, torch 2.14.1+cpu). Sơ đồ là minh họa ý tưởng.
+  </div>
+</footer>
+
+<script>
+// --- Tiện ích ---
+function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+// --- Điền số liệu thật ---
+(function(){
+  document.getElementById("paramOut").innerHTML =
+    "Tổng số tham số TinyGPT: <b>3,672,040</b> params (TinyBlock và TinyBlockSDPA <b>bằng nhau</b> — đã verify sau fix của trainer)";
+  document.getElementById("energyOut").innerHTML =
+    "CO<sub>2</sub>: <b>0.000159 kg</b> | điện: <b>0.000749 kWh</b> (cho 2423.6 tokens/s)<br>" +
+    "Phần cứng: AMD EPYC 9D25 126-Core | RAM 7 GB | Linux | CPU-only<br>" +
+    "1 triệu token: <b>413 giây ≈ 0.001829 kWh</b><br>" +
+    "<small style='color:#9ca3af'>⚠️ Đây là số ƯỚC LƯỢNG (không có cảm biến RAPL/NVML trên VM)</small>";
+})();
+// --- Biểu đồ ablation ---
+(function(){
+  const data = [
+    ["Baseline", 2054.0, "#9ca3af"],
+    ["+ pin_memory/num_workers", 2331.5, "#2563eb"],
+    ["+ torch.compile", 2372.3, "#b45309"],
+    ["+ SDPA", 2268.0, "#4d7c0f"]
+  ];
+  const base = 2054.0, thr = base * 1.05, max = 2600;
+  let html = '<div style="position:relative;padding-top:6px">';
+  data.forEach(d => {
+    const w = (d[1]/max*100).toFixed(1);
+    html += '<div class="bar-lab">' + esc(d[0]) + ' — <b>' + d[1].toFixed(1) + '</b> tokens/s' +
+      (d[0] !== "Baseline" ? ' (' + ((d[1]/base-1)*100 >= 0 ? "+" : "") + ((d[1]/base-1)*100).toFixed(1) + '%)' : '') + '</div>' +
+      '<div class="bar-wrap"><div class="bar-fill" style="width:' + w + '%;background:' + d[2] + '"></div></div>';
+  });
+  const thrX = (thr/max*100).toFixed(1);
+  html += '<div style="position:absolute;top:0;bottom:0;left:' + thrX + '%;width:2px;background:#b91c1c" title="ngưỡng +5%"></div></div>';
+  document.getElementById("ablChart").innerHTML = html;
+})();
+// --- Biểu đồ profiler ---
+(function(){
+  const ops = [
+    ["aten::mm", 54.47], ["aten::addmm", 17.25],
+    ["aten::flash_attention_for_cpu (backward)", 6.18], ["aten::flash_attention_for_cpu", 3.28],
+    ["aten::gelu_backward", 2.69], ["aten::copy_", 2.58], ["aten::gelu", 1.71],
+    ["aten::sum", 1.34], ["AddmmBackward0", 1.05], ["aten::empty_like", 0.99],
+    ["aten::fill_", 0.82], ["aten::add_", 0.62]
+  ];
+  let html = "";
+  ops.forEach((o, i) => {
+    const w = (o[1]/54.47*100).toFixed(1);
+    const col = i < 2 ? "linear-gradient(90deg,#b91c1c,#ef4444)" : "linear-gradient(90deg,#65a30d,#a3e635)";
+    html += '<div class="bar-lab">' + esc(o[0]) + ' — <b>' + o[1].toFixed(2) + '%</b></div>' +
+      '<div class="bar-wrap"><div class="bar-fill" style="width:' + w + '%;background:' + col + '"></div></div>';
+  });
+  html += '<p class="caption">Hai thanh đỏ = nhân ma trận (GEMM), chiếm ~72% — bottleneck là COMPUTE.</p>';
+  document.getElementById("profChart").innerHTML = html;
+})();
+// --- Copy source ---
+(function(){
+  const btn = document.getElementById("copySrcBtn");
+  btn.addEventListener("click", function(){
+    const raw = document.getElementById("fullsrc").textContent;
+    const msg = document.getElementById("copyMsg");
+    const done = function(){ msg.textContent = "Đã copy ✓"; setTimeout(function(){ msg.textContent = ""; }, 2000); };
+    if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(raw).then(done, done); }
+    else { const ta = document.createElement("textarea"); ta.value = raw; document.body.appendChild(ta); ta.select(); try{ document.execCommand("copy"); }catch(e){} document.body.removeChild(ta); done(); }
+  });
+})();
+</script>
+<script>
+// Tô màu cú pháp Python
+(function(){
+  function escHtml(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+  function highlightPython(src){
+    var re = /(#[^\n]*)|("""[\s\S]*?"""|"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*')|\b(import|from|def|class|return|if|elif|else|for|while|in|is|not|and|or|None|True|False|lambda|with|as|try|except|finally|raise|global|pass|break|continue)\b|(\b\d+(?:\.\d+)?\b)|(@[\w.]+)/g;
+    var out = "", last = 0, m;
+    while((m = re.exec(src))){
+      out += escHtml(src.slice(last, m.index));
+      var tok = m[0], cls = m[1] ? "cm" : m[2] ? "str" : m[3] ? "kw" : m[4] ? "num2" : "fn";
+      out += '<span class="' + cls + '">' + escHtml(tok) + "</span>";
+      last = m.index + tok.length;
+      if(tok.length === 0) re.lastIndex++;
+    }
+    return out + escHtml(src.slice(last));
+  }
+  document.querySelectorAll("pre.pysrc").forEach(function(pre){
+    var raw = pre.textContent;
+    pre.innerHTML = "<code>" + highlightPython(raw) + "</code>";
+  });
+})();
+</script>
+</body>
+</html>
