@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ngày 13 — Buổi tối: Profile Lab | Khóa LLM 30 ngày</title>
+<style>
+:root{--bg:#0a0f1e;--card:#101830;--line:#22305a;--gold:#f5c542;--green:#4ade80;--red:#f87171;--violet:#a78bfa;--cyan:#67e8f9;--text:#e8edf7;--muted:#93a0bd;}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;line-height:1.75;font-size:16.5px;}
+.wrap{max-width:820px;margin:0 auto;padding:18px 16px 60px;}
+.kicker{display:inline-block;font-size:13px;letter-spacing:1px;color:var(--gold);font-weight:700;margin-bottom:8px;}
+h1{font-size:29px;line-height:1.3;margin:6px 0 10px;}
+h2{font-size:22px;margin:34px 0 10px;color:var(--cyan);}
+h3{font-size:18px;margin:22px 0 8px;color:var(--gold);}
+.sub{color:var(--muted);font-size:16.5px;}
+.meta{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 6px;}
+.meta span{font-size:13.5px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:5px 14px;}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin:16px 0;}
+.note{border-left:4px solid var(--green);background:#0f2233;border-radius:0 12px 12px 0;padding:12px 16px;margin:14px 0;}
+.warn{border-left:4px solid var(--red);background:#23141a;border-radius:0 12px 12px 0;padding:12px 16px;margin:14px 0;}
+.todo{border-left:4px solid var(--gold);background:#221d0c;border-radius:0 12px 12px 0;padding:12px 16px;margin:14px 0;}
+.code{background:#060a14;border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:12px 0;overflow-x:auto;}
+.code pre{margin:0;font-size:14px;line-height:1.6;color:var(--cyan);white-space:pre-wrap;word-break:break-word;}
+.code pre .todo-line{color:var(--gold);}
+table{width:100%;border-collapse:collapse;margin:12px 0;font-size:15px;}
+th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;}
+th{background:#141d3a;color:var(--gold);}
+.q{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin:16px 0;}
+.q h3{margin:0 0 8px;color:var(--cyan);}
+.ans{display:none;border-left:4px solid var(--green);background:#0f2233;border-radius:0 10px 10px 0;padding:10px 14px;margin-top:10px;}
+button.reveal{background:var(--gold);color:#14100a;font-weight:700;border:none;border-radius:8px;padding:8px 18px;cursor:pointer;font-size:15px;}
+button.reveal:hover{opacity:.9;}
+ul.check{list-style:none;padding:0;}
+ul.check li{margin:8px 0;padding-left:30px;position:relative;}
+ul.check li::before{content:"☐";position:absolute;left:0;color:var(--gold);font-size:18px;}
+.footer{color:var(--muted);font-size:14px;margin-top:40px;border-top:1px solid var(--line);padding-top:14px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+<span class="kicker">NGÀY 13 · BUỔI TỐI — LAB CODE + REVIEW</span>
+<h1>🌙 Profile Lab: đo trước, tối ưu sau</h1>
+<p class="sub">Sáng nay bạn học lý thuyết profiling: wall time, tokens/s, 4 loại bottleneck, PyTorch profiler, roofline, quy trình 5 bước, CodeCarbon. Tối nay biến nó thành khoa học thật: <strong>profile 100 bước training, thử 3 cải tiến, chỉ giữ cái nào đo được là có lợi</strong> — và đóng gói thành bảng before/after.</p>
+<div class="meta"><span>⏱ ~60–90 phút</span><span>🐍 Python + PyTorch</span><span>💻 chạy được cả CPU (chậm hơn, vẫn đo được)</span><span>🌱 Green checkpoint: CodeCarbon</span></div>
+
+<h2>1 · Lab code: <code>profile_lab.py</code></h2>
+<p>Mục tiêu đầu ra: <strong>một bảng before/after</strong> với 4 cột — <em>Cấu hình | tokens/s | peak VRAM | nhận xét</em>. Quy tắc sắt: cải tiến nào không làm tokens/s tăng (đo đúng cách) thì <strong>bỏ</strong>, dù nó "nghe có vẻ hay".</p>
+
+<h3>Phần A — Dựng "chuột bạch" đo đạc</h3>
+<p>Dùng model nhỏ + dữ liệu tổng hợp (synthetic) để lab không phụ thuộc download hay dataset thật. Nếu máy bạn có GPU thì tốt, không có vẫn chạy được trên CPU (số sẽ thấp hơn — điều đó <em>bình thường</em>).</p>
+<div class="code"><pre>import time, math, torch, torch.nn as nn
+from torch.utils.data import Dataset, DataLoader
+
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+print("device:", DEVICE, "| torch:", torch.__version__)
+
+# Model nhỏ kiểu decoder-only để attention có cái mà đo
+class TinyBlock(nn.Module):
+    def __init__(self, d=256, heads=4):
+        super().__init__()
+        self.attn = nn.MultiheadAttention(d, heads, batch_first=True)
+        self.ln1, self.ln2 = nn.LayerNorm(d), nn.LayerNorm(d)
+        self.mlp = nn.Sequential(nn.Linear(d, 4*d), nn.GELU(), nn.Linear(4*d, d))
+    def forward(self, x):
+        a, _ = self.attn(x, x, x, need_weights=False)
+        x = self.ln1(x + a)
+        return self.ln2(x + self.mlp(x))
+
+class TinyGPT(nn.Module):
+    def __init__(self, vocab=1000, d=256, layers=4):
+        super().__init__()
+        self.emb = nn.Embedding(vocab, d)
+        self.blocks = nn.ModuleList([TinyBlock(d) for _ in range(layers)])
+        self.head = nn.Linear(d, vocab)
+    def forward(self, x):
+        h = self.emb(x)
+        for b in self.blocks: h = b(h)
+        return self.head(h)
+
+# Dữ liệu tổng hợp: không cần download, vẫn đo được bottleneck pipeline
+class SynthDS(Dataset):
+    def __init__(self, n=2000, seq=128, vocab=1000):
+        self.x = torch.randint(0, vocab, (n, seq))
+    def __len__(self): return len(self.x)
+    def __getitem__(self, i): return self.x[i]
+
+<span class="todo-line"># TODO (bạn làm): in ra tổng số tham số của model (dùng sum(p.numel() ...)).
+# Gợi ý: 1 dòng duy nhất. Biết con số này để sau này ước lượng FLOPs/token.</span></pre></div>
+
+<h3>Phần B — Hàm <code>bench()</code>: thước đo chuẩn</h3>
+<p>Đây là phần quan trọng nhất của cả buổi tối. Đo sai ở đây thì mọi kết luận sau đều sai.</p>
+<div class="code"><pre>def bench(model, loader, steps=100, warmup=10):
+    model.train()
+    opt = torch.optim.AdamW(model.parameters(), lr=3e-4)
+    it = iter(loader)
+    # 1) Warmup: bỏ qua — kernel/CUDA/compile cần "nóng máy"
+    for _ in range(warmup):
+        x = next(it).to(DEVICE)
+        opt.zero_grad(); loss = model(x).pow(2).mean()
+        loss.backward(); opt.step()
+    # 2) Reset bộ đếm VRAM rồi mới đo thật
+    if DEVICE == "cuda":
+        torch.cuda.reset_peak_memory_stats()
+        torch.cuda.synchronize()
+    t0 = time.time()
+    for _ in range(steps):
+        x = next(it).to(DEVICE)
+        opt.zero_grad(); loss = model(x).pow(2).mean()
+        loss.backward(); opt.step()
+    <span class="todo-line"># TODO (bạn làm): thêm torch.cuda.synchronize() NGAY TRƯỚC khi bấm giờ dừng,
+    # rồi tính wall = time.time() - t0. Vì sao phải synchronize? (xem câu hỏi 1 bên dưới)</span>
+    tokens = steps * loader.batch_size * 128  # batch * seq_len
+    tps = tokens / wall
+    peak = torch.cuda.max_memory_allocated()/1e9 if DEVICE=="cuda" else 0
+    return {"tokens/s": round(tps,1), "peak_GB": round(peak,2), "wall_s": round(wall,1)}
+
+loader = DataLoader(SynthDS(), batch_size=32, shuffle=True)
+model = TinyGPT().to(DEVICE)
+base = bench(model, loader)
+print("BASELINE:", base)</pre></div>
+<div class="todo"><strong>✏️ Bạn tự làm:</strong> hoàn thiện 2 dòng TODO trong <code>bench()</code>, chạy và ghi lại con số baseline. Đây là "ảnh chụp hiện trường" — mọi so sánh sau đều đối chiếu với nó. <strong>Giữ nguyên seed, batch size, số bước</strong> cho mọi lần đo sau.</div>
+
+<h3>Phần C — Ablation: thử 3 cải tiến, giữ cái đo được</h3>
+<p>Thử <strong>từng cái một</strong> (đổi 1 biến mỗi lần — bẫy số 2 bên dưới giải thích vì sao). Mỗi thử nghiệm = chạy lại <code>bench()</code> và thêm 1 dòng vào bảng.</p>
+<div class="code"><pre><span class="todo-line"># Thí nghiệm 1 — Data pipeline: pin_memory + num_workers
+# TODO (bạn làm): tạo loader2 = DataLoader(..., pin_memory=True, num_workers=4,
+#                                          persistent_workers=True) rồi bench lại.
+# Dự đoán trước khi chạy: nếu baseline đã bị data stalls, bạn kỳ vọng gì?</span>
+
+<span class="todo-line"># Thí nghiệm 2 — torch.compile
+# TODO (bạn làm): model_c = torch.compile(TinyGPT().to(DEVICE)); bench(model_c, loader).
+# Lưu ý: lần chạy ĐẦU TIÊN của compile rất chậm (đang biên dịch graph) —
+# warmup=10 trong bench() đã lo việc này. Nếu máy yếu/compile lỗi, ghi "không áp dụng".</span>
+
+<span class="todo-line"># Thí nghiệm 3 — SDPA / FlashAttention (nếu có)
+# TODO (bạn làm): kiểm tra torch.backends.cuda.sdp_enabled() hoặc
+# torch.nn.functional.scaled_dot_product_attention có dùng được không.
+# Nếu được, thay nn.MultiheadAttention bằng SDPA trong TinyBlock và bench lại.
+# Kỳ vọng: peak VRAM giảm rõ (attention từ O(L²) xuống O(L)).</span></pre></div>
+<div class="note"><strong>📊 Bảng before/after của bạn</strong> (điền số thật sau khi chạy):<br>
+<table><tr><th>Cấu hình</th><th>tokens/s</th><th>peak VRAM (GB)</th><th>Giữ hay bỏ? Vì sao</th></tr>
+<tr><td>Baseline</td><td>…</td><td>…</td><td>— mốc đối chiếu</td></tr>
+<tr><td>+ pin_memory/num_workers</td><td>…</td><td>…</td><td>…</td></tr>
+<tr><td>+ torch.compile</td><td>…</td><td>…</td><td>…</td></tr>
+<tr><td>+ SDPA</td><td>…</td><td>…</td><td>…</td></tr></table>
+Chỉ giữ dòng nào <strong>tăng tokens/s rõ rệt</strong> (vượt nhiễu đo ~5%). Còn lại: bỏ, không tiếc.</div>
+
+<h3>Phần D — Nhìn vào trace: kernel nào ăn thời gian nhất?</h3>
+<div class="code"><pre>from torch.profiler import profile, ProfilerActivity
+model = TinyGPT().to(DEVICE); opt = torch.optim.AdamW(model.parameters())
+xb = next(iter(loader)).to(DEVICE)
+acts = [ProfilerActivity.CPU]
+if DEVICE == "cuda": acts.append(ProfilerActivity.CUDA)
+with profile(activities=acts, record_shapes=True) as prof:
+    for _ in range(20):
+        opt.zero_grad(); loss = model(xb).pow(2).mean()
+        loss.backward(); opt.step()
+print(prof.key_averages().table(sort_by="self_cuda_time_total" if DEVICE=="cuda" else "self_cpu_time_total", row_limit=12))
+<span class="todo-line"># TODO (bạn làm): đọc 3 dòng đầu của bảng. Kernel/op nào chiếm % lớn nhất?
+# Nó khớp với bottleneck bạn đoán ở Phần C không? Ghi 2-3 dòng nhận xét.</span>
+# Nâng cao (không bắt buộc): prof.export_chrome_trace("trace.json") rồi mở
+# bằng chrome://tracing (gõ vào thanh địa chỉ Chrome) để nhìn timeline.</pre></div>
+
+<h3>Phần E — 🌱 Green checkpoint: đo năng lượng bằng CodeCarbon</h3>
+<div class="code"><pre># pip install codecarbon
+from codecarbon import EmissionsTracker
+tracker = EmissionsTracker()   # mặc định: đo bằng cảm biến nếu có, ước lượng nếu không
+tracker.start()
+bench(TinyGPT().to(DEVICE), loader, steps=100)  # chạy lại baseline
+em = tracker.stop()
+print(f"CO2: {em:.6f} kg | điện: {tracker.final_emissions_data.energy_consumed:.6f} kWh")
+<span class="todo-line"># TODO (bạn làm): trả lời 3 câu vào file nộp bài —
+# 1) CodeCarbon của bạn đang ĐO (cảm biến phần cứng) hay ƯỚC LƯỢNG? Vì sao bạn biết?
+#    (gợi ý: CPU Intel/AMD có RAPL, GPU NVIDIA có NVML; máy ảo/cloud thường không có)
+# 2) Ghi rõ phần cứng bạn chạy: CPU/GPU model, RAM, chạy ở đâu (máy cá nhân/Colab/Kaggle).
+# 3) Tính thử: với tốc độ tokens/s của bạn, 1 triệu token tốn khoảng bao nhiêu kWh?</span></pre></div>
+<div class="warn"><strong>⚠️ Phân biệt đo vs ước lượng</strong> (học sáng nay): số từ cảm biến phần cứng (RAPL/NVML) đáng tin để so sánh; số ước lượng từ TDP chỉ dùng để áng chừng thứ tự độ lớn. Khi báo cáo, <strong>luôn ghi rõ nguồn số liệu</strong> — đây là thói quen của người làm khoa học, và là tiêu chí thắng ở mini-project Ngày 14.</div>
+
+<h2>2 · Tự kiểm tra nhanh <span style="color:var(--muted);font-size:15px;">(không chấm điểm — tự check hiểu bài)</span></h2>
+
+<div class="q"><h3>Câu 1 — Bạn quên <code>torch.cuda.synchronize()</code> trước khi dừng bấm giờ. Con số tokens/s sẽ ra sao?</h3>
+<button class="reveal" onclick="this.nextElementSibling.style.display='block';this.style.display='none'">Hiện đáp án</button>
+<div class="ans"><strong>Cao một cách giả tạo.</strong> CUDA chạy bất đồng bộ: lệnh <code>loss.backward()</code> chỉ <em>xếp hàng</em> kernel lên GPU rồi trả về ngay, GPU vẫn đang cày ở đằng sau. Không synchronize mà bấm giờ dừng = bạn đo thời gian "xếp hàng", không phải thời gian "làm xong". Kết quả: tokens/s ảo cao, và mọi so sánh before/after đều vô nghĩa. Quy tắc: <em>synchronize → bấm giờ bắt đầu … chạy … → synchronize → bấm giờ dừng.</em></div></div>
+
+<div class="q"><h3>Câu 2 — Baseline: GPU util chỉ 20%, nhưng thời gian chờ data (data time) gấp 3 lần compute time. Đây là bottleneck loại gì? Sửa bằng gì?</h3>
+<button class="reveal" onclick="this.nextElementSibling.style.display='block';this.style.display='none'">Hiện đáp án</button>
+<div class="ans"><strong>Bottleneck I/O — data stalls</strong> ("bếp chờ nguyên liệu" như ví dụ sáng nay). GPU rảnh 80% thời gian vì phải chờ CPU chuẩn bị batch. Sửa theo thứ tự rẻ → đắt: <code>pin_memory=True</code> (chuyển host→device nhanh hơn), <code>num_workers=4</code> (nạp data song song), <code>persistent_workers=True</code> (không khởi động lại worker mỗi epoch). Đo lại: nếu tokens/s tăng mà GPU util cũng tăng → đúng bệnh, đúng thuốc.</div></div>
+
+<div class="q"><h3>Câu 3 — <code>torch.compile</code> lần chạy đầu chậm chạp, các lần sau nhanh vọt. Có nên tính lần đầu vào số đo tokens/s không?</h3>
+<button class="reveal" onclick="this.nextElementSibling.style.display='block';this.style.display='none'">Hiện đáp án</button>
+<div class="ans"><strong>Không.</strong> Lần đầu là chi phí biên dịch graph (one-time cost), không phải tốc độ chạy thật. Đó chính là lý do hàm <code>bench()</code> có <code>warmup=10</code> bước bị bỏ qua. Nguyên tắc chung: <em>loại mọi chi phí một lần</em> (compile, warmup kernel, cache đầu tiên) ra khỏi số đo, nếu không bạn sẽ "phạt" oan đúng cái cải tiến tốt nhất.</div></div>
+
+<h2>3 · Bẫy thường gặp</h2>
+<div class="card">
+<p><strong>🪤 Bẫy 1 — Đo mà không warmup.</strong> Vài bước đầu luôn chậm bất thường (CUDA khởi tạo, kernel chưa warm, compile lần đầu). Lấy trung bình cả 100 bước <em>gồm cả warmup</em> sẽ kéo số xuống và làm méo so sánh. Fix: luôn có warmup riêng rồi mới bấm giờ — như <code>bench()</code> mẫu.</p>
+<p><strong>🪤 Bẫy 2 — Đổi nhiều thứ cùng lúc rồi kết luận.</strong> Bật đồng thời pin_memory + compile + SDPA, thấy nhanh hơn → không biết cái nào thực sự có tác dụng, cái nào chỉ "ăn theo". Fix: ablation — đổi <strong>1 biến mỗi lần</strong>, giữ seed/batch/steps giống hệt baseline. Khoa học = loại trừ, không phải cầu may.</p>
+<p><strong>🪤 Bẫy 3 — Đọc nhầm chỉ số bộ nhớ.</strong> <code>torch.cuda.memory_allocated()</code> là <em>đang dùng lúc này</em>; <code>torch.cuda.max_memory_allocated()</code> mới là <em>đỉnh</em> — con số quyết định OOM. Và OOM do <em>fragmentation</em> (bộ nhớ vỡ vụn, <code>empty_cache</code> cứu được) khác OOM do <em>thực sự hết VRAM</em> (phải giảm batch/model). Nhầm hai cái này sẽ "chữa" sai bệnh.</p>
+</div>
+
+<h2>4 · Checklist nộp bài</h2>
+<p>Paste <strong>code + kết quả</strong> vào chat để được nhận xét chi tiết. Một bài nộp đạt gồm:</p>
+<ul class="check">
+<li>File <code>profile_lab.py</code> đã hoàn thiện các TODO (chạy được, không lỗi)</li>
+<li>Bảng before/after 4 dòng với <strong>số thật</strong> đo trên máy bạn + cột "giữ hay bỏ"</li>
+<li>2–3 dòng nhận xét từ trace profiler: op nào tốn thời gian nhất, có khớp bottleneck đã đoán không</li>
+<li>3 câu trả lời Green checkpoint: đo hay ước lượng + phần cứng + kWh/1 triệu token</li>
+<li>1 câu: cải tiến nào bạn giữ lại cho mini-project Ngày 14, vì sao</li>
+</ul>
+<div class="note">💡 <strong>Gợi ý nộp bài nhanh:</strong> chỉ cần paste output của <code>print("BASELINE:", base)</code> + bảng before/after + 3 câu Green checkpoint là đủ để được review. Code đầy đủ gửi kèm nếu muốn soi kỹ.</div>
+
+<div class="footer">Khóa "Trở thành AI Engineer (LLM)" · Ngày 13 — Buổi tối · Profile Lab · 📖 <a href="Day13_lesson.html" style="color:var(--cyan);">Xem lại bài sáng</a> · 📝 <a href="Day13_quiz.html" style="color:var(--cyan);">Quiz Ngày 13</a></div>
+</div>
+</body>
+</html>
