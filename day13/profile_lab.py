@@ -64,8 +64,14 @@ class TinyBlockSDPA(nn.Module):
     def __init__(self, d=256, heads=4):
         super().__init__()
         self.heads = heads
-        self.qkv = nn.Linear(d, 3 * d, bias=False)
-        self.proj = nn.Linear(d, d, bias=False)
+        # [TRAINER] Truoc day qkv/proj dung bias=False trong khi
+        # nn.MultiheadAttention cua TinyBlock co bias o ca in_proj lan
+        # out_proj -> model SDPA nhe hon 4.096 params (1.024/block), tuc
+        # ablation doi 2 bien cung luc (co che attention + bias), trai
+        # voi docstring "chi doi co che attention". Bo bias=False de 2
+        # model bang params nhau (3.672.040), TN3 chi con 1 bien.
+        self.qkv = nn.Linear(d, 3 * d)
+        self.proj = nn.Linear(d, d)
         self.ln1, self.ln2 = nn.LayerNorm(d), nn.LayerNorm(d)
         self.mlp = nn.Sequential(nn.Linear(d, 4 * d), nn.GELU(),
                                  nn.Linear(4 * d, d))
@@ -146,7 +152,10 @@ def bench(model, loader, steps=100, warmup=10):
     if DEVICE == "cuda":
         torch.cuda.reset_peak_memory_stats()
         torch.cuda.synchronize()
-    t0 = time.time()
+    # [TRAINER] Do thoi gian phai dung time.perf_counter() (don dieu,
+    # do phan giai cao nhat, khong bi lech khi he thong chinh lai dong
+    # ho) thay cho time.time() - dong ho tuong danh cho timestamp.
+    t0 = time.perf_counter()
     for _ in range(steps):
         x = next(it).to(DEVICE)
         opt.zero_grad()
@@ -160,7 +169,8 @@ def bench(model, loader, steps=100, warmup=10):
     # nghia. (Tren CPU dong nay khong can nhung giu de code dung ca 2.)
     if DEVICE == "cuda":
         torch.cuda.synchronize()
-    wall = time.time() - t0
+    # [TRAINER] Cap voi t0 o tren: perf_counter cho ca 2 dau moc.
+    wall = time.perf_counter() - t0
 
     tokens = steps * loader.batch_size * SEQ_LEN
     tps = tokens / wall
@@ -293,8 +303,13 @@ def run_energy():
     loader = DataLoader(SynthDS(), batch_size=BATCH_SIZE, shuffle=True)
     tracker = EmissionsTracker()
     tracker.start()
-    r = bench(fresh_model(), loader, steps=100)
-    em = tracker.stop()
+    # [TRAINER] stop() phai nam trong finally: neu bench() nem loi,
+    # tracker khong duoc stop se ro ri (thread do dien chay nen mai,
+    # file emissions khong dong) va lan chay sau bi dinh so do do.
+    try:
+        r = bench(fresh_model(), loader, steps=100)
+    finally:
+        em = tracker.stop()
     energy = tracker.final_emissions_data.energy_consumed
     print(f"CO2: {em:.6f} kg | dien: {energy:.6f} kWh "
           f"(cho {r['tokens/s']} tokens/s)")
