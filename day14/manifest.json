@@ -1,0 +1,14 @@
+{
+  "budget": {
+    "max_minutes": 30,
+    "max_kwh": 0.1,
+    "note": "chay tren CPU cua VM (khong GPU)"
+  },
+  "seed": 42,
+  "data_hash": "738e27a90f11098e6224e4edc7de391379738274168b27fa7350ea54494502c9",
+  "n_raw": 20,
+  "n_unique": 18,
+  "n_train": 16,
+  "n_val": 2,
+  "vocab_size": 60
+}
