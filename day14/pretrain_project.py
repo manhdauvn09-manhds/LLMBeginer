@@ -331,8 +331,23 @@ def assert_single_change(baseline, ablation):
     Bai hoc Day 13: claim "1 bien" phai verify bang code. Neu khac 0
     hoac >1 key -> raise ngay, khong cho chay (khong ket luan duoc).
     """
-    diff = [k for k in baseline if baseline[k] != ablation.get(k)]
-    diff += [k for k in ablation if k not in baseline]
+    # [TRAINER] Ban cu chi dem key khac GIA TRI nen lot 2 lo hong:
+    # (1) ablation THIEU key cua baseline (vd quen "lr") van qua
+    #     guard, roi crash KeyError mo ho o giua train_run thay vi
+    #     bi chan ngay tai day; (2) ablation THEM key la (vd go nham
+    #     "lrr" thay "lr", hoac key train_run khong he doc nhu "wd")
+    #     duoc chung nhan la "chi khac 1 key" du run chay ra GIONG
+    #     HET baseline (doi 0 bien hieu dung) -> ket luan sai am tham,
+    #     dung dang loi Day 13 ma guard nay sinh ra de chan. Nay bat
+    #     buoc tap key cua ablation phai BANG tap key cua baseline
+    #     (muon them knob moi: them vao BASELINE truoc, kem gia tri
+    #     mac dinh), va dung 1 key khac gia tri.
+    missing = [k for k in baseline if k not in ablation]
+    extra = [k for k in ablation if k not in baseline]
+    assert not missing and not extra, \
+        f"ablation phai co dung tap key cua baseline " \
+        f"(thieu: {missing}, thua: {extra})"
+    diff = [k for k in baseline if baseline[k] != ablation[k]]
     assert len(diff) == 1, \
         f"ablation phai khac baseline dung 1 key, thay {len(diff)}: {diff}"
     return diff[0]
