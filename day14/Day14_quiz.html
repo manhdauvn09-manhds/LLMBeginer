@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quiz Ngày 14 — Ôn tập: Pretraining có ngân sách | Khóa LLM 30 ngày</title>
+<style>
+:root{--bg:#0a0f1e; --card:#101830; --line:#22305a; --gold:#f5c542; --green:#4ade80;
+ --red:#f87171; --violet:#a78bfa; --cyan:#67e8f9; --text:#e8edf7; --muted:#93a0bd;}
+*{box-sizing:border-box;}
+body{margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.7; font-size:16.5px;}
+.wrap{max-width:760px; margin:0 auto; padding:18px 16px 60px;}
+.kicker{display:inline-block; font-size:13px; letter-spacing:1px; color:var(--gold); font-weight:700; margin-bottom:8px;}
+h1{font-size:26px; margin:6px 0 4px;}
+.sub{color:var(--muted);}
+.q{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px 18px; margin:16px 0;}
+.q h3{margin:0 0 10px; font-size:17px; color:var(--cyan);}
+label.opt{display:block; background:#0a0f1e; border:1px solid var(--line); border-radius:10px; padding:10px 14px; margin:8px 0; cursor:pointer;}
+label.opt:hover{border-color:var(--gold);}
+label.opt input{margin-right:10px;}
+.explain{display:none; border-left:4px solid var(--green); background:#0f2233; border-radius:0 10px 10px 0; padding:10px 14px; margin-top:10px; font-size:15px;}
+.explain.bad{border-color:var(--red); background:#23141a;}
+.btn{display:inline-block; background:var(--gold); color:#14100a; font-weight:700; border-radius:10px; padding:12px 24px; margin:12px 8px 0 0; border:none; font-size:16px; cursor:pointer;}
+.btn.ghost{background:transparent; color:var(--gold); border:2px solid var(--gold);}
+#result{display:none; margin-top:20px; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px;}
+#copystr{background:#060a14; border:1px dashed var(--violet); border-radius:8px; padding:10px 14px; margin:10px 0; font-size:15px; word-break:break-all;}
+.footer{color:var(--muted); font-size:14px; margin-top:30px;}
+.correct{color:var(--green); font-weight:700;} .wrong{color:var(--red); font-weight:700;}
+</style>
+</head>
+<body>
+<div class="wrap">
+<span class="kicker">QUIZ NGÀY 14 · ÔN TẬP TUẦN 2</span>
+<h1>📝 Quiz — 8 câu tổng hợp</h1>
+<p class="sub">Chọn đáp án rồi bấm <b>Nộp bài</b> để chấm điểm ngay. Đạt <b>≥ 6/8 (75%)</b> là sẵn sàng sang tuần 3. Dưới mức đó → báo cho trợ lý để được học bù trước bài mới.</p>
+
+<div class="q" id="q1"><h3>Câu 1. Theo quy tắc Chinchilla (compute-optimal), với model N tham số thì lượng token huấn luyện tối ưu khoảng bao nhiêu?</h3>
+<label class="opt"><input type="radio" name="q1" value="A"> A. Càng nhiều token càng tốt, không có điểm tối ưu</label>
+<label class="opt"><input type="radio" name="q1" value="B"> B. Khoảng 20 token cho mỗi tham số (D ≈ 20 × N)</label>
+<label class="opt"><input type="radio" name="q1" value="C"> C. Khoảng 1 token cho mỗi tham số</label>
+<label class="opt"><input type="radio" name="q1" value="D"> D. Khoảng 1.000 token cho mỗi tham số</label>
+<div class="explain" id="e1"></div></div>
+
+<div class="q" id="q2"><h3>Câu 2. Thứ tự kiểm tra "sức khỏe" vòng huấn luyện (health checks) đúng chuẩn là gì?</h3>
+<label class="opt"><input type="radio" name="q2" value="A"> A. Kiểm tra optimizer trước, rồi mới kiểm tra dữ liệu</label>
+<label class="opt"><input type="radio" name="q2" value="B"> B. Kiểm tra dữ liệu trước khi forward; kiểm tra loss/gradient sau backward nhưng trước optimizer.step</label>
+<label class="opt"><input type="radio" name="q2" value="C"> C. Chỉ cần kiểm tra loss cuối mỗi epoch, các thứ khác không quan trọng</label>
+<label class="opt"><input type="radio" name="q2" value="D"> D. Kiểm tra gradient sau khi optimizer.step đã chạy xong</label>
+<div class="explain" id="e2"></div></div>
+
+<div class="q" id="q3"><h3>Câu 3. Vì sao khi benchmark tốc độ train nên dùng time.perf_counter() thay vì time.time()?</h3>
+<label class="opt"><input type="radio" name="q3" value="A"> A. Vì perf_counter chạy nhanh hơn nên code train cũng nhanh hơn</label>
+<label class="opt"><input type="radio" name="q3" value="B"> B. Vì perf_counter là đồng hồ đơn điệu (monotonic), không bị chỉnh lùi bởi đồng bộ NTP hay người dùng — time.time có thể bị chỉnh giữa chừng làm sai kết quả đo</label>
+<label class="opt"><input type="radio" name="q3" value="C"> C. Vì time.time không đo được thời gian dưới 1 giây</label>
+<label class="opt"><input type="radio" name="q3" value="D"> D. Không có khác biệt thực tế, dùng cái nào cũng được</label>
+<div class="explain" id="e3"></div></div>
+
+<div class="q" id="q4"><h3>Câu 4. Bạn xóa bias của attention layer ĐỒNG THỜI tăng learning rate, thấy loss giảm. Kết luận nào đúng về mặt khoa học?</h3>
+<label class="opt"><input type="radio" name="q4" value="A"> A. Bỏ bias giúp loss giảm — kết luận chắc chắn</label>
+<label class="opt"><input type="radio" name="q4" value="B"> B. Tăng learning rate giúp loss giảm — kết luận chắc chắn</label>
+<label class="opt"><input type="radio" name="q4" value="C"> C. Không kết luận được biến nào gây ra cải thiện — phải chạy lại từng biến riêng (mỗi ablation đúng 1 biến)</label>
+<label class="opt"><input type="radio" name="q4" value="D"> D. Cả hai thay đổi đều tốt, cứ giữ cả hai là xong</label>
+<div class="explain" id="e4"></div></div>
+
+<div class="q" id="q5"><h3>Câu 5. Bạn dùng CodeCarbon đo điện năng với đoạn code: tracker.start(); train(); tracker.stop(). Rủi ro lớn nhất là gì và cách sửa đúng?</h3>
+<label class="opt"><input type="radio" name="q5" value="A"> A. Không có rủi ro gì, code này đã chuẩn</label>
+<label class="opt"><input type="radio" name="q5" value="B"> B. Nếu train() crash giữa chừng, tracker.stop() không bao giờ chạy → mất số liệu năng lượng; sửa bằng try/finally để stop luôn được gọi</label>
+<label class="opt"><input type="radio" name="q5" value="C"> C. CodeCarbon làm train chậm đi một nửa nên không nên dùng</label>
+<label class="opt"><input type="radio" name="q5" value="D"> D. Nên gọi tracker.stop() hai lần cho chắc chắn</label>
+<div class="explain" id="e5"></div></div>
+
+<div class="q" id="q6"><h3>Câu 6. Vai trò đúng của scaling law trong thực tế là gì?</h3>
+<label class="opt"><input type="radio" name="q6" value="A"> A. Khẩu hiệu chứng minh model của mình "theo khoa học"</label>
+<label class="opt"><input type="radio" name="q6" value="B"> B. Công cụ lập ngân sách: ước lượng trade-off giữa cỡ model và lượng data với ngân sách compute cho trước, tránh train quá khổ hoặc thiếu data</label>
+<label class="opt"><input type="radio" name="q6" value="C"> C. Công thức tính chính xác loss cuối cùng của mọi lần train</label>
+<label class="opt"><input type="radio" name="q6" value="D"> D. Chỉ có ý nghĩa với các lab lớn, người học cá nhân không cần quan tâm</label>
+<div class="explain" id="e6"></div></div>
+
+<div class="q" id="q7"><h3>Câu 7. Làm sao để đánh giá "model có thực sự giỏi hơn" chứ không phải chỉ là cảm giác loss giảm?</h3>
+<label class="opt"><input type="radio" name="q7" value="A"> A. Nhìn train loss giảm là đủ kết luận</label>
+<label class="opt"><input type="radio" name="q7" value="B"> B. Dùng val loss + task score trên tập held-out chưa từng thấy khi train, và coi chừng data contamination (dữ liệu test lọt vào train)</label>
+<label class="opt"><input type="radio" name="q7" value="C"> C. Hỏi vài người dùng thử xem họ thấy hay không</label>
+<label class="opt"><input type="radio" name="q7" value="D"> D. So sánh số tham số — model nhiều tham số hơn là giỏi hơn</label>
+<div class="explain" id="e7"></div></div>
+
+<div class="q" id="q8"><h3>Câu 8. "Green checkpoint" của mini-project pretraining có ngân sách được định nghĩa thế nào?</h3>
+<label class="opt"><input type="radio" name="q8" value="A"> A. Train xong không crash là đạt</label>
+<label class="opt"><input type="radio" name="q8" value="B"> B. Giảm val loss HOẶC tăng task score mà KHÔNG tăng kWh tiêu thụ</label>
+<label class="opt"><input type="radio" name="q8" value="C"> C. Dùng ít điện nhất có thể, chất lượng không quan trọng</label>
+<label class="opt"><input type="radio" name="q8" value="D"> D. Chạy càng nhiều cải tiến càng tốt, không cần đo điện</label>
+<div class="explain" id="e8"></div></div>
+
+<div><button class="btn" onclick="grade()">Nộp bài</button>
+<button class="btn ghost" onclick="copyResult()" id="copybtn" style="display:none;">📋 Copy kết quả</button></div>
+<div id="result"><div id="scoreline" style="font-size:18px; margin-bottom:8px;"></div><div id="copystr"></div></div>
+<p style="color:var(--muted); font-size:14.5px;">Bấm <b>Copy kết quả</b> rồi paste vào chat để trợ lý ghi điểm nhé. File HTML này không tự gửi kết quả về được.</p>
+
+<div class="footer"><a href="Day14_lesson.html" style="color:var(--gold);">← Quay lại bài học Ngày 14</a></div>
+</div>
+<script>
+const KEY = {q1:"B", q2:"B", q3:"B", q4:"C", q5:"B", q6:"B", q7:"B", q8:"B"};
+const WHY = {
+q1:"Chinchilla tìm ra điểm compute-optimal: với ngân sách compute cố định, train khoảng 20 token cho mỗi tham số cho loss tốt nhất. Train ít hơn là lãng phí cỡ model; train nhiều hơn quá mức khi ngân sách hạn chế là lãng phí compute.",
+q2:"Thứ tự chuẩn: kiểm tra dữ liệu TRƯỚC forward (đầu vào sai thì mọi thứ sau vô nghĩa); kiểm tra loss/gradient SAU backward nhưng TRƯỚC optimizer.step (vì sau step thì gradient đã bị zero hoặc cập nhật, không còn phản ánh đúng).",
+q3:"time.time đọc đồng hồ hệ thống, có thể bị chỉnh (NTP sync, đổi giờ tay) ngay giữa lúc benchmark → kết quả nhanh/chậm ảo mà bạn không biết. perf_counter là đồng hồ đơn điệu chỉ tiến không lùi, độ phân giải cao nhất — đúng công cụ cho việc đo khoảng thời gian.",
+q4:"Đổi 2 biến cùng lúc thì mọi kết quả đều không quy kết (attribute) được: có thể do A, do B, hoặc do tương tác A×B. Quy tắc ablation: baseline và thí nghiệm chỉ khác đúng 1 biến; muốn test 2 thay đổi thì chạy 3 lần (baseline, chỉ A, chỉ B).",
+q5:"Công cụ đo cũng là code và cũng cần guard. train() ném exception → dòng tracker.stop() phía sau không chạy → file báo cáo năng lượng không được ghi, mất luôn số liệu của run lỗi (thường là run tốn điện nhất). try/finally đảm bảo stop luôn chạy.",
+q6:"Scaling law không phải khẩu hiệu trang trí paper — giá trị thực tế của nó là lập ngân sách: với X GPU-giờ, nên chọn model cỡ nào + bao nhiêu token để không train quá khổ (thiếu data) cũng không lãng phí (thừa data cho model nhỏ).",
+q7:"Train loss giảm có thể chỉ là overfit hoặc contamination. Đánh giá tử tế = val loss + task score trên tập held-out (chưa từng xuất hiện khi train), đồng thời kiểm tra data contamination — dữ liệu test lọt vào train sẽ cho điểm số ảo.",
+q8:"Green checkpoint nối chất lượng với năng lượng: thắng khi giảm val loss HOẶC tăng task score mà KHÔNG tăng kWh. Cải tiến tăng chất lượng nhưng tốn gấp đôi điện chưa phải chiến thắng — trừ khi trade-off đó được chứng minh là đáng giá."
+};
+let graded = false, answers = {};
+function grade(){
+  graded = true; answers = {}; let score = 0;
+  for(let i=1;i<=8;i++){
+    const sel = document.querySelector('input[name=q'+i+']:checked');
+    const v = sel ? sel.value : "–"; answers["q"+i] = v;
+    const ok = (v === KEY["q"+i]); if(ok) score++;
+    const box = document.getElementById("e"+i);
+    box.style.display = "block";
+    box.className = "explain" + (ok ? "" : " bad");
+    box.innerHTML = (ok ? '<span class="correct">✔ Đúng.</span> ' : '<span class="wrong">✘ Sai.</span> Đáp án đúng: <b>'+KEY["q"+i]+'</b>. ') + WHY["q"+i];
+  }
+  const r = document.getElementById("result"); r.style.display = "block";
+  document.getElementById("scoreline").innerHTML = "Kết quả: <b>"+score+"/8</b> " + (score>=6 ? "🎉 Đạt! Sẵn sàng sang tuần 3." : "🔁 Dưới 75% — báo trợ lý để học bù nhé.");
+  document.getElementById("copystr").textContent = copyString();
+  document.getElementById("copybtn").style.display = "inline-block";
+  r.scrollIntoView({behavior:"smooth"});
+}
+function copyString(){
+  let s = "Day14 Quiz:";
+  for(let i=1;i<=8;i++) s += " " + i + answers["q"+i];
+  let sc = 0; for(let i=1;i<=8;i++) if(answers["q"+i]===KEY["q"+i]) sc++;
+  return s + " — " + sc + "/8";
+}
+function copyResult(){
+  if(!graded) return;
+  const t = copyString();
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(t).then(()=>{document.getElementById("copybtn").textContent="✅ Đã copy!"});
+  } else {
+    const ta = document.createElement("textarea"); ta.value = t; document.body.appendChild(ta);
+    ta.select(); document.execCommand("copy"); document.body.removeChild(ta);
+    document.getElementById("copybtn").textContent="✅ Đã copy!";
+  }
+}
+</script>
+</body>
+</html>
