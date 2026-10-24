@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ngày 14 — Buổi tối: Mini-project Pretraining có ngân sách | Khóa LLM 30 ngày</title>
+<style>
+:root{--bg:#0a0f1e;--card:#101830;--line:#22305a;--gold:#f5c542;--green:#4ade80;--red:#f87171;--violet:#a78bfa;--cyan:#67e8f9;--text:#e8edf7;--muted:#93a0bd;}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;line-height:1.75;font-size:16.5px;}
+.wrap{max-width:820px;margin:0 auto;padding:18px 16px 60px;}
+.kicker{display:inline-block;font-size:13px;letter-spacing:1px;color:var(--gold);font-weight:700;margin-bottom:8px;}
+h1{font-size:29px;line-height:1.3;margin:6px 0 10px;}
+h2{font-size:22px;margin:34px 0 10px;color:var(--cyan);}
+h3{font-size:18px;margin:22px 0 8px;color:var(--gold);}
+.sub{color:var(--muted);font-size:16.5px;}
+.meta{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 6px;}
+.meta span{font-size:13.5px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:5px 14px;}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin:16px 0;}
+.note{border-left:4px solid var(--green);background:#0f2233;border-radius:0 12px 12px 0;padding:12px 16px;margin:14px 0;}
+.warn{border-left:4px solid var(--red);background:#23141a;border-radius:0 12px 12px 0;padding:12px 16px;margin:14px 0;}
+.todo{border-left:4px solid var(--gold);background:#221d0c;border-radius:0 12px 12px 0;padding:12px 16px;margin:14px 0;}
+.code{background:#060a14;border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:12px 0;overflow-x:auto;}
+.code pre{margin:0;font-size:14px;line-height:1.6;color:var(--cyan);white-space:pre-wrap;word-break:break-word;}
+.code pre .todo-line{color:var(--gold);}
+table{width:100%;border-collapse:collapse;margin:12px 0;font-size:15px;}
+th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;}
+th{background:#141d3a;color:var(--gold);}
+.q{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin:16px 0;}
+.q h3{margin:0 0 8px;color:var(--cyan);}
+.ans{display:none;border-left:4px solid var(--green);background:#0f2233;border-radius:0 10px 10px 0;padding:10px 14px;margin-top:10px;}
+button.reveal{background:var(--gold);color:#14100a;font-weight:700;border:none;border-radius:8px;padding:8px 18px;cursor:pointer;font-size:15px;}
+button.reveal:hover{opacity:.9;}
+ul.check{list-style:none;padding:0;}
+ul.check li{margin:8px 0;padding-left:30px;position:relative;}
+ul.check li::before{content:"☐";position:absolute;left:0;color:var(--gold);font-size:18px;}
+.footer{color:var(--muted);font-size:14px;margin-top:40px;border-top:1px solid var(--line);padding-top:14px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+<span class="kicker">NGÀY 14 · BUỔI TỐI — ÔN TẬP TUẦN 2 · MINI-PROJECT</span>
+<h1>🌙 Pretraining có ngân sách: ráp tuần 2 thành một dự án</h1>
+<p class="sub">Sáng nay bạn đã ôn bản đồ tuần 2: dữ liệu (Ngày 8) → tái lập (9) → ổn định (10) → ngân sách (11) → đánh giá (12) → đo lường (13). Tối nay không học thêm lý thuyết mới: bạn <strong>chạy một mini-project thật</strong> — chọn ngân sách của riêng mình, chạy baseline tái lập được, thử 2 cải tiến (mỗi cái đúng 1 ablation), rồi viết experiment report có green checkpoint. Đây là bài tổng hợp cả tuần, và cũng là "bản nháp" cho cách bạn sẽ làm mọi thí nghiệm từ nay về sau.</p>
+<div class="meta"><span>⏱ ~75–90 phút</span><span>🐍 Python + PyTorch</span><span>💻 chạy được trên CPU</span><span>🌱 Green checkpoint: chất lượng tăng mà điện không tăng</span></div>
+
+<h2>0 · 🔁 Ôn lại chỗ hổng — drill 10 phút (làm trước khi code)</h2>
+<p>Bạn chưa paste kết quả quiz các ngày 9–13, nên phần ôn này dựa trên <strong>quỹ đạo review code</strong> — bằng chứng chạy thật. Ba bài học từ review Ngày 13 (và pattern signature từ Ngày 7) sẽ quyết định mini-project tối nay có đáng tin hay không:</p>
+<div class="card">
+<p><strong>1. Đo benchmark bằng <code>time.perf_counter()</code>, không phải <code>time.time()</code>.</strong> Đồng hồ treo tường có thể bị chỉnh giữa chừng; đồng hồ đơn điệu thì không.</p>
+<p><strong>2. Mỗi ablation chỉ đổi ĐÚNG MỘT biến.</strong> Đổi đồng thời learning rate + bỏ bias rồi kết luận "bỏ bias giúp loss giảm" là kết luận vô nghĩa.</p>
+<p><strong>3. Guard cho công cụ đo bằng <code>finally</code>.</strong> <code>tracker.stop()</code> "trần trụi" mà code crash giữa chừng → mất luôn số liệu của lần chạy đó.</p>
+<p><strong>Pattern signature (Ngày 7):</strong> viết đúng một lần nhưng không duy trì sang file mới — guard assert shape, guard device, guard tài nguyên bị sót khi mở file model mới.</p>
+</div>
+<div class="todo"><strong>✏️ Drill:</strong> trước khi chạy lab, sửa 3 đoạn sai dưới đây ra giấy (hoặc trong đầu) — đáp án nằm trong bài sáng, không cần nộp:
+<br>① <code>t0 = time.time(); run(); dt = time.time() - t0</code> → sửa thành gì?
+<br>② <code>tracker.start(); train(); tracker.stop()</code> → bọc lại ra sao để crash cũng không mất số liệu?
+<br>③ Thí nghiệm "tăng batch size VÀ tăng learning rate cùng lúc" → tách thành mấy lần chạy?
+<br>Sau đó, mỗi khi mở file mới trong lab này, chạy checklist copy-guard: ☐ assert shape ☐ device đúng chỗ ☐ tài nguyên (file/tracker) đóng bằng finally.</div>
+
+<h2>1 · Lab code: <code>pretrain_project.py</code></h2>
+<p>Mục tiêu đầu ra: <strong>một experiment report</strong> với bảng 3 dòng — baseline + 2 ablation — mỗi dòng có val loss, task score, giờ chạy, kWh, kWh/1.000 token, và verdict green checkpoint. Quy tắc sắt: <strong>ngân sách viết TRƯỚC khi chạy</strong>, ablation đổi <strong>đúng 1 biến</strong>, số điện báo kèm nguồn (đo hay ước lượng).</p>
+
+<h3>Phần A — Ngân sách + manifest (Ngày 11 + Ngày 9)</h3>
+<p>Viết ngân sách ra trước, rồi mới chạy. Dùng công thức Chinchilla (D ≈ 20 × N) để kiểm tra xem ngân sách của bạn có "vừa" với model định train không — model quá to so với token thì lãng phí model, token quá nhiều so với giờ chạy thì không kịp xong.</p>
+<div class="code"><pre>import hashlib, json, random, time
+import torch, torch.nn as nn
+
+# TODO (bạn làm): ĐIỀN NGÂN SÁCH CỦA BẠN TRƯỚC KHI CHẠY — viết xong mới được chạy tiếp.
+BUDGET = {
+    "max_minutes": 30,      # ví dụ: 30 phút trên CPU — điền số của bạn
+    "max_kwh": 0.10,        # ví dụ: 0.10 kWh — điền số của bạn
+    "note": "chạy trên CPU máy cá nhân",
+}
+SEED = 42
+
+def seed_all(seed):
+    random.seed(seed)
+    torch.manual_seed(seed)
+    # TODO (bạn làm): nếu dùng CUDA thì thêm torch.cuda.manual_seed_all(seed).
+    # Vì sao phải seed MỌI nguồn, không chỉ random? (xem câu hỏi 2)
+
+def count_params(model):
+    return sum(p.numel() for p in model.parameters())
+
+# TODO (bạn làm): sau khi dựng model ở Phần C, in ra số tham số N,
+# rồi tính tokens Chinchilla = 20 * N và so với số token bạn định train.
+# Nếu tokens định train nhỏ hơn nhiều so với 20*N: model đang "đói data".
+# Nếu lớn hơn nhiều mà ngân sách chỉ 30 phút: hoặc thu nhỏ model, hoặc giảm token.</pre></div>
+
+<h3>Phần B — Dữ liệu mini + dedup (Ngày 8)</h3>
+<p>Corpus nhỏ tự viết, đủ để train thật và đánh giá thật. Quan trọng nhất: <strong>tập val phải held-out</strong> — câu nào đã nằm trong val thì không được nằm trong train, nếu không val loss chỉ là "học thuộc lòng", không phải năng lực.</p>
+<div class="code"><pre>CORPUS = [
+    "mèo ngồi trên thảm", "chó chạy trong vườn", "chim hót trên cây",
+    "mèo uống sữa buổi sáng", "chó sủa khi có khách", "chim bay qua sông",
+    "trời mưa nên đường ướt", "nắng lên sau cơn mưa",
+    # TODO (bạn làm): viết thêm 8-12 câu của riêng bạn, cùng phong cách ngắn gọn.
+]
+
+def dedup(lines):
+    seen, out = set(), []
+    for ln in lines:
+        if ln not in seen:
+            seen.add(ln); out.append(ln)
+    return out
+
+# TODO (bạn làm):
+# 1) dedup CORPUS (cố tình chèn 2 câu trùng nhau trước rồi kiểm tra dedup có bắt được không).
+# 2) Tách train/val: 2 câu cuối làm val, còn lại làm train — và ASSERT không câu val nào
+#    xuất hiện trong train (contamination check, Ngày 12).
+# 3) Tokenizer mức từ: vocab = các từ xuất hiện, thêm &lt;pad&gt; và &lt;unk&gt;.
+#    Ghi hash SHA-256 của dữ liệu đã dedup vào manifest (Ngày 9) để chạy lại vẫn đối chiếu được.</pre></div>
+
+<h3>Phần C — Model + vòng train có health check (Ngày 7 + Ngày 10)</h3>
+<p>Model nhỏ kiểu decoder-only, có sẵn các guard đúng chuẩn — đây là ví dụ "copy-guard" làm mẫu: khi bạn viết model của riêng mình sau này, hãy mang nguyên bộ guard này theo.</p>
+<div class="code"><pre>class TinyBlock(nn.Module):
+    def __init__(self, d, heads):
+        super().__init__()
+        # Guard copy từ Ngày 7: d phải chia hết cho heads, nếu không attention vỡ shape.
+        assert d % heads == 0, "d phải chia hết cho heads"
+        self.attn = nn.MultiheadAttention(d, heads, batch_first=True)
+        self.ln1, self.ln2 = nn.LayerNorm(d), nn.LayerNorm(d)
+        self.mlp = nn.Sequential(nn.Linear(d, 4*d), nn.GELU(), nn.Linear(4*d, d))
+    def forward(self, x):
+        a, _ = self.attn(x, x, x, need_weights=False)
+        x = self.ln1(x + a)
+        return self.ln2(x + self.mlp(x))
+
+class TinyLM(nn.Module):
+    def __init__(self, vocab, d=128, heads=4, layers=2, block_size=16):
+        super().__init__()
+        self.block_size = block_size
+        self.emb = nn.Embedding(vocab, d)
+        self.pos = nn.Embedding(block_size, d)
+        self.blocks = nn.ModuleList([TinyBlock(d, heads) for _ in range(layers)])
+        self.head = nn.Linear(d, vocab)
+    def forward(self, idx):
+        T = idx.size(1)
+        # Guard copy từ Ngày 7: chuỗi dài hơn block_size là lỗi vị trí, phải chặn ngay.
+        assert T &lt;= self.block_size, "chuỗi dài hơn block_size"
+        pos = torch.arange(T, device=idx.device)  # guard device: arange phải cùng device với idx
+        h = self.emb(idx) + self.pos(pos)
+        for b in self.blocks: h = b(h)
+        return self.head(h)
+
+def train_run(cfg, train_ids, val_ids):
+    """Một lần chạy hoàn chỉnh: seed lại từ đầu, train, trả về metrics.
+    cfg là dict: lr, batch, epochs, bias (True/False) — mỗi ablation chỉ khác baseline 1 key."""
+    seed_all(SEED)
+    model = TinyLM(cfg["vocab"], d=cfg.get("d", 128))
+    opt = torch.optim.AdamW(model.parameters(), lr=cfg["lr"])
+    # TODO (bạn làm — health checks Ngày 10, theo đúng thứ tự):
+    # 1) Trước train: kiểm tra dữ liệu — không có token ngoài vocab, batch không rỗng.
+    # 2) Sau backward, TRƯỚC optimizer.step: kiểm tra loss finite (không NaN/inf)
+    #    và grad norm finite. Nếu NaN: DỪNG và ghi severity, không cố train tiếp.
+    # 3) Mỗi epoch: in train loss + val loss (dùng hàm evaluate ở Phần D).
+    # 4) Dùng time.perf_counter() để đo thời gian (không dùng time.time() — drill ở mục 0).
+    # Trả về: {"val_loss": ..., "task_score": ..., "seconds": ..., "params": count_params(model)}</pre></div>
+
+<h3>Phần D — Đánh giá: val loss chưa đủ (Ngày 12)</h3>
+<div class="code"><pre>def evaluate(model, val_ids):
+    """Trả về (val_loss, task_score).
+    task_score = độ chính xác dự đoán từ tiếp theo trên tập held-out (next-token accuracy).
+    TODO (bạn làm): cài đặt evaluate — val loss bằng cross-entropy trung bình,
+    task_score bằng tỉ lệ vị trí dự đoán đúng token tiếp theo.
+    Sau đó tự hỏi: nếu val loss giảm mà task score đứng yên thì tin cái nào? (xem câu hỏi 3)"""
+    pass
+
+# TODO (bạn làm): hàm generate mẫu — cho model sinh 10 token từ prompt "mèo",
+# dùng torch.tensor(..., device=...) đúng device (guard Ngày 7).
+# In 2-3 câu sinh ra cho mỗi cấu hình vào report: con số tốt mà câu sinh ra vô nghĩa
+# thì vẫn chưa thắng.</pre></div>
+
+<h3>Phần E — Baseline + 2 ablation, mỗi cái đúng 1 biến (Ngày 11 + Ngày 13)</h3>
+<p>Chọn 2 cải tiến từ thực đơn dưới đây (hoặc tự đề xuất 1 cái, nhưng vẫn giữ luật 1 biến). Chạy baseline trước, rồi mỗi ablation một lần chạy riêng, cùng seed, cùng dữ liệu, cùng số epoch.</p>
+<div class="code"><pre>BASELINE = {"vocab": None, "lr": 3e-3, "batch": 8, "epochs": 30, "d": 128}
+# Thực đơn ablation (chọn 2, mỗi cái chỉ khác BASELINE đúng 1 key):
+#  A) lr: 3e-3 -&gt; 1e-2            (học nhanh hơn hay mất ổn định?)
+#  B) batch: 8 -&gt; 16              (ổn định hơn hay học chậm hơn?)
+#  C) d: 128 -&gt; 64                (model nhỏ hơn: rẻ hơn bao nhiêu, mất bao nhiêu chất lượng?)
+# TODO (bạn làm): điền vocab = kích thước vocab thật sau Phần B, rồi chạy 3 lần:
+#   baseline = train_run(BASELINE, ...)
+#   ablation1 = train_run({**BASELINE, "lr": 1e-2}, ...)   # ví dụ chọn A
+#   ablation2 = train_run({**BASELINE, "batch": 16}, ...) # ví dụ chọn B
+# Ghi lại cả lần chạy THẤT BẠI (crash/NaN) nếu có — run thất bại cũng là dữ liệu.</pre></div>
+
+<h3>Phần F — 🌱 Green checkpoint: đo điện có guard (Ngày 13)</h3>
+<div class="code"><pre># pip install codecarbon
+from codecarbon import EmissionsTracker
+
+def run_with_energy(cfg, train_ids, val_ids):
+    tracker = EmissionsTracker()
+    tracker.start()
+    try:
+        metrics = train_run(cfg, train_ids, val_ids)
+    finally:
+        tracker.stop()  # guard Ngày 13: crash cũng không mất số liệu
+    energy = tracker.final_emissions_data.energy_consumed  # kWh
+    metrics["kwh"] = energy
+    # TODO (bạn làm): tính kwh_per_1000_tokens = kwh / (tổng token đã train / 1000).
+    # Trả lời: CodeCarbon của bạn đang ĐO (cảm biến RAPL/NVML) hay ƯỚC LƯỢNG (TDP)?
+    # Ghi rõ nguồn số liệu vào report — số ước lượng không được khoe như số đo thật.
+    return metrics</pre></div>
+
+<div class="note"><strong>📊 Bảng experiment report của bạn</strong> (điền số thật sau khi chạy):<br>
+<table><tr><th>Cấu hình</th><th>val loss ↓</th><th>task score ↑</th><th>thời gian</th><th>kWh</th><th>kWh/1.000 token</th><th>Green? (chất lượng ↑, điện không ↑)</th></tr>
+<tr><td>Baseline</td><td>…</td><td>…</td><td>…</td><td>…</td><td>…</td><td>— mốc đối chiếu</td></tr>
+<tr><td>Ablation 1: …</td><td>…</td><td>…</td><td>…</td><td>…</td><td>…</td><td>…</td></tr>
+<tr><td>Ablation 2: …</td><td>…</td><td>…</td><td>…</td><td>…</td><td>…</td><td>…</td></tr></table>
+<strong>Tiêu chí thắng (green checkpoint):</strong> val loss giảm HOẶC task score tăng mà kWh KHÔNG tăng. Cải tiến tăng chất lượng nhưng tốn gấp đôi điện = chưa thắng, trừ khi bạn chứng minh được trade-off đó đáng giá. Cải tiến chỉ nhanh hơn (tokens/s cao) mà chất lượng tệ đi = không giữ.</div>
+
+<h2>2 · Tự kiểm tra nhanh <span style="color:var(--muted);font-size:15px;">(không chấm điểm — tự check hiểu bài)</span></h2>
+
+<div class="q"><h3>Câu 1 — Bạn đổi đồng thời learning rate và batch size, thấy val loss giảm. Kết luận được gì?</h3>
+<button class="reveal" onclick="this.nextElementSibling.style.display='block';this.style.display='none'">Hiện đáp án</button>
+<div class="ans"><strong>Không kết luận được gì về từng biến riêng lẻ.</strong> Loss giảm có thể do learning rate, do batch size, hoặc do cả hai cộng hưởng. Cách sửa: chạy 3 lần — baseline, chỉ đổi learning rate, chỉ đổi batch size. Đắt hơn hôm nay, rẻ hơn rất nhiều về lâu dài vì kết quả nào cũng kết luận được. Đây đúng là lỗi ablation ở bài lab Ngày 13.</div></div>
+
+<div class="q"><h3>Câu 2 — Chạy lại code ngày mai, cùng seed 42, mà loss khác hôm nay. Liệt kê 3 nguyên nhân có thể.</h3>
+<button class="reveal" onclick="this.nextElementSibling.style.display='block';this.style.display='none'">Hiện đáp án</button>
+<div class="ans"><strong>Ví dụ 3 nguyên nhân (Ngày 9):</strong> (1) Chỉ seed <code>random</code> mà quên seed <code>torch</code> (hoặc ngược lại) — một nguồn ngẫu nhiên chưa bị khóa là đủ làm kết quả trôi. (2) Dữ liệu hoặc thứ tự shuffle thay đổi mà không ghi manifest/hash — chạy lại trên dữ liệu khác thì số khác là đúng, không phải lỗi seed. (3) Code thay đổi mà không commit — model của "ngày mai" đã khác model của "hôm nay". Cách phòng: seed mọi nguồn + manifest ghi hash dữ liệu + config + commit code, rồi đối chiếu manifest trước khi so sánh số.</div></div>
+
+<div class="q"><h3>Câu 3 — Val loss giảm 0.05 nhưng task score đứng yên, rồi bạn phát hiện 5 câu val trùng câu train. Tin con số nào?</h3>
+<button class="reveal" onclick="this.nextElementSibling.style.display='block';this.style.display='none'">Hiện đáp án</button>
+<div class="ans"><strong>Không tin con số nào cho tới khi dedup lại.</strong> Val trùng train là contamination (Ngày 12): val loss giảm có thể chỉ là model học thuộc lòng 5 câu đó, không phải năng lực thật. Task score đứng yên càng củng cố nghi ngờ này. Cách sửa: dedup train/val triệt để, tách lại held-out sạch, chạy lại cả 3 cấu hình trên dữ liệu sạch rồi mới so sánh. Báo cáo phải ghi rõ sự cố này — giấu run lỗi là giấu dữ liệu.</div></div>
+
+<h2>3 · Bẫy thường gặp</h2>
+<div class="card">
+<p><strong>🪤 Bẫy 1 — Ngân sách viết sau khi thấy kết quả.</strong> Chạy xong thấy tốn 0.3 kWh rồi mới ghi "ngân sách 0.5 kWh" thì ngân sách đó không còn ý nghĩa. Fix: điền Phần A <i>trước</i> khi chạy lần đầu, và giữ nguyên nó trong report dù có vượt.</p>
+<p><strong>🪤 Bẫy 2 — Ablation 2 biến rồi kết luận 1 biến.</strong> Xem câu 1. Fix: mỗi lần chạy chỉ khác baseline đúng 1 key trong dict cfg — kiểm tra bằng mắt trước khi bấm chạy.</p>
+<p><strong>🪤 Bẫy 3 — Báo số điện mà không nói nguồn.</strong> Số CodeCarbon ước lượng từ TDP mà trình bày như số đo cảm biến là phóng đại độ tin cậy. Fix: trong report ghi rõ "đo (RAPL/NVML)" hay "ước lượng (TDP)", kèm phần cứng chạy và nơi chạy (máy cá nhân/Colab/Kaggle).</p>
+</div>
+
+<h2>4 · Checklist nộp bài</h2>
+<p>Paste <strong>code + kết quả</strong> vào chat để được nhận xét chi tiết. Một bài nộp đạt gồm:</p>
+<ul class="check">
+<li>Ngân sách đã điền trước khi chạy (giờ + kWh) + số tham số model + tokens Chinchilla ước lượng</li>
+<li>Đáp án drill mục 0 (3 câu sửa sai) — ngắn gọn là đủ</li>
+<li>File <code>pretrain_project.py</code> đã hoàn thiện các TODO (chạy được, không lỗi) + manifest (hash dữ liệu, config, seed)</li>
+<li>Bảng experiment report 3 dòng với <strong>số thật</strong>: val loss, task score, thời gian, kWh, kWh/1.000 token</li>
+<li>Verdict green checkpoint cho từng ablation: giữ hay bỏ, vì sao</li>
+<li>1–2 câu sinh mẫu từ model baseline và model tốt nhất (để kiểm tra con số có đi cùng chất lượng thật không)</li>
+<li>Nếu có run thất bại (NaN/crash/vượt ngân sách): ghi rõ nó vào report, không giấu</li>
+</ul>
+<div class="note">💡 <strong>Gợi ý nộp bài nhanh:</strong> chỉ cần paste ngân sách + bảng 3 dòng + verdict green checkpoint là đủ để được review. Code đầy đủ gửi kèm nếu muốn soi kỹ. Sang tuần 3 (fine-tune), chính khung "budget → baseline → ablation → report" này sẽ được dùng lại — làm chắc tối nay thì tuần sau nhẹ đi một nửa.</div>
+
+<div class="footer">Khóa "Trở thành AI Engineer (LLM)" · Ngày 14 — Buổi tối · Mini-project ôn tập tuần 2 · 📖 <a href="Day14_lesson.html" style="color:var(--cyan);">Xem lại bài sáng</a> · 📝 <a href="Day14_quiz.html" style="color:var(--cyan);">Quiz Ngày 14 (8 câu)</a></div>
+</div>
+</body>
+</html>
