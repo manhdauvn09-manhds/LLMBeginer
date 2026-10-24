@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 14 — Mini-project: Pretraining có ngân sách</title>
+<style>
+  :root{
+    --bg:#f0f9ff; --card:#ffffff; --ink:#23272f; --muted:#6b7280;
+    --accent:#0284c7; --accent-dark:#075985; --accent-soft:#e0f2fe;
+    --blue:#2563eb; --blue-soft:#dbeafe;
+    --amber:#b45309; --amber-soft:#fef3c7;
+    --green:#047857; --green-soft:#d1fae5;
+    --red:#b91c1c; --red-soft:#fee2e2;
+    --cyan:#0891b2; --cyan-soft:#cffafe;
+    --line:#bae6fd; --code-bg:#1e2230;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    line-height:1.75;font-size:16.5px}
+  .wrap{max-width:960px;margin:0 auto;padding:0 20px}
+  header.hero{background:linear-gradient(135deg,#075985 0%,#0284c7 55%,#38bdf8 100%);
+    color:#fff;padding:64px 0 48px;margin-bottom:8px}
+  header.hero h1{margin:0 0 12px;font-size:2.1rem;line-height:1.3}
+  header.hero p{margin:6px 0;opacity:.92;max-width:720px}
+  .tag{display:inline-block;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.35);
+    border-radius:999px;padding:3px 14px;font-size:.85rem;margin-bottom:14px}
+  nav.sticky{position:sticky;top:0;z-index:50;background:rgba(240,249,255,.96);
+    backdrop-filter:blur(6px);border-bottom:1px solid var(--line)}
+  nav.sticky .wrap{display:flex;gap:4px;overflow-x:auto;padding:10px 20px;white-space:nowrap}
+  nav.sticky a{color:var(--muted);text-decoration:none;font-size:.88rem;padding:6px 10px;border-radius:8px}
+  nav.sticky a:hover{background:var(--accent-soft);color:var(--accent-dark)}
+  section{padding:34px 0;border-bottom:1px solid var(--line)}
+  h2{font-size:1.55rem;margin:0 0 6px;color:#075985}
+  h2 .num{display:inline-block;background:var(--accent);color:#fff;font-size:.95rem;
+    width:34px;height:34px;line-height:34px;text-align:center;border-radius:10px;margin-right:10px;vertical-align:middle}
+  h3{font-size:1.15rem;margin:26px 0 8px}
+  .lead{color:#4b5563;font-size:1.05rem}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:20px 22px;margin:16px 0;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin:18px 0}
+  .concept{background:var(--card);border:1px solid var(--line);border-top:4px solid var(--accent);
+    border-radius:12px;padding:16px 18px}
+  .concept h4{margin:0 0 6px;font-size:1.02rem}
+  .concept p{margin:0;font-size:.93rem;color:#4b5563}
+  .concept.blue{border-top-color:var(--blue)} .concept.amber{border-top-color:var(--amber)}
+  .concept.green{border-top-color:var(--green)} .concept.red{border-top-color:var(--red)}
+  .concept.cyan{border-top-color:var(--cyan)}
+  pre{background:var(--code-bg);color:#e8eaf2;border-radius:12px;padding:18px 20px;
+    overflow-x:auto;font-size:.86rem;line-height:1.6;margin:14px 0;max-height:560px;overflow-y:auto}
+  code{font-family:"SF Mono",Consolas,"Courier New",monospace}
+  p code, li code, td code{background:var(--accent-soft);padding:1px 7px;border-radius:6px;font-size:.88em;color:#075985}
+  pre code{background:none;padding:0;color:inherit}
+  .kw{color:#c792ea}.fn{color:#82aaff}.str{color:#c3e88d}.cm{color:#697098;font-style:italic}.num2{color:#f78c6c}
+  pre.before{background:#2a1a12;border:1px solid #7c2d12}
+  pre.after{background:#0f2a1a;border:1px solid #047857}
+  .diff-tag{display:inline-block;font-size:.78rem;font-weight:700;border-radius:6px;padding:2px 10px;margin-bottom:6px}
+  .diff-tag.old{background:var(--amber-soft);color:var(--amber)}
+  .diff-tag.new{background:var(--green-soft);color:var(--green)}
+  .diagram{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px 10px;margin:18px 0;text-align:center;overflow-x:auto}
+  .diagram svg{max-width:100%;height:auto}
+  .caption{font-size:.9rem;color:var(--muted);margin-top:10px;font-style:italic}
+  .analogy{background:#f0f9ff;border:1px solid #7dd3fc;border-left:6px solid var(--accent);
+    border-radius:10px;padding:16px 20px;margin:16px 0}
+  .analogy b{color:#075985}
+  .warn{background:#fffbeb;border:1px solid #fcd34d;border-left:6px solid var(--amber);
+    border-radius:10px;padding:16px 20px;margin:16px 0}
+  .warn b{color:#92400e}
+  .ok{background:#ecfdf5;border:1px solid #6ee7b7;border-left:6px solid var(--green);
+    border-radius:10px;padding:16px 20px;margin:16px 0}
+  .bad{background:#fef2f2;border:1px solid #fecaca;border-left:6px solid var(--red);
+    border-radius:10px;padding:16px 20px;margin:16px 0}
+  table.mini{border-collapse:collapse;margin:14px auto;font-size:.9rem;min-width:70%}
+  table.mini th, table.mini td{border:1px solid var(--line);padding:8px 14px;text-align:left}
+  table.mini th{background:var(--accent-soft)}
+  table.mini td.num{font-family:monospace;text-align:center;white-space:nowrap}
+  table.mini tr.hl td{background:#e0f2fe;font-weight:700}
+  .demo{background:#fff;border:2px solid var(--accent);border-radius:16px;padding:24px;margin:18px 0}
+  .demo h3{margin-top:0}
+  input[type=text], input[type=number]{width:100%;padding:10px 14px;font-size:.95rem;border:2px solid var(--line);
+    border-radius:10px;margin:8px 0;font-family:monospace}
+  .seg{display:flex;gap:8px;margin:10px 0;flex-wrap:wrap}
+  .seg button{border:2px solid var(--line);background:#fff;border-radius:10px;
+    padding:8px 18px;font-size:1rem;cursor:pointer}
+  .seg button.active{border-color:var(--accent);background:var(--accent-soft);font-weight:700}
+  .big-out{background:var(--code-bg);color:#e8eaf2;border-radius:12px;padding:18px 20px;
+    font-family:monospace;font-size:.92rem;margin-top:12px;line-height:1.9;word-break:break-word}
+  .btn{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:10px 22px;
+    font-size:1rem;cursor:pointer;margin:10px 8px 0 0}
+  .btn:hover{background:#075985}
+  .formula{text-align:center;font-size:1.15rem;background:#f0f9ff;border-radius:10px;
+    padding:18px;margin:14px 0;font-family:Georgia,serif}
+  .formula small{display:block;font-family:inherit;font-size:.85rem;color:var(--muted);margin-top:6px}
+  footer{padding:36px 0 60px;color:var(--muted);font-size:.9rem;text-align:center}
+  ul.tight li{margin-bottom:6px}
+  @media(max-width:600px){header.hero h1{font-size:1.6rem}body{font-size:15.5px}}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="tag">📄 Phân tích: day14/pretrain_project.py</span>
+    <h1>Day 14 — Mini-project<br>Pretraining có ngân sách</h1>
+    <p>Tổng hợp tuần 2: dữ liệu (Day 8) → tái lập (9) → ổn định (10) → ngân sách (11) → đánh giá (12) → đo lường (13). Một dự án pretraining thu nhỏ chạy trọn vòng: viết ngân sách <b>trước</b>, train baseline + 2 ablation <b>đúng 1 biến</b>, chốt bằng report kèm năng lượng.</p>
+    <p style="font-size:.9rem;opacity:.8">Số liệu trong bài là kết quả chạy thật (CPU-only, torch 2.14.1+cpu, cả script chạy ~13 giây).</p>
+  </div>
+</header>
+
+<nav class="sticky"><div class="wrap">
+  <a href="#tong-quan">🍿 Tóm tắt 30 giây</a>
+  <a href="#budget">💰 Ngân sách</a>
+  <a href="#data">📦 Dữ liệu</a>
+  <a href="#train">🏋️ Train</a>
+  <a href="#ablation">🧪 Ablation</a>
+  <a href="#green">🌱 Green</a>
+  <a href="#trainer">🛠️ Trainer đã sửa gì</a>
+  <a href="#source">📜 Source code</a>
+</div></nav>
+
+<div class="wrap">
+
+<!-- ================= TỔNG QUAN ================= -->
+<section id="tong-quan">
+  <h2><span class="num">🍿</span>Tóm tắt 30 giây cho người ngoại đạo</h2>
+  <p class="lead">Dự án mini này chứng minh một điều: <b>phương pháp quan trọng hơn quy mô</b>. Corpus chỉ 18 câu, model chỉ 414 nghìn params — nhưng quy trình thì đúng chuẩn như pretrain thật: ngân sách viết trước, ablation 1 biến có kiểm tra tự động, report kèm năng lượng.</p>
+  <div class="grid">
+    <div class="concept"><h4>💰 A. Ngân sách trước</h4><p>30 phút / 0.10 kWh, viết <b>trước khi chạy</b> và giữ nguyên trong report dù có vượt — ngân sách viết sau kết quả là vô nghĩa.</p></div>
+    <div class="concept blue"><h4>📦 B. Dữ liệu</h4><p>Dedup bắt đúng 2 câu trùng (20→18), val held-out 2 câu <b>không trùng train</b> — chống rò rỉ kiểu Day 12.</p></div>
+    <div class="concept amber"><h4>🏋️ C. Train có guard</h4><p>Health check đúng thứ tự Day 10, <code>perf_counter</code> đo giờ, guard device Day 7 — mọi bài học cũ đều có mặt.</p></div>
+    <div class="concept green"><h4>🧪 E. Ablation 1 biến</h4><p>lr 1e-2 và batch 16, kiểm tra <b>tự động</b> bằng <code>assert_single_change</code> — kết quả: <b>BỎ cả 2</b>.</p></div>
+    <div class="concept red"><h4>🌱 F. Green</h4><p>CodeCarbon + guard finally Day 13, ghi rõ nguồn số điện: <b>ước lượng (TDP)</b>, không phải đo.</p></div>
+  </div>
+  <div class="analogy"><b>🏗️ Ví dụ — Xây nhà mẫu:</b> thay vì xây cả tòa nhà, người ta dựng <b>nhà mẫu thu nhỏ</b> để kiểm tra quy trình: móng, khung, điện nước — sai ở nhà mẫu thì sửa rẻ, sai ở tòa nhà thật thì tốn kém. Day 14 chính là "nhà mẫu" của pretraining.</div>
+</section>
+
+<!-- ================= BUDGET ================= -->
+<section id="budget">
+  <h2><span class="num">💰</span>Ngân sách: viết TRƯỚC khi chạy</h2>
+  <p class="lead"><code>BUDGET = {max_minutes: 30, max_kwh: 0.10}</code> — khai báo ngay đầu file, <b>trước</b> mọi lần chạy, và giữ nguyên trong report dù có vượt. Đây là "Bẫy 1": ngân sách viết <b>sau</b> kết quả thì chỉ là ngụy biện.</p>
+
+  <div class="formula">Chinchilla: D ≈ 20 × N
+    <small>N = số params · D = số token cần để train "đủ dữ liệu"</small>
+  </div>
+  <table class="mini">
+    <tr><th></th><th>Số thật</th></tr>
+    <tr><td>Model TinyLM</td><td class="num">414,012 params</td></tr>
+    <tr><td>Chinchilla D ≈ 20 × N</td><td class="num">~8,280,240 tokens</td></tr>
+    <tr><td>Train thật</td><td class="num">54 tokens/epoch → 1,620 tokens/30 epochs</td></tr>
+    <tr><td>Tỷ lệ</td><td class="num">0.02% của Chinchilla 😅</td></tr>
+  </table>
+  <div class="ok"><b>💡 Kết luận thẳng thắn trong code:</b> dự án mini trên corpus nhỏ — mục đích là <b>phương pháp</b> (ngân sách/ablation/green), không phải đạt Chinchilla. Thành thật về quy mô còn giá trị hơn giả vờ train "nghiêm túc" trên 18 câu.</div>
+</section>
+
+<!-- ================= DATA ================= -->
+<section id="data">
+  <h2><span class="num">📦</span>Dữ liệu: dedup + val held-out + manifest</h2>
+  <p class="lead">Corpus 20 câu (8 câu gốc + 10 câu tự viết + <b>2 câu trùng cố tình</b> để kiểm tra dedup có bắt được không). Kết quả chạy thật:</p>
+  <table class="mini">
+    <tr><th>Bước</th><th>Kết quả</th></tr>
+    <tr><td>Dedup</td><td class="num">20 câu → 18 câu duy nhất (bắt đúng 2 câu trùng ✅)</td></tr>
+    <tr><td>Chia train/val</td><td class="num">Train 16 câu | Val 2 câu (held-out)</td></tr>
+    <tr><td>Contamination check</td><td class="num">Không câu val nào nằm trong train ✅</td></tr>
+    <tr><td>Vocab</td><td class="num">60 từ (pad_id=0) · hash dữ liệu: 738e27a90f11098e…</td></tr>
+  </table>
+  <div class="analogy"><b>📦 Ví dụ — Đóng gói hàng:</b> <code>manifest.json</code> là <b>phiếu đóng gói</b>: ghi ngân sách, seed, hash dữ liệu, số câu train/val, vocab. Lần sau chạy lại, đối chiếu hash là biết dữ liệu có bị ai "đụng" vào không — bài học Day 8 (manifest) quay lại đây.</div>
+</section>
+
+<!-- ================= TRAIN ================= -->
+<section id="train">
+  <h2><span class="num">🏋️</span>Train: mọi guard cũ đều có mặt</h2>
+  <p class="lead">Vòng train <code>train_run()</code> là "bản tổng hợp" các guard đã học:</p>
+  <ol class="tight">
+    <li><b>Trước train:</b> train/val không rỗng, không token ngoài vocab (edge case Day 10).</li>
+    <li><b>Sau backward, TRƯỚC opt.step:</b> loss finite + grad norm finite — NaN là <b>DỪNG ngay</b> và ghi severity, không cố train tiếp (Day 10).</li>
+    <li><b>Mỗi epoch:</b> in train loss + val loss — để thấy overfit sớm.</li>
+    <li><b>Đo giờ bằng <code>perf_counter</code></b> (Day 13), không dùng <code>time.time()</code>.</li>
+    <li><b>Guard device Day 7</b> trong <code>forward()</code>: <code>torch.arange(T, device=idx.device)</code> — lỗi từng tái phạm ở Day 11.</li>
+  </ol>
+  <div class="warn"><b>⚠️ Phát hiện từ đường cong loss (số thật):</b> cả 3 run đều <b>overfit</b> — train loss → ~0.001–0.007 nhưng val loss <b>tăng lại</b> sau epoch 4–6. Baseline đạt val tốt nhất ở <b>epoch 4 (3.4109)</b>, cuối run là 4.0190. Đây là minh họa sống cho "train loss thấp ≠ model tốt" — phải có val held-out mới thấy được.</div>
+</section>
+
+<!-- ================= ABLATION ================= -->
+<section id="ablation">
+  <h2><span class="num">🧪</span>Ablation: baseline + 2 thí nghiệm, verdict BỎ cả 2</h2>
+  <p class="lead">Mỗi ablation chỉ khác baseline <b>đúng 1 key</b>, và được kiểm tra <b>tự động</b> bằng <code>assert_single_change()</code> trước khi chạy — bài học Day 13 (claim "1 biến" phải verify bằng code, không bằng mắt).</p>
+  <table class="mini">
+    <tr><th>Cấu hình</th><th>val loss</th><th>task</th><th>giây</th><th>kWh</th><th>kWh/1k</th><th>Verdict</th></tr>
+    <tr class="hl"><td>Baseline (lr 3e-3, batch 8)</td><td class="num">4.0190</td><td class="num">0.50</td><td class="num">1.3</td><td class="num">0.000012</td><td class="num">0.000007</td><td>mốc đối chiếu</td></tr>
+    <tr><td>A: lr 3e-3 → 1e-2</td><td class="num">4.8365</td><td class="num">0.17</td><td class="num">0.7</td><td class="num">0.000003</td><td class="num">0.000002</td><td><b>BỎ</b></td></tr>
+    <tr><td>B: batch 8 → 16</td><td class="num">4.1117</td><td class="num">0.17</td><td class="num">0.6</td><td class="num">0.000003</td><td class="num">0.000002</td><td><b>BỎ</b></td></tr>
+  </table>
+
+  <div class="demo">
+    <h3>📈 Đường cong val loss qua 30 epoch (số thật)</h3>
+    <div id="lossChart"></div>
+    <p class="caption">Cả 3 đường đều đi lên sau epoch ~6: overfit. Ablation A (lr cao) còn "nhảy" mạnh ở epoch 4 (4.6454) trước khi rơi vào overfit nặng nhất.</p>
+  </div>
+
+  <div class="warn"><b>⚠️ Vì sao BỎ cả 2?</b> Cả A và B đều <b>tệ hơn baseline cả 2 mặt chất lượng</b> (val loss cao hơn, task score 0.17 &lt; 0.50) — dù chúng <b>rẻ điện hơn</b> (0.000003 vs 0.000012 kWh). Verdict "green" đòi hỏi <b>chất lượng tăng MÀ điện không tăng</b>; rẻ nhưng dở thì vẫn BỎ. Đây là điểm khác với Day 13 (giữ cả 3 vì đều tăng tốc): ở đây tiêu chí là chất lượng, không phải tốc độ.</div>
+
+  <div class="card"><h3 style="margin-top:0">💬 Mẫu sinh từ prompt "meo" (greedy, 8 token)</h3>
+    <ul class="tight" style="margin-bottom:0">
+      <li>Baseline: <code>meo uong sua buoi sang buoi sang tren tham</code> — có nghĩa, đúng phong cách corpus.</li>
+      <li>Ablation A: <code>meo uong sua buoi sang sua buoi sang sua</code> — <b>lặp từ</b>, dấu hiệu overfit nặng.</li>
+      <li>Ablation B: <code>meo nam phoi nang sang tren tham trong vuon</code> — có nghĩa nhưng task score vẫn thấp.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ================= GREEN ================= -->
+<section id="green">
+  <h2><span class="num">🌱</span>Green checkpoint: trong ngân sách, nguồn số rõ ràng</h2>
+  <p class="lead">Mỗi run chạy kèm <code>EmissionsTracker</code> với guard <code>finally</code> của Day 13 (crash cũng không mất số). Kết quả đối chiếu ngân sách viết trước:</p>
+  <table class="mini">
+    <tr><th></th><th>Thực tế</th><th>Ngân sách</th><th>Kết quả</th></tr>
+    <tr><td>Thời gian (3 run)</td><td class="num">~0.0 phút</td><td class="num">30 phút</td><td>✅ Trong ngân sách</td></tr>
+    <tr><td>Điện (3 run)</td><td class="num">0.000017 kWh</td><td class="num">0.10 kWh</td><td>✅ Trong ngân sách</td></tr>
+    <tr><td>Nguồn số điện</td><td class="num" colspan="2">ước lượng (TDP) — VM không có RAPL/NVML</td><td>⚠️ Ghi rõ nguồn</td></tr>
+  </table>
+  <div class="analogy"><b>🌱 Ví dụ — Hóa đơn điện:</b> report không chỉ ghi "tốn bao nhiêu" mà còn ghi <b>"số này đo bằng công tơ hay ước lượng"</b>. Số ước lượng từ TDP chỉ đúng về độ lớn — ghi rõ nguồn là để người đọc không tưởng nó chính xác tuyệt đối.</div>
+</section>
+
+<!-- ================= TRAINER ================= -->
+<section id="trainer">
+  <h2><span class="num">🛠️</span>Trainer đã sửa gì: 1 lỗi duy nhất, với 2 lỗ hổng</h2>
+  <p class="lead">Review ngày 24/10, trainer kết luận phần lỗi mini-project "rất sạch": 3 cấu hình bằng params tuyệt đối (414,012), tái lập từng byte qua 4 lần chạy, manifest khớp byte-for-byte với số chạy thật, và toàn bộ lỗi cũ (arange device, perf_counter, tracker finally, docstring) đều không tái phạm. <b>Lỗi duy nhất</b> nằm ở chính cái guard chống lỗi ablation — <code>assert_single_change()</code> — và nó lọt <b>2 lỗ hổng</b>:</p>
+
+  <div class="card">
+    <h3 style="margin-top:0">Lỗ hổng 1 — Ablation THIẾU key vẫn qua guard, rồi crash giữa train</h3>
+    <p>Ví dụ quên key <code>"lr"</code>: guard cũ so sánh <code>baseline[k] != ablation.get(k)</code> — key thiếu cho ra <code>None</code>, khác giá trị thật nên vẫn tính là "1 key khác" → <b>qua guard</b>. Đến giữa <code>train_run</code>, <code>cfg["lr"]</code> mới ném <code>KeyError</code> mơ hồ — lỗi bị phát hiện muộn, ở sai chỗ.</p>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0">Lỗ hổng 2 — Ablation THÊM key lạ vẫn được chứng nhận "1 biến"</h3>
+    <p>Ví dụ gõ nhầm <code>"lrr"</code> thay <code>"lr"</code>, hoặc thêm key mà <code>train_run</code> không hề đọc (như <code>"wd"</code>): guard cũ cộng thêm key lạ vào danh sách diff → vẫn đủ "1 key" → <b>đóng dấu "chỉ khác 1 biến"</b>. Nhưng run chạy ra <b>giống hệt baseline từng chữ số</b> (val_loss 4.0190 = 4.0190) — claim đổi 1 biến, thực tế đổi <b>0 biến hiệu dụng</b>. Đây là lỗi sai <b>âm thầm</b>: không crash, không báo động, chỉ cho kết luận sai.</p>
+  </div>
+
+  <span class="diff-tag old">TRƯỚC — chỉ đếm key khác GIÁ TRỊ</span>
+<pre class="before"><code>    diff = [k for k in baseline if baseline[k] != ablation.get(k)]
+    diff += [k for k in ablation if k not in baseline]
+    assert len(diff) == 1, ...</code></pre>
+  <span class="diff-tag new">SAU — bắt buộc tập key BẰNG NHAU, rồi mới đếm 1 key khác giá trị</span>
+<pre class="after"><code>    <span class="cm"># [TRAINER] Bat buoc tap key cua ablation phai BANG tap key cua</span>
+    <span class="cm"># baseline (muon them knob moi: them vao BASELINE truoc, kem gia</span>
+    <span class="cm"># tri mac dinh), va dung 1 key khac gia tri.</span>
+    missing = [k for k in baseline if k not in ablation]
+    extra = [k for k in ablation if k not in baseline]
+    assert not missing and not extra, \
+        f"ablation phai co dung tap key cua baseline " \
+        f"(thieu: {missing}, thua: {extra})"
+    diff = [k for k in baseline if baseline[k] != ablation[k]]
+    assert len(diff) == 1, ...</code></pre>
+
+  <div class="demo">
+    <h3>🧪 Thử ngay: guard cũ vs guard mới</h3>
+    <p style="margin-top:0">Chọn một trường hợp để xem hai guard xử lý khác nhau ra sao (logic y hệt Python, đã tái hiện và kiểm chứng):</p>
+    <div class="seg">
+      <button class="active" data-case="missing">Thiếu key "lr"</button>
+      <button data-case="typo">Gõ nhầm "lrr" thay "lr"</button>
+      <button data-case="ok">Đổi lr thật (3e-3 → 1e-2)</button>
+    </div>
+    <div class="big-out" id="guardOut"></div>
+  </div>
+
+  <div class="ok"><b>💡 Bài học chung:</b> trớ trêu mà sâu sắc — <b>chính công cụ chống lỗi cũng có thể có lỗi</b>. Guard sinh ra để chặn lỗi ablation kiểu Day 13, nhưng bản thân nó lại lọt 2 lỗ hổng. Vì vậy guard cũng cần được <b>test bằng các ca biên</b> (thiếu key, thừa key), không chỉ test ca đúng. Và khi đếm lỗi: 1 hàm sai = 1 lỗi, dù nó biểu hiện ra 2 cách.</div>
+</section>
+
+<!-- ================= SOURCE CODE ================= -->
+<section id="source">
+  <h2><span class="num">📜</span>Toàn bộ source code</h2>
+  <p class="lead">File <code>day14/pretrain_project.py</code> (bản đã có fix của trainer) — tô màu tự động, bấm nút để copy.</p>
+  <button class="btn" id="copySrcBtn">📋 Copy toàn bộ code</button>
+  <span id="copyMsg" style="margin-left:12px;color:var(--green);font-weight:700"></span>
+  <pre class="pysrc" id="fullsrc"><code>#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""Mini-project: Pretraining co ngan sach (Day 14 - buoi toi).
+
+Tong hop tuan 2: du lieu (Ngay 8) -&gt; tai lap (9) -&gt; on dinh (10) -&gt;
+ngan sach (11) -&gt; danh gia (12) -&gt; do luong (13).
+
+Dau ra: experiment report 3 dong (baseline + 2 ablation), moi dong co
+val loss, task score, thoi gian, kWh, kWh/1.000 token, verdict green.
+
+Quy tac sat (va cach code nay tuan thu):
+  - Ngan sach viet TRUOC khi chay (Bẫy 1).
+  - Ablation doi dung 1 bien - kiem tra TU DONG bang assert_single_change
+    (bai hoc Day 13: claim "1 bien" phai verify bang code, khong bang
+    mat; truoc day SDPA lech 4.096 params ma docstring van ghi 1 bien).
+  - So dien ghi kem nguon (do RAPL/NVML hay uoc luong TDP).
+
+Drill muc 0 (dap an):
+  1) t0 = time.perf_counter(); run(); dt = time.perf_counter() - t0
+     (khong dung time.time() - dong ho tuong co the bi chinh).
+  2) try: train() finally: tracker.stop() (crash cung khong mat so).
+  3) Tach thanh 3 lan chay: baseline, chi tang batch, chi tang lr.
+
+Cach chay:
+    python pretrain_project.py
+"""
+
+import hashlib
+import json
+import math
+import random
+import time
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+# ---------------------------------------------------------------------------
+# Phan A - Ngan sach + manifest (VIET TRUOC KHI CHAY)
+# ---------------------------------------------------------------------------
+# TODO (Phan A): dien ngan sach TRUOC KHI chay - giu nguyen trong
+# report du co vuot (Bay 1: ngan sach viet sau ket qua la vo nghia).
+BUDGET = {
+    "max_minutes": 30,      # chay tren CPU, du kien chi vai phut
+    "max_kwh": 0.10,        # uoc luong CodeCarbon TDP, du kien ~0.001
+    "note": "chay tren CPU cua VM (khong GPU)",
+}
+SEED = 42
+
+
+def seed_all(seed):
+    """Seed MOI nguon ngau nhien (random + torch + cuda neu co).
+
+    Chi seed 1 nguon ma quen nguon kia la du de ket qua troi (cau hoi 2).
+    """
+    random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+
+
+def count_params(model):
+    """Tong so tham so (dung cho cot N va kiem tra Chinchilla)."""
+    return sum(p.numel() for p in model.parameters())
+
+
+# ---------------------------------------------------------------------------
+# Phan B - Du lieu mini + dedup (Ngay 8)
+# ---------------------------------------------------------------------------
+CORPUS = [
+    "meo ngoi tren tham", "cho chay trong vuon", "chim hot tren cay",
+    "meo uong sua buoi sang", "cho sua khi co khach", "chim bay qua song",
+    "troi mua nen duong uot", "nang len sau con mua",
+    # 10 cau cua rieng toi, cung phong cach ngan gon.
+    "meo nam phoi nang", "cho dao ho trong san", "ca boi duoi ao",
+    "trang sang tren troi", "gio thoi qua dong", "la roi day san",
+    "be doc sach buoi toi", "com chin thom lung",
+    "song chay ra bien", "hoa no trong vuon",
+    # 2 cau TRUNG co tinh de kiem tra dedup co bat duoc khong.
+    "meo ngoi tren tham", "troi mua nen duong uot",
+]
+
+
+def dedup(lines):
+    """Loai cau trung, GIU NGUYEN thu tu (de hash on dinh)."""
+    seen, out = set(), []
+    for ln in lines:
+        if ln not in seen:
+            seen.add(ln)
+            out.append(ln)
+    return out
+
+
+def sha256_text(text):
+    """Hash SHA-256 cua text (ghi vao manifest de doi chieu lan sau)."""
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def prepare_data():
+    """Dedup -&gt; tach train/val -&gt; tokenizer muc tu -&gt; manifest.
+
+    Returns:
+        Tuple (train_seqs, val_seqs, vocab, pad_id, manifest).
+    """
+    raw = len(CORPUS)
+    lines = dedup(CORPUS)
+    print(f"Dedup: {raw} cau -&gt; {len(lines)} cau duy nhat "
+          f"(bat duoc {raw - len(lines)} cau trung)")
+    # 2 cau cuoi lam val, con lai lam train.
+    train_lines, val_lines = lines[:-2], lines[-2:]
+    # Contamination check (Ngay 12): khong cau val nao nam trong train.
+    assert not set(val_lines) &amp; set(train_lines), \
+        "RO RI: cau val trung cau train!"
+    print(f"Train: {len(train_lines)} cau | Val: {len(val_lines)} cau "
+          f"(held-out, khong trung train)")
+    # Tokenizer muc tu: vocab = cac tu xuat hien + &lt;pad&gt; + &lt;unk&gt;.
+    words = sorted({w for ln in lines for w in ln.split()})
+    vocab = ["&lt;pad&gt;", "&lt;unk&gt;"] + words
+    stoi = {w: i for i, w in enumerate(vocab)}
+    pad_id = stoi["&lt;pad&gt;"]
+    unk_id = stoi["&lt;unk&gt;"]
+
+    def encode(sentence):
+        return [stoi.get(w, unk_id) for w in sentence.split()]
+
+    train_seqs = [encode(s) for s in train_lines]
+    val_seqs = [encode(s) for s in val_lines]
+    manifest = {
+        "budget": BUDGET,
+        "seed": SEED,
+        "data_hash": sha256_text("\n".join(lines)),
+        "n_raw": raw, "n_unique": len(lines),
+        "n_train": len(train_lines), "n_val": len(val_lines),
+        "vocab_size": len(vocab),
+    }
+    with open("manifest.json", "w", encoding="utf-8") as f:
+        json.dump(manifest, f, indent=2, ensure_ascii=False)
+    print(f"Vocab: {len(vocab)} tu (pad_id={pad_id}) | "
+          f"hash du lieu: {manifest['data_hash'][:16]}...")
+    return train_seqs, val_seqs, vocab, pad_id, manifest
+
+
+# ---------------------------------------------------------------------------
+# Phan C - Model + vong train co health check (Ngay 7 + Ngay 10)
+# ---------------------------------------------------------------------------
+class TinyBlock(nn.Module):
+    """Block decoder-only (ban mau co guard copy tu Ngay 7)."""
+
+    def __init__(self, d, heads):
+        super().__init__()
+        # Guard Ngay 7: d phai chia het cho heads, neu khong attention
+        # vo shape.
+        assert d % heads == 0, "d phai chia het cho heads"
+        self.attn = nn.MultiheadAttention(d, heads, batch_first=True)
+        self.ln1, self.ln2 = nn.LayerNorm(d), nn.LayerNorm(d)
+        self.mlp = nn.Sequential(nn.Linear(d, 4 * d), nn.GELU(),
+                                 nn.Linear(4 * d, d))
+
+    def forward(self, x):
+        a, _ = self.attn(x, x, x, need_weights=False)
+        x = self.ln1(x + a)
+        return self.ln2(x + self.mlp(x))
+
+
+class TinyLM(nn.Module):
+    """LM nho kieu decoder-only."""
+
+    def __init__(self, vocab, d=128, heads=4, layers=2, block_size=16):
+        super().__init__()
+        self.block_size = block_size
+        self.emb = nn.Embedding(vocab, d)
+        self.pos = nn.Embedding(block_size, d)
+        self.blocks = nn.ModuleList(
+            [TinyBlock(d, heads) for _ in range(layers)])
+        self.head = nn.Linear(d, vocab)
+
+    def forward(self, idx):
+        T = idx.size(1)
+        # Guard Ngay 7: chuoi dai hon block_size la loi vi tri.
+        assert T &lt;= self.block_size, "chuoi dai hon block_size"
+        # Guard device (Ngay 7, tai pham o Day 11): arange phai cung
+        # device voi idx.
+        pos = torch.arange(T, device=idx.device)
+        h = self.emb(idx) + self.pos(pos)
+        for b in self.blocks:
+            h = b(h)
+        return self.head(h)
+
+
+def make_batches(seqs, batch_size, pad_id, shuffle, seed):
+    """Chia cau thanh batch, pad ve do dai lon nhat trong batch.
+
+    Moi cau thanh 1 cap (x, y): x = ids[:-1], y = ids[1:] (du doan
+    token tiep theo). Vi tri pad se bi ignore khi tinh loss.
+    """
+    g = torch.Generator().manual_seed(seed) if shuffle else None
+    order = torch.randperm(len(seqs), generator=g).tolist() if shuffle \
+        else list(range(len(seqs)))
+    batches = []
+    for i in range(0, len(order), batch_size):
+        idxs = order[i:i + batch_size]
+        pairs = [(s[:-1], s[1:]) for s in [seqs[j] for j in idxs]]
+        maxlen = max(len(x) for x, _ in pairs)
+        x = torch.full((len(pairs), maxlen), pad_id, dtype=torch.long)
+        y = torch.full((len(pairs), maxlen), pad_id, dtype=torch.long)
+        for r, (xi, yi) in enumerate(pairs):
+            x[r, :len(xi)] = torch.tensor(xi)
+            y[r, :len(yi)] = torch.tensor(yi)
+        batches.append((x, y))
+    return batches
+
+
+def grad_norm(model):
+    """Chuan gradient toan cuc (de kiem tra finite sau backward)."""
+    total = 0.0
+    for p in model.parameters():
+        if p.grad is not None:
+            total += p.grad.detach().pow(2).sum().item()
+    return math.sqrt(total)
+
+
+def train_run(cfg, train_seqs, val_seqs, vocab_size, pad_id):
+    """Mot lan chay hoan chinh: seed lai tu dau, train, tra metrics.
+
+    Health check theo dung thu tu Ngay 10:
+      1) Truoc train: khong token ngoai vocab, batch khong rong.
+      2) Sau backward, TRUOC opt.step: loss finite + grad norm finite.
+         Neu NaN: DUNG va ghi severity, khong co train tiep.
+      3) Moi epoch: in train loss + val loss.
+      4) Do thoi gian bang perf_counter (khong time.time()).
+    """
+    seed_all(SEED)
+    model = TinyLM(vocab_size, d=cfg.get("d", 128))
+    opt = torch.optim.AdamW(model.parameters(), lr=cfg["lr"])
+    # 1) Kiem tra du lieu truoc train (edge case: batch rong, token la).
+    assert train_seqs and val_seqs, "train/val khong duoc rong"
+    assert all(t &lt; vocab_size for s in train_seqs + val_seqs for t in s), \
+        "token ngoai vocab!"
+    failed = None
+    # 4) perf_counter (drill muc 0) - khong time.time().
+    t0 = time.perf_counter()
+    for epoch in range(1, cfg["epochs"] + 1):
+        model.train()
+        batches = make_batches(train_seqs, cfg["batch"], pad_id,
+                               shuffle=True, seed=SEED + epoch)
+        total_loss, total_tok = 0.0, 0
+        for x, y in batches:
+            opt.zero_grad()
+            logits = model(x)
+            loss = F.cross_entropy(logits.view(-1, vocab_size),
+                                   y.view(-1), ignore_index=pad_id)
+            loss.backward()
+            # 2) Sau backward, TRUOC opt.step: kiem tra finite.
+            gn = grad_norm(model)
+            if not math.isfinite(loss.item()) or not math.isfinite(gn):
+                failed = (f"NaN tai epoch {epoch} "
+                          f"(loss={loss.item()}, grad_norm={gn})")
+                break
+            opt.step()
+            n_tok = (y != pad_id).sum().item()
+            total_loss += loss.item() * n_tok
+            total_tok += n_tok
+        if failed:
+            print(f"  [SEVERITY] DUNG RUN: {failed}")
+            break
+        train_loss = total_loss / total_tok if total_tok else float("nan")
+        # 3) Moi epoch: in train loss + val loss.
+        val_loss, _ = evaluate(model, val_seqs, vocab_size, pad_id)
+        print(f"  epoch {epoch}/{cfg['epochs']}: "
+              f"train_loss={train_loss:.4f} val_loss={val_loss:.4f}")
+    seconds = time.perf_counter() - t0
+    val_loss, task_score = evaluate(model, val_seqs, vocab_size, pad_id)
+    # Tong token da train = epochs * token train (moi epoch thay het).
+    tokens_trained = cfg["epochs"] * sum(len(s) - 1 for s in train_seqs)
+    return {"val_loss": val_loss, "task_score": task_score,
+            "seconds": seconds, "params": count_params(model),
+            "tokens_trained": tokens_trained, "failed": failed,
+            "model": model}
+
+
+# ---------------------------------------------------------------------------
+# Phan D - Danh gia: val loss chua du (Ngay 12)
+# ---------------------------------------------------------------------------
+def evaluate(model, val_seqs, vocab_size, pad_id):
+    """Tra ve (val_loss, task_score).
+
+    val_loss: cross-entropy trung binh (bo qua pad).
+    task_score: ty le vi tri du doan dung token tiep theo (held-out).
+    """
+    model.eval()
+    total_loss, total_tok, correct = 0.0, 0, 0
+    with torch.no_grad():
+        for x, y in make_batches(val_seqs, 8, pad_id, shuffle=False,
+                                 seed=0):
+            logits = model(x)
+            loss = F.cross_entropy(logits.view(-1, vocab_size),
+                                   y.view(-1), ignore_index=pad_id)
+            mask = y != pad_id
+            n_tok = mask.sum().item()
+            total_loss += loss.item() * n_tok
+            total_tok += n_tok
+            correct += (logits.argmax(-1)[mask] == y[mask]).sum().item()
+    val_loss = total_loss / total_tok if total_tok else float("nan")
+    task_score = correct / total_tok if total_tok else 0.0
+    return val_loss, task_score
+
+
+def generate(model, stoi, itos, prompt, n_tokens=10):
+    """Sinh mau tham lam (greedy) tu prompt.
+
+    Guard device (Ngay 7): tensor phai cung device voi model.
+    """
+    device = next(model.parameters()).device
+    idx = torch.tensor([[stoi.get(w, stoi["&lt;unk&gt;"]) for w in prompt.split()]],
+                       dtype=torch.long, device=device)
+    model.eval()
+    with torch.no_grad():
+        for _ in range(n_tokens):
+            idx_c = idx[:, -model.block_size:]
+            nxt = model(idx_c)[:, -1, :].argmax(-1, keepdim=True)
+            idx = torch.cat([idx, nxt], dim=1)
+    return " ".join(itos[i] for i in idx[0].tolist())
+
+
+# ---------------------------------------------------------------------------
+# Phan E - Baseline + 2 ablation, moi cai dung 1 bien
+# ---------------------------------------------------------------------------
+def assert_single_change(baseline, ablation):
+    """Kiem tra TU DONG: ablation chi khac baseline dung 1 key.
+
+    Bai hoc Day 13: claim "1 bien" phai verify bang code. Neu khac 0
+    hoac &gt;1 key -&gt; raise ngay, khong cho chay (khong ket luan duoc).
+    """
+    # [TRAINER] Ban cu chi dem key khac GIA TRI nen lot 2 lo hong:
+    # (1) ablation THIEU key cua baseline (vd quen "lr") van qua
+    #     guard, roi crash KeyError mo ho o giua train_run thay vi
+    #     bi chan ngay tai day; (2) ablation THEM key la (vd go nham
+    #     "lrr" thay "lr", hoac key train_run khong he doc nhu "wd")
+    #     duoc chung nhan la "chi khac 1 key" du run chay ra GIONG
+    #     HET baseline (doi 0 bien hieu dung) -&gt; ket luan sai am tham,
+    #     dung dang loi Day 13 ma guard nay sinh ra de chan. Nay bat
+    #     buoc tap key cua ablation phai BANG tap key cua baseline
+    #     (muon them knob moi: them vao BASELINE truoc, kem gia tri
+    #     mac dinh), va dung 1 key khac gia tri.
+    missing = [k for k in baseline if k not in ablation]
+    extra = [k for k in ablation if k not in baseline]
+    assert not missing and not extra, \
+        f"ablation phai co dung tap key cua baseline " \
+        f"(thieu: {missing}, thua: {extra})"
+    diff = [k for k in baseline if baseline[k] != ablation[k]]
+    assert len(diff) == 1, \
+        f"ablation phai khac baseline dung 1 key, thay {len(diff)}: {diff}"
+    return diff[0]
+
+
+# ---------------------------------------------------------------------------
+# Phan F - Green checkpoint: do dien co guard (Ngay 13)
+# ---------------------------------------------------------------------------
+def run_with_energy(cfg, train_seqs, val_seqs, vocab_size, pad_id):
+    """Chay 1 cau hinh kem do dien CodeCarbon (guard finally).
+
+    Returns:
+        Dict metrics + kwh + kwh_per_1000_tokens + nguon so lieu.
+    """
+    from codecarbon import EmissionsTracker
+    tracker = EmissionsTracker()
+    tracker.start()
+    try:
+        metrics = train_run(cfg, train_seqs, val_seqs, vocab_size, pad_id)
+    finally:
+        # Guard Ngay 13: crash cung khong mat so lieu.
+        tracker.stop()
+    energy = tracker.final_emissions_data.energy_consumed  # kWh
+    metrics["kwh"] = energy
+    # Edge case guard (checklist 1): tranh chia cho 0 neu khong co token.
+    if metrics["tokens_trained"] &gt; 0:
+        metrics["kwh_per_1000"] = energy / (metrics["tokens_trained"] / 1000)
+    else:
+        metrics["kwh_per_1000"] = float("nan")
+    # Nguon so lieu: VM khong co RAPL/NVML -&gt; UOC LUONG tu TDP.
+    import os
+    has_rapl = os.path.exists("/sys/class/powercap/intel-rapl")
+    metrics["energy_source"] = "do (RAPL/NVML)" if has_rapl \
+        else "uoc luong (TDP)"
+    return metrics
+
+
+def main():
+    """Chay full mini-project: baseline + 2 ablation, in report."""
+    train_seqs, val_seqs, vocab, pad_id, manifest = prepare_data()
+    vocab_size = len(vocab)
+    stoi = {w: i for i, w in enumerate(vocab)}
+    itos = {i: w for i, w in enumerate(vocab)}
+
+    # Chinchilla check (Phan A): D ~ 20*N - model co "doi data" khong?
+    probe = TinyLM(vocab_size)
+    n_params = count_params(probe)
+    chin_tokens = 20 * n_params
+    train_tokens = sum(len(s) - 1 for s in train_seqs)
+    print(f"\nModel: {n_params:,} params | Chinchilla D ~ {chin_tokens:,} "
+          f"tokens | train that: {train_tokens} tokens/ep | "
+          f"{train_tokens * 30} tokens/30 epochs")
+    print("  -&gt; Du an mini tren corpus nho: muc dich la phuong phap "
+          "(ngan sach/ablation/green), khong phai dat Chinchilla.")
+
+    BASELINE = {"vocab": vocab_size, "lr": 3e-3, "batch": 8, "epochs": 30,
+                "d": 128}
+    # Chon 2 ablation tu thuc don (moi cai chi khac BASELINE 1 key).
+    ablation1 = {**BASELINE, "lr": 1e-2}      # A: hoc nhanh hon?
+    ablation2 = {**BASELINE, "batch": 16}     # B: on dinh hon?
+    for ab in (ablation1, ablation2):
+        key = assert_single_change(BASELINE, ab)
+        print(f"Ablation kiem tra: chi khac key '{key}' - OK")
+
+    runs = [("Baseline", BASELINE),
+            ("Ablation A: lr 3e-3 -&gt; 1e-2", ablation1),
+            ("Ablation B: batch 8 -&gt; 16", ablation2)]
+    results = []
+    for name, cfg in runs:
+        print(f"\n===== {name} =====")
+        m = run_with_energy(cfg, train_seqs, val_seqs, vocab_size, pad_id)
+        m["name"] = name
+        results.append(m)
+        sample = generate(m["model"], stoi, itos, "meo", n_tokens=8)
+        print(f"  Mau sinh tu 'meo': {sample}")
+
+    # Kiem tra ngan sach (viet truoc khi chay - Bay 1).
+    print("\n" + "=" * 78)
+    print("EXPERIMENT REPORT (so that)")
+    print("=" * 78)
+    print(f"{'Cau hinh':28} | {'val loss':&gt;8} | {'task':&gt;5} | "
+          f"{'giay':&gt;5} | {'kWh':&gt;8} | {'kWh/1k':&gt;8} | Green?")
+    print("-" * 78)
+    base = results[0]
+    for r in results:
+        if r["name"] == "Baseline":
+            verdict = "moc doi chieu"
+        else:
+            better = (r["val_loss"] &lt; base["val_loss"]
+                      or r["task_score"] &gt; base["task_score"])
+            # Green: chat luong tang ma dien KHONG tang.
+            green = better and r["kwh"] &lt;= base["kwh"] * 1.05
+            verdict = ("GIU (green)" if green else
+                       "BO (chat luong dien deu khong thang)")
+        print(f"{r['name']:28} | {r['val_loss']:&gt;8.4f} | "
+              f"{r['task_score']:&gt;5.2f} | {r['seconds']:&gt;5.1f} | "
+              f"{r['kwh']:&gt;8.6f} | {r['kwh_per_1000']:&gt;8.6f} | {verdict}")
+        if r["failed"]:
+            print(f"  !! Run that bai: {r['failed']}")
+    total_s = sum(r["seconds"] for r in results)
+    total_kwh = sum(r["kwh"] for r in results)
+    print("-" * 78)
+    print(f"Tong: {total_s / 60:.1f} phut / ngan sach {BUDGET['max_minutes']} "
+          f"phut | {total_kwh:.6f} kWh / ngan sach {BUDGET['max_kwh']} kWh "
+          f"| nguon so dien: {results[0]['energy_source']}")
+    print("=" * 78)
+
+
+if __name__ == "__main__":
+    main()
+</code></pre>
+</section>
+
+</div><!-- /wrap -->
+
+<footer>
+  <div class="wrap">
+    Được dựng từ <code>day14/pretrain_project.py</code> — giải thích bằng tiếng Việt, vẽ thành sơ đồ cho người ngoại đạo.<br>
+    Số liệu là kết quả chạy thật (CPU-only, torch 2.14.1+cpu). Sơ đồ là minh họa ý tưởng.
+  </div>
+</footer>
+
+<script>
+// --- Tiện ích ---
+function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+// --- Biểu đồ val loss (SVG, số thật) ---
+(function(){
+  const series = [
+    ["Baseline", [3.9812,3.7199,3.4652,3.4109,3.4195,3.4511,3.4827,3.506,3.5432,3.5889,3.629,3.6662,3.6973,3.7291,3.7555,3.7819,3.8075,3.8311,3.855,3.8777,3.8992,3.919,3.9377,3.9547,3.97,3.9835,3.9946,4.0042,4.0123,4.019], "#0284c7"],
+    ["A: lr 1e-2", [3.7242,3.9675,3.6997,4.6454,4.6184,4.077,3.8025,3.6019,3.4246,3.4941,3.8826,3.9348,3.9981,4.2145,4.4617,4.6133,4.6811,4.7003,4.7037,4.7014,4.7037,4.7149,4.7328,4.7543,4.7763,4.7958,4.8102,4.8221,4.8305,4.8365], "#b91c1c"],
+    ["B: batch 16", [3.8028,3.7379,3.6144,3.4749,3.4,3.3872,3.4009,3.4244,3.4515,3.4797,3.5083,3.5373,3.5675,3.5997,3.6342,3.671,3.7097,3.7499,3.7906,3.8311,3.8708,3.9089,3.9449,3.9781,4.0084,4.0355,4.0592,4.0798,4.0972,4.1117], "#4d7c0f"]
+  ];
+  const W = 860, H = 300, PL = 48, PR = 14, PT = 14, PB = 30;
+  const yMin = 3.2, yMax = 5.0;
+  const X = i => PL + i / 29 * (W - PL - PR);
+  const Y = v => PT + (yMax - v) / (yMax - yMin) * (H - PT - PB);
+  let svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg" font-family="monospace" font-size="11">';
+  svg += '<line x1="' + PL + '" y1="' + PT + '" x2="' + PL + '" y2="' + (H - PB) + '" stroke="#9ca3af"/>';
+  svg += '<line x1="' + PL + '" y1="' + (H - PB) + '" x2="' + (W - PR) + '" y2="' + (H - PB) + '" stroke="#9ca3af"/>';
+  [3.5, 4.0, 4.5, 5.0].forEach(v => {
+    svg += '<line x1="' + PL + '" y1="' + Y(v) + '" x2="' + (W - PR) + '" y2="' + Y(v) + '" stroke="#e5e7eb"/>';
+    svg += '<text x="' + (PL - 6) + '" y="' + (Y(v) + 4) + '" text-anchor="end" fill="#6b7280">' + v.toFixed(1) + '</text>';
+  });
+  [1, 10, 20, 30].forEach(e => {
+    svg += '<text x="' + X(e - 1) + '" y="' + (H - 10) + '" text-anchor="middle" fill="#6b7280">ep ' + e + '</text>';
+  });
+  series.forEach(s => {
+    const pts = s[1].map((v, i) => X(i).toFixed(1) + "," + Y(v).toFixed(1)).join(" ");
+    svg += '<polyline points="' + pts + '" fill="none" stroke="' + s[2] + '" stroke-width="2"/>';
+  });
+  svg += '</svg>';
+  let legend = '<div style="display:flex;gap:18px;flex-wrap:wrap;margin-top:8px;font-size:.9rem">';
+  series.forEach(s => {
+    legend += '<span><span style="display:inline-block;width:18px;height:4px;background:' + s[2] + ';vertical-align:middle;margin-right:6px"></span>' + esc(s[0]) + '</span>';
+  });
+  legend += '</div>';
+  document.getElementById("lossChart").innerHTML = svg + legend;
+})();
+// --- Demo guard cũ vs mới ---
+(function(){
+  const BASE = {"vocab": 60, "lr": 0.003, "batch": 8, "epochs": 30, "d": 128};
+  function oldGuard(b, a){
+    let diff = Object.keys(b).filter(k => b[k] !== (k in a ? a[k] : undefined));
+    diff = diff.concat(Object.keys(a).filter(k => !(k in b)));
+    return diff.length === 1 ? {ok: true, key: diff[0]} : {ok: false, diff: diff};
+  }
+  function newGuard(b, a){
+    const missing = Object.keys(b).filter(k => !(k in a));
+    const extra = Object.keys(a).filter(k => !(k in b));
+    if(missing.length || extra.length) return {ok: false, missing: missing, extra: extra};
+    const diff = Object.keys(b).filter(k => b[k] !== a[k]);
+    return diff.length === 1 ? {ok: true, key: diff[0]} : {ok: false, diff: diff};
+  }
+  const cases = {
+    missing: {label: 'Ablation THIẾU key "lr"', ab: (function(){ const o = Object.assign({}, BASE); delete o.lr; return o; })(),
+      note: 'Guard cũ: "qua" (tính thiếu key là 1 key khác) → sau đó cfg["lr"] crash KeyError giữa train. Guard mới: chặn ngay tại chỗ.'},
+    typo: {label: 'Ablation gõ nhầm "lrr" thay "lr"', ab: Object.assign({}, BASE, {lrr: 0.01}),
+      note: 'Guard cũ: "qua" (tính key lạ là 1 key khác) → run giống hệt baseline (val 4.0190 = 4.0190) nhưng vẫn được chứng nhận "1 biến". Guard mới: chặn ngay.'},
+    ok: {label: 'Đổi lr thật (3e-3 → 1e-2)', ab: Object.assign({}, BASE, {lr: 0.01}),
+      note: 'Cả hai guard đều cho qua, key khác duy nhất là "lr" — đây là ablation hợp lệ.'}
+  };
+  function render(key){
+    const c = cases[key];
+    const o = oldGuard(BASE, c.ab), n = newGuard(BASE, c.ab);
+    const fmt = r => r.ok ? "✅ QUA (key: " + r.key + ")" : "❌ CHẶN " + JSON.stringify(r);
+    document.getElementById("guardOut").innerHTML =
+      "<b>" + esc(c.label) + "</b><br>" +
+      "Guard CŨ: " + esc(fmt(o)) + "<br>" +
+      "Guard MỚI: " + esc(fmt(n)) + "<br>" +
+      "<span style='color:#9ca3af'>" + esc(c.note) + "</span>";
+  }
+  document.querySelectorAll("[data-case]").forEach(btn => {
+    btn.addEventListener("click", function(){
+      document.querySelectorAll("[data-case]").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      render(btn.dataset.case);
+    });
+  });
+  render("missing");
+})();
+// --- Copy source ---
+(function(){
+  const btn = document.getElementById("copySrcBtn");
+  btn.addEventListener("click", function(){
+    const raw = document.getElementById("fullsrc").textContent;
+    const msg = document.getElementById("copyMsg");
+    const done = function(){ msg.textContent = "Đã copy ✓"; setTimeout(function(){ msg.textContent = ""; }, 2000); };
+    if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(raw).then(done, done); }
+    else { const ta = document.createElement("textarea"); ta.value = raw; document.body.appendChild(ta); ta.select(); try{ document.execCommand("copy"); }catch(e){} document.body.removeChild(ta); done(); }
+  });
+})();
+</script>
+<script>
+// Tô màu cú pháp Python
+(function(){
+  function escHtml(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+  function highlightPython(src){
+    var re = /(#[^\n]*)|("""[\s\S]*?"""|"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*')|\b(import|from|def|class|return|if|elif|else|for|while|in|is|not|and|or|None|True|False|lambda|with|as|try|except|finally|raise|global|pass|break|continue)\b|(\b\d+(?:\.\d+)?\b)|(@[\w.]+)/g;
+    var out = "", last = 0, m;
+    while((m = re.exec(src))){
+      out += escHtml(src.slice(last, m.index));
+      var tok = m[0], cls = m[1] ? "cm" : m[2] ? "str" : m[3] ? "kw" : m[4] ? "num2" : "fn";
+      out += '<span class="' + cls + '">' + escHtml(tok) + "</span>";
+      last = m.index + tok.length;
+      if(tok.length === 0) re.lastIndex++;
+    }
+    return out + escHtml(src.slice(last));
+  }
+  document.querySelectorAll("pre.pysrc").forEach(function(pre){
+    var raw = pre.textContent;
+    pre.innerHTML = "<code>" + highlightPython(raw) + "</code>";
+  });
+})();
+</script>
+</body>
+</html>
