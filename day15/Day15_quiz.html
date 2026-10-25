@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quiz Ngày 15 — Đọc một pretrained model | Khóa LLM 30 ngày</title>
+<style>
+:root{--bg:#0a0f1e; --card:#101830; --line:#22305a; --gold:#f5c542; --green:#4ade80;
+ --red:#f87171; --violet:#a78bfa; --cyan:#67e8f9; --text:#e8edf7; --muted:#93a0bd;}
+*{box-sizing:border-box;}
+body{margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.7; font-size:16.5px;}
+.wrap{max-width:760px; margin:0 auto; padding:18px 16px 60px;}
+.kicker{display:inline-block; font-size:13px; letter-spacing:1px; color:var(--gold); font-weight:700; margin-bottom:8px;}
+h1{font-size:26px; margin:6px 0 4px;}
+.sub{color:var(--muted);}
+.q{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px 18px; margin:16px 0;}
+.q h3{margin:0 0 10px; font-size:17px; color:var(--cyan);}
+label.opt{display:block; background:#0a0f1e; border:1px solid var(--line); border-radius:10px; padding:10px 14px; margin:8px 0; cursor:pointer;}
+label.opt:hover{border-color:var(--gold);}
+label.opt input{margin-right:10px;}
+.explain{display:none; border-left:4px solid var(--green); background:#0f2233; border-radius:0 10px 10px 0; padding:10px 14px; margin-top:10px; font-size:15px;}
+.explain.bad{border-color:var(--red); background:#23141a;}
+.btn{display:inline-block; background:var(--gold); color:#14100a; font-weight:700; border-radius:10px; padding:12px 24px; margin:12px 8px 0 0; border:none; font-size:16px; cursor:pointer;}
+.btn.ghost{background:transparent; color:var(--gold); border:2px solid var(--gold);}
+#result{display:none; margin-top:20px; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px;}
+#copystr{background:#060a14; border:1px dashed var(--violet); border-radius:8px; padding:10px 14px; margin:10px 0; font-size:15px; word-break:break-all;}
+.footer{color:var(--muted); font-size:14px; margin-top:30px;}
+.correct{color:var(--green); font-weight:700;} .wrong{color:var(--red); font-weight:700;}
+</style>
+</head>
+<body>
+<div class="wrap">
+<span class="kicker">QUIZ NGÀY 15 · ĐỌC MỘT PRETRAINED MODEL</span>
+<h1>📝 Quiz — 5 câu</h1>
+<p class="sub">Chọn đáp án rồi bấm <b>Nộp bài</b> để chấm điểm ngay. Đạt <b>≥ 4/5 (80%)</b> là đạt. Dưới mức đó → báo cho trợ lý để được học bù trước bài mới.</p>
+
+<div class="q" id="q1"><h3>Câu 1. Trong config.json, trường nào cho biết model có bao nhiêu lớp (độ sâu)?</h3>
+<label class="opt"><input type="radio" name="q1" value="A"> A. vocab_size</label>
+<label class="opt"><input type="radio" name="q1" value="B"> B. num_hidden_layers</label>
+<label class="opt"><input type="radio" name="q1" value="C"> C. max_position_embeddings</label>
+<label class="opt"><input type="radio" name="q1" value="D"> D. torch_dtype</label>
+<div class="explain" id="e1"></div></div>
+
+<div class="q" id="q2"><h3>Câu 2. Vì sao không nên chat trực tiếp với base model và mong nó trả lời gọn gàng như trợ lý?</h3>
+<label class="opt"><input type="radio" name="q2" value="A"> A. Vì base model chưa từng thấy dữ liệu hội thoại, nó chỉ được train để hoàn thành văn bản — muốn chat phải dùng bản instruct (đã qua SFT) hoặc tự fine-tune</label>
+<label class="opt"><input type="radio" name="q2" value="B"> B. Vì base model có ít tham số hơn bản instruct nên kém thông minh hơn</label>
+<label class="opt"><input type="radio" name="q2" value="C"> C. Vì base model không có tokenizer nên không hiểu câu hỏi</label>
+<label class="opt"><input type="radio" name="q2" value="D"> D. Vì base model bị cấm trả lời câu hỏi theo giấy phép</label>
+<div class="explain" id="e2"></div></div>
+
+<div class="q" id="q3"><h3>Câu 3. Trong định dạng ChatML (Qwen), special token nào đánh dấu kết thúc một lượt nói của assistant, và cũng là tín hiệu để trình sinh văn bản dừng lại?</h3>
+<label class="opt"><input type="radio" name="q3" value="A"> A. &lt;pad&gt;</label>
+<label class="opt"><input type="radio" name="q3" value="B"> B. &lt;bos&gt;</label>
+<label class="opt"><input type="radio" name="q3" value="C"> C. &lt;|im_end|&gt;</label>
+<label class="opt"><input type="radio" name="q3" value="D"> D. &lt;|im_start|&gt;</label>
+<div class="explain" id="e3"></div></div>
+
+<div class="q" id="q4"><h3>Câu 4. Top-p sampling với p = 0,9 hoạt động như thế nào?</h3>
+<label class="opt"><input type="radio" name="q4" value="A"> A. Luôn lấy 90% số token trong vocab, bất kể xác suất</label>
+<label class="opt"><input type="radio" name="q4" value="B"> B. Lấy tập token nhỏ nhất (sắp xếp theo xác suất giảm dần) mà tổng xác suất ≥ 0,9, rồi bốc thăm trong tập đó</label>
+<label class="opt"><input type="radio" name="q4" value="C"> C. Lấy token có xác suất đúng bằng 0,9</label>
+<label class="opt"><input type="radio" name="q4" value="D"> D. Bỏ qua 90% token đầu bảng, chỉ xét 10% còn lại</label>
+<div class="explain" id="e4"></div></div>
+
+<div class="q" id="q5"><h3>Câu 5. KV cache giúp sinh văn bản nhanh hơn bằng cách nào, và phải trả giá bằng gì?</h3>
+<label class="opt"><input type="radio" name="q5" value="A"> A. Nén trọng số model lại nên chạy nhanh hơn, giá là chất lượng giảm</label>
+<label class="opt"><input type="radio" name="q5" value="B"> B. Lưu lại key và value của các token đã sinh để bước sau không phải tính lại attention cho chúng — đổi VRAM lấy tốc độ</label>
+<label class="opt"><input type="radio" name="q5" value="C"> C. Bỏ qua các lớp attention ở những bước sau nên nhanh hơn, giá là mất ngữ cảnh</label>
+<label class="opt"><input type="radio" name="q5" value="D"> D. Sinh nhiều token cùng lúc trong một lần forward, giá là tốn thêm điện</label>
+<div class="explain" id="e5"></div></div>
+
+<div><button class="btn" onclick="grade()">Nộp bài</button>
+<button class="btn ghost" onclick="copyResult()" id="copybtn" style="display:none;">📋 Copy kết quả</button></div>
+<div id="result"><div id="scoreline" style="font-size:18px; margin-bottom:8px;"></div><div id="copystr"></div></div>
+<p style="color:var(--muted); font-size:14.5px;">Bấm <b>Copy kết quả</b> rồi paste vào chat để trợ lý ghi điểm nhé. File HTML này không tự gửi kết quả về được.</p>
+
+<div class="footer"><a href="Day15_lesson.html" style="color:var(--gold);">← Quay lại bài học Ngày 15</a></div>
+</div>
+<script>
+const KEY = {q1:"B", q2:"A", q3:"C", q4:"B", q5:"B"};
+const WHY = {
+q1:"num_hidden_layers là số lớp transformer (độ sâu). vocab_size là cỡ bảng token, max_position_embeddings là cửa sổ ngữ cảnh tối đa, torch_dtype là kiểu số của trọng số.",
+q2:"Base model chỉ được pretrain để đoán token tiếp theo trên văn bản thô — nó 'hoàn thành văn bản' chứ không 'trả lời bạn'. Hỏi nó một câu, nó có thể nối tiếp bằng câu hỏi khác. Bản instruct đã qua SFT nên mới có hành vi làm theo hướng dẫn.",
+q3:"Trong ChatML, mỗi lượt nói mở bằng <|im_start|>role và đóng bằng <|im_end|>. Khi model sinh ra <|im_end|>, trình sinh văn bản hiểu là lượt assistant đã kết thúc và dừng lại.",
+q4:"Top-p (nucleus sampling) sắp xếp token theo xác suất giảm dần rồi lấy tập nhỏ nhất mà tổng xác suất đạt ngưỡng p — tập này co giãn theo độ chắc chắn của model: chắc thì hẹp, mơ hồ thì rộng. Khác với top-k (cố định số lượng).",
+q5:"KV cache lưu key/value của token cũ, nên mỗi bước sinh mới chỉ cần tính cho token mới nhất thay vì tính lại toàn bộ chuỗi — từ O(N²) công tính lại xuống O(1) thêm mỗi bước. Cái giá là VRAM tăng theo độ dài chuỗi, số lớp và batch."
+};
+let graded = false, answers = {};
+function grade(){
+  graded = true; answers = {}; let score = 0;
+  for(let i=1;i<=5;i++){
+    const sel = document.querySelector('input[name=q'+i+']:checked');
+    const v = sel ? sel.value : "–"; answers["q"+i] = v;
+    const ok = (v === KEY["q"+i]); if(ok) score++;
+    const box = document.getElementById("e"+i);
+    box.style.display = "block";
+    box.className = "explain" + (ok ? "" : " bad");
+    box.innerHTML = (ok ? '<span class="correct">✔ Đúng.</span> ' : '<span class="wrong">✘ Sai.</span> Đáp án đúng: <b>'+KEY["q"+i]+'</b>. ') + WHY["q"+i];
+  }
+  const r = document.getElementById("result"); r.style.display = "block";
+  document.getElementById("scoreline").innerHTML = "Kết quả: <b>"+score+"/5</b> " + (score>=4 ? "🎉 Đạt! Sẵn sàng sang Ngày 16 (SFT)." : "🔁 Dưới 80% — báo trợ lý để học bù nhé.");
+  document.getElementById("copystr").textContent = copyString();
+  document.getElementById("copybtn").style.display = "inline-block";
+  r.scrollIntoView({behavior:"smooth"});
+}
+function copyString(){
+  let s = "Day15 Quiz:";
+  for(let i=1;i<=5;i++) s += " " + i + answers["q"+i];
+  let sc = 0; for(let i=1;i<=5;i++) if(answers["q"+i]===KEY["q"+i]) sc++;
+  return s + " — " + sc + "/5";
+}
+function copyResult(){
+  if(!graded) return;
+  const t = copyString();
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(t).then(()=>{document.getElementById("copybtn").textContent="✅ Đã copy!"});
+  } else {
+    const ta = document.createElement("textarea"); ta.value = t; document.body.appendChild(ta);
+    ta.select(); document.execCommand("copy"); document.body.removeChild(ta);
+    document.getElementById("copybtn").textContent="✅ Đã copy!";
+  }
+}
+</script>
+</body>
+</html>
