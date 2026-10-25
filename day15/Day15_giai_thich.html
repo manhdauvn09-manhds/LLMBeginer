@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 15 — Lab load model thật: Qwen2.5-0.5B-Instruct</title>
+<style>
+  :root{
+    --bg:#fffbeb; --card:#ffffff; --ink:#23272f; --muted:#6b7280;
+    --accent:#b45309; --accent-dark:#92400e; --accent-soft:#fef3c7;
+    --blue:#2563eb; --blue-soft:#dbeafe;
+    --amber:#b45309; --amber-soft:#fef3c7;
+    --green:#047857; --green-soft:#d1fae5;
+    --red:#b91c1c; --red-soft:#fee2e2;
+    --cyan:#0891b2; --cyan-soft:#cffafe;
+    --line:#fde68a; --code-bg:#1e2230;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    line-height:1.75;font-size:16.5px}
+  .wrap{max-width:960px;margin:0 auto;padding:0 20px}
+  header.hero{background:linear-gradient(135deg,#92400e 0%,#b45309 55%,#f59e0b 100%);
+    color:#fff;padding:64px 0 48px;margin-bottom:8px}
+  header.hero h1{margin:0 0 12px;font-size:2.1rem;line-height:1.3}
+  header.hero p{margin:6px 0;opacity:.92;max-width:720px}
+  .tag{display:inline-block;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.35);
+    border-radius:999px;padding:3px 14px;font-size:.85rem;margin-bottom:14px}
+  nav.sticky{position:sticky;top:0;z-index:50;background:rgba(255,251,235,.96);
+    backdrop-filter:blur(6px);border-bottom:1px solid var(--line)}
+  nav.sticky .wrap{display:flex;gap:4px;overflow-x:auto;padding:10px 20px;white-space:nowrap}
+  nav.sticky a{color:var(--muted);text-decoration:none;font-size:.88rem;padding:6px 10px;border-radius:8px}
+  nav.sticky a:hover{background:var(--accent-soft);color:var(--accent-dark)}
+  section{padding:34px 0;border-bottom:1px solid var(--line)}
+  h2{font-size:1.55rem;margin:0 0 6px;color:#92400e}
+  h2 .num{display:inline-block;background:var(--accent);color:#fff;font-size:.95rem;
+    width:34px;height:34px;line-height:34px;text-align:center;border-radius:10px;margin-right:10px;vertical-align:middle}
+  h3{font-size:1.15rem;margin:26px 0 8px}
+  .lead{color:#4b5563;font-size:1.05rem}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:20px 22px;margin:16px 0;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin:18px 0}
+  .concept{background:var(--card);border:1px solid var(--line);border-top:4px solid var(--accent);
+    border-radius:12px;padding:16px 18px}
+  .concept h4{margin:0 0 6px;font-size:1.02rem}
+  .concept p{margin:0;font-size:.93rem;color:#4b5563}
+  .concept.blue{border-top-color:var(--blue)} .concept.amber{border-top-color:var(--amber)}
+  .concept.green{border-top-color:var(--green)} .concept.red{border-top-color:var(--red)}
+  .concept.cyan{border-top-color:var(--cyan)}
+  pre{background:var(--code-bg);color:#e8eaf2;border-radius:12px;padding:18px 20px;
+    overflow-x:auto;font-size:.86rem;line-height:1.6;margin:14px 0;max-height:560px;overflow-y:auto}
+  code{font-family:"SF Mono",Consolas,"Courier New",monospace}
+  p code, li code, td code{background:var(--accent-soft);padding:1px 7px;border-radius:6px;font-size:.88em;color:#92400e}
+  pre code{background:none;padding:0;color:inherit}
+  .kw{color:#c792ea}.fn{color:#82aaff}.str{color:#c3e88d}.cm{color:#697098;font-style:italic}.num2{color:#f78c6c}
+  pre.before{background:#2a1a12;border:1px solid #7c2d12}
+  pre.after{background:#0f2a1a;border:1px solid #047857}
+  .diff-tag{display:inline-block;font-size:.78rem;font-weight:700;border-radius:6px;padding:2px 10px;margin-bottom:6px}
+  .diff-tag.old{background:var(--amber-soft);color:var(--amber)}
+  .diff-tag.new{background:var(--green-soft);color:var(--green)}
+  .diagram{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px 10px;margin:18px 0;text-align:center;overflow-x:auto}
+  .diagram svg{max-width:100%;height:auto}
+  .caption{font-size:.9rem;color:var(--muted);margin-top:10px;font-style:italic}
+  .analogy{background:#fffbeb;border:1px solid #fcd34d;border-left:6px solid var(--accent);
+    border-radius:10px;padding:16px 20px;margin:16px 0}
+  .analogy b{color:#92400e}
+  .warn{background:#fffbeb;border:1px solid #fcd34d;border-left:6px solid var(--amber);
+    border-radius:10px;padding:16px 20px;margin:16px 0}
+  .warn b{color:#92400e}
+  .ok{background:#ecfdf5;border:1px solid #6ee7b7;border-left:6px solid var(--green);
+    border-radius:10px;padding:16px 20px;margin:16px 0}
+  .bad{background:#fef2f2;border:1px solid #fecaca;border-left:6px solid var(--red);
+    border-radius:10px;padding:16px 20px;margin:16px 0}
+  table.mini{border-collapse:collapse;margin:14px auto;font-size:.9rem;min-width:70%}
+  table.mini th, table.mini td{border:1px solid var(--line);padding:8px 14px;text-align:left}
+  table.mini th{background:var(--accent-soft)}
+  table.mini td.num{font-family:monospace;text-align:center;white-space:nowrap}
+  table.mini tr.hl td{background:#fef3c7;font-weight:700}
+  .demo{background:#fff;border:2px solid var(--accent);border-radius:16px;padding:24px;margin:18px 0}
+  .demo h3{margin-top:0}
+  input[type=text], input[type=number]{width:100%;padding:10px 14px;font-size:.95rem;border:2px solid var(--line);
+    border-radius:10px;margin:8px 0;font-family:monospace}
+  .seg{display:flex;gap:8px;margin:10px 0;flex-wrap:wrap}
+  .seg button{border:2px solid var(--line);background:#fff;border-radius:10px;
+    padding:8px 18px;font-size:1rem;cursor:pointer}
+  .seg button.active{border-color:var(--accent);background:var(--accent-soft);font-weight:700}
+  .big-out{background:var(--code-bg);color:#e8eaf2;border-radius:12px;padding:18px 20px;
+    font-family:monospace;font-size:.92rem;margin-top:12px;line-height:1.9;word-break:break-word}
+  .btn{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:10px 22px;
+    font-size:1rem;cursor:pointer;margin:10px 8px 0 0}
+  .btn:hover{background:#92400e}
+  .formula{text-align:center;font-size:1.15rem;background:#fffbeb;border-radius:10px;
+    padding:18px;margin:14px 0;font-family:Georgia,serif}
+  .formula small{display:block;font-family:inherit;font-size:.85rem;color:var(--muted);margin-top:6px}
+  footer{padding:36px 0 60px;color:var(--muted);font-size:.9rem;text-align:center}
+  ul.tight li{margin-bottom:6px}
+  .tok{display:inline-block;background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;
+    padding:1px 8px;margin:2px;font-family:monospace;font-size:.88rem}
+  .tok-id{color:#92400e;font-size:.75rem;margin-left:2px}
+  @media(max-width:600px){header.hero h1{font-size:1.6rem}body{font-size:15.5px}}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="tag">📄 Phân tích: day15/load_model_lab.py + gen_diacritics.py</span>
+    <h1>Day 15 — Lab load model thật<br>Qwen2.5-0.5B-Instruct</h1>
+    <p>Lần đầu tiên trong khóa: không còn model đồ chơi tự viết nữa — load <b>model thật đã pretrain + SFT</b> (nửa tỉ params), đọc config, bóc tokenizer, ráp chat template, và cho nó sinh văn bản ngay trên CPU.</p>
+    <p style="font-size:.9rem;opacity:.8">Số liệu trong bài là kết quả chạy thật (VM CPU-only, torch 2.14.1+cpu, transformers 5.20.2, venv riêng day15).</p>
+  </div>
+</header>
+
+<nav class="sticky"><div class="wrap">
+  <a href="#tong-quan">🍿 Tóm tắt 30 giây</a>
+  <a href="#config">⚙️ Config</a>
+  <a href="#tokenizer">🔤 Tokenizer</a>
+  <a href="#template">💬 Chat template</a>
+  <a href="#decoding">🎲 Greedy vs sampling</a>
+  <a href="#dau">🔑 Dấu quyết định</a>
+  <a href="#trainer">🛠️ Trainer đã sửa gì</a>
+  <a href="#source">📜 Source code</a>
+</div></nav>
+
+<div class="wrap">
+
+<!-- ================= TỔNG QUAN ================= -->
+<section id="tong-quan">
+  <h2><span class="num">🍿</span>Tóm tắt 30 giây cho người ngoại đạo</h2>
+  <p class="lead">Trước giờ ta tự viết model tí hon để học nguyên lý. Hôm nay ta mở nắp một model thật — như chuyển từ <b>lắp mô hình máy bay</b> sang <b>mở nắp máy bay thật</b> để xem động cơ. 4 bài, mỗi bài trả lời một câu hỏi:</p>
+  <div class="grid">
+    <div class="concept"><h4>⚙️ Bài 1 — Config</h4><p>Đọc "giấy khai sinh" trước khi load: 24 lớp, hidden 896, GQA 14/2, context 32.768 token, ~0,494 tỉ params.</p></div>
+    <div class="concept blue"><h4>🔤 Bài 2 — Tokenizer</h4><p>Model không đọc chữ, nó đọc <b>id</b>. Tiếng Việt không dấu bị chẻ nhỏ → tốn token hơn tiếng Anh.</p></div>
+    <div class="concept amber"><h4>💬 Bài 3 — Chat template</h4><p>Prompt trần vs qua template: template chỉ là cách <b>đóng khung hội thoại</b> bằng thẻ đặc biệt.</p></div>
+    <div class="concept green"><h4>🎲 Bài 4 — Sinh văn bản</h4><p>Greedy = luôn chọn token chắc nhất (ổn định); sampling = bốc thăm có trọng số (đa dạng, có thể loạn).</p></div>
+    <div class="concept red"><h4>🔑 Phát hiện lớn</h4><p>Với tiếng Việt, <b>dấu quan trọng hơn cả template</b>: prompt không dấu làm model hiểu sai ngay từ đầu.</p></div>
+  </div>
+  <div class="analogy"><b>🚗 Ví dụ — Mua xe cũ:</b> Bài 1 là <b>đọc sổ đăng kiểm</b> (cấu hình, năm sản xuất) trước khi nổ máy. Bài 2 là <b>hiểu xe "nghĩ" bằng gì</b> (xăng = token). Bài 3 là <b>học cách nói chuyện với xe</b> (bấm đúng nút). Bài 4 là <b>lái thử</b> — và phát hiện xe chạy sai đường chỉ vì… mình đọc sai biển báo (thiếu dấu).</div>
+</section>
+
+<!-- ================= CONFIG ================= -->
+<section id="config">
+  <h2><span class="num">⚙️</span>Bài 1 — Config: đọc trước khi load trọng số</h2>
+  <p class="lead">Quy tắc vàng: <b>đọc config + giấy phép trước, tải trọng số sau</b>. Trọng số nặng ~1 GB — tải nhầm model là mất công. Config cho biết mọi thứ cần thiết:</p>
+  <table class="mini">
+    <tr><th>Mục</th><th>Số liệu thật</th></tr>
+    <tr><td>Kiến trúc</td><td class="num">Qwen2ForCausalLM</td></tr>
+    <tr><td>Số lớp / Hidden size</td><td class="num">24 lớp / 896</td></tr>
+    <tr><td>Attention head / KV head</td><td class="num">14 / 2 → <b>GQA</b></td></tr>
+    <tr><td>Cửa sổ ngữ cảnh</td><td class="num">32.768 token (prompt + output cộng lại)</td></tr>
+    <tr><td>Dtype gốc</td><td class="num">bfloat16</td></tr>
+    <tr><td>Tổng params (đếm thật)</td><td class="num"><b>494.032.768</b> (~0,494 tỉ)</td></tr>
+    <tr><td>VRAM bf16 ước lượng</td><td class="num">0,99 GB (params × 2 byte, chưa KV cache)</td></tr>
+  </table>
+
+  <h3>GQA là gì? 14 head dùng chung 2 "kho" key-value</h3>
+  <div class="analogy"><b>👥 Ví dụ — 14 nhân viên, 2 tủ hồ sơ:</b> attention thường (MHA) mỗi head có tủ riêng (14 tủ). GQA cho <b>7 head dùng chung 1 tủ</b> (14 head / 2 tủ) → KV cache nhẹ hơn <b>7 lần</b>, tốc độ sinh nhanh hơn, chất lượng gần như giữ nguyên. Đây là lý do model nhỏ vẫn chạy mượt.</div>
+
+  <div class="demo">
+    <h3>🧮 Thử ngay: máy tính VRAM</h3>
+    <p style="margin-top:0">Nhập số params (tỉ), xem model "nặng" bao nhiêu GB ở từng dtype:</p>
+    <input type="number" id="vramIn" value="0.494" step="0.001">
+    <div class="seg"><button class="btn" id="vramBtn" style="margin:0">🧮 Tính VRAM</button></div>
+    <div class="big-out" id="vramOut">Bấm nút để tính…</div>
+  </div>
+  <div class="warn"><b>⚠️ Lưu ý:</b> 0,99 GB mới chỉ là tiền trọng số. Chạy thật còn cần thêm KV cache + activation — nhưng với model ~0,5B thì "nhẹ ~1 GB" là ước lượng đúng độ lớn, đủ để quyết định "máy này chạy nổi".</div>
+</section>
+
+<!-- ================= TOKENIZER ================= -->
+<section id="tokenizer">
+  <h2><span class="num">🔤</span>Bài 2 — Tokenizer: model không đọc chữ, nó đọc id</h2>
+  <p class="lead">Câu văn phải qua tokenizer để thành dãy số (id) rồi model mới xử lý được. Mỗi từ có thể bị chẻ thành nhiều mảnh — và <b>số mảnh = số token</b> chính là thứ tính tiền và tính context.</p>
+
+  <div class="demo">
+    <h3>🔤 Thử ngay: xem model chẻ câu ra sao (số liệu thật)</h3>
+    <p style="margin-top:0">Chọn một câu — token và id là kết quả encode thật bằng tokenizer Qwen2.5:</p>
+    <div class="seg">
+      <button class="active" data-sent="vn-noaccent">Tiếng Việt không dấu (9)</button>
+      <button data-sent="vn-accent">Tiếng Việt có dấu (8)</button>
+      <button data-sent="en">Tiếng Anh (7)</button>
+      <button data-sent="giai-noaccent">Giai thich… (11)</button>
+      <button data-sent="giai-accent">Giải thích… (8)</button>
+      <button data-sent="yeu">Toi yeu AI (5)</button>
+    </div>
+    <div class="big-out" id="tokOut"></div>
+  </div>
+
+  <table class="mini">
+    <tr><th>Câu</th><th>Token</th><th>Nhận xét</th></tr>
+    <tr><td>"Thu do cua Phap la gi?"</td><td class="num">9</td><td>không dấu, bị chẻ vụn ("c" + "ua")</td></tr>
+    <tr><td>"Thủ đô của Pháp là gì?"</td><td class="num">8</td><td>có dấu: ít token hơn!</td></tr>
+    <tr><td>"What is the capital of France?"</td><td class="num">7</td><td>tiếng Anh: mỗi từ ~1 token</td></tr>
+    <tr><td>"Giai thich transformer trong mot cau."</td><td class="num">11</td><td>"Giai" → 'G','ia','i' — chẻ nát</td></tr>
+    <tr><td>"Giải thích transformer trong một câu."</td><td class="num">8</td><td>có dấu lại gọn hơn</td></tr>
+  </table>
+
+  <div class="card"><h3 style="margin-top:0">🔑 3 chi tiết "nhỏ mà quan trọng"</h3>
+    <ul class="tight" style="margin-bottom:0">
+      <li><b>eos</b> = <code>&lt;|im_end|&gt;</code> (151645) — token "hết lượt nói", model sinh ra nó là dừng. <b>pad</b> = <code>&lt;|endoftext|&gt;</code> (151643).</li>
+      <li><b>Vocab:</b> <code>len(tok)</code> = 151.665, trong khi config ghi vocab_size 151.936 — chênh lệch do vocab có token dự phòng chưa dùng.</li>
+      <li><b><code>add_special_tokens=True</code> và <code>False</code> cho kết quả giống hệt nhau:</b> Qwen không tự thêm BOS/EOS khi encode (khác BERT có [CLS]/[SEP]). Decode ngược câu có khoảng trắng đầu + dấu câu: khớp 100%.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ================= TEMPLATE ================= -->
+<section id="template">
+  <h2><span class="num">💬</span>Bài 3 — Chat template: đóng khung hội thoại</h2>
+  <p class="lead">Bản Instruct được SFT bằng đúng một định dạng hội thoại. Đưa prompt trần vào là nói sai "ngôn ngữ" model đã học — nó vẫn trả lời, nhưng kém hẳn.</p>
+
+  <div class="card">
+    <h3 style="margin-top:0">Prompt trần (cách A — sai với bản instruct)</h3>
+    <pre style="margin-bottom:0"><code>'Thu do cua Phap la gi?'</code></pre>
+  </div>
+  <div class="card">
+    <h3 style="margin-top:0">Qua chat template (cách B — đúng định dạng SFT)</h3>
+<pre style="margin-bottom:0"><code>&lt;|im_start|&gt;system
+Ban la tro ly huu ich, tra loi ngan gon.&lt;|im_end|&gt;
+&lt;|im_start|&gt;user
+Thu do cua Phap la gi?&lt;|im_end|&gt;
+&lt;|im_start|&gt;assistant
+</code></pre>
+    <p style="margin-bottom:0">Chuỗi kết thúc bằng <code>&lt;|im_start|&gt;assistant</code> = "đến lượt model nói". Đổi system prompt thành giọng cướp biển thì <b>chỉ phần nội dung system thay đổi, khung thẻ giữ nguyên</b> → system prompt thực chất chỉ là một phần của prompt, không phải công tắc đặc biệt nào.</p>
+  </div>
+  <div class="analogy"><b>🎭 Ví dụ — Kịch bản sân khấu:</b> template là <b>khung kịch bản</b> ghi rõ ai nói lúc nào: system (đạo diễn dặn dò) → user (khán giả hỏi) → assistant (diễn viên trả lời). Prompt trần là diễn viên không có kịch bản: vẫn nói được, nhưng dễ lạc vai.</div>
+</section>
+
+<!-- ================= DECODING ================= -->
+<section id="decoding">
+  <h2><span class="num">🎲</span>Bài 4 — Greedy vs sampling: cùng prompt, đổi 1 biến</h2>
+  <p class="lead">Giữ nguyên prompt template, chỉ đổi cách chọn token tiếp theo — đúng nguyên tắc ablation 1 biến của tuần trước. Prompt: <i>"Viết một câu giới thiệu về trí tuệ nhân tạo."</i> (không dấu trong script chính), 30 token mới.</p>
+
+  <h3>Greedy — luôn chọn token chắc nhất (ổn định, lặp lại được)</h3>
+  <table class="mini">
+    <tr><th>Lần</th><th>Thời gian</th><th>Output (số thật)</th></tr>
+    <tr><td>1</td><td class="num">3,4s</td><td rowspan="3">"Xin lỗi, nhưng tôi không thể giúp bạn với câu hỏi này."</td></tr>
+    <tr><td>2</td><td class="num">3,2s</td></tr>
+    <tr><td>3</td><td class="num">3,3s</td></tr>
+  </table>
+  <p class="caption" style="text-align:center">Cả 3 lần giống hệt nhau ✓ — nhưng nội dung là <b>từ chối</b>. Ổn định không đồng nghĩa đúng!</p>
+
+  <h3>Sampling temp=0.8 — bốc thăm có trọng số (đa dạng, có thể lạc đề)</h3>
+  <table class="mini">
+    <tr><th>Lần</th><th>Thời gian</th><th>Output (số thật)</th></tr>
+    <tr><td>1</td><td class="num">5,8s</td><td>"Xin lỗi, nhưng tôi không thể giúp gì nữa vì bạn đã cung cấp một câu hỏi chưa rõ ràng…"</td></tr>
+    <tr><td>2</td><td class="num">4,5s</td><td>"Duyet cho cua voi tuong phap vietnam, tran hoac vang xay ban."</td></tr>
+    <tr><td>3</td><td class="num">5,9s</td><td>"Xin lỗi, nhưng tôi không thể giải quyết vấn đề này vì bạn đã không cung cấp đủ thông tin…"</td></tr>
+  </table>
+  <p class="caption" style="text-align:center">3 lần → 3 câu khác nhau, đều lạc đề. Lưu ý: sampling là ngẫu nhiên nên lần chạy khác sẽ ra câu khác — nhưng <b>tính chất</b> (đa dạng + dễ lạc đề) vẫn giữ nguyên.</p>
+
+  <h3>Temp=1.5 và prompt trần</h3>
+  <ul class="tight">
+    <li><b>Temp=1.5 (1 lần, 5,9s):</b> "Mau nhay cau gioi tiet, bai tu vi tri co ngang 50% cho nhung nhat cua" — càng "liều" càng loạn.</li>
+    <li><b>Prompt trần + greedy (5,1s):</b> " 1. Cau Giay Thieu: Cau Giay Thieu là một trong những cau gioi thieu nổi tiếng nhất trên…" — hiểu sai cụm từ thành danh từ riêng.</li>
+  </ul>
+
+  <div class="demo">
+    <h3>🎲 Thử ngay: greedy vs sampling bằng bốc thăm</h3>
+    <p style="margin-top:0">Mô phỏng cách chọn token tiếp theo với phân phối giả định (token A 60%, B 25%, C 15%):</p>
+    <div class="seg">
+      <button class="btn" id="greedyBtn" style="margin:0">🎯 Greedy × 5</button>
+      <button class="btn" id="sampleBtn" style="margin:0">🎲 Sampling × 5</button>
+    </div>
+    <div class="big-out" id="lotteryOut">Bấm nút để bốc thăm…</div>
+  </div>
+</section>
+
+<!-- ================= DẤU ================= -->
+<section id="dau">
+  <h2><span class="num">🔑</span>Phát hiện quan trọng: dấu quyết định chất lượng hơn cả template</h2>
+  <p class="lead">Script chính dùng prompt không dấu (theo quy ước comment không dấu) nên model hiểu sai. Chạy lại với prompt có dấu (<code>gen_diacritics.py</code>) — kết quả đảo ngược hoàn toàn:</p>
+  <table class="mini">
+    <tr><th></th><th>Prompt KHÔNG dấu</th><th>Prompt CÓ dấu</th></tr>
+    <tr><td>Template + greedy</td><td>Từ chối: "Xin lỗi, nhưng tôi không thể giúp bạn…"</td><td class="num"><b>Đúng, gọn:</b> "Trí tuệ nhân tạo (AI) là một lĩnh vực nghiên cứu và phát triển tiên tiến trong công nghệ hiện đại…"</td></tr>
+    <tr><td>Template + sampling</td><td>Lạc đề ("trang web", câu vô nghĩa)</td><td class="num"><b>Đúng chủ đề:</b> "Triplet AI - một mô hình trí tuệ nhân tạo hoàn toàn mới và mạnh mẽ…"</td></tr>
+    <tr><td>Prompt trần + greedy</td><td>Hiểu sai thành danh từ riêng ("Cau Giay Thieu")</td><td class="num"><b>Vẫn đúng</b>, nhưng mở đầu bằng khoảng trắng + dấu ngoặc kép (nối tiếp văn bản, không "vào vai" assistant)</td></tr>
+  </table>
+  <div class="ok"><b>💡 Kết luận:</b> với tiếng Việt, <b>dấu là yếu tố quyết định chất lượng hơn cả template</b> trong thí nghiệm này — prompt không dấu làm model hiểu sai ngay từ đầu, còn prompt có dấu thì cả template lẫn prompt trần đều trả lời được. Template vẫn hơn ở chỗ định dạng sạch và "vào vai" đúng. Và 3 tính chất (greedy ổn định, sampling đa dạng, prompt trần tệ hơn) vẫn đúng ở cả hai bản.</div>
+  <div class="card"><h3 style="margin-top:0">⏱️ Tốc độ trên CPU (số thật, lần chạy này)</h3>
+    <ul class="tight" style="margin-bottom:0">
+      <li>Load trọng số fp32: <b>20,7 giây</b> (README ghi 39,0 giây ở lần chạy trước — tốc độ load dao động theo máy).</li>
+      <li>Sinh 30 token: greedy ~3,3 giây (~9 token/giây), sampling ~5–6 giây — đủ chạy lab, chậm hơn GPU nhiều.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ================= TRAINER ================= -->
+<section id="trainer">
+  <h2><span class="num">🛠️</span>Trainer đã sửa gì: 1 fix ở README (trích sai chuỗi)</h2>
+  <p class="lead">Review ngày 25/10: <b>1 fix duy nhất</b>, nằm ở README Bài 2 — không phải lỗi code, mà là lỗi <b>trích dẫn</b>. Bản gốc ghi số token của chuỗi <b>có dấu</b>, trong khi script thật sự encode chuỗi <b>không dấu</b>:</p>
+
+  <span class="diff-tag old">TRƯỚC — trích chuỗi có dấu, số token không đối chiếu được</span>
+<pre class="before"><code>- "Thủ đô của Pháp là gì?" → 9 token
+- "Giải thích transformer trong một câu." → 11 token</code></pre>
+  <span class="diff-tag new">SAU — trích đúng chuỗi không dấu mà script thật sự encode</span>
+<pre class="after"><code><span class="cm">&lt;!-- [TRAINER] 2 cau trich duoi day la nguyen van chuoi KHONG dau</span>
+<span class="cm">     ma script that su encode; ban co dau tuong ung chi co 8 token</span>
+<span class="cm">     ("Thủ đô của Pháp là gì?" = 8, "Giải thích transformer trong</span>
+<span class="cm">     một câu." = 8) - trich sai chuoi se lam so token khong doi</span>
+<span class="cm">     chieu lai duoc. --&gt;</span>
+- "Thu do cua Phap la gi?" (chuỗi script thật sự encode) → 9 token
+- "Giai thich transformer trong mot cau." → 11 token</code></pre>
+
+  <div class="ok"><b>💡 Vì sao fix này quan trọng?</b> Tôi đã chạy lại tokenizer để kiểm chứng: chuỗi không dấu đúng là 9 và 11 token, còn bản có dấu chỉ có <b>8 token</b> mỗi câu. Trích sai chuỗi thì người đọc chạy lại sẽ ra số khác — tài liệu <b>không đối chiếu lại được</b>, mất đúng tính chất mà cả khóa đang rèn: số liệu phải tái lập được. Đây cũng là bài học "docstring nói dối" ở dạng khác: <b>README nói dối</b> thì cũng tai hại như code nói dối.</div>
+</section>
+
+<!-- ================= MÔI TRƯỜNG ================= -->
+<section id="env">
+  <h2><span class="num">🔧</span>Quirk môi trường: tải model qua đâu khi HF bị chặn</h2>
+  <p class="lead">Trên VM này, tải trọng số qua Hugging Face bị kẹt (proxy chặn CDN sau ~16 MB, thử cả hf_transfer và mirror đều đứng). Cách làm đã dùng:</p>
+  <ul class="tight">
+    <li>Trọng số lấy qua <b>ModelScope</b> (<code>Qwen/Qwen2.5-0.5B-Instruct</code>, 988 MB, ~30 MB/s) + <code>config.json</code> lấy từ HF cache (file nhỏ tải được bình thường).</li>
+    <li>Chạy bằng <b>venv riêng</b> <code>~/workspace/venvs/day15</code> (tránh lỗi ENOSPC ở system pip).</li>
+    <li>Trên máy thường (không qua proxy này), chỉ cần đặt <code>MODEL = "Qwen/Qwen2.5-0.5B-Instruct"</code> là chạy thẳng từ HF, không cần ModelScope.</li>
+    <li>CPU-only nên load <b>float32</b>, giảm <code>max_new_tokens</code> từ 60 xuống 30 cho nhanh (Bẫy 3 của đề bài).</li>
+  </ul>
+</section>
+
+<!-- ================= SOURCE CODE ================= -->
+<section id="source">
+  <h2><span class="num">📜</span>Toàn bộ source code</h2>
+  <p class="lead">2 file — tô màu tự động, bấm nút để copy từng file.</p>
+  <h3>File 1: <code>load_model_lab.py</code> (lab chính, 4 bài)</h3>
+  <button class="btn" id="copySrc1Btn">📋 Copy load_model_lab.py</button>
+  <span id="copyMsg1" style="margin-left:12px;color:var(--green);font-weight:700"></span>
+  <pre class="pysrc" id="fullsrc1"><code>#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""Lab load model that: Qwen2.5-0.5B-Instruct (Day 15 - buoi toi).
+
+4 bai:
+  1. Doc config truoc khi load trong so (kien truc, context, VRAM).
+  2. Tokenizer: tieng Viet vs tieng Anh, special token, decode nguoc.
+  3. Chat template: prompt tran vs qua template, system prompt.
+  4. Sinh van ban: greedy vs sampling (cung prompt, doi 1 bien).
+
+Moi truong: CPU-only (VM nay khong co GPU) nen load float32, giam
+max_new_tokens xuong 30 cho nhanh (dung nhu Bay 3 cua de bai).
+
+Cach chay (dung venv rieng, tranh loi ENOSPC o system pip):
+    ~/workspace/venvs/day15/bin/python load_model_lab.py
+
+Chu y checklist 7 diem: docstring khop code, device dung cho (tensor
+ve model.device), do thoi gian bang perf_counter, khong file I/O
+gia dinh shape.
+"""
+
+import time
+
+import os
+
+import torch
+from transformers import (AutoConfig, AutoModelForCausalLM,
+                          AutoTokenizer)
+
+# Model tai ve qua ModelScope (HF CDN bi chan toc do qua proxy cua VM).
+# Thu muc local da du: config.json, model.safetensors, tokenizer.
+MODEL = os.path.expanduser(
+    "~/.cache/modelscope/models/Qwen--Qwen2.5-0.5B-Instruct/"
+    "snapshots/master")
+MAX_NEW_TOKENS = 30  # CPU: giam tu 60 xuong 30 cho nhanh (Bay 3)
+
+
+def bai1_config():
+    """Bai 1: doc config truoc khi load trong so.
+
+    Quy tac vang: doc config + giay phep truoc, tai trong so sau.
+    """
+    print("=" * 72)
+    print("BAI 1 - Doc config")
+    print("=" * 72)
+    cfg = AutoConfig.from_pretrained(MODEL)
+    print("Kien truc:", cfg.architectures)
+    print("So lop:", cfg.num_hidden_layers)
+    print("Hidden size:", cfg.hidden_size)
+    print("So head / KV head:", cfg.num_attention_heads, "/",
+          cfg.num_key_value_heads)
+    print("Cua so ngu canh:", cfg.max_position_embeddings)
+    print("Dtype:", cfg.torch_dtype)
+    # GQA hay MHA? KV head &lt; attention head =&gt; Grouped-Query Attention.
+    gqa = cfg.num_key_value_heads &lt; cfg.num_attention_heads
+    print("Ket luan:", "GQA (KV head it hon attention head, KV cache "
+          f"nhe hon {cfg.num_attention_heads // cfg.num_key_value_heads}x)"
+          if gqa else "MHA thuong")
+    # Uoc luong VRAM bf16 day du se tinh o main() sau khi load model.
+    return cfg
+
+
+def bai2_tokenizer(tok):
+    """Bai 2: tokenizer - model khong doc chu, no doc id."""
+    print("\n" + "=" * 72)
+    print("BAI 2 - Tokenizer")
+    print("=" * 72)
+    texts = ["Thu do cua Phap la gi?",
+             "What is the capital of France?",
+             "Toi yeu AI",
+             "Giai thich transformer trong mot cau."]
+    for text in texts:
+        ids = tok.encode(text)
+        print(f"TEXT: {text}")
+        print(f"  tokens: {tok.convert_ids_to_tokens(ids)}")
+        print(f"  ids   : {ids} | so token: {len(ids)}")
+    print("eos:", tok.eos_token, tok.eos_token_id)
+    print("pad:", tok.pad_token, tok.pad_token_id)
+    print("Kich thuoc vocab:", len(tok))
+    # add_special_tokens True vs False: Qwen khong them token dac biet
+    # vao dau/cuoi khi encode thuong (khac BERT co [CLS]/[SEP]).
+    t = "Thu do cua Phap la gi?"
+    with_sp = tok.encode(t, add_special_tokens=True)
+    without_sp = tok.encode(t, add_special_tokens=False)
+    print(f"add_special_tokens=True : {with_sp}")
+    print(f"add_special_tokens=False: {without_sp}")
+    print("Khac nhau:", with_sp != without_sp)
+    # Decode nguoc (cau co dau cau + khoang trang dau cau).
+    t2 = "  Hello, world!"
+    ids2 = tok.encode(t2)
+    print(f"Decode nguoc {t2!r} -&gt; {tok.decode(ids2)!r} "
+          f"(khop: {tok.decode(ids2) == t2})")
+
+
+def bai3_template(tok):
+    """Bai 3: chat template - rap dung 'ngon ngu hoi thoai'.
+
+    Tra ve prompt da rap dung template (dung lai o Bai 4).
+    """
+    print("\n" + "=" * 72)
+    print("BAI 3 - Chat template")
+    print("=" * 72)
+    messages = [
+        {"role": "system",
+         "content": "Ban la tro ly huu ich, tra loi ngan gon."},
+        {"role": "user", "content": "Thu do cua Phap la gi?"},
+    ]
+    # Cach A: prompt tran (SAI voi ban instruct).
+    raw = "Thu do cua Phap la gi?"
+    # Cach B: dung chat template cua chinh model nay.
+    templated = tok.apply_chat_template(
+        messages, tokenize=False, add_generation_prompt=True)
+    print("=== PROMPT TRAN ===")
+    print(repr(raw))
+    print("=== QUA CHAT TEMPLATE ===")
+    print(repr(templated))
+    # Doi system prompt -&gt; chi phan system thay doi, khung giu nguyen.
+    messages_pirate = [
+        {"role": "system",
+         "content": "Ban la mot cuop bien, tra loi bang giong cuop bien."},
+        {"role": "user", "content": "Thu do cua Phap la gi?"},
+    ]
+    templated_pirate = tok.apply_chat_template(
+        messages_pirate, tokenize=False, add_generation_prompt=True)
+    print("=== DOI SYSTEM PROMPT (cuop bien) ===")
+    print(repr(templated_pirate))
+    return templated
+
+
+def generate_and_time(model, tok, prompt, max_new_tokens, **gen_kwargs):
+    """Sinh 1 lan, do thoi gian bang perf_counter.
+
+    Returns:
+        Tuple (text_sinh, giay).
+    """
+    inputs = tok(prompt, return_tensors="pt").to(model.device)
+    n_in = inputs["input_ids"].shape[1]
+    t0 = time.perf_counter()
+    out = model.generate(**inputs, max_new_tokens=max_new_tokens,
+                         **gen_kwargs)
+    dt = time.perf_counter() - t0
+    text = tok.decode(out[0][n_in:], skip_special_tokens=True)
+    return text, dt
+
+
+def bai4_generate(model, tok):
+    """Bai 4: greedy vs sampling tren CUNG prompt (doi 1 bien).
+
+    Giu nguyen prompt template, chi doi decoding - dung nguyen tac
+    ablation 1 bien cua tuan truoc.
+    """
+    print("\n" + "=" * 72)
+    print("BAI 4 - Greedy vs sampling")
+    print("=" * 72)
+    messages = [
+        {"role": "system",
+         "content": "Ban la tro ly huu ich, tra loi ngan gon."},
+        {"role": "user",
+         "content": "Viet mot cau gioi thieu ve tri tue nhan tao."},
+    ]
+    prompt = tok.apply_chat_template(
+        messages, tokenize=False, add_generation_prompt=True)
+    # Greedy: chay 3 lan phai cho CUNG 1 ket qua (deterministic).
+    print("=== GREEDY (3 lan) ===")
+    for i in range(3):
+        text, dt = generate_and_time(model, tok, prompt, MAX_NEW_TOKENS,
+                                     do_sample=False)
+        print(f"  lan {i + 1} ({dt:.1f}s): {text}")
+    # Sampling: chay 3 lan cho 3 ket qua KHAC nhau.
+    print("=== SAMPLING temp=0.8, top-p=0.9 (3 lan) ===")
+    for i in range(3):
+        text, dt = generate_and_time(model, tok, prompt, MAX_NEW_TOKENS,
+                                     do_sample=True, temperature=0.8,
+                                     top_p=0.9)
+        print(f"  lan {i + 1} ({dt:.1f}s): {text}")
+    # Temperature cao 1.5: lieu hon hay loan hon?
+    print("=== SAMPLING temp=1.5 (1 lan) ===")
+    text, dt = generate_and_time(model, tok, prompt, MAX_NEW_TOKENS,
+                                 do_sample=True, temperature=1.5,
+                                 top_p=0.9)
+    print(f"  ({dt:.1f}s): {text}")
+    # Prompt tran (Bai 3 cach A) vs prompt qua template.
+    print("=== PROMPT TRAN + GREEDY (so sanh) ===")
+    raw = "Viet mot cau gioi thieu ve tri tue nhan tao."
+    text, dt = generate_and_time(model, tok, raw, MAX_NEW_TOKENS,
+                                 do_sample=False)
+    print(f"  ({dt:.1f}s): {text}")
+
+
+def main():
+    """Chay lab day du: config -&gt; tokenizer -&gt; template -&gt; sinh."""
+    print(f"torch {torch.__version__} | cuda: {torch.cuda.is_available()} "
+          f"| device: {'cuda' if torch.cuda.is_available() else 'cpu'}")
+    cfg = bai1_config()
+    tok = AutoTokenizer.from_pretrained(MODEL)
+    bai2_tokenizer(tok)
+    bai3_template(tok)
+    # Bai 4 moi load trong so that (CPU: float32, khong device_map).
+    print("\nDang load trong so (CPU, float32 - co the mat 1-2 phut)...")
+    t0 = time.perf_counter()
+    model = AutoModelForCausalLM.from_pretrained(
+        MODEL, dtype=torch.float32)
+    print(f"Load xong trong {time.perf_counter() - t0:.1f}s | "
+          f"tong params: "
+          f"{sum(p.numel() for p in model.parameters()):,}")
+    # Uoc luong VRAM bf16 (Bai 1): params x 2 byte.
+    n_params = sum(p.numel() for p in model.parameters())
+    print(f"Uoc luong VRAM bf16: {n_params * 2 / 1e9:.2f} GB "
+          f"(params x 2 byte, chua KV cache/activation)")
+    bai4_generate(model, tok)
+    print("\n" + "=" * 72)
+    print("KET LUAN NHANH")
+    print("=" * 72)
+    print(f"- GQA: {cfg.num_key_value_heads} KV head &lt; "
+          f"{cfg.num_attention_heads} attention head.")
+    print(f"- Context: {cfg.max_position_embeddings} token "
+          f"(prompt + output).")
+    print("- Greedy: on dinh, lap lai duoc. Sampling: da dang nhung "
+          "co the loan (nhat la temp cao).")
+    print("- Prompt tran: de lac de/lan man hon prompt qua template.")
+
+
+if __name__ == "__main__":
+    main()
+</code></pre>
+  <h3>File 2: <code>gen_diacritics.py</code> (bổ sung: Bài 4 với prompt có dấu)</h3>
+  <button class="btn" id="copySrc2Btn">📋 Copy gen_diacritics.py</button>
+  <span id="copyMsg2" style="margin-left:12px;color:var(--green);font-weight:700"></span>
+  <pre class="pysrc" id="fullsrc2"><code>#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""Bo sung Bai 4: sinh lai voi prompt TIENG VIET CO DAU.
+
+Ly do: ban dau script dung prompt khong dau (theo quy uoc comment
+khong dau) nen model hieu sai - greedy tu choi, sampling lac sang
+'trang web'. Chay lai voi prompt goc co dau cua de bai de kiem
+chung: chat luong co tot hon khong, va 3 tinh chat (greedy on
+dinh, sampling da dang, prompt tran te hon) co con dung khong.
+
+Prompt goc cua de bai:
+  system: "Ban la tro ly huu ich, tra loi ngan gon."
+  user: "Viet mot cau gioi thieu ve tri tue nhan tao."
+(duoi day viet co dau day du, vi day la DU LIEU chay model, khong
+phai comment code).
+"""
+
+import os
+import time
+
+import torch
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
+MODEL = os.path.expanduser(
+    "~/.cache/modelscope/models/Qwen--Qwen2.5-0.5B-Instruct/"
+    "snapshots/master")
+MAX_NEW_TOKENS = 30
+
+
+def gen(model, tok, prompt, **kwargs):
+    """Sinh 1 lan, do thoi gian bang perf_counter."""
+    inputs = tok(prompt, return_tensors="pt").to(model.device)
+    n_in = inputs["input_ids"].shape[1]
+    t0 = time.perf_counter()
+    out = model.generate(**inputs, max_new_tokens=MAX_NEW_TOKENS,
+                         **kwargs)
+    dt = time.perf_counter() - t0
+    return tok.decode(out[0][n_in:], skip_special_tokens=True), dt
+
+
+def main():
+    """Load model 1 lan, sinh 3 kieu voi prompt co dau."""
+    tok = AutoTokenizer.from_pretrained(MODEL)
+    model = AutoModelForCausalLM.from_pretrained(
+        MODEL, dtype=torch.float32)
+    messages = [
+        {"role": "system",
+         "content": "Bạn là trợ lý hữu ích, trả lời ngắn gọn."},
+        {"role": "user",
+         "content": "Viết một câu giới thiệu về trí tuệ nhân tạo."},
+    ]
+    prompt = tok.apply_chat_template(
+        messages, tokenize=False, add_generation_prompt=True)
+    print("=== TEMPLATE + GREEDY (co dau) ===")
+    text, dt = gen(model, tok, prompt, do_sample=False)
+    print(f"  ({dt:.1f}s): {text}")
+    print("=== TEMPLATE + SAMPLING temp=0.8 (co dau) ===")
+    text, dt = gen(model, tok, prompt, do_sample=True,
+                   temperature=0.8, top_p=0.9)
+    print(f"  ({dt:.1f}s): {text}")
+    print("=== PROMPT TRAN + GREEDY (co dau, de so sanh) ===")
+    text, dt = gen(model, tok, "Viết một câu giới thiệu về "
+                   "trí tuệ nhân tạo.", do_sample=False)
+    print(f"  ({dt:.1f}s): {text}")
+
+
+if __name__ == "__main__":
+    main()
+</code></pre>
+</section>
+
+</div><!-- /wrap -->
+
+<footer>
+  <div class="wrap">
+    Được dựng từ <code>day15/load_model_lab.py</code> và <code>day15/gen_diacritics.py</code> — giải thích bằng tiếng Việt, vẽ thành sơ đồ cho người ngoại đạo.<br>
+    Số liệu là kết quả chạy thật (VM CPU-only, torch 2.14.1+cpu, transformers 5.20.2). Sơ đồ là minh họa ý tưởng.
+  </div>
+</footer>
+
+<script>
+// --- Tiện ích ---
+function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+// --- Máy tính VRAM ---
+(function(){
+  document.getElementById("vramBtn").addEventListener("click", function(){
+    const p = parseFloat(document.getElementById("vramIn").value);
+    if(!(p > 0)){ document.getElementById("vramOut").textContent = "Nhập số params > 0 nhé."; return; }
+    document.getElementById("vramOut").innerHTML =
+      "bf16 (2 byte/param): <b>" + (p * 2).toFixed(2) + " GB</b><br>" +
+      "fp32 (4 byte/param): <b>" + (p * 4).toFixed(2) + " GB</b><br>" +
+      "int8 (1 byte/param): <b>" + (p * 1).toFixed(2) + " GB</b><br>" +
+      "<small style='color:#9ca3af'>Chưa tính KV cache + activation. Qwen2.5-0.5B: 0,494 tỉ params → bf16 ≈ 0,99 GB ✓</small>";
+  });
+})();
+// --- Token explorer (số liệu thật từ tokenizer Qwen2.5) ---
+(function(){
+  const DATA = {
+    "vn-noaccent": {text: "Thu do cua Phap la gi?", toks: ["Thu","Ġdo","Ġc","ua","ĠPh","ap","Ġla","Ġgi","?"], ids: [49922,653,272,4284,2350,391,1187,13535,30]},
+    "vn-accent": {text: "Thủ đô của Pháp là gì?", toks: ["Th","á»§","ĠÄĳÃ´","Ġcá»§a","ĠPhÃ¡p","ĠlÃł","ĠgÃ¬","?"], ids: [1001,42504,130287,59735,132034,37915,128382,30]},
+    "en": {text: "What is the capital of France?", toks: ["What","Ġis","Ġthe","Ġcapital","Ġof","ĠFrance","?"], ids: [3838,374,279,6722,315,9625,30]},
+    "giai-noaccent": {text: "Giai thich transformer trong mot cau.", toks: ["G","ia","i","Ġth","ich","Ġtransformer","Ġtrong","Ġmot","Ġca","u","."], ids: [38,685,72,270,713,42578,69086,3852,2162,84,13]},
+    "giai-accent": {text: "Giải thích transformer trong một câu.", toks: ["Gi","áº£i","ĠthÃŃch","Ġtransformer","Ġtrong","Ġmá»Ļt","ĠcÃ¢u","."], ids: [46841,75050,128745,42578,69086,128249,129260,13]},
+    "yeu": {text: "Toi yeu AI", toks: ["To","i","Ġye","u","ĠAI"], ids: [1249,72,19478,84,15235]}
+  };
+  function render(key){
+    const d = DATA[key];
+    let html = "Câu: <b>" + esc(d.text) + "</b><br>Số token: <b>" + d.toks.length + "</b><br>";
+    d.toks.forEach((t, i) => {
+      html += '<span class="tok">' + esc(t) + '<span class="tok-id">#' + d.ids[i] + '</span></span>';
+    });
+    html += "<br>ids: [" + d.ids.join(", ") + "]";
+    document.getElementById("tokOut").innerHTML = html;
+  }
+  document.querySelectorAll("[data-sent]").forEach(btn => {
+    btn.addEventListener("click", function(){
+      document.querySelectorAll("[data-sent]").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      render(btn.dataset.sent);
+    });
+  });
+  render("vn-noaccent");
+})();
+// --- Bốc thăm greedy vs sampling ---
+(function(){
+  function draw(sample){
+    const r = Math.random();
+    if(!sample) return "A";
+    if(r < 0.60) return "A";
+    if(r < 0.85) return "B";
+    return "C";
+  }
+  function run(sample){
+    const res = [];
+    for(let i = 0; i < 5; i++) res.push(draw(sample));
+    document.getElementById("lotteryOut").innerHTML =
+      (sample ? "Sampling (A 60%, B 25%, C 15%): " : "Greedy (luôn chọn chắc nhất): ") +
+      "<b>" + res.join(" · ") + "</b><br>" +
+      "<small style='color:#9ca3af'>" + (sample
+        ? "Đa dạng nhưng khó đoán — giống sampling temp=0.8: 3 lần ra 3 câu khác nhau."
+        : "Ổn định tuyệt đối — giống greedy 3 lần ra cùng 1 câu từ chối.") + "</small>";
+  }
+  document.getElementById("greedyBtn").addEventListener("click", function(){ run(false); });
+  document.getElementById("sampleBtn").addEventListener("click", function(){ run(true); });
+})();
+// --- Copy source (2 file) ---
+(function(){
+  function bind(btnId, srcId, msgId){
+    document.getElementById(btnId).addEventListener("click", function(){
+      const raw = document.getElementById(srcId).textContent;
+      const msg = document.getElementById(msgId);
+      const done = function(){ msg.textContent = "Đã copy ✓"; setTimeout(function(){ msg.textContent = ""; }, 2000); };
+      if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(raw).then(done, done); }
+      else { const ta = document.createElement("textarea"); ta.value = raw; document.body.appendChild(ta); ta.select(); try{ document.execCommand("copy"); }catch(e){} document.body.removeChild(ta); done(); }
+    });
+  }
+  bind("copySrc1Btn", "fullsrc1", "copyMsg1");
+  bind("copySrc2Btn", "fullsrc2", "copyMsg2");
+})();
+</script>
+<script>
+// Tô màu cú pháp Python
+(function(){
+  function escHtml(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+  function highlightPython(src){
+    var re = /(#[^\n]*)|("""[\s\S]*?"""|"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*')|\b(import|from|def|class|return|if|elif|else|for|while|in|is|not|and|or|None|True|False|lambda|with|as|try|except|finally|raise|global|pass|break|continue)\b|(\b\d+(?:\.\d+)?\b)|(@[\w.]+)/g;
+    var out = "", last = 0, m;
+    while((m = re.exec(src))){
+      out += escHtml(src.slice(last, m.index));
+      var tok = m[0], cls = m[1] ? "cm" : m[2] ? "str" : m[3] ? "kw" : m[4] ? "num2" : "fn";
+      out += '<span class="' + cls + '">' + escHtml(tok) + "</span>";
+      last = m.index + tok.length;
+      if(tok.length === 0) re.lastIndex++;
+    }
+    return out + escHtml(src.slice(last));
+  }
+  document.querySelectorAll("pre.pysrc").forEach(function(pre){
+    var raw = pre.textContent;
+    pre.innerHTML = "<code>" + highlightPython(raw) + "</code>";
+  });
+})();
+</script>
+</body>
+</html>
