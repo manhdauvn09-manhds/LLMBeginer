@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ngày 15 — Buổi tối: Lab load model thật (Qwen2.5-0.5B-Instruct) | Khóa LLM 30 ngày</title>
+<style>
+:root{--bg:#0a0f1e;--card:#101830;--line:#22305a;--gold:#f5c542;--green:#4ade80;--red:#f87171;--violet:#a78bfa;--cyan:#67e8f9;--text:#e8edf7;--muted:#93a0bd;}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;line-height:1.75;font-size:16.5px;}
+.wrap{max-width:820px;margin:0 auto;padding:18px 16px 60px;}
+.kicker{display:inline-block;font-size:13px;letter-spacing:1px;color:var(--gold);font-weight:700;margin-bottom:8px;}
+h1{font-size:29px;line-height:1.3;margin:6px 0 10px;}
+h2{font-size:22px;margin:34px 0 10px;color:var(--cyan);}
+h3{font-size:18px;margin:22px 0 8px;color:var(--gold);}
+.sub{color:var(--muted);}
+.meta{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 6px;}
+.meta span{font-size:13.5px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:5px 14px;}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin:16px 0;}
+.note{border-left:4px solid var(--green);background:#0f2233;border-radius:0 12px 12px 0;padding:12px 16px;margin:14px 0;}
+.warn{border-left:4px solid var(--red);background:#23141a;border-radius:0 12px 12px 0;padding:12px 16px;margin:14px 0;}
+.todo{border-left:4px solid var(--gold);background:#221d0c;border-radius:0 12px 12px 0;padding:12px 16px;margin:14px 0;}
+.code{background:#060a14;border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:12px 0;overflow-x:auto;}
+.code pre{margin:0;font-size:14px;line-height:1.6;color:var(--cyan);white-space:pre-wrap;word-break:break-word;}
+button.ans-btn{background:var(--gold);color:#1a1200;border:0;border-radius:999px;padding:8px 18px;font-size:15px;font-weight:700;cursor:pointer;margin:8px 0;}
+.ans{display:none;background:#0f2233;border:1px solid var(--line);border-radius:10px;padding:12px 16px;margin:10px 0;}
+.ans.open{display:block;}
+ol li,ul li{margin:6px 0;}
+table{width:100%;border-collapse:collapse;margin:12px 0;font-size:15.5px;}
+th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;}
+th{color:var(--gold);}
+@media(max-width:560px){h1{font-size:24px;}h2{font-size:20px;}body{font-size:16px;}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<span class="kicker">NGÀY 15 · BUỔI TỐI — THỰC HÀNH</span>
+<h1>Lab load model thật: đọc Qwen2.5-0.5B-Instruct như đọc codebase</h1>
+<p class="sub">Sáng nay bạn học cách <b>đọc</b> một pretrained model. Tối nay bạn làm thật: tải model 0,5 tỉ tham số về, đọc config, soi tokenizer, ráp chat template đúng, rồi cho nó sinh văn bản bằng 2 kiểu decoding khác nhau — và tự mình thấy vì sao "dùng sai template, sai bản" thì model trả lời kém hẳn.</p>
+<div class="meta"><span>⏱ ~60–75 phút</span><span>🐍 Python + PyTorch + transformers</span><span>💻 Chạy được trên Colab / Kaggle (GPU miễn phí) hoặc CPU (chậm hơn)</span></div>
+
+<div class="card">
+<h2 style="margin-top:0;">Chuẩn bị môi trường</h2>
+<p>Cài đặt một lần (Colab / Kaggle thường đã có sẵn, nếu thiếu mới cài):</p>
+<div class="code"><pre>pip install -q transformers accelerate torch
+# Kiểm tra nhanh:
+python -c "import torch; print('torch', torch.__version__, '| CUDA:', torch.cuda.is_available())"</pre></div>
+<p><b>Model dùng trong lab:</b> <code>Qwen/Qwen2.5-0.5B-Instruct</code> — bản instruct, 0,5 tỉ tham số, nhẹ (~1 GB ở bfloat16), đúng model trong bài sáng. Bạn cần tài khoản Hugging Face? Model này mở, không cần token.</p>
+<div class="note"><b>💡 Mẹo tiết kiệm thời gian:</b> lần tải đầu tiên tốn vài phút (tải ~1 GB trọng số). Các lần chạy sau dùng cache nên nhanh hơn nhiều. Nếu mạng chậm, cứ để nó tải xong — đừng ngắt giữa chừng rồi chạy lại từ đầu.</div>
+</div>
+
+<h2>Bài 1 — Đọc config trước khi load trọng số (15 phút)</h2>
+<p>Đúng quy tắc vàng buổi sáng: <b>đọc config + giấy phép trước, tải trọng số sau</b>. Bạn sẽ tự tay trích ra kiến trúc, cửa sổ ngữ cảnh và ước lượng VRAM — thay vì tin vào trí nhớ.</p>
+<div class="todo"><b>✏️ Bạn tự làm:</b> chạy đoạn code sau, rồi trả lời 3 câu hỏi bên dưới bằng chính số liệu nó in ra.</div>
+<div class="code"><pre>from transformers import AutoConfig
+
+MODEL = "Qwen/Qwen2.5-0.5B-Instruct"
+cfg = AutoConfig.from_pretrained(MODEL)
+print(cfg)
+print("Kiến trúc:", cfg.architectures)
+print("Số lớp:", cfg.num_hidden_layers)
+print("Hidden size:", cfg.hidden_size)
+print("Số head / KV head:", cfg.num_attention_heads, "/", cfg.num_key_value_heads)
+print("Cửa sổ ngữ cảnh:", cfg.max_position_embeddings)
+print("Dtype:", cfg.torch_dtype)</pre></div>
+<p><b>Ghi lại vào sổ tay của bạn:</b></p>
+<ol>
+<li>Model này dùng Grouped-Query Attention hay Multi-Head Attention thường? Dựa vào đâu mà kết luận?</li>
+<li>Ước lượng VRAM khi load ở bfloat16: lấy tổng số tham số (xem <code>cfg</code> hoặc trang model) × 2 byte ≈ bao nhiêu GB? Con số này có khớp với "nhẹ ~1 GB" trong bài sáng không?</li>
+<li>Cửa sổ ngữ cảnh 32.768 token có nghĩa là gì trong thực tế — prompt + câu trả lời cộng lại tối đa bao nhiêu token?</li>
+</ol>
+<div class="note"><b>Đáp án tham khảo (Bài 1):</b> (1) GQA — vì <code>num_key_value_heads (2)</code> nhỏ hơn <code>num_attention_heads (14)</code>, KV cache nhẹ hơn nhiều so với MHA. (2) ~0,5 tỉ × 2 byte ≈ 1 GB (chưa tính KV cache và bộ nhớ activation khi sinh). (3) Tổng độ dài prompt + output không nên vượt 32.768 token; vượt quá thì model phải cắt bớt hoặc lỗi, tùy cách bạn cấu hình.</div>
+
+<h2>Bài 2 — Tokenizer: model không đọc chữ, nó đọc id (15 phút)</h2>
+<p>Load tokenizer (nhẹ, không cần tải trọng số) và soi xem câu tiếng Việt bị cắt thành bao nhiêu token, special token nào xuất hiện.</p>
+<div class="code"><pre>from transformers import AutoTokenizer
+
+tok = AutoTokenizer.from_pretrained("Qwen/Qwen2.5-0.5B-Instruct")
+for text in ["Thủ đô của Pháp là gì?",
+             "Tôi yêu AI",
+             "Giải thích transformer trong một câu."]:
+    ids = tok.encode(text)
+    print("TEXT:", text)
+    print("  tokens:", tok.convert_ids_to_tokens(ids))
+    print("  ids   :", ids, "| số token:", len(ids))
+
+print("eos:", tok.eos_token, tok.eos_token_id)
+print("pad:", tok.pad_token, tok.pad_token_id)
+print("Kích thước vocab:", len(tok))</pre></div>
+<div class="todo"><b>✏️ Bạn tự làm:</b>
+<ol>
+<li>So sánh số token của câu tiếng Việt và câu tiếng Anh có độ dài tương đương. Bạn rút ra điều gì về "chi phí token" của tiếng Việt?</li>
+<li>Thử <code>tok.encode("Thủ đô của Pháp là gì?", add_special_tokens=True)</code> rồi <code>add_special_tokens=False</code> — kết quả khác nhau ở đâu? Vì sao sự khác biệt này quan trọng khi bạn tự ráp prompt?</li>
+<li>Decode ngược: <code>tok.decode(ids)</code> có trả lại đúng câu gốc không? Thử với một câu có dấu câu và khoảng trắng ở đầu câu.</li>
+</ol>
+</div>
+<div class="warn"><b>⚠️ Bẫy số 1:</b> đừng dùng id của tokenizer này để suy ra tokenizer khác. Mỗi họ model có bảng vocab riêng — id 1024 ở Qwen không có nghĩa gì ở Llama. Bài sáng đã nhấn mạnh: id chỉ có nghĩa trong đúng tokenizer của nó.</div>
+
+<h2>Bài 3 — Chat template: ráp đúng "ngôn ngữ hội thoại" (20 phút)</h2>
+<p>Đây là phần quan trọng nhất của lab. Bạn sẽ ráp cùng một câu hỏi bằng <b>hai cách</b> — prompt trần và prompt qua chat template — rồi cho model sinh, xem kết quả khác nhau ra sao.</p>
+<div class="code"><pre>from transformers import AutoTokenizer
+
+tok = AutoTokenizer.from_pretrained("Qwen/Qwen2.5-0.5B-Instruct")
+messages = [
+    {"role": "system", "content": "Bạn là trợ lý hữu ích, trả lời ngắn gọn."},
+    {"role": "user", "content": "Thủ đô của Pháp là gì?"},
+]
+
+# Cách A: prompt trần (KHÔNG dùng template) — cách sai với bản instruct
+raw = "Thủ đô của Pháp là gì?"
+# Cách B: đúng chat template của chính model này
+templated = tok.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+print("=== PROMPT TRẦN ==="); print(repr(raw))
+print("=== QUA CHAT TEMPLATE ==="); print(repr(templated))</pre></div>
+<p><b>Quan sát kỹ chuỗi B:</b> bạn phải thấy <code>&lt;|im_start|&gt;</code>, tên role (<code>system</code>, <code>user</code>, <code>assistant</code>), <code>&lt;|im_end|&gt;</code>, và chuỗi kết thúc bằng <code>&lt;|im_start|&gt;assistant</code> — tức là "đến lượt model nói". Nếu thiếu bất kỳ mảnh nào, đó không còn là ngôn ngữ model đã học khi SFT.</p>
+<div class="todo"><b>✏️ Bạn tự làm:</b>
+<ol>
+<li>In cả hai chuỗi ra và khoanh (ghi chú) từng special token trong chuỗi B. Mỗi token đóng vai trò gì?</li>
+<li>Thử đổi system prompt thành "Bạn là một cướp biển, trả lời bằng giọng cướp biển." rồi ráp lại bằng template — chuỗi thay đổi ở chỗ nào? Điều này cho thấy system prompt thực chất chỉ là một phần của prompt, đúng không?</li>
+<li><b>(Nâng cao, tùy chọn)</b> Thử dùng template của một họ model khác cho model Qwen (ví dụ tự ráp theo kiểu Llama) — bạn đoán chất lượng sẽ ra sao trước khi chạy? Ghi dự đoán rồi mới kiểm chứng ở Bài 4.</li>
+</ol>
+</div>
+
+<h2>Bài 4 — Cho model sinh: greedy vs sampling (20 phút)</h2>
+<p>Giờ mới load trọng số thật và sinh văn bản. So sánh hai kiểu decoding trên cùng một prompt đã ráp đúng template.</p>
+<div class="code"><pre>import torch
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
+MODEL = "Qwen/Qwen2.5-0.5B-Instruct"
+tok = AutoTokenizer.from_pretrained(MODEL)
+model = AutoModelForCausalLM.from_pretrained(
+    MODEL, torch_dtype=torch.bfloat16, device_map="auto",
+)
+messages = [
+    {"role": "system", "content": "Bạn là trợ lý hữu ích, trả lời ngắn gọn."},
+    {"role": "user", "content": "Viết một câu giới thiệu về trí tuệ nhân tạo."},
+]
+prompt = tok.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+inputs = tok(prompt, return_tensors="pt").to(model.device)
+
+# Greedy: luôn chọn token xác suất cao nhất
+out_greedy = model.generate(**inputs, max_new_tokens=60, do_sample=False)
+print("=== GREEDY ===")
+print(tok.decode(out_greedy[0][inputs["input_ids"].shape[1]:], skip_special_tokens=True))
+
+# Sampling: temperature + top-p
+out_sample = model.generate(**inputs, max_new_tokens=60, do_sample=True,
+                             temperature=0.8, top_p=0.9)
+print("=== SAMPLING (temp=0.8, top-p=0.9) ===")
+print(tok.decode(out_sample[0][inputs["input_ids"].shape[1]:], skip_special_tokens=True))</pre></div>
+<div class="todo"><b>✏️ Bạn tự làm:</b>
+<ol>
+<li>Chạy sampling 3 lần với cùng temperature — 3 câu trả lời có giống nhau không? Còn greedy chạy 3 lần thì sao? Vì sao?</li>
+<li>Thử <code>temperature=1.5</code> một lần: câu trả lời thay đổi theo hướng nào — sáng tạo hơn hay loạn hơn? Khi nào bạn muốn temperature thấp, khi nào muốn cao?</li>
+<li>Thử lại Bài 4 nhưng với <b>prompt trần</b> (Bài 3, cách A) thay vì prompt qua template — câu trả lời có "lạc đề" hoặc lan man hơn không? Đây chính là lỗi tân binh bài sáng đã cảnh báo.</li>
+</ol>
+</div>
+<div class="warn"><b>⚠️ Bẫy số 2 — quên eos / dừng sinh:</b> nếu bạn tự viết vòng lặp sinh thay vì dùng <code>generate()</code>, nhớ dừng khi gặp <code>eos_token_id</code> (với Qwen ChatML là <code>&lt;|im_end|&gt;</code>). Quên bước này, model sẽ "nói mãi không ngừng" — tự bịa thêm lượt user, lượt assistant giả. <code>generate()</code> đã lo việc này cho bạn qua <code>generation_config</code>, nhưng bạn phải hiểu nó đang làm gì.</div>
+<div class="warn"><b>⚠️ Bẫy số 3 — dtype và device:</b> load fp32 trên CPU với model 0,5B vẫn chạy được nhưng chậm và tốn RAM gấp đôi bf16. Trên Colab/Kaggle có GPU thì để <code>torch_dtype=torch.bfloat16, device_map="auto"</code>. Trên CPU thuần, đổi sang <code>torch_dtype=torch.float32</code> và bỏ <code>device_map</code> nếu gặp lỗi — và giảm <code>max_new_tokens</code> xuống 30 cho nhanh.</div>
+
+<h2>🧪 3 câu tự kiểm tra nhanh</h2>
+<p>Trả lời trong đầu trước, rồi bấm "Hiện đáp án" để đối chiếu. Không chấm điểm — chỉ tự check.</p>
+
+<div class="card">
+<p><b>Câu 1.</b> Vì sao không nên chat trực tiếp với base model (chỉ pretrain, chưa SFT)?</p>
+<button class="ans-btn" onclick="this.nextElementSibling.classList.toggle('open')">Hiện đáp án</button>
+<div class="ans">Vì base model chỉ được train để "đoán token tiếp theo" trên văn bản thô, không được dạy làm theo hướng dẫn. Hỏi nó một câu, nó có thể trả lời tiếp bằng một câu hỏi khác hoặc lan man — không phải model dỏm, mà là dùng sai công cụ. Muốn chat thì dùng bản instruct, hoặc tự SFT base model (đó là Ngày 16).</div>
+</div>
+
+<div class="card">
+<p><b>Câu 2.</b> Bạn load Qwen2.5-0.5B-Instruct nhưng tự ráp prompt theo template của Llama. Điều gì sẽ xảy ra với chất lượng trả lời, và vì sao?</p>
+<button class="ans-btn" onclick="this.nextElementSibling.classList.toggle('open')">Hiện đáp án</button>
+<div class="ans">Chất lượng rơi tự do. Special token, tên role và dấu xuống dòng đều là một phần của "ngôn ngữ hội thoại" model đã học khi SFT. Dùng template lạ nghĩa là đưa model một chuỗi nó chưa từng gặp khi train — nó vẫn sinh ra chữ, nhưng kém hẳn. Quy tắc: luôn dùng <code>apply_chat_template</code> của đúng tokenizer đi kèm model.</div>
+</div>
+
+<div class="card">
+<p><b>Câu 3.</b> Greedy và sampling (temperature cao) khác nhau ở điểm nào, và khi nào nên dùng mỗi loại?</p>
+<button class="ans-btn" onclick="this.nextElementSibling.classList.toggle('open')">Hiện đáp án</button>
+<div class="ans">Greedy luôn chọn token xác suất cao nhất nên ổn định, lặp lại được — hợp cho bài toán cần chính xác, ít sáng tạo (trả lời câu hỏi thực tế, tóm tắt). Sampling chọn ngẫu nhiên theo phân phối xác suất (temperature càng cao càng "liều") nên đa dạng, sáng tạo hơn nhưng có thể loạn — hợp cho viết văn, brainstorm. Chạy greedy 3 lần cho cùng một kết quả; sampling 3 lần cho 3 kết quả khác nhau.</div>
+</div>
+
+<h2>🪤 Bẫy thường gặp — tóm tắt</h2>
+<table>
+<tr><th>Bẫy</th><th>Hậu quả</th><th>Cách tránh</th></tr>
+<tr><td>Tải trọng số trước khi đọc config / giấy phép</td><td>Model quá nặng không chạy được, hoặc giấy phép cấm dùng thương mại</td><td>Đọc <code>config.json</code> + LICENSE trước, ước lượng VRAM rồi mới tải</td></tr>
+<tr><td>Quên special token / dùng sai chat template</td><td>Model trả lời lan man, kém hẳn dù trọng số nguyên vẹn</td><td>Luôn dùng <code>apply_chat_template</code> của đúng tokenizer đi kèm model</td></tr>
+<tr><td>Quên điều kiện dừng (eos)</td><td>Model "nói mãi", tự bịa lượt hội thoại giả</td><td>Dùng <code>generate()</code> với <code>generation_config</code> đúng, hoặc tự kiểm tra <code>eos_token_id</code></td></tr>
+<tr><td>Load sai dtype / sai device</td><td>Chậm, tốn RAM, hoặc lỗi trên CPU</td><td>GPU: bf16 + <code>device_map="auto"</code>; CPU: fp32, giảm <code>max_new_tokens</code></td></tr>
+</table>
+
+<h2>✅ Checklist nộp bài</h2>
+<div class="card">
+<p>Paste vào chat để được nhận xét chi tiết:</p>
+<ol>
+<li>📋 Số liệu Bài 1: số lớp, hidden size, số head / KV head, cửa sổ ngữ cảnh, ước lượng VRAM của Qwen2.5-0.5B-Instruct.</li>
+<li>🔤 Kết quả Bài 2: số token của 1 câu tiếng Việt bạn tự chọn, và nhận xét ngắn về chi phí token tiếng Việt so với tiếng Anh.</li>
+<li>💬 Chuỗi prompt qua chat template (Bài 3) — copy nguyên văn chuỗi <code>repr()</code>, hoặc ảnh chụp màn hình.</li>
+<li>🎲 Kết quả Bài 4: câu trả lời greedy + 1 câu sampling, kèm nhận xét: hai kiểu decoding khác nhau ra sao trên cùng một prompt? Prompt trần có tệ hơn prompt qua template không?</li>
+<li>❓ Một thắc mắc còn vướng (nếu có) — ví dụ chỗ nào chạy lỗi, hoặc khái niệm nào chưa rõ.</li>
+</ol>
+<p><b>Nộp bài:</b> paste code / kết quả vào chat để được nhận xét chi tiết. Ngày mai (Ngày 16) sẽ bắt đầu fine-tune — chính là lúc kỹ năng "đọc model" tối nay phát huy tác dụng: bạn sẽ SFT một base model thành bản biết làm theo hướng dẫn.</p>
+</div>
+
+<p class="sub" style="text-align:center;margin-top:36px;">— Hết bài thực hành Ngày 15 —<br>Khóa "Trở thành AI Engineer (LLM)" · Buổi tối: thực hành, không video</p>
+</div>
+</body>
+</html>
