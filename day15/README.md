@@ -34,11 +34,17 @@ từ HF, không cần ModelScope.
 
 ## Bài 2 — Tokenizer
 
-- "Thủ đô của Pháp là gì?" → 9 token; câu tiếng Anh tương đương
-  "What is the capital of France?" → 7 token.
-- "Giải thích transformer trong một câu." → 11 token, từ tiếng Việt
-  bị chẻ nhỏ ("Giải" → 'G','ia','i'): tiếng Việt tốn token hơn
-  tiếng Anh.
+<!-- [TRAINER] 2 cau trich duoi day la nguyen van chuoi KHONG dau
+     ma script that su encode; ban co dau tuong ung chi co 8 token
+     ("Thủ đô của Pháp là gì?" = 8, "Giải thích transformer trong
+     một câu." = 8) - trich sai chuoi se lam so token khong doi
+     chieu lai duoc. -->
+- "Thu do cua Phap la gi?" (chuỗi script thật sự encode) → 9 token;
+  câu tiếng Anh tương đương "What is the capital of France?" →
+  7 token.
+- "Giai thich transformer trong mot cau." → 11 token, từ tiếng
+  Việt bị chẻ nhỏ ("Giai" → 'G','ia','i'): tiếng Việt tốn token
+  hơn tiếng Anh.
 - eos = `<|im_end|>` (151645), pad = `<|endoftext|>` (151643).
 - Vocab: `len(tok)` = 151.665 (config ghi vocab_size 151.936).
 - `add_special_tokens=True` và `False` cho kết quả **giống hệt
