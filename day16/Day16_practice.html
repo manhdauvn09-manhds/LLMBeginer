@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ngày 16 — Buổi tối: Lab SFT model nhỏ | Khóa LLM 30 ngày</title>
+<style>
+:root{--bg:#0a0f1e;--card:#101830;--line:#22305a;--gold:#f5c542;--green:#4ade80;--red:#f87171;--violet:#a78bfa;--cyan:#67e8f9;--text:#e8edf7;--muted:#93a0bd;}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;line-height:1.75;font-size:16.5px;}
+.wrap{max-width:820px;margin:0 auto;padding:18px 16px 60px;}
+.kicker{display:inline-block;font-size:13px;letter-spacing:1px;color:var(--gold);font-weight:700;margin-bottom:8px;}
+h1{font-size:29px;line-height:1.3;margin:6px 0 10px;}
+h2{font-size:22px;margin:34px 0 10px;color:var(--cyan);}
+h3{font-size:18px;margin:22px 0 8px;color:var(--gold);}
+.sub{color:var(--muted);}
+.meta{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 6px;}
+.meta span{font-size:13.5px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:5px 14px;}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin:16px 0;}
+.note{border-left:4px solid var(--green);background:#0f2233;border-radius:0 12px 12px 0;padding:12px 16px;margin:14px 0;}
+.warn{border-left:4px solid var(--red);background:#23141a;border-radius:0 12px 12px 0;padding:12px 16px;margin:14px 0;}
+.todo{border-left:4px solid var(--gold);background:#221d0c;border-radius:0 12px 12px 0;padding:12px 16px;margin:14px 0;}
+.code{background:#060a14;border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:12px 0;overflow-x:auto;}
+.code pre{margin:0;font-size:14px;line-height:1.6;color:var(--cyan);white-space:pre-wrap;word-break:break-word;}
+button.ans-btn{background:var(--gold);color:#1a1200;border:0;border-radius:999px;padding:8px 18px;font-size:15px;font-weight:700;cursor:pointer;margin:8px 0;}
+.ans{display:none;background:#0f2233;border:1px solid var(--line);border-radius:10px;padding:12px 16px;margin:10px 0;}
+.ans.open{display:block;}
+ol li,ul li{margin:6px 0;}
+table{width:100%;border-collapse:collapse;margin:12px 0;font-size:15.5px;}
+th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;}
+th{color:var(--gold);}
+@media(max-width:560px){h1{font-size:24px;}h2{font-size:20px;}body{font-size:16px;}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<span class="kicker">NGÀY 16 · BUỔI TỐI — THỰC HÀNH</span>
+<h1>Lab SFT: dạy model nhỏ biết làm theo hướng dẫn</h1>
+<p class="sub">Sáng nay bạn học lý thuyết SFT: chat template, masking, packing, chống overfitting. Tối nay bạn làm thật trên một model nhỏ (GPT-2, 124M tham số): tự tay xây dữ liệu SFT, kiểm chứng masking bằng code, đo lượng padding bị lãng phí, rồi train thử và so sánh model <b>trước – sau</b> trên cùng một prompt.</p>
+<div class="meta"><span>⏱ ~60–75 phút</span><span>🐍 Python + PyTorch</span><span>🖥️ Colab / Kaggle GPU (T4) — có bản rút gọn chạy CPU</span><span>📦 transformers, torch</span></div>
+
+<div class="card">
+<h2 style="margin-top:0">Mục tiêu buổi tối</h2>
+<ul>
+<li>Viết được một mẫu SFT đúng dạng và biến nó thành chuỗi token duy nhất bằng một template cố định.</li>
+<li>Chứng minh bằng code: nhãn (label) của phần prompt là −100, loss chỉ tính trên phần câu trả lời.</li>
+<li>Đo được tỉ lệ token thật / tổng số token khi padding — và hiểu packing tiết kiệm compute ở chỗ nào.</li>
+<li>Train thử 2–3 epoch với learning rate nhỏ, rồi đánh giá trước – sau trên cùng 5 prompt cố định.</li>
+</ul>
+<p class="note"><b>Quy tắc xuyên suốt:</b> template lúc train và lúc sinh văn bản phải <b>giống hệt nhau</b>, kể cả dấu xuống dòng và token kết thúc. Đổi template giữa chừng là đổi luôn bài kiểm tra — kết quả so sánh sẽ vô nghĩa.</p>
+</div>
+
+<h2>Chuẩn bị</h2>
+<div class="code"><pre>pip install -q transformers torch
+# Trên Colab / Kaggle: bật GPU (Runtime → GPU, loại T4 là đủ).
+# Kiểm tra nhanh:
+import torch
+print("GPU:", torch.cuda.is_available())
+print("Thiết bị:", torch.cuda.get_device_name(0) if torch.cuda.is_available() else "CPU")</pre></div>
+<p class="note"><b>Bản rút gọn chạy CPU:</b> chỉ làm Bài 1 và Bài 2, còn Bài 3 giảm xuống 8 mẫu, 1 epoch, 20 bước train — vẫn đủ để thấy loss giảm và hành vi đổi khác. Đừng train GPT-2 đủ 2 epoch trên CPU, vừa chậm vừa không cần thiết cho mục đích của lab này.</p>
+
+<h2>Bài 1 — Xây dữ liệu SFT và kiểm chứng masking (25 phút)</h2>
+<p>Ta dùng một template đơn giản, cố định cho toàn bộ lab — model nhỏ GPT-2 không có chat template sẵn như Qwen, nên ta tự định nghĩa khuôn mẫu của riêng mình và <b>không đổi nó nữa</b>:</p>
+<div class="code"><pre>Câu hỏi: {instruction}
+Trả lời: {output}&lt;|endoftext|&gt;</pre></div>
+<p>Ví dụ, một mẫu sẽ thành đúng một chuỗi như sau — phần trước chữ “Trả lời:” là prompt (chỉ đọc, không chấm), phần sau là đáp án (chấm từng token):</p>
+<div class="code"><pre>Câu hỏi: Thủ đô của Việt Nam là gì?
+Trả lời: Hà Nội.&lt;|endoftext|&gt;</pre></div>
+
+<div class="todo"><b>✍️ Phần bạn tự làm (phần chính của Bài 1):</b>
+<ol>
+<li>Tự viết thêm <b>10 mẫu</b> của riêng bạn (trộn nhiều dạng: hỏi đáp ngắn, tóm tắt 1 câu, viết email 2–3 câu, dịch 1 câu) vào danh sách <code>DATA</code> bên dưới — đừng chỉ viết một dạng, SFT cần đa dạng thì mới không rập khuôn.</li>
+<li>Hoàn thiện hàm <code>encode_example()</code>: token hóa prompt và đáp án <b>riêng rẽ</b>, nối lại thành <code>input_ids</code>, và tạo <code>labels</code> bằng cách che prompt bằng −100.</li>
+<li>Chạy đoạn kiểm chứng cuối: in ra 1 mẫu và khẳng định (assert) rằng mọi label ở vị trí prompt đều là −100, và label ở vị trí đáp án bằng đúng token thật.</li>
+</ol>
+</div>
+
+<div class="code"><pre>from transformers import AutoTokenizer
+
+tok = AutoTokenizer.from_pretrained("gpt2")
+tok.pad_token = tok.eos_token  # GPT-2 không có pad token sẵn, mượn eos làm pad
+
+DATA = [
+    {"instruction": "Thủ đô của Việt Nam là gì?",
+     "output": "Hà Nội."},
+    {"instruction": "Thủ đô của Nhật Bản là gì?",
+     "output": "Tokyo."},
+    {"instruction": "Tóm tắt bằng một câu: Mèo là loài vật nuôi phổ biến, hiền lành và thích ngủ nhiều.",
+     "output": "Mèo là loài vật nuôi hiền lành, thích ngủ nhiều."},
+    {"instruction": "Viết một câu chào buổi sáng lịch sự.",
+     "output": "Chào buổi sáng, chúc bạn một ngày làm việc hiệu quả."},
+    # TODO (bạn viết tiếp): thêm 10 mẫu của riêng bạn vào đây,
+    # trộn ít nhất 3 dạng nhiệm vụ khác nhau.
+]
+
+def encode_example(item):
+    """Trả về (input_ids, labels). TODO: bạn điền phần thân hàm."""
+    prompt = f"Câu hỏi: {item['instruction']}\nTrả lời: "
+    answer = item["output"] + tok.eos_token
+    prompt_ids = tok(prompt, add_special_tokens=False)["input_ids"]
+    answer_ids = tok(answer, add_special_tokens=False)["input_ids"]
+    input_ids = prompt_ids + answer_ids
+    # TODO: labels = ???  (gợi ý: prompt che bằng -100, đáp án giữ nguyên)
+    labels = [-100] * len(prompt_ids) + answer_ids
+    return input_ids, labels
+
+# ---- Kiểm chứng masking (phải PASS hết mới được sang Bài 2) ----
+ids, labels = encode_example(DATA[0])
+prompt_len = len(tok(f"Câu hỏi: {DATA[0]['instruction']}\nTrả lời: ",
+                     add_special_tokens=False)["input_ids"])
+assert all(l == -100 for l in labels[:prompt_len]), "Prompt chưa được che hết!"
+assert labels[prompt_len:] == ids[prompt_len:], "Label đáp án phải bằng token thật!"
+print("Masking OK. Mẫu 0 có", len(ids), "token, trong đó",
+      sum(1 for l in labels if l != -100), "token tính loss.")
+print(tok.decode(ids))</pre></div>
+<p>Nếu đoạn assert báo lỗi, đừng vội sang bài sau: lỗi masking là lỗi nghiêm trọng nhất của SFT — nó âm thầm dạy model bắt chước cả câu hỏi của người dùng.</p>
+
+<h2>Bài 2 — Đo padding: GPU đang làm việc cho token đệm bao nhiêu? (10 phút)</h2>
+<p>Khi train theo batch, các mẫu ngắn phải đệm padding cho bằng mẫu dài nhất trong batch. Đo thử xem tỉ lệ token thật là bao nhiêu:</p>
+<div class="code"><pre>encoded = [encode_example(d) for d in DATA]
+max_len = max(len(ids) for ids, _ in encoded)
+total = len(encoded) * max_len
+real = sum(len(ids) for ids, _ in encoded)
+print(f"Mẫu dài nhất: {max_len} token | Tổng token (kể cả padding): {total}")
+print(f"Token thật: {real} ({real / total:.0%}) | Token đệm lãng phí: {total - real} ({1 - real / total:.0%})")
+
+# Gợi ý suy nghĩ: nếu xếp các mẫu nối tiếp nhau cho đầy một sequence
+# dài 128 token (packing), tỉ lệ token đệm sẽ còn bao nhiêu?
+# Trả lời bằng con số ước lượng trong phần nộp bài, không cần code packing thật ở đây.</pre></div>
+<div class="note"><b>⚡ Green checkpoint:</b> ghi lại 2 con số này (tỉ lệ token thật, thời gian train ở Bài 3). Nếu tỉ lệ token thật thấp mà bạn lại tăng dữ liệu lên gấp đôi thì phần lớn điện tăng thêm cũng đổ vào token đệm — bật packing trước, tăng dữ liệu sau.</div>
+
+<h2>Bài 3 — Train thử model nhỏ và đánh giá trước – sau (30 phút)</h2>
+<p>Trước khi train, hãy <b>ghi lại hành vi gốc</b> của model trên 5 prompt cố định — đây là “ảnh trước” để so sánh, không có nó thì sau train bạn không biết mình đã thay đổi được gì:</p>
+<div class="code"><pre>import torch
+from transformers import AutoModelForCausalLM
+
+device = "cuda" if torch.cuda.is_available() else "cpu"
+model = AutoModelForCausalLM.from_pretrained("gpt2").to(device)
+model.eval()
+
+PROMPTS = [
+    "Câu hỏi: Thủ đô của Việt Nam là gì?\nTrả lời: ",
+    "Câu hỏi: Viết một câu chào buổi sáng lịch sự.\nTrả lời: ",
+    "Câu hỏi: Tóm tắt bằng một câu: Mèo là loài vật nuôi phổ biến, hiền lành và thích ngủ nhiều.\nTrả lời: ",
+    # TODO: thêm 2 prompt cố định của riêng bạn (dùng đúng template trên)
+]
+
+@torch.no_grad()
+def generate(prompt):
+    ids = tok(prompt, return_tensors="pt").to(device)
+    out = model.generate(**ids, max_new_tokens=30, do_sample=False,
+                          pad_token_id=tok.eos_token_id)
+    return tok.decode(out[0][ids["input_ids"].shape[1]:], skip_special_tokens=True)
+
+print("===== TRƯỚC KHI SFT =====")
+for p in PROMPTS:
+    print("PROMPT:", p.replace("\n", " / "))
+    print("→", generate(p))</pre></div>
+<p>Bạn sẽ thấy model gốc thường <b>không dừng</b>: nó sinh tiếp, bịa thêm câu hỏi mới, hoặc lặp lại khuôn mẫu — đúng như base model trong bài sáng (biết tiếp tục văn bản, chưa biết làm theo hướng dẫn).</p>
+
+<p>Tiếp theo là vòng train. Dùng đúng <code>encode_example()</code> ở Bài 1 (đã kiểm chứng masking) và một collate tự viết để đệm batch bằng pad token và nhãn −100:</p>
+<div class="code"><pre>import torch
+from torch.utils.data import Dataset, DataLoader
+
+class SFTDataset(Dataset):
+    def __init__(self, data):
+        self.items = [encode_example(d) for d in data]
+    def __len__(self):
+        return len(self.items)
+    def __getitem__(self, i):
+        ids, labels = self.items[i]
+        return {"input_ids": ids, "labels": labels}
+
+def collate(batch):
+    max_len = max(len(b["input_ids"]) for b in batch)
+    input_ids, labels, attn = [], [], []
+    for b in batch:
+        pad = max_len - len(b["input_ids"])
+        input_ids.append(b["input_ids"] + [tok.pad_token_id] * pad)
+        labels.append(b["labels"] + [-100] * pad)
+        attn.append([1] * len(b["input_ids"]) + [0] * pad)
+    return {"input_ids": torch.tensor(input_ids),
+            "labels": torch.tensor(labels),
+            "attention_mask": torch.tensor(attn)}
+
+# TODO (bạn quyết định, ghi rõ trong phần nộp bài):
+#  - train/val split: giữ lại 20% mẫu làm tập validation (đừng train hết 100%).
+#  - epoch: 2 (đừng vội chạy 5-10 epoch trên tập nhỏ — xem mục "Bẫy thường gặp").
+#  - learning rate: 5e-5 cho GPT-2 124M (full fine-tune, model nhỏ).
+loader = DataLoader(SFTDataset(DATA), batch_size=4, shuffle=True, collate_fn=collate)
+opt = torch.optim.AdamW(model.parameters(), lr=5e-5)
+model.train()
+for epoch in range(2):
+    total_loss, steps = 0.0, 0
+    for batch in loader:
+        batch = {k: v.to(device) for k, v in batch.items()}
+        out = model(**batch)
+        out.loss.backward()
+        opt.step(); opt.zero_grad()
+        total_loss += out.loss.item(); steps += 1
+    print(f"Epoch {epoch + 1}: train loss trung bình = {total_loss / steps:.4f}")</pre></div>
+
+<p>Sau khi train, chạy lại <b>đúng 5 prompt cố định</b> ở trên (cùng template, cùng cách sinh greedy, cùng <code>max_new_tokens=30</code>) và so sánh:</p>
+<div class="code"><pre>model.eval()
+print("===== SAU KHI SFT =====")
+for p in PROMPTS:
+    print("PROMPT:", p.replace("\n", " / "))
+    print("→", generate(p))</pre></div>
+<p>Kết quả mong đợi (không cần hoàn hảo): model trả lời ngắn hơn, đúng dạng “đáp án rồi dừng” hơn trước — vì nó đã học hành vi từ dữ liệu SFT, và token <code>&lt;|endoftext|&gt;</code> ở cuối mỗi đáp án dạy nó dừng đúng chỗ. Nếu model vẫn sinh lan man, kiểm tra lại 3 thứ theo thứ tự: (1) template sinh có giống template train không, (2) masking đã PASS ở Bài 1 chưa, (3) dữ liệu có quá ít / quá một dạng không.</p>
+
+<div class="card">
+<h3 style="margin-top:0">🔬 Mở rộng (không bắt buộc, 10 phút nếu còn sức)</h3>
+<p><b>Thí nghiệm ablation — nhớ viết trước câu này:</b> “Thứ duy nhất thay đổi là masking (bật/tắt), mọi thứ khác giữ nguyên: cùng dữ liệu, cùng epoch, cùng learning rate, cùng số tham số.” Chạy thêm một bản train với labels <b>không che prompt</b> (labels = input_ids) và so sánh đầu ra trên cùng 5 prompt. Bản không masking thường sinh tiếp câu hỏi mới hoặc lặp khuôn mẫu — đó chính là cái giá của việc tính loss cả prompt. Chỉ đổi một biến duy nhất thì kết luận mới đáng tin.</p>
+</div>
+
+<h2>3 câu tự kiểm tra nhanh</h2>
+
+<div class="card">
+<p><b>1. Vì sao loss SFT chỉ tính trên phần assistant, mà không tính cả prompt?</b></p>
+<button class="ans-btn" onclick="this.nextElementSibling.classList.toggle('open')">Hiện đáp án</button>
+<div class="ans">Vì lúc dùng thật, model chỉ cần sinh ra câu trả lời — nó không bao giờ cần sinh ra câu hỏi của người dùng. Tính loss cả prompt sẽ (a) dạy model bắt chước câu hỏi — vô ích, và (b) pha loãng gradient bằng những token không liên quan đến nhiệm vụ sinh đáp án.</div>
+</div>
+
+<div class="card">
+<p><b>2. Train và inference dùng template khác nhau thì chuyện gì xảy ra?</b></p>
+<button class="ans-btn" onclick="this.nextElementSibling.classList.toggle('open')">Hiện đáp án</button>
+<div class="ans">Model “lạc vai”: trả lời sai định dạng, không dừng đúng chỗ, hoặc sinh tiếp như base model. Template là một phần của dữ liệu train — đổi template nghĩa là đưa model vào một phân phối đầu vào mà nó chưa từng thấy khi học.</div>
+</div>
+
+<div class="card">
+<p><b>3. Packing không tách attention có hại gì, dù nó làm train nhanh hơn?</b></p>
+<button class="ans-btn" onclick="this.nextElementSibling.classList.toggle('open')">Hiện đáp án</button>
+<div class="ans">Token của mẫu sau sẽ “nhìn trộm” mẫu trước như thể chúng là một đoạn văn liền mạch, nên model học phải ngữ cảnh không liên quan. Packing chỉ an toàn khi attention được tách theo từng mẫu (block-diagonal, ví dụ position_ids đặt lại từ đầu mỗi mẫu).</div>
+</div>
+
+<h2>Bẫy thường gặp</h2>
+<div class="warn">
+<ul>
+<li><b>Template train ≠ template inference:</b> sai một dấu xuống dòng hay thiếu token dừng cũng đủ làm model trả lời lệch dạng. Khắc phục: dùng đúng một hàm format cho cả train và sinh, đừng gõ prompt tay hai lần.</li>
+<li><b>Quên masking (hoặc masking sai):</b> tính loss cả prompt → model học sinh tiếp câu hỏi, lặp khuôn mẫu. Khắc phục: luôn chạy đoạn assert ở Bài 1 trước khi train — PASS mới train.</li>
+<li><b>Train quá nhiều epoch / learning rate quá lớn trên tập nhỏ:</b> train loss cứ giảm nhưng model trả lời rập khuôn, quên kiến thức cũ (catastrophic forgetting). Khắc phục: 2–3 epoch, LR nhỏ (5e-5 cho model nhỏ này), giữ tập validation và dừng khi val loss ngừng cải thiện.</li>
+</ul>
+</div>
+
+<h2>Checklist nộp bài</h2>
+<div class="todo">
+<p>Paste vào chat để được nhận xét chi tiết:</p>
+<ol>
+<li>Code <code>encode_example()</code> của bạn + kết quả đoạn assert masking (PASS hay lỗi gì).</li>
+<li>Bài 2: tỉ lệ token thật / token đệm của tập dữ liệu của bạn.</li>
+<li>Bài 3: train loss mỗi epoch, và đầu ra <b>trước – sau</b> trên cùng 5 prompt cố định.</li>
+<li>Trả lời ngắn: tập validation của bạn có bao nhiêu mẫu, và bạn dừng ở epoch mấy — vì sao?</li>
+<li>(Không bắt buộc) Kết quả ablation masking bật/tắt, nếu bạn làm phần mở rộng.</li>
+</ol>
+<p>Ngày mai (Ngày 17): LoRA — cách fine-tune model lớn mà không cần train toàn bộ tham số. Lab tối nay là nền để thấy rõ LoRA tiết kiệm ở chỗ nào.</p>
+</div>
+
+<p class="sub">Khóa “Trở thành AI Engineer (LLM)” — Ngày 16, buổi tối. Buổi tối không có video; video 5 phút thuộc về bài học buổi sáng.</p>
+</div>
+</body>
+</html>
