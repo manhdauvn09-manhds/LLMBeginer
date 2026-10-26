@@ -122,6 +122,7 @@
   <a href="#ablation">🧪 Ablation</a>
   <a href="#longer">📈 10 epoch</a>
   <a href="#ketluan">💡 Kết luận thật</a>
+  <a href="#trainer">✅ Trainer review</a>
   <a href="#source">📜 Source code</a>
 </div></nav>
 
@@ -139,7 +140,7 @@
     <div class="concept red"><h4>📈 10 epoch</h4><p>Val loss đáy ở epoch 6 rồi tăng → overfit. Định dạng học được (ngắn + dừng), nội dung sụp đổ về "Tokyo.".</p></div>
   </div>
   <div class="analogy"><b>🎓 Ví dụ — Dạy trẻ trả lời:</b> pretrain như cho trẻ <b>đọc cả thư viện</b> (biết nhiều chữ). SFT như <b>luyện thi vấn đáp</b>: thầy hỏi → trò đáp → thầy chấm chỉ phần đáp. Masking chính là "chỉ chấm phần đáp, không chấm phần câu hỏi". Không masking thì như chấm cả câu hỏi — trò học thuộc câu hỏi thay vì học trả lời.</div>
-  <div class="warn"><b>📌 Chưa có trainer review:</b> Day 16 mới push hôm nay (26/10), trainer chưa review. Tài liệu này dựa trên source + README của anh; khi có review, tôi sẽ bổ sung mục before→after như các ngày trước.</div>
+  <div class="ok"><b>✅ Trainer đã review: chất lượng tốt, không có comment.</b> Khác các ngày trước, lần này không có commit fix — vì không có gì phải sửa. Verdict này tự nó đã là một kết quả: checklist 7 điểm giữ vững (masking có assert, padding đo thật, ablation đúng 1 biến, kết luận dựa trên val loss, báo cáo thẳng thắn giới hạn).</div>
 </section>
 
 <!-- ================= MASKING ================= -->
@@ -280,6 +281,20 @@
   <div class="card"><h3 style="margin-top:0">🔧 Quirk môi trường</h3>
     <p style="margin-bottom:0">Tải GPT-2 qua HF cũng bị kẹt như Day 15 (proxy VM chặn CDN). Trọng số lấy qua ModelScope (<code>openai-community/gpt2</code>, chỉ lấy file <code>*.json</code>, <code>*.txt</code>, <code>*.safetensors</code> — bản full kèm TF/Flax nặng nhiều GB, tải ở ~650kB/s quá chậm). Trên máy thường, đặt <code>MODEL_DIR</code> về <code>"gpt2"</code> là chạy thẳng từ HF.</p>
   </div>
+</section>
+
+<!-- ================= TRAINER ================= -->
+<section id="trainer">
+  <h2><span class="num">✅</span>Trainer review: chất lượng tốt, không có comment</h2>
+  <p class="lead">Trainer đã review Day 16 và kết luận <b>chất lượng tốt, không có comment</b> — tức không có lỗi nào cần sửa, nên cũng không có commit fix như các ngày trước (Day 13: 3 điểm, Day 14: 1 lỗi, Day 15: 1 fix README).</p>
+  <p>Verdict "không có gì để sửa" tự nó đã nói lên điều này: những điểm trainer từng bắt ở các ngày trước đều <b>không tái phạm</b> ở Day 16:</p>
+  <ul class="tight">
+    <li><b>Edge case được chặn sớm:</b> output rỗng → <code>ValueError</code> rõ ràng, không để loss thành NaN âm thầm (bài học checklist điểm 1).</li>
+    <li><b>Ablation đúng 1 biến thật:</b> cùng seed, dữ liệu, epoch, LR, thứ tự shuffle — chỉ đổi masking (bài học Day 13: claim 1 biến phải verify, không nói bằng mắt).</li>
+    <li><b>Kết luận dựa trên số đo:</b> early stopping ở epoch 6 vì <b>val loss</b> chạm đáy rồi tăng — không phải vì train loss giảm (bài học Day 12: val loss mới là thước đo).</li>
+    <li><b>Báo cáo thẳng thắn giới hạn:</b> "Tokyo." cho mọi câu hỏi và kết luận "dữ liệu ít + lệch ngôn ngữ" được ghi rõ, không tô hồng (bài học Day 16 chính nó).</li>
+  </ul>
+  <div class="ok"><b>💡 Ý nghĩa:</b> từ Day 7 đến Day 15, mỗi ngày trainer đều bắt được ít nhất 1 điểm. Đến Day 16 thì "sạch" — checklist tự soát 7 điểm đã bắt đầu tự chạy được mà không cần trainer nhắc. Đó mới là mục tiêu thật của checklist.</div>
 </section>
 
 <!-- ================= SOURCE CODE ================= -->
