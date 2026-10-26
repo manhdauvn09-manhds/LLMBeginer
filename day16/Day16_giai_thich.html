@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 16 — Lab SFT GPT-2 124M: dạy model cách trả lời</title>
+<style>
+  :root{
+    --bg:#faf5ff; --card:#ffffff; --ink:#23272f; --muted:#6b7280;
+    --accent:#6b21a8; --accent-dark:#581c87; --accent-soft:#f3e8ff;
+    --blue:#2563eb; --blue-soft:#dbeafe;
+    --amber:#b45309; --amber-soft:#fef3c7;
+    --green:#047857; --green-soft:#d1fae5;
+    --red:#b91c1c; --red-soft:#fee2e2;
+    --cyan:#0891b2; --cyan-soft:#cffafe;
+    --line:#e9d5ff; --code-bg:#1e2230;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    line-height:1.75;font-size:16.5px}
+  .wrap{max-width:960px;margin:0 auto;padding:0 20px}
+  header.hero{background:linear-gradient(135deg,#581c87 0%,#6b21a8 55%,#a855f7 100%);
+    color:#fff;padding:64px 0 48px;margin-bottom:8px}
+  header.hero h1{margin:0 0 12px;font-size:2.1rem;line-height:1.3}
+  header.hero p{margin:6px 0;opacity:.92;max-width:720px}
+  .tag{display:inline-block;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.35);
+    border-radius:999px;padding:3px 14px;font-size:.85rem;margin-bottom:14px}
+  nav.sticky{position:sticky;top:0;z-index:50;background:rgba(250,245,255,.96);
+    backdrop-filter:blur(6px);border-bottom:1px solid var(--line)}
+  nav.sticky .wrap{display:flex;gap:4px;overflow-x:auto;padding:10px 20px;white-space:nowrap}
+  nav.sticky a{color:var(--muted);text-decoration:none;font-size:.88rem;padding:6px 10px;border-radius:8px}
+  nav.sticky a:hover{background:var(--accent-soft);color:var(--accent-dark)}
+  section{padding:34px 0;border-bottom:1px solid var(--line)}
+  h2{font-size:1.55rem;margin:0 0 6px;color:#581c87}
+  h2 .num{display:inline-block;background:var(--accent);color:#fff;font-size:.95rem;
+    width:34px;height:34px;line-height:34px;text-align:center;border-radius:10px;margin-right:10px;vertical-align:middle}
+  h3{font-size:1.15rem;margin:26px 0 8px}
+  .lead{color:#4b5563;font-size:1.05rem}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:20px 22px;margin:16px 0;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin:18px 0}
+  .concept{background:var(--card);border:1px solid var(--line);border-top:4px solid var(--accent);
+    border-radius:12px;padding:16px 18px}
+  .concept h4{margin:0 0 6px;font-size:1.02rem}
+  .concept p{margin:0;font-size:.93rem;color:#4b5563}
+  .concept.blue{border-top-color:var(--blue)} .concept.amber{border-top-color:var(--amber)}
+  .concept.green{border-top-color:var(--green)} .concept.red{border-top-color:var(--red)}
+  .concept.cyan{border-top-color:var(--cyan)}
+  pre{background:var(--code-bg);color:#e8eaf2;border-radius:12px;padding:18px 20px;
+    overflow-x:auto;font-size:.86rem;line-height:1.6;margin:14px 0;max-height:560px;overflow-y:auto}
+  code{font-family:"SF Mono",Consolas,"Courier New",monospace}
+  p code, li code, td code{background:var(--accent-soft);padding:1px 7px;border-radius:6px;font-size:.88em;color:#581c87}
+  pre code{background:none;padding:0;color:inherit}
+  .kw{color:#c792ea}.fn{color:#82aaff}.str{color:#c3e88d}.cm{color:#697098;font-style:italic}.num2{color:#f78c6c}
+  pre.before{background:#2a1a12;border:1px solid #7c2d12}
+  pre.after{background:#0f2a1a;border:1px solid #047857}
+  .diff-tag{display:inline-block;font-size:.78rem;font-weight:700;border-radius:6px;padding:2px 10px;margin-bottom:6px}
+  .diff-tag.old{background:var(--amber-soft);color:var(--amber)}
+  .diff-tag.new{background:var(--green-soft);color:var(--green)}
+  .diagram{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px 10px;margin:18px 0;text-align:center;overflow-x:auto}
+  .diagram svg{max-width:100%;height:auto}
+  .caption{font-size:.9rem;color:var(--muted);margin-top:10px;font-style:italic}
+  .analogy{background:#faf5ff;border:1px solid #d8b4fe;border-left:6px solid var(--accent);
+    border-radius:10px;padding:16px 20px;margin:16px 0}
+  .analogy b{color:#581c87}
+  .warn{background:#fffbeb;border:1px solid #fcd34d;border-left:6px solid var(--amber);
+    border-radius:10px;padding:16px 20px;margin:16px 0}
+  .warn b{color:#92400e}
+  .ok{background:#ecfdf5;border:1px solid #6ee7b7;border-left:6px solid var(--green);
+    border-radius:10px;padding:16px 20px;margin:16px 0}
+  .bad{background:#fef2f2;border:1px solid #fecaca;border-left:6px solid var(--red);
+    border-radius:10px;padding:16px 20px;margin:16px 0}
+  table.mini{border-collapse:collapse;margin:14px auto;font-size:.9rem;min-width:70%}
+  table.mini th, table.mini td{border:1px solid var(--line);padding:8px 14px;text-align:left}
+  table.mini th{background:var(--accent-soft)}
+  table.mini td.num{font-family:monospace;text-align:center;white-space:nowrap}
+  table.mini tr.hl td{background:#f3e8ff;font-weight:700}
+  .demo{background:#fff;border:2px solid var(--accent);border-radius:16px;padding:24px;margin:18px 0}
+  .demo h3{margin-top:0}
+  input[type=text], input[type=number]{width:100%;padding:10px 14px;font-size:.95rem;border:2px solid var(--line);
+    border-radius:10px;margin:8px 0;font-family:monospace}
+  .seg{display:flex;gap:8px;margin:10px 0;flex-wrap:wrap}
+  .seg button{border:2px solid var(--line);background:#fff;border-radius:10px;
+    padding:8px 18px;font-size:1rem;cursor:pointer}
+  .seg button.active{border-color:var(--accent);background:var(--accent-soft);font-weight:700}
+  .big-out{background:var(--code-bg);color:#e8eaf2;border-radius:12px;padding:18px 20px;
+    font-family:monospace;font-size:.92rem;margin-top:12px;line-height:1.9;word-break:break-word}
+  .btn{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:10px 22px;
+    font-size:1rem;cursor:pointer;margin:10px 8px 0 0}
+  .btn:hover{background:#581c87}
+  .formula{text-align:center;font-size:1.15rem;background:#faf5ff;border-radius:10px;
+    padding:18px;margin:14px 0;font-family:Georgia,serif}
+  .formula small{display:block;font-family:inherit;font-size:.85rem;color:var(--muted);margin-top:6px}
+  footer{padding:36px 0 60px;color:var(--muted);font-size:.9rem;text-align:center}
+  ul.tight li{margin-bottom:6px}
+  .tok-block{display:inline-block;width:14px;height:22px;border-radius:3px;margin:1px;vertical-align:middle}
+  .tok-prompt{background:#c4b5fd} .tok-answer{background:#6b21a8}
+  .tok-masked{background:#e5e7eb;border:1px dashed #9ca3af}
+  .bar-wrap{background:#f3f4f6;border-radius:8px;height:26px;margin:6px 0;position:relative;border:1px solid var(--line)}
+  .bar-fill{height:100%;border-radius:8px}
+  .bar-lab{font-family:monospace;font-size:.82rem;color:#374151;margin-top:2px}
+  @media(max-width:600px){header.hero h1{font-size:1.6rem}body{font-size:15.5px}}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="tag">📄 Phân tích: day16/sft_lab.py + train_longer.py</span>
+    <h1>Day 16 — Lab SFT GPT-2 124M<br>dạy model cách trả lời</h1>
+    <p>Pretrain dạy model <b>kiến thức</b> (đoán từ tiếp theo). SFT dạy model <b>hành vi</b>: thấy câu hỏi thì trả lời, trả lời xong thì dừng. Lab này làm đúng việc đó trên GPT-2 124M với chỉ 14 mẫu tiếng Việt — và kết quả thì <b>không tô hồng</b>.</p>
+    <p style="font-size:.9rem;opacity:.8">Số liệu trong bài là kết quả chạy thật (VM CPU-only, torch 2.14.1+cpu, transformers 5.20.2, venv day15).</p>
+  </div>
+</header>
+
+<nav class="sticky"><div class="wrap">
+  <a href="#tong-quan">🍿 Tóm tắt 30 giây</a>
+  <a href="#masking">🎭 Masking</a>
+  <a href="#padding">🧱 Padding</a>
+  <a href="#train">🏋️ Train trước–sau</a>
+  <a href="#ablation">🧪 Ablation</a>
+  <a href="#longer">📈 10 epoch</a>
+  <a href="#ketluan">💡 Kết luận thật</a>
+  <a href="#source">📜 Source code</a>
+</div></nav>
+
+<div class="wrap">
+
+<!-- ================= TỔNG QUAN ================= -->
+<section id="tong-quan">
+  <h2><span class="num">🍿</span>Tóm tắt 30 giây cho người ngoại đạo</h2>
+  <p class="lead">GPT-2 chỉ biết tiếng Anh — hỏi tiếng Việt thì nó sinh "tiếng Việt rác". SFT là quá trình <b>uốn nắn hành vi</b>: cho model xem mẫu "hỏi → đáp" để nó học khuôn mẫu trả lời. Lab gồm 3 bài + 1 ablation + 1 bản train dài:</p>
+  <div class="grid">
+    <div class="concept"><h4>🎭 Bài 1 — Masking</h4><p>Che prompt bằng -100, chỉ tính loss trên đáp án. Assert PASS mới được train — sai là dừng ngay.</p></div>
+    <div class="concept blue"><h4>🧱 Bài 2 — Padding</h4><p>Token thật chỉ 53%, đệm lãng phí 47% — gần nửa compute đổ vào đệm. Packing ước lượng còn 7,6%.</p></div>
+    <div class="concept amber"><h4>🏋️ Bài 3 — Train 2 epoch</h4><p>Loss 3,3230 → 2,3886. Hành vi đổi: rác → <b>echo lại prompt</b> (chưa ra đáp án đúng).</p></div>
+    <div class="concept green"><h4>🧪 Ablation — Tắt masking</h4><p>Chỉ đổi 1 biến: loss cao hơn, sinh lặp khuôn mẫu "ả lời: ả lời:" — chứng minh masking quyết định.</p></div>
+    <div class="concept red"><h4>📈 10 epoch</h4><p>Val loss đáy ở epoch 6 rồi tăng → overfit. Định dạng học được (ngắn + dừng), nội dung sụp đổ về "Tokyo.".</p></div>
+  </div>
+  <div class="analogy"><b>🎓 Ví dụ — Dạy trẻ trả lời:</b> pretrain như cho trẻ <b>đọc cả thư viện</b> (biết nhiều chữ). SFT như <b>luyện thi vấn đáp</b>: thầy hỏi → trò đáp → thầy chấm chỉ phần đáp. Masking chính là "chỉ chấm phần đáp, không chấm phần câu hỏi". Không masking thì như chấm cả câu hỏi — trò học thuộc câu hỏi thay vì học trả lời.</div>
+  <div class="warn"><b>📌 Chưa có trainer review:</b> Day 16 mới push hôm nay (26/10), trainer chưa review. Tài liệu này dựa trên source + README của anh; khi có review, tôi sẽ bổ sung mục before→after như các ngày trước.</div>
+</section>
+
+<!-- ================= MASKING ================= -->
+<section id="masking">
+  <h2><span class="num">🎭</span>Bài 1 — Masking: chỉ chấm phần đáp án</h2>
+  <p class="lead">Mỗi mẫu SFT = prompt + đáp án, token hóa <b>riêng rẽ</b> rồi nối lại. Với masking BẬT, labels ở vị trí prompt bị che bằng <code>-100</code> (PyTorch bỏ qua khi tính loss) — model chỉ bị "chấm điểm" trên đáp án.</p>
+
+  <div class="demo">
+    <h3>🎭 Thử ngay: bật/tắt masking trên mẫu 0 (số thật)</h3>
+    <p style="margin-top:0">Mẫu 0: "Thủ đô của Việt Nam là gì?" → "Hà Nội." = <b>54 token</b> (prompt 45 + đáp án 9). Mỗi ô vuông là 1 token:</p>
+    <div class="seg">
+      <button class="active" data-mask="on">🎭 Masking BẬT (chuẩn SFT)</button>
+      <button data-mask="off">🔓 Masking TẮT (ablation)</button>
+    </div>
+    <div id="maskViz" style="line-height:1.4"></div>
+    <div class="big-out" id="maskOut"></div>
+  </div>
+
+  <div class="card"><h3 style="margin-top:0">✅ Assert kiểm chứng — PASS mới được train</h3>
+    <ul class="tight" style="margin-bottom:0">
+      <li>Mọi label ở vị trí prompt đều là -100 ✓</li>
+      <li>Label ở vị trí đáp án bằng đúng token thật ✓</li>
+      <li>Kết quả: <b>"Masking OK. Mẫu 0 có 54 token, trong đó 9 token tính loss."</b></li>
+      <li><b>Edge case:</b> instruction/output rỗng → <code>ValueError</code> rõ ràng ("instruction va output khong duoc rong.") — vì đáp án rỗng sẽ làm labels toàn -100, loss thành <b>NaN âm thầm</b>. Chặn sớm, đừng để NaN đi xa.</li>
+    </ul>
+  </div>
+  <div class="analogy"><b>📝 Ví dụ — Chấm bài thi:</b> đề bài (prompt) là thứ thầy cho, đáp án mới là thứ trò viết. Chấm cả đề lẫn đáp thì trò chỉ cần học thuộc đề là được điểm — đó chính là cái giá của việc tắt masking (xem phần ablation).</div>
+</section>
+
+<!-- ================= PADDING ================= -->
+<section id="padding">
+  <h2><span class="num">🧱</span>Bài 2 — Padding: gần nửa compute đổ vào đệm</h2>
+  <p class="lead">14 mẫu dài ngắn khác nhau (mẫu dài nhất 175 token — email dài, GPT-2 BPE tiếng Anh chẻ tiếng Việt rất nhỏ). Gom thành batch thì mẫu ngắn phải đệm pad cho bằng mẫu dài — và đệm cũng tốn compute.</p>
+
+  <div class="demo">
+    <h3>🧱 Token thật vs token đệm (số thật)</h3>
+    <div id="padChart"></div>
+    <p class="caption">Tổng token kể cả padding: 2450 = token thật 1301 (53%) + token đệm 1149 (47%).</p>
+  </div>
+
+  <div class="ok"><b>💡 Packing — cách giảm lãng phí:</b> thay vì đệm từng mẫu, xếp các mẫu nối tiếp nhau cho đầy sequence 128 token → chỉ còn 11 sequence, token đệm chỉ còn 107 (<b>7,6%</b>) thay vì 47%. Như xếp hành lý: thay vì mỗi vali một ngăn đệm, xếp đồ liền nhau cho đầy vali rồi mới sang vali mới.</div>
+</section>
+
+<!-- ================= TRAIN ================= -->
+<section id="train">
+  <h2><span class="num">🏋️</span>Bài 3 — Train 2 epoch: từ "rác" sang "echo"</h2>
+  <p class="lead">Split: <b>11 train / 3 val</b> (val = 3 mẫu dịch cuối). LR 5e-5, batch 4, 2 epoch theo đúng đề bài. Sinh greedy 30 token trên cùng 5 prompt cố định, cùng template train — đổi template giữa chừng là đổi luôn bài kiểm tra.</p>
+
+  <h3>Trước khi SFT — base model sinh "tiếng Việt rác"</h3>
+  <p>Đúng như bài sáng cảnh báo: model không dừng, sinh lan man hoặc lặp khuôn mẫu — vì GPT-2 chỉ train tiếng Anh:</p>
+  <table class="mini">
+    <tr><th>Prompt</th><th>Base model sinh ra</th></tr>
+    <tr><td>Thủ đô của Việt Nam là gì?</td><td>"ưệt hệt hệt hệt hệt hệ"</td></tr>
+    <tr><td>Viết một câu chào buổi sáng lịch sự.</td><td>"ưọn lời lời lời lời lờ"</td></tr>
+    <tr><td>Tóm tắt: Mèo là loài vật nuôi…</td><td>"ưọn lời: ưọn lời: …"</td></tr>
+    <tr><td>Thủ đô của Pháp là gì?</td><td>"ưọn hửi: ưọn hửi: …"</td></tr>
+    <tr><td>Dịch: Cảm ơn bạn rất nhiều.</td><td>"ơn bạn rất nhiều. Trả lời"</td></tr>
+  </table>
+
+  <h3>Sau 2 epoch, masking BẬT — loss giảm, hành vi đổi nhưng CHƯA đúng</h3>
+  <p>Train loss: <b>3,3230 → 2,3886</b> (71,4 giây). Model chuyển từ "rác" sang <b>echo lại prompt</b> — hành vi dễ học nhất với 11 mẫu × 2 epoch: copy token từ prompt thay vì sinh đáp án:</p>
+  <table class="mini">
+    <tr><th>Prompt</th><th>Sau SFT 2 epoch (masking BẬT)</th></tr>
+    <tr><td>Thủ đô của Việt Nam là gì?</td><td>"ủ đô của Việt Nam là gì?" (echo)</td></tr>
+    <tr><td>Viết một câu chào buổi sáng lịch sự.</td><td>"ột câu chào buổi sáng lịch sự." (echo)</td></tr>
+    <tr><td>Tóm tắt: Mèo là loài vật nuôi…</td><td>"ảlàn vật nuôi phổ biến, hiền l" (echo nửa vời)</td></tr>
+    <tr><td>Thủ đô của Pháp là gì?</td><td>"ủ đô của Pháp là gì?" (echo)</td></tr>
+    <tr><td>Dịch: Cảm ơn bạn rất nhiều.</td><td>"ơn bạn rất nhiều." (gần đúng!)</td></tr>
+  </table>
+  <div class="warn"><b>⚠️ Đừng đọc loss giảm là "học được":</b> loss giảm chỉ nghĩa là model đoán token tốt hơn trên tập train — nhưng hành vi sinh ra vẫn là echo. Phải <b>xem output thật</b> mới biết model học được gì. Đây là lý do lab sinh trên 5 prompt cố định thay vì chỉ báo loss.</div>
+</section>
+
+<!-- ================= ABLATION ================= -->
+<section id="ablation">
+  <h2><span class="num">🧪</span>Ablation — Tắt masking: chỉ đổi 1 biến, cái giá lộ rõ</h2>
+  <p class="lead">Cùng seed, dữ liệu, epoch, LR, thứ tự shuffle — chỉ đổi duy nhất masking. Kết quả:</p>
+  <table class="mini">
+    <tr><th></th><th>Epoch 1</th><th>Epoch 2</th><th>Thời gian</th></tr>
+    <tr class="hl"><td>Masking BẬT (chuẩn SFT)</td><td class="num">3,3230</td><td class="num">2,3886</td><td class="num">71,4s</td></tr>
+    <tr><td>Masking TẮT (ablation)</td><td class="num">3,5344</td><td class="num">2,8956</td><td class="num">50,2s</td></tr>
+  </table>
+  <p>Loss bản không masking <b>cao hơn</b> — vì nó tính loss cả prompt khó đoán (câu hỏi khó đoán hơn đáp án ngắn). Nhưng điểm quyết định nằm ở output:</p>
+  <table class="mini">
+    <tr><th>Prompt</th><th>Masking TẮT sinh ra</th></tr>
+    <tr><td>Thủ đô của Việt Nam là gì?</td><td>"ủi đô của Việt Nam là gì? Trả l"</td></tr>
+    <tr><td>Viết một câu chào buổi sáng lịch sự.</td><td><b>"ả lời: ả lời: ả lời: "</b> — lặp mảnh template!</td></tr>
+    <tr><td>Tóm tắt: Mèo là loài vật nuôi…</td><td>"ả lành và thích ngủ nhiều."</td></tr>
+    <tr><td>Thủ đô của Pháp là gì?</td><td>"ủi đô của Pháp là gì? Trả lờ"</td></tr>
+    <tr><td>Dịch: Cảm ơn bạn rất nhiều.</td><td>"ơn bạn rất nhiều."</td></tr>
+  </table>
+  <div class="ok"><b>💡 Kết luận ablation:</b> masking không phải chi tiết nhỏ — nó quyết định model học <b>"trả lời"</b> hay học <b>"nhại lại khuôn mẫu"</b>. Không masking, model học sinh tiếp khuôn mẫu "Trả lời:" thành vòng lặp vô hạn.</div>
+</section>
+
+<!-- ================= 10 EPOCH ================= -->
+<section id="longer">
+  <h2><span class="num">📈</span>Bổ sung — 10 epoch: val loss đáy ở epoch 6, rồi overfit</h2>
+  <p class="lead">Giả thuyết cần kiểm chứng: "2 epoch chỉ là chưa đủ". Train thêm 10 epoch (cùng dữ liệu, LR, seed, masking BẬT) và đo val loss mỗi epoch:</p>
+
+  <div class="demo">
+    <h3>📈 Train loss vs val loss qua 10 epoch (số thật)</h3>
+    <div id="lossChart"></div>
+    <p class="caption">Train loss giảm đều (3,3230 → 1,1316) nhưng val loss chạm đáy ở epoch 6 (3,3064) rồi tăng trở lại → overfitting kinh điển. Early stopping nên dừng ở epoch 6.</p>
+  </div>
+
+  <table class="mini">
+    <tr><th>Epoch</th><th>Train loss</th><th>Val loss</th></tr>
+    <tr><td>1</td><td class="num">3,3230</td><td class="num">4,1005</td></tr>
+    <tr><td>2</td><td class="num">2,3623</td><td class="num">3,5847</td></tr>
+    <tr><td>4</td><td class="num">2,1654</td><td class="num">3,4153</td></tr>
+    <tr class="hl"><td>6</td><td class="num">1,5809</td><td class="num"><b>3,3064 (thấp nhất)</b></td></tr>
+    <tr><td>8</td><td class="num">1,2236</td><td class="num">3,4221</td></tr>
+    <tr><td>10</td><td class="num">1,1316</td><td class="num">3,5066</td></tr>
+  </table>
+
+  <h3>Sau 10 epoch: định dạng học được, nội dung sụp đổ về "Tokyo."</h3>
+  <table class="mini">
+    <tr><th>Prompt</th><th>Sau 10 epoch</th></tr>
+    <tr><td>Thủ đô của Việt Nam là gì?</td><td><b>"Tokyo."</b> ❌ (sai, sụp đổ về đáp án ngắn quen nhất)</td></tr>
+    <tr><td>Viết một câu chào buổi sáng lịch sự.</td><td>"Chào buổi sáng lịch sự." (đúng định dạng, sai nội dung)</td></tr>
+    <tr><td>Tóm tắt: Mèo là loài vật nuôi…</td><td>"Mèo là loài vật nuôi hiền lành và thích" (đúng nửa đầu!)</td></tr>
+    <tr><td>Thủ đô của Pháp là gì?</td><td><b>"Tokyo."</b> ❌</td></tr>
+    <tr><td>Dịch: Cảm ơn bạn rất nhiều.</td><td><b>"Tokyo."</b> ❌</td></tr>
+  </table>
+  <div class="warn"><b>⚠️ "Tokyo." cho mọi câu hỏi:</b> với chỉ 11 mẫu, model học thuộc đáp án ngắn quen thuộc nhất rồi "nhả" nó ra cho mọi prompt — như học sinh chỉ thuộc một câu trả lời duy nhất rồi viết nó vào mọi câu hỏi. Đây là sụp đổ nội dung (mode collapse thu nhỏ), không phải model "biết" Tokyo là đáp án.</div>
+  <p class="caption">Lưu ý nhỏ về tái lập: train loss epoch 2 ở bản 10 epoch là 2,3623, hơi khác bản 2 epoch (2,3886) dù cùng seed — dao động nhỏ giữa các lần chạy trên CPU. Kết luận (đáy val ở epoch 6, overfit) không thay đổi.</p>
+</section>
+
+<!-- ================= KẾT LUẬN ================= -->
+<section id="ketluan">
+  <h2><span class="num">💡</span>Kết luận thật (không tô hồng)</h2>
+  <p class="lead">Masking, template cố định, train/val split đều làm đúng — nhưng:</p>
+  <ul class="tight">
+    <li>SFT 2 epoch chỉ đổi được <b>hành vi</b> (rác → echo), chưa ra đáp án đúng.</li>
+    <li>SFT 10 epoch chỉ học được <b>định dạng</b> (ngắn + dừng), nội dung vẫn sụp đổ về "Tokyo.".</li>
+    <li>Giới hạn thật nằm ở <b>dữ liệu quá ít (11 mẫu) + lệch ngôn ngữ</b> (model tiếng Anh, dữ liệu tiếng Việt) — không phải ở masking hay template.</li>
+  </ul>
+  <div class="ok"><b>💡 Bài học mang về:</b> đừng train 5–10 epoch trên tập nhỏ (val loss đã chứng minh overfit từ epoch 6), và SFT cần dữ liệu <b>đa dạng, đủ lớn</b>. Kỹ thuật đúng không cứu được dữ liệu thiếu — giống như dạy đúng phương pháp nhưng chỉ cho học sinh 11 ví dụ thì không thể thi đỗ.</div>
+  <div class="card"><h3 style="margin-top:0">🔧 Quirk môi trường</h3>
+    <p style="margin-bottom:0">Tải GPT-2 qua HF cũng bị kẹt như Day 15 (proxy VM chặn CDN). Trọng số lấy qua ModelScope (<code>openai-community/gpt2</code>, chỉ lấy file <code>*.json</code>, <code>*.txt</code>, <code>*.safetensors</code> — bản full kèm TF/Flax nặng nhiều GB, tải ở ~650kB/s quá chậm). Trên máy thường, đặt <code>MODEL_DIR</code> về <code>"gpt2"</code> là chạy thẳng từ HF.</p>
+  </div>
+</section>
+
+<!-- ================= SOURCE CODE ================= -->
+<section id="source">
+  <h2><span class="num">📜</span>Toàn bộ source code</h2>
+  <p class="lead">2 file — tô màu tự động, bấm nút để copy từng file.</p>
+  <h3>File 1: <code>sft_lab.py</code> (lab chính: masking, padding, train 2 epoch + ablation)</h3>
+  <button class="btn" id="copySrc1Btn">📋 Copy sft_lab.py</button>
+  <span id="copyMsg1" style="margin-left:12px;color:var(--green);font-weight:700"></span>
+  <pre class="pysrc" id="fullsrc1"><code>#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""Lab SFT model nho GPT-2 (Day 16 - buoi toi).
+
+3 bai + ablation (mo rong):
+  1. Xay du lieu SFT, encode_example() voi masking (-100 cho prompt),
+     assert kiem chung masking PASS moi duoc train.
+  2. Do padding: ti le token that / token dem, uoc luong packing.
+  3. Train 2 epoch, LR 5e-5, split train/val 20%, sinh truoc-sau
+     tren cung 5 prompt co dinh (cung template, greedy, 30 token).
+  Ablation: train them 1 ban KHONG masking (labels = input_ids),
+  moi thu khac giu nguyen (cung seed, du lieu, epoch, LR) - chi
+  doi 1 bien duy nhat la masking.
+
+Moi truong: CPU-only, GPT-2 124M, float32. Template co dinh cho
+ca train va sinh (doi template giua chung la doi luon bai kiem
+tra):
+    Cau hoi: {instruction}\nTra loi: {output}&lt;|endoftext|&gt;
+
+Du lieu: 4 mau cua de bai + 10 mau tu viet, tron 4 dang: hoi dap
+ngan, tom tat 1 cau, email 2-3 cau, dich 1 cau. DU LIEU VIET CO
+DAU DAY DU (bai hoc Day 15: tieng Viet khong dau lam model hieu
+sai) - day la du lieu train, khong phai comment code.
+
+Cach chay (dung venv Day 15):
+    ~/workspace/venvs/day15/bin/python sft_lab.py
+"""
+
+import os
+import time
+
+import torch
+from torch.utils.data import DataLoader, Dataset
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
+MODEL_DIR = os.path.expanduser(
+    "~/.cache/modelscope/models/openai-community--gpt2/"
+    "snapshots/master")
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+MAX_NEW_TOKENS = 30
+EPOCHS = 2
+LEARNING_RATE = 5e-5
+BATCH_SIZE = 4
+SEED = 42
+
+# 4 mau cua de bai + 10 mau tu viet (tron 4 dang nhiem vu).
+DATA = [
+    # 4 mau cua de bai.
+    {"instruction": "Thủ đô của Việt Nam là gì?",
+     "output": "Hà Nội."},
+    {"instruction": "Thủ đô của Nhật Bản là gì?",
+     "output": "Tokyo."},
+    {"instruction": "Tóm tắt bằng một câu: Mèo là loài vật nuôi "
+     "phổ biến, hiền lành và thích ngủ nhiều.",
+     "output": "Mèo là loài vật nuôi hiền lành, thích ngủ nhiều."},
+    {"instruction": "Viết một câu chào buổi sáng lịch sự.",
+     "output": "Chào buổi sáng, chúc bạn một ngày làm việc hiệu quả."},
+    # 10 mau tu viet - hoi dap ngan.
+    {"instruction": "Thủ đô của Pháp là gì?",
+     "output": "Paris."},
+    {"instruction": "Một tuần có mấy ngày?",
+     "output": "Một tuần có 7 ngày."},
+    {"instruction": "Nước sôi ở bao nhiêu độ C?",
+     "output": "Nước sôi ở 100 độ C."},
+    # Tom tat 1 cau.
+    {"instruction": "Tóm tắt bằng một câu: Chó là loài vật trung thành, "
+     "thông minh và là bạn thân của con người.",
+     "output": "Chó là loài vật trung thành và thông minh."},
+    {"instruction": "Tóm tắt bằng một câu: Sách giúp con người mở rộng "
+     "kiến thức, rèn tư duy và nuôi dưỡng tâm hồn.",
+     "output": "Sách giúp mở rộng kiến thức và rèn tư duy."},
+    # Email 2-3 cau.
+    {"instruction": "Viết email xin nghỉ phép 1 ngày gửi quản lý.",
+     "output": "Chào anh, em xin phép nghỉ làm ngày mai vì việc gia "
+     "đình. Em sẽ bàn giao công việc cho đồng nghiệp trước khi "
+     "nghỉ. Cảm ơn anh đã thông cảm."},
+    {"instruction": "Viết email cảm ơn khách hàng sau buổi họp.",
+     "output": "Cảm ơn quý khách đã dành thời gian họp với chúng tôi "
+     "hôm nay. Chúng tôi sẽ gửi báo giá chi tiết trong tuần này. "
+     "Rất mong được hợp tác lâu dài."},
+    # Dich 1 cau.
+    {"instruction": "Dịch sang tiếng Anh: Tôi yêu Việt Nam.",
+     "output": "I love Vietnam."},
+    {"instruction": "Dịch sang tiếng Anh: Cảm ơn bạn rất nhiều.",
+     "output": "Thank you very much."},
+    {"instruction": "Dịch sang tiếng Việt: Good morning.",
+     "output": "Chào buổi sáng."},
+]
+
+# 5 prompt co dinh: 3 cua de bai + 2 tu viet, dung template train.
+PROMPTS = [
+    "Câu hỏi: Thủ đô của Việt Nam là gì?\nTrả lời: ",
+    "Câu hỏi: Viết một câu chào buổi sáng lịch sự.\nTrả lời: ",
+    "Câu hỏi: Tóm tắt bằng một câu: Mèo là loài vật nuôi phổ biến, "
+    "hiền lành và thích ngủ nhiều.\nTrả lời: ",
+    "Câu hỏi: Thủ đô của Pháp là gì?\nTrả lời: ",
+    "Câu hỏi: Dịch sang tiếng Anh: Cảm ơn bạn rất nhiều.\nTrả lời: ",
+]
+
+
+def format_prompt(instruction):
+    """Rap prompt theo template co dinh cua lab.
+
+    Template nay dung cho CA train VA sinh - khong doi giua
+    chung, ke ca dau xuong dong va token ket thuc.
+    """
+    return f"Câu hỏi: {instruction}\nTrả lời: "
+
+
+def encode_example(item, tok, mask_prompt=True):
+    """Ma hoa 1 mau SFT thanh (input_ids, labels).
+
+    Prompt va dap an token hoa RIENG RE, noi lai thanh input_ids.
+    Neu mask_prompt=True: labels che prompt bang -100, chi tinh
+    loss tren dap an (chuan SFT). Neu False (ablation): labels =
+    input_ids, tinh loss ca prompt.
+
+    Args:
+        item: dict {"instruction": ..., "output": ...}.
+        tok: tokenizer GPT-2 (pad = eos).
+        mask_prompt: True = che prompt, False = khong che.
+
+    Returns:
+        Tuple (input_ids, labels) la 2 list int.
+
+    Raises:
+        ValueError: neu instruction hoac output rong (dap an rong
+            se lam labels toan -100, loss thanh NaN).
+    """
+    if not item["instruction"] or not item["output"]:
+        raise ValueError("instruction va output khong duoc rong.")
+    prompt = format_prompt(item["instruction"])
+    answer = item["output"] + tok.eos_token
+    prompt_ids = tok(prompt, add_special_tokens=False)["input_ids"]
+    answer_ids = tok(answer, add_special_tokens=False)["input_ids"]
+    input_ids = prompt_ids + answer_ids
+    if mask_prompt:
+        labels = [-100] * len(prompt_ids) + answer_ids
+    else:
+        labels = list(input_ids)
+    return input_ids, labels
+
+
+def verify_masking(tok):
+    """Kiem chung masking: PASS het moi duoc sang Bai 2.
+
+    Assert: moi label o vi tri prompt la -100, label o vi tri
+    dap an bang dung token that.
+    """
+    ids, labels = encode_example(DATA[0], tok, mask_prompt=True)
+    prompt_len = len(tok(format_prompt(DATA[0]["instruction"]),
+                         add_special_tokens=False)["input_ids"])
+    assert all(l == -100 for l in labels[:prompt_len]), \
+        "Prompt chua duoc che het!"
+    assert labels[prompt_len:] == ids[prompt_len:], \
+        "Label dap an phai bang token that!"
+    n_loss = sum(1 for l in labels if l != -100)
+    print(f"Masking OK. Mau 0 co {len(ids)} token, trong do "
+          f"{n_loss} token tinh loss.")
+    print(tok.decode(ids))
+    # Edge case: dap an rong phai bao loi ro rang, khong NaN am tham.
+    try:
+        encode_example({"instruction": "Hoi?", "output": ""}, tok)
+        print("CANH BAO: output rong khong bi chan!")
+    except ValueError as exc:
+        print(f"Edge case output rong: chan dung ({exc})")
+
+
+def measure_padding(tok):
+    """Bai 2: do ti le token that / token dem cua toan bo DATA."""
+    encoded = [encode_example(d, tok) for d in DATA]
+    max_len = max(len(ids) for ids, _ in encoded)
+    total = len(encoded) * max_len
+    real = sum(len(ids) for ids, _ in encoded)
+    print(f"Mau dai nhat: {max_len} token | "
+          f"Tong token (ke ca padding): {total}")
+    print(f"Token that: {real} ({real / total:.0%}) | "
+          f"Token dem lang phi: {total - real} "
+          f"({1 - real / total:.0%})")
+    # Uoc luong packing: xep cac mau noi tiep cho day sequence 128
+    # token, chi thua 1 doan padding cuoi cung (&lt; 128 token).
+    n_seq = (real + 127) // 128
+    packed_total = n_seq * 128
+    print(f"Uoc luong packing (seq 128): {n_seq} sequence, "
+          f"token dem chi con {packed_total - real} "
+          f"({(packed_total - real) / packed_total:.1%}) "
+          f"thay vi {1 - real / total:.0%}.")
+    return encoded
+
+
+class SFTDataset(Dataset):
+    """Dataset SFT: encode san toan bo mau luc khoi tao."""
+
+    def __init__(self, items):
+        """Args: items la list (input_ids, labels) da encode."""
+        self.items = items
+
+    def __len__(self):
+        """Tra ve so mau."""
+        return len(self.items)
+
+    def __getitem__(self, i):
+        """Tra ve dict input_ids/labels cua mau thu i."""
+        ids, labels = self.items[i]
+        return {"input_ids": ids, "labels": labels}
+
+
+def collate(batch, pad_id):
+    """Dem batch ve cung do dai: pad token + nhan -100.
+
+    Attention mask = 1 cho token that, 0 cho padding.
+    """
+    max_len = max(len(b["input_ids"]) for b in batch)
+    input_ids, labels, attn = [], [], []
+    for b in batch:
+        pad = max_len - len(b["input_ids"])
+        input_ids.append(b["input_ids"] + [pad_id] * pad)
+        labels.append(b["labels"] + [-100] * pad)
+        attn.append([1] * len(b["input_ids"]) + [0] * pad)
+    return {"input_ids": torch.tensor(input_ids),
+            "labels": torch.tensor(labels),
+            "attention_mask": torch.tensor(attn)}
+
+
+def train_model(tok, train_items, tag):
+    """Train GPT-2 tu dau (load lai trong so goc) va tra ve model.
+
+    Seed lai truoc moi lan train de 2 ban (masking bat/tat) co
+    cung thu tu shuffle va dropout - chi khac 1 bien masking
+    (labels da encode san trong train_items truoc khi goi ham).
+    """
+    torch.manual_seed(SEED)
+    model = AutoModelForCausalLM.from_pretrained(MODEL_DIR)
+    model.to(DEVICE)
+    model.config.pad_token_id = tok.pad_token_id
+    loader = DataLoader(
+        SFTDataset(train_items), batch_size=BATCH_SIZE, shuffle=True,
+        collate_fn=lambda b: collate(b, tok.pad_token_id),
+        generator=torch.Generator().manual_seed(SEED))
+    opt = torch.optim.AdamW(model.parameters(), lr=LEARNING_RATE)
+    model.train()
+    t0 = time.perf_counter()
+    epoch_losses = []
+    for epoch in range(EPOCHS):
+        total_loss, steps = 0.0, 0
+        for batch in loader:
+            batch = {k: v.to(DEVICE) for k, v in batch.items()}
+            out = model(**batch)
+            out.loss.backward()
+            opt.step()
+            opt.zero_grad()
+            total_loss += out.loss.item()
+            steps += 1
+        avg = total_loss / steps
+        epoch_losses.append(avg)
+        print(f"  [{tag}] Epoch {epoch + 1}: train loss = {avg:.4f}")
+    dt = time.perf_counter() - t0
+    print(f"  [{tag}] Train xong trong {dt:.1f}s "
+          f"({EPOCHS} epoch, {len(train_items)} mau).")
+    return model, epoch_losses
+
+
+@torch.no_grad()
+def generate(model, tok, prompt):
+    """Sinh greedy 30 token theo dung template train."""
+    ids = tok(prompt, return_tensors="pt").to(DEVICE)
+    out = model.generate(**ids, max_new_tokens=MAX_NEW_TOKENS,
+                         do_sample=False,
+                         pad_token_id=tok.eos_token_id)
+    return tok.decode(out[0][ids["input_ids"].shape[1]:],
+                      skip_special_tokens=True)
+
+
+def evaluate(model, tok, title):
+    """Sinh tren 5 prompt co dinh, in ket qua de so sanh."""
+    print(f"===== {title} =====")
+    model.eval()
+    for p in PROMPTS:
+        print("PROMPT:", p.replace("\n", " / "))
+        print("-&gt;", generate(model, tok, p))
+
+
+def main():
+    """Chay lab day du: masking -&gt; padding -&gt; train -&gt; ablation."""
+    print(f"torch {torch.__version__} | device: {DEVICE}")
+    tok = AutoTokenizer.from_pretrained(MODEL_DIR)
+    tok.pad_token = tok.eos_token
+    print("\n" + "=" * 72)
+    print("BAI 1 - Masking")
+    print("=" * 72)
+    verify_masking(tok)
+    print("\n" + "=" * 72)
+    print("BAI 2 - Padding")
+    print("=" * 72)
+    measure_padding(tok)
+    # Split train/val: 20% val (3/14 mau cuoi), 11 mau train.
+    n_val = max(1, round(len(DATA) * 0.2))
+    train_data, val_data = DATA[:-n_val], DATA[-n_val:]
+    print(f"\nSplit: {len(train_data)} train / {len(val_data)} val "
+          f"(val = {n_val} mau cuoi: "
+          f"{[d['instruction'][:30] for d in val_data]}).")
+    print("\n" + "=" * 72)
+    print("BAI 3 - Truoc khi SFT (base model)")
+    print("=" * 72)
+    base = AutoModelForCausalLM.from_pretrained(MODEL_DIR).to(DEVICE)
+    base.config.pad_token_id = tok.pad_token_id
+    evaluate(base, tok, "TRUOC KHI SFT")
+    del base
+    print("\n" + "=" * 72)
+    print("BAI 3 - Train (masking BAT, chuan SFT)")
+    print("=" * 72)
+    train_items = [encode_example(d, tok, mask_prompt=True)
+                   for d in train_data]
+    model_masked, _ = train_model(tok, train_items, "masking-BAT")
+    evaluate(model_masked, tok, "SAU KHI SFT (masking BAT)")
+    del model_masked
+    print("\n" + "=" * 72)
+    print("ABLATION - Train (masking TAT, chi doi 1 bien)")
+    print("=" * 72)
+    train_items_nomask = [encode_example(d, tok, mask_prompt=False)
+                          for d in train_data]
+    model_nomask, _ = train_model(tok, train_items_nomask,
+                                  "masking-TAT")
+    evaluate(model_nomask, tok, "SAU KHI TRAIN (masking TAT)")
+    print("\n" + "=" * 72)
+    print("KET LUAN NHANH")
+    print("=" * 72)
+    print("- Masking BAT: loss chi tinh tren dap an, model hoc "
+          "'dap an roi dung'.")
+    print("- Masking TAT: loss tinh ca prompt, model de sinh tiep "
+          "cau hoi / lap khuon mau.")
+    print("- Template train va sinh giong het nhau (cung ham "
+          "format_prompt).")
+
+
+if __name__ == "__main__":
+    main()
+</code></pre>
+  <h3>File 2: <code>train_longer.py</code> (bổ sung: 10 epoch + val loss mỗi epoch)</h3>
+  <button class="btn" id="copySrc2Btn">📋 Copy train_longer.py</button>
+  <span id="copyMsg2" style="margin-left:12px;color:var(--green);font-weight:700"></span>
+  <pre class="pysrc" id="fullsrc2"><code>#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""Bo sung Day 16: train MASKING 10 epoch de kiem chung gia thuyet.
+
+Ket qua ban 2 epoch: loss giam (3.32 -&gt; 2.39) nhung model chi
+ECHO lai prompt (vd: "u do cua Viet Nam la gi?") thay vi tra loi
+"Ha Noi.". Gia thuyet: 2 epoch x 11 mau la QUA IT cho model
+tieng Anh hoc dap an tieng Viet - model moi hoc duoc hanh vi de
+nhat la copy token tu prompt.
+
+Script nay train them 10 epoch (cung du lieu, cung LR, cung
+seed) + do val loss moi epoch de xem: (a) model co nho duoc dap
+an khong, (b) val loss co bat dau tang (overfit) khong.
+
+Neu 10 epoch cho dap an dung -&gt; gia thuyet dung, 2 epoch chi la
+chua du. Neu van echo -&gt; co van de sau hon, can dieu tra.
+"""
+
+import os
+import time
+
+import torch
+from torch.utils.data import DataLoader
+
+from sft_lab import (BATCH_SIZE, DATA, LEARNING_RATE, MODEL_DIR,
+                     PROMPTS, SEED, SFTDataset, collate,
+                     encode_example, evaluate)
+
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+EPOCHS_LONG = 10
+
+
+@torch.no_grad()
+def val_loss(model, tok, val_items):
+    """Loss trung binh tren tap val (labels da masking san)."""
+    model.eval()
+    loader = DataLoader(SFTDataset(val_items), batch_size=4,
+                        collate_fn=lambda b: collate(b,
+                                                     tok.pad_token_id))
+    total, steps = 0.0, 0
+    for batch in loader:
+        batch = {k: v.to(DEVICE) for k, v in batch.items()}
+        total += model(**batch).loss.item()
+        steps += 1
+    model.train()
+    return total / steps
+
+
+def main():
+    """Train 10 epoch, in train/val loss moi epoch, sinh 5 prompt."""
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+
+    print(f"torch {torch.__version__} | device: {DEVICE}")
+    tok = AutoTokenizer.from_pretrained(MODEL_DIR)
+    tok.pad_token = tok.eos_token
+    n_val = max(1, round(len(DATA) * 0.2))
+    train_data, val_data = DATA[:-n_val], DATA[-n_val:]
+    train_items = [encode_example(d, tok, mask_prompt=True)
+                   for d in train_data]
+    val_items = [encode_example(d, tok, mask_prompt=True)
+                 for d in val_data]
+    torch.manual_seed(SEED)
+    model = AutoModelForCausalLM.from_pretrained(MODEL_DIR).to(DEVICE)
+    model.config.pad_token_id = tok.pad_token_id
+    loader = DataLoader(
+        SFTDataset(train_items), batch_size=BATCH_SIZE, shuffle=True,
+        collate_fn=lambda b: collate(b, tok.pad_token_id),
+        generator=torch.Generator().manual_seed(SEED))
+    opt = torch.optim.AdamW(model.parameters(), lr=LEARNING_RATE)
+    model.train()
+    t0 = time.perf_counter()
+    for epoch in range(EPOCHS_LONG):
+        total_loss, steps = 0.0, 0
+        for batch in loader:
+            batch = {k: v.to(DEVICE) for k, v in batch.items()}
+            out = model(**batch)
+            out.loss.backward()
+            opt.step()
+            opt.zero_grad()
+            total_loss += out.loss.item()
+            steps += 1
+        vl = val_loss(model, tok, val_items)
+        print(f"Epoch {epoch + 1}: train loss = "
+              f"{total_loss / steps:.4f} | val loss = {vl:.4f}")
+    print(f"Train xong trong {time.perf_counter() - t0:.1f}s "
+          f"({EPOCHS_LONG} epoch, {len(train_data)} mau).")
+    evaluate(model, tok, "SAU 10 EPOCH (masking BAT)")
+
+
+if __name__ == "__main__":
+    main()
+</code></pre>
+</section>
+
+</div><!-- /wrap -->
+
+<footer>
+  <div class="wrap">
+    Được dựng từ <code>day16/sft_lab.py</code> và <code>day16/train_longer.py</code> — giải thích bằng tiếng Việt, vẽ thành sơ đồ cho người ngoại đạo.<br>
+    Số liệu là kết quả chạy thật (VM CPU-only, torch 2.14.1+cpu, transformers 5.20.2). Sơ đồ là minh họa ý tưởng.
+  </div>
+</footer>
+
+<script>
+// --- Tiện ích ---
+function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+// --- Demo masking: 54 ô token ---
+(function(){
+  function render(maskOn){
+    let html = "";
+    for(let i = 0; i < 45; i++){
+      html += '<span class="tok-block ' + (maskOn ? 'tok-masked' : 'tok-prompt') + '" title="prompt token ' + (i+1) + '"></span>';
+    }
+    for(let i = 0; i < 9; i++){
+      html += '<span class="tok-block tok-answer" title="answer token ' + (i+1) + '"></span>';
+    }
+    document.getElementById("maskViz").innerHTML = html;
+    document.getElementById("maskOut").innerHTML = maskOn
+      ? "Masking BẬT: 45 ô prompt bị che (-100, xám đứt nét) → loss chỉ tính trên <b>9 ô đáp án</b> (tím).<br>Assert: mọi label prompt = -100 ✓, label đáp án = token thật ✓ → PASS."
+      : "Masking TẮT: cả 54 ô đều tính loss → model học cả prompt (tím nhạt).<br>Hậu quả (xem ablation): sinh lặp khuôn mẫu \"ả lời: ả lời:\".";
+  }
+  document.querySelectorAll("[data-mask]").forEach(btn => {
+    btn.addEventListener("click", function(){
+      document.querySelectorAll("[data-mask]").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      render(btn.dataset.mask === "on");
+    });
+  });
+  render(true);
+})();
+// --- Biểu đồ padding ---
+(function(){
+  const rows = [
+    ["Token thật", 1301, 53, "linear-gradient(90deg,#6b21a8,#a855f7)"],
+    ["Token đệm lãng phí", 1149, 47, "linear-gradient(90deg,#b91c1c,#ef4444)"],
+    ["Token đệm nếu packing", 107, 7.6, "linear-gradient(90deg,#047857,#34d399)"]
+  ];
+  let html = "";
+  rows.forEach(r => {
+    html += '<div class="bar-lab">' + esc(r[0]) + ' — <b>' + r[1] + '</b> (' + r[2] + '%)</div>' +
+      '<div class="bar-wrap"><div class="bar-fill" style="width:' + r[2] + '%;background:' + r[3] + '"></div></div>';
+  });
+  document.getElementById("padChart").innerHTML = html;
+})();
+// --- Biểu đồ train/val loss 10 epoch (SVG, số thật) ---
+(function(){
+  const train = [3.3230,2.3623,2.2357,2.1654,1.7495,1.5809,1.1539,1.2236,1.0534,1.1316];
+  const val = [4.1005,3.5847,3.4719,3.4153,3.3583,3.3064,3.3241,3.4221,3.4915,3.5066];
+  const W = 860, H = 300, PL = 48, PR = 14, PT = 14, PB = 30;
+  const yMin = 1.0, yMax = 4.3;
+  const X = i => PL + i / 9 * (W - PL - PR);
+  const Y = v => PT + (yMax - v) / (yMax - yMin) * (H - PT - PB);
+  let svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg" font-family="monospace" font-size="11">';
+  svg += '<line x1="' + PL + '" y1="' + PT + '" x2="' + PL + '" y2="' + (H - PB) + '" stroke="#9ca3af"/>';
+  svg += '<line x1="' + PL + '" y1="' + (H - PB) + '" x2="' + (W - PR) + '" y2="' + (H - PB) + '" stroke="#9ca3af"/>';
+  [1.5, 2.0, 2.5, 3.0, 3.5, 4.0].forEach(v => {
+    svg += '<line x1="' + PL + '" y1="' + Y(v) + '" x2="' + (W - PR) + '" y2="' + Y(v) + '" stroke="#e5e7eb"/>';
+    svg += '<text x="' + (PL - 6) + '" y="' + (Y(v) + 4) + '" text-anchor="end" fill="#6b7280">' + v.toFixed(1) + '</text>';
+  });
+  for(let e = 1; e <= 10; e++){
+    svg += '<text x="' + X(e - 1) + '" y="' + (H - 10) + '" text-anchor="middle" fill="#6b7280">' + e + '</text>';
+  }
+  const mk = (arr, color) => '<polyline points="' + arr.map((v, i) => X(i).toFixed(1) + "," + Y(v).toFixed(1)).join(" ") + '" fill="none" stroke="' + color + '" stroke-width="2"/>';
+  svg += mk(train, "#6b21a8") + mk(val, "#b91c1c");
+  // Đánh dấu đáy val epoch 6
+  svg += '<circle cx="' + X(5).toFixed(1) + '" cy="' + Y(3.3064).toFixed(1) + '" r="6" fill="none" stroke="#b91c1c" stroke-width="2"/>';
+  svg += '<text x="' + X(5).toFixed(1) + '" y="' + (Y(3.3064) - 12).toFixed(1) + '" text-anchor="middle" fill="#b91c1c" font-weight="bold">đáy ep 6</text>';
+  svg += '</svg>';
+  svg += '<div style="display:flex;gap:18px;flex-wrap:wrap;margin-top:8px;font-size:.9rem">' +
+    '<span><span style="display:inline-block;width:18px;height:4px;background:#6b21a8;vertical-align:middle;margin-right:6px"></span>Train loss (giảm đều)</span>' +
+    '<span><span style="display:inline-block;width:18px;height:4px;background:#b91c1c;vertical-align:middle;margin-right:6px"></span>Val loss (đáy ep 6 → tăng = overfit)</span></div>';
+  document.getElementById("lossChart").innerHTML = svg;
+})();
+// --- Copy source (2 file) ---
+(function(){
+  function bind(btnId, srcId, msgId){
+    document.getElementById(btnId).addEventListener("click", function(){
+      const raw = document.getElementById(srcId).textContent;
+      const msg = document.getElementById(msgId);
+      const done = function(){ msg.textContent = "Đã copy ✓"; setTimeout(function(){ msg.textContent = ""; }, 2000); };
+      if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(raw).then(done, done); }
+      else { const ta = document.createElement("textarea"); ta.value = raw; document.body.appendChild(ta); ta.select(); try{ document.execCommand("copy"); }catch(e){} document.body.removeChild(ta); done(); }
+    });
+  }
+  bind("copySrc1Btn", "fullsrc1", "copyMsg1");
+  bind("copySrc2Btn", "fullsrc2", "copyMsg2");
+})();
+</script>
+<script>
+// Tô màu cú pháp Python
+(function(){
+  function escHtml(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+  function highlightPython(src){
+    var re = /(#[^\n]*)|("""[\s\S]*?"""|"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*')|\b(import|from|def|class|return|if|elif|else|for|while|in|is|not|and|or|None|True|False|lambda|with|as|try|except|finally|raise|global|pass|break|continue)\b|(\b\d+(?:\.\d+)?\b)|(@[\w.]+)/g;
+    var out = "", last = 0, m;
+    while((m = re.exec(src))){
+      out += escHtml(src.slice(last, m.index));
+      var tok = m[0], cls = m[1] ? "cm" : m[2] ? "str" : m[3] ? "kw" : m[4] ? "num2" : "fn";
+      out += '<span class="' + cls + '">' + escHtml(tok) + "</span>";
+      last = m.index + tok.length;
+      if(tok.length === 0) re.lastIndex++;
+    }
+    return out + escHtml(src.slice(last));
+  }
+  document.querySelectorAll("pre.pysrc").forEach(function(pre){
+    var raw = pre.textContent;
+    pre.innerHTML = "<code>" + highlightPython(raw) + "</code>";
+  });
+})();
+</script>
+</body>
+</html>
