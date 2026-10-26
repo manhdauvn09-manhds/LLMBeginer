@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quiz Ngày 16 — SFT biến dữ liệu hướng dẫn thành hành vi | Khóa LLM 30 ngày</title>
+<style>
+:root{--bg:#0a0f1e; --card:#101830; --line:#22305a; --gold:#f5c542; --green:#4ade80;
+ --red:#f87171; --violet:#a78bfa; --cyan:#67e8f9; --text:#e8edf7; --muted:#93a0bd;}
+*{box-sizing:border-box;}
+body{margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.7; font-size:16.5px;}
+.wrap{max-width:760px; margin:0 auto; padding:18px 16px 60px;}
+.kicker{display:inline-block; font-size:13px; letter-spacing:1px; color:var(--gold); font-weight:700; margin-bottom:8px;}
+h1{font-size:26px; margin:6px 0 4px;}
+.sub{color:var(--muted);}
+.q{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px 18px; margin:16px 0;}
+.q h3{margin:0 0 10px; font-size:17px; color:var(--cyan);}
+label.opt{display:block; background:#0a0f1e; border:1px solid var(--line); border-radius:10px; padding:10px 14px; margin:8px 0; cursor:pointer;}
+label.opt:hover{border-color:var(--gold);}
+label.opt input{margin-right:10px;}
+.explain{display:none; border-left:4px solid var(--green); background:#0f2233; border-radius:0 10px 10px 0; padding:10px 14px; margin-top:10px; font-size:15px;}
+.explain.bad{border-color:var(--red); background:#23141a;}
+.btn{display:inline-block; background:var(--gold); color:#14100a; font-weight:700; border-radius:10px; padding:12px 24px; margin:12px 8px 0 0; border:none; font-size:16px; cursor:pointer;}
+.btn.ghost{background:transparent; color:var(--gold); border:2px solid var(--gold);}
+#result{display:none; margin-top:20px; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px;}
+#copystr{background:#060a14; border:1px dashed var(--violet); border-radius:8px; padding:10px 14px; margin:10px 0; font-size:15px; word-break:break-all;}
+.footer{color:var(--muted); font-size:14px; margin-top:30px;}
+.correct{color:var(--green); font-weight:700;} .wrong{color:var(--red); font-weight:700;}
+</style>
+</head>
+<body>
+<div class="wrap">
+<span class="kicker">QUIZ NGÀY 16 · SFT</span>
+<h1>📝 Quiz — 5 câu</h1>
+<p class="sub">Chọn đáp án rồi bấm <b>Nộp bài</b> để chấm điểm ngay. Đạt <b>≥ 4/5 (80%)</b> là đạt. Dưới mức đó → báo cho trợ lý để được học bù trước bài mới.</p>
+
+<div class="q" id="q1"><h3>Câu 1. Mục đích chính của SFT là gì?</h3>
+<label class="opt"><input type="radio" name="q1" value="A"> A. Dạy thêm kiến thức hoàn toàn mới mà pretrain chưa từng thấy</label>
+<label class="opt"><input type="radio" name="q1" value="B"> B. Dạy model hành vi làm theo hướng dẫn: dùng kiến thức đã có để trả lời đúng dạng người dùng mong đợi</label>
+<label class="opt"><input type="radio" name="q1" value="C"> C. Tăng số tham số của model lên gấp đôi</label>
+<label class="opt"><input type="radio" name="q1" value="D"> D. Nén model nhỏ lại để chạy trên điện thoại</label>
+<div class="explain" id="e1"></div></div>
+
+<div class="q" id="q2"><h3>Câu 2. Trong SFT, các token thuộc phần prompt (system + user) được gán nhãn gì để hàm loss bỏ qua chúng?</h3>
+<label class="opt"><input type="radio" name="q2" value="A"> A. −100 (masking)</label>
+<label class="opt"><input type="radio" name="q2" value="B"> B. 0</label>
+<label class="opt"><input type="radio" name="q2" value="C"> C. id của token padding</label>
+<label class="opt"><input type="radio" name="q2" value="D"> D. 1</label>
+<div class="explain" id="e2"></div></div>
+
+<div class="q" id="q3"><h3>Câu 3. Bạn train SFT bằng chat template A, nhưng lúc dùng thật lại dùng chat template B khác hẳn. Điều gì dễ xảy ra nhất?</h3>
+<label class="opt"><input type="radio" name="q3" value="A"> A. Model “lạc vai”: trả lời sai định dạng, không dừng đúng chỗ, vì special token và cách gói message đã đổi</label>
+<label class="opt"><input type="radio" name="q3" value="B"> B. Model chạy nhanh hơn vì template mới ngắn hơn</label>
+<label class="opt"><input type="radio" name="q3" value="C"> C. Vocab của model tự tăng thêm token mới</label>
+<label class="opt"><input type="radio" name="q3" value="D"> D. Không ảnh hưởng gì, vì model chỉ quan tâm nội dung chữ</label>
+<div class="explain" id="e3"></div></div>
+
+<div class="q" id="q4"><h3>Câu 4. Packing mà KHÔNG tách attention giữa các mẫu sẽ gây ra vấn đề gì?</h3>
+<label class="opt"><input type="radio" name="q4" value="A"> A. Mẫu đứng sau “nhìn trộm” mẫu đứng trước như thể chúng là một đoạn văn liền mạch, học sai ngữ cảnh</label>
+<label class="opt"><input type="radio" name="q4" value="B"> B. Loss tăng vọt ngay lập tức và train dừng hẳn</label>
+<label class="opt"><input type="radio" name="q4" value="C"> C. Context window của model tự dài ra gấp đôi</label>
+<label class="opt"><input type="radio" name="q4" value="D"> D. VRAM giảm xuống bằng không</label>
+<div class="explain" id="e4"></div></div>
+
+<div class="q" id="q5"><h3>Câu 5. Dấu hiệu nào cho thấy SFT đang overfitting?</h3>
+<label class="opt"><input type="radio" name="q5" value="A"> A. Train loss giảm đều, val loss bắt đầu tăng, model trả lời mọi câu bằng cùng một khuôn mẫu rập khuôn</label>
+<label class="opt"><input type="radio" name="q5" value="B"> B. Train loss và val loss cùng giảm đều, điểm kiểm tra kiến thức chung tăng</label>
+<label class="opt"><input type="radio" name="q5" value="C"> C. Model trả lời đa dạng hơn và ngắn gọn hơn trước</label>
+<label class="opt"><input type="radio" name="q5" value="D"> D. Thời gian train mỗi epoch ngắn dần</label>
+<div class="explain" id="e5"></div></div>
+
+<div><button class="btn" onclick="grade()">Nộp bài</button>
+<button class="btn ghost" onclick="copyResult()" id="copybtn" style="display:none;">📋 Copy kết quả</button></div>
+<div id="result"><div id="scoreline" style="font-size:18px; margin-bottom:8px;"></div><div id="copystr"></div></div>
+<p style="color:var(--muted); font-size:14.5px;">Bấm <b>Copy kết quả</b> rồi paste vào chat để trợ lý ghi điểm nhé. File HTML này không tự gửi kết quả về được.</p>
+
+<div class="footer"><a href="Day16_lesson.html" style="color:var(--gold);">← Quay lại bài học Ngày 16</a></div>
+</div>
+<script>
+const KEY = {q1:"B", q2:"A", q3:"A", q4:"A", q5:"A"};
+const WHY = {
+q1:"SFT chủ yếu dạy hành vi: trả lời câu hỏi thì trả lời, viết email thì viết email, dừng đúng chỗ. Kiến thức nền đã nằm trong pretrain; dữ liệu SFT quý ở chất lượng và độ đa dạng, không phải số lượng khổng lồ.",
+q2:"Masking gán nhãn −100 cho token prompt để hàm loss bỏ qua chúng. Prompt là 'đề bài' — chỉ chấm 'bài làm' (phần assistant). Nếu tính loss cả prompt, gradient bị pha loãng bởi token mà lúc dùng thật model không cần sinh.",
+q3:"Chat template quyết định special token, dấu phân tách vai trò và dấu xuống dòng. Đổi template lúc inference là đổi 'ngôn ngữ giao tiếp' mà model đã học — model dễ lạc vai, sai format hoặc không dừng. Quy tắc sắt: train và inference dùng cùng một template.",
+q4:"Attention không bị chặn sẽ cho token mẫu sau nhìn thấy toàn bộ mẫu trước, như thể chúng là một văn bản liền mạch. Muốn packing an toàn phải dùng attention tách biệt theo mẫu (block-diagonal, position_ids đặt lại từ đầu mỗi mẫu).",
+q5:"Overfitting SFT: train loss cứ giảm nhưng val loss tăng trở lại, model trả lời rập khuôn một giọng văn và có thể quên kiến thức pretrain (catastrophic forgetting). Cách phòng: 2–3 epoch, learning rate nhỏ, tập validation và early stopping, đánh giá trước–sau bằng 30 prompt cố định."
+};
+let graded = false, answers = {};
+function grade(){
+  graded = true; answers = {}; let score = 0;
+  for(let i=1;i<=5;i++){
+    const sel = document.querySelector('input[name=q'+i+']:checked');
+    const v = sel ? sel.value : "–"; answers["q"+i] = v;
+    const ok = (v === KEY["q"+i]); if(ok) score++;
+    const box = document.getElementById("e"+i);
+    box.style.display = "block";
+    box.className = "explain" + (ok ? "" : " bad");
+    box.innerHTML = (ok ? '<span class="correct">✔ Đúng.</span> ' : '<span class="wrong">✘ Sai.</span> Đáp án đúng: <b>'+KEY["q"+i]+'</b>. ') + WHY["q"+i];
+  }
+  const r = document.getElementById("result"); r.style.display = "block";
+  document.getElementById("scoreline").innerHTML = "Kết quả: <b>"+score+"/5</b> " + (score>=4 ? "🎉 Đạt! Sẵn sàng sang Ngày 17 (LoRA)." : "🔁 Dưới 80% — báo trợ lý để học bù nhé.");
+  document.getElementById("copystr").textContent = copyString();
+  document.getElementById("copybtn").style.display = "inline-block";
+  r.scrollIntoView({behavior:"smooth"});
+}
+function copyString(){
+  let s = "Day16 Quiz:";
+  for(let i=1;i<=5;i++) s += " " + i + answers["q"+i];
+  let sc = 0; for(let i=1;i<=5;i++) if(answers["q"+i]===KEY["q"+i]) sc++;
+  return s + " — " + sc + "/5";
+}
+function copyResult(){
+  if(!graded) return;
+  const t = copyString();
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(t).then(()=>{document.getElementById("copybtn").textContent="✅ Đã copy!"});
+  } else {
+    const ta = document.createElement("textarea"); ta.value = t; document.body.appendChild(ta);
+    ta.select(); document.execCommand("copy"); document.body.removeChild(ta);
+    document.getElementById("copybtn").textContent="✅ Đã copy!";
+  }
+}
+</script>
+</body>
+</html>
