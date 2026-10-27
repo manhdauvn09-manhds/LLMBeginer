@@ -24,6 +24,15 @@ Du lieu: 32 mau, 8 mau moi kind (qa, summary, email, translate),
 
 Cach chay (dung venv Day 15):
     ~/workspace/venvs/day15/bin/python lora_lab.py
+
+[TRAINER] Nhan xet tong (review 27/10/2026): 0 loi code - ngay thu 3
+lien tiep sach hoan toan (sau Day 15, Day 16). Trainer da chay lai
+toan bo lab tren may khac: moi so lieu trong README khop den 4 chu
+so thap phan. Diem dang ghi nhat cua bai nay: ca 3 diem yeu bi chi
+ra o Day 16 (split khong phan tang, prompt eval la mau da hoc,
+verify chi check mau 0) deu duoc sua ngay trong Bai 0, TRUOC khi
+ablation - do la quy trinh cua nguoi lam nghien cuu, khong con la
+lam bai tap. Chi tiet tung cho o cac comment [TRAINER] ben duoi.
 """
 
 import gc
@@ -46,6 +55,10 @@ EPOCHS = 2
 LEARNING_RATE = 1e-4
 BATCH_SIZE = 4
 MAX_NEW_TOKENS = 30
+# [TRAINER] Luu y: adapter luu NGOAI repo (~/workspace/daily/day17/)
+# va README chua ghi vi tri nay - nguoi doc repo sach se khong tim
+# thay file de nap lai. Lan sau hoac ghi ro duong dan trong README,
+# hoac luu vao thu muc day17/ trong repo (adapter chi ~2,4 MB).
 ADAPTER_DIR = os.path.expanduser("~/workspace/daily/day17/adapter_best")
 
 # 32 mau: 8 moi kind. Kind: qa, summary, email, translate.
@@ -191,6 +204,10 @@ def encode_example(item, tok):
     answer_ids = tok(answer, add_special_tokens=False)["input_ids"]
     input_ids = prompt_ids + answer_ids
     labels = [-100] * len(prompt_ids) + answer_ids
+    # [TRAINER] Dung cho nguy hiem nhat cua SFT: token cuoi cua
+    # answer la EOS va EOS NAM TRONG labels -> model duoc hoc cach
+    # dung. Trainer kiem chung tren ca 32 mau: label cuoi cua moi
+    # mau deu la EOS (50256). Day 16 ban cung lam dung cho nay.
     return input_ids, labels
 
 
@@ -214,6 +231,10 @@ def stratified_split(data, seed=SEED, val_frac=0.2):
             n_val = 0
         val.extend(items[:n_val])
         train.extend(items[n_val:])
+    # [TRAINER] Bai hoc Day 16 da thanh phan xa: split phan tang co
+    # seed - trainer kiem doc lap: train 28 mau (dung 7/kind), val 4
+    # mau (dung 1/kind), khong trung instruction giua 2 tap. Day la
+    # khac biet lon nhat so voi Day 16 (val toan mau dich, train 0).
     return train, val
 
 
@@ -227,6 +248,10 @@ def audit_eval_prompts(eval_prompts, train):
     for p in eval_prompts:
         for ins in train_instructions:
             assert ins not in p, f"Prompt danh gia trung train: {ins}"
+    # [TRAINER] Trainer con kiem chat hon audit nay: doi chieu 6
+    # prompt ca voi tap VAL (audit cua ban chi soi train) - van PASS,
+    # ca 6 prompt deu chua tung thay o bat ky tap nao. Giu thoi quen
+    # nay: bo eval chi co gia tri khi no do duoc khai quat hoa.
     print(f"Eval audit OK: {len(eval_prompts)} prompt deu chua tung "
           f"thay trong train.")
 
@@ -241,6 +266,9 @@ def verify_masking_all(tok):
             f"Mau {i} chua che het prompt!"
         assert labels[prompt_len:] == ids[prompt_len:], \
             f"Mau {i} label dap an sai!"
+    # [TRAINER] Day 16 verify chi check mau 0 (dung de bai) - bai nay
+    # lap qua MOI mau, dung gop y cua trainer. Chi phi vai dong code
+    # nhung bat duoc loi encode o bat ky mau nao, khong chi mau dau.
     print(f"Masking OK tren tat ca {len(DATA)} mau.")
 
 
@@ -295,6 +323,12 @@ def build_lora_model(tok, rank, target_modules):
                         target_modules=target_modules,
                         task_type="CAUSAL_LM")
     model = get_peft_model(base, config)
+    # [TRAINER] Kiem chung doc lap ca 3 rank: 12/12 tensor lora_B
+    # bang 0 luc khoi tao, lora_A khac 0 -> delta W = 0 o step 0,
+    # do bang lech logits so voi base = 0.00e+00 (model khong bi pha
+    # truoc khi train). Va alpha = 2r dat o mot cho duy nhat nay nen
+    # ti le alpha/r = 2 co dinh: doi rank la doi DUNG 1 bien, khong
+    # dinh confound scale nhu trainer da canh bao o checklist.
     trainable, total = count_trainable(model)
     print(f"  r={rank} {target_modules}: train duoc {trainable:,} / "
           f"{total:,} tham so ({trainable / total:.2%})")
@@ -318,6 +352,12 @@ def val_loss(model, tok, val_items):
         total += model(**batch).loss.item()
         steps += 1
     model.train()
+    # [TRAINER] Gop y (khong phai loi): val chi co 4 mau -> val loss
+    # la trung binh cua 4 batch don mau, mot thuoc do rat mong.
+    # Chenh lech giua cac rank (0,016-0,035) nho hon do nhieu co the
+    # co cua chinh thuoc do. Ket luan "r=16 tot nhat" dung tren so
+    # da do, nhung lan sau nen chay 2-3 seed (hoac val 2 mau/kind)
+    # de chac thu hang rank on dinh truoc khi chot.
     return total / steps
 
 
@@ -358,6 +398,10 @@ def train_one_rank(tok, rank, train_data, val_data, target_modules):
     opt = torch.optim.AdamW(
         (p for p in model.parameters() if p.requires_grad),
         lr=LEARNING_RATE)
+    # [TRAINER] Cho nay tranh dung loi kinh dien cua LoRA: truyen
+    # model.parameters() tho vao optimizer. Loc theo requires_grad
+    # nen Adam chi cap phat moment cho params LoRA - vua tiet kiem
+    # bo nho, vua dam bao W goc khong bi cap nhat le.
     model.train()
     t0 = time.perf_counter()
     last_train_loss = None
@@ -454,6 +498,10 @@ def main():
                               f"EVAL r={best_rank} SAU MERGE")
     same = sum(1 for a, b in zip(results[best_rank]["eval_outputs"],
                                  merged_outputs) if a == b)
+    # [TRAINER] So sanh chuoi greedy 6/6 la tot; trainer kiem them o
+    # muc logits: lech toi da 3,4e-04 - dung muc lam tron float32 khi
+    # cong BA vao W. Neu cong sai chieu (bay Conv1D cua GPT-2) hoac
+    # sai scale thi logits da lech han. Merge cua ban dung.
     print(f"Merge check: {same}/{len(EVAL_PROMPTS)} dau ra giong "
           f"het truoc/sau merge.")
     print("\n" + "=" * 72)
