@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 17 — Ablation LoRA r = 4 / 8 / 16 trên GPT-2</title>
+<style>
+  :root{
+    --bg:#fdf2f8; --card:#ffffff; --ink:#23272f; --muted:#6b7280;
+    --accent:#be185d; --accent-dark:#9d174d; --accent-soft:#fce7f3;
+    --blue:#2563eb; --blue-soft:#dbeafe;
+    --amber:#b45309; --amber-soft:#fef3c7;
+    --green:#047857; --green-soft:#d1fae5;
+    --red:#b91c1c; --red-soft:#fee2e2;
+    --cyan:#0891b2; --cyan-soft:#cffafe;
+    --line:#fbcfe8; --code-bg:#1e2230;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    line-height:1.75;font-size:16.5px}
+  .wrap{max-width:960px;margin:0 auto;padding:0 20px}
+  header.hero{background:linear-gradient(135deg,#9d174d 0%,#be185d 55%,#f472b6 100%);
+    color:#fff;padding:64px 0 48px;margin-bottom:8px}
+  header.hero h1{margin:0 0 12px;font-size:2.1rem;line-height:1.3}
+  header.hero p{margin:6px 0;opacity:.92;max-width:720px}
+  .tag{display:inline-block;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.35);
+    border-radius:999px;padding:3px 14px;font-size:.85rem;margin-bottom:14px}
+  nav.sticky{position:sticky;top:0;z-index:50;background:rgba(253,242,248,.96);
+    backdrop-filter:blur(6px);border-bottom:1px solid var(--line)}
+  nav.sticky .wrap{display:flex;gap:4px;overflow-x:auto;padding:10px 20px;white-space:nowrap}
+  nav.sticky a{color:var(--muted);text-decoration:none;font-size:.88rem;padding:6px 10px;border-radius:8px}
+  nav.sticky a:hover{background:var(--accent-soft);color:var(--accent-dark)}
+  section{padding:34px 0;border-bottom:1px solid var(--line)}
+  h2{font-size:1.55rem;margin:0 0 6px;color:#9d174d}
+  h2 .num{display:inline-block;background:var(--accent);color:#fff;font-size:.95rem;
+    width:34px;height:34px;line-height:34px;text-align:center;border-radius:10px;margin-right:10px;vertical-align:middle}
+  h3{font-size:1.15rem;margin:26px 0 8px}
+  .lead{color:#4b5563;font-size:1.05rem}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:20px 22px;margin:16px 0;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin:18px 0}
+  .concept{background:var(--card);border:1px solid var(--line);border-top:4px solid var(--accent);
+    border-radius:12px;padding:16px 18px}
+  .concept h4{margin:0 0 6px;font-size:1.02rem}
+  .concept p{margin:0;font-size:.93rem;color:#4b5563}
+  .concept.blue{border-top-color:var(--blue)} .concept.amber{border-top-color:var(--amber)}
+  .concept.green{border-top-color:var(--green)} .concept.red{border-top-color:var(--red)}
+  .concept.cyan{border-top-color:var(--cyan)}
+  pre{background:var(--code-bg);color:#e8eaf2;border-radius:12px;padding:18px 20px;
+    overflow-x:auto;font-size:.86rem;line-height:1.6;margin:14px 0;max-height:560px;overflow-y:auto}
+  code{font-family:"SF Mono",Consolas,"Courier New",monospace}
+  p code, li code, td code{background:var(--accent-soft);padding:1px 7px;border-radius:6px;font-size:.88em;color:#9d174d}
+  pre code{background:none;padding:0;color:inherit}
+  .kw{color:#c792ea}.fn{color:#82aaff}.str{color:#c3e88d}.cm{color:#697098;font-style:italic}.num2{color:#f78c6c}
+  pre.before{background:#2a1a12;border:1px solid #7c2d12}
+  pre.after{background:#0f2a1a;border:1px solid #047857}
+  .diff-tag{display:inline-block;font-size:.78rem;font-weight:700;border-radius:6px;padding:2px 10px;margin-bottom:6px}
+  .diff-tag.old{background:var(--amber-soft);color:var(--amber)}
+  .diff-tag.new{background:var(--green-soft);color:var(--green)}
+  .diagram{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px 10px;margin:18px 0;text-align:center;overflow-x:auto}
+  .diagram svg{max-width:100%;height:auto}
+  .caption{font-size:.9rem;color:var(--muted);margin-top:10px;font-style:italic}
+  .analogy{background:#fdf2f8;border:1px solid #f9a8d4;border-left:6px solid var(--accent);
+    border-radius:10px;padding:16px 20px;margin:16px 0}
+  .analogy b{color:#9d174d}
+  .warn{background:#fffbeb;border:1px solid #fcd34d;border-left:6px solid var(--amber);
+    border-radius:10px;padding:16px 20px;margin:16px 0}
+  .warn b{color:#92400e}
+  .ok{background:#ecfdf5;border:1px solid #6ee7b7;border-left:6px solid var(--green);
+    border-radius:10px;padding:16px 20px;margin:16px 0}
+  .bad{background:#fef2f2;border:1px solid #fecaca;border-left:6px solid var(--red);
+    border-radius:10px;padding:16px 20px;margin:16px 0}
+  table.mini{border-collapse:collapse;margin:14px auto;font-size:.9rem;min-width:70%}
+  table.mini th, table.mini td{border:1px solid var(--line);padding:8px 14px;text-align:left}
+  table.mini th{background:var(--accent-soft)}
+  table.mini td.num{font-family:monospace;text-align:center;white-space:nowrap}
+  table.mini tr.hl td{background:#fce7f3;font-weight:700}
+  .demo{background:#fff;border:2px solid var(--accent);border-radius:16px;padding:24px;margin:18px 0}
+  .demo h3{margin-top:0}
+  input[type=text], input[type=number]{width:100%;padding:10px 14px;font-size:.95rem;border:2px solid var(--line);
+    border-radius:10px;margin:8px 0;font-family:monospace}
+  .seg{display:flex;gap:8px;margin:10px 0;flex-wrap:wrap}
+  .seg button{border:2px solid var(--line);background:#fff;border-radius:10px;
+    padding:8px 18px;font-size:1rem;cursor:pointer}
+  .seg button.active{border-color:var(--accent);background:var(--accent-soft);font-weight:700}
+  .big-out{background:var(--code-bg);color:#e8eaf2;border-radius:12px;padding:18px 20px;
+    font-family:monospace;font-size:.92rem;margin-top:12px;line-height:1.9;word-break:break-word}
+  .btn{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:10px 22px;
+    font-size:1rem;cursor:pointer;margin:10px 8px 0 0}
+  .btn:hover{background:#9d174d}
+  .formula{text-align:center;font-size:1.15rem;background:#fdf2f8;border-radius:10px;
+    padding:18px;margin:14px 0;font-family:Georgia,serif}
+  .formula small{display:block;font-family:inherit;font-size:.85rem;color:var(--muted);margin-top:6px}
+  footer{padding:36px 0 60px;color:var(--muted);font-size:.9rem;text-align:center}
+  ul.tight li{margin-bottom:6px}
+  .bar-wrap{background:#f3f4f6;border-radius:8px;height:26px;margin:6px 0;position:relative;border:1px solid var(--line)}
+  .bar-fill{height:100%;border-radius:8px}
+  .bar-lab{font-family:monospace;font-size:.82rem;color:#374151;margin-top:2px}
+  @media(max-width:600px){header.hero h1{font-size:1.6rem}body{font-size:15.5px}}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="tag">📄 Phân tích: day17/lora_lab.py</span>
+    <h1>Day 17 — Ablation LoRA<br>r = 4 / 8 / 16 trên GPT-2</h1>
+    <p>Full fine-tuning 124M params thì nặng. LoRA thì khác: <b>đóng băng toàn bộ model gốc, chỉ train 2 ma trận nhỏ</b> ghép vào mỗi lớp attention. Hôm nay ta kiểm chứng giả thuyết "low-rank": rank càng cao càng tốt? Và cao hơn thì được thêm bao nhiêu?</p>
+    <p style="font-size:.9rem;opacity:.8">Số liệu trong bài là kết quả chạy thật (VM CPU-only, torch 2.14.1+cpu, transformers 5.20.2, peft 0.21.2).</p>
+  </div>
+</header>
+
+<nav class="sticky"><div class="wrap">
+  <a href="#tong-quan">🍿 Tóm tắt 30 giây</a>
+  <a href="#lora">🧩 LoRA là gì</a>
+  <a href="#bai0">🔍 Bài 0</a>
+  <a href="#bai1">🔢 Bài 1</a>
+  <a href="#bai2">🧪 Bài 2</a>
+  <a href="#bai3">🔗 Bài 3</a>
+  <a href="#morong">↔️ Mở rộng</a>
+  <a href="#trainer">✅ Trainer review</a>
+  <a href="#source">📜 Source code</a>
+</div></nav>
+
+<div class="wrap">
+
+<!-- ================= TỔNG QUAN ================= -->
+<section id="tong-quan">
+  <h2><span class="num">🍿</span>Tóm tắt 30 giây cho người ngoại đạo</h2>
+  <p class="lead">LoRA = thay vì sửa cả cuốn sách (124M params), ta chỉ viết <b>giấy note dán thêm</b> (vài trăm nghìn params) vào từng chương. Hôm nay: dán note dày mỏng khác nhau (rank 4/8/16) rồi đo xem note dày hơn có giúp model trả lời tốt hơn không.</p>
+  <div class="grid">
+    <div class="concept"><h4>🔍 Bài 0 — Rà dataset trước</h4><p>32 mẫu, 4 kind đều nhau; split phân tầng 28 train / 4 val; 6 prompt eval chưa từng thấy; masking check <b>cả 32 mẫu</b>.</p></div>
+    <div class="concept blue"><h4>🔢 Bài 1 — Đếm tham số</h4><p>Khớp công thức r × 36.864: 147.456 / 294.912 / 589.824. Assert W gốc đóng băng PASS cả 3 rank.</p></div>
+    <div class="concept amber"><h4>🧪 Bài 2 — Ablation rank</h4><p>Val loss giảm đều theo rank: 2,4515 → 2,4352 → 2,4002. Nhưng gấp 4 lần params chỉ mua ~2% val loss.</p></div>
+    <div class="concept green"><h4>🔗 Bài 3 — Merge adapter</h4><p>Adapter 2,37 MB (~0,5% model gốc); merge xong 6/6 đầu ra giống hệt — cộng note vào sách không làm lệch chữ.</p></div>
+    <div class="concept red"><h4>↔️ Mở rộng — target modules</h4><p>c_attn + c_proj: val 2,3722 (tốt hơn) — nhưng peft khớp theo hậu tố nên đã lan sang MLP lúc nào không hay!</p></div>
+  </div>
+  <div class="analogy"><b>📝 Ví dụ — Dán giấy note:</b> full fine-tuning là <b>viết lại cả cuốn sách</b> (đắt, dễ hỏng bản gốc). LoRA là <b>dán giấy note</b> lên từng trang: sách gốc nguyên vẹn, note có thể bóc ra (merge/unmerge) bất cứ lúc nào. Rank = <b>độ dày của tờ note</b>: note càng dày càng ghi được nhiều, nhưng đến một lúc dày thêm cũng không giúp hiểu hơn.</div>
+</section>
+
+<!-- ================= LORA LÀ GÌ ================= -->
+<section id="lora">
+  <h2><span class="num">🧩</span>LoRA là gì: W + BA, với B khởi tạo bằng 0</h2>
+  <p class="lead">Với mỗi ma trận trọng số gốc W (đóng băng), LoRA cộng thêm một "bản vá" có hạng thấp: <b>ΔW = B × A</b>, trong đó A (r × d_in) khởi tạo ngẫu nhiên, B (d_out × r) khởi tạo <b>bằng 0</b>. Vì B = 0 nên lúc mới bắt đầu, ΔW = 0 — model chưa bị "phá" gì cả, rồi mới học dần từ 0.</p>
+  <div class="formula">W' = W + (α/r) × B × A
+    <small>W đóng băng · chỉ A và B được train · α/r = 2 cố định trong cả lab</small>
+  </div>
+  <div class="analogy"><b>🎚️ Ví dụ — Nút chỉnh âm lượng:</b> rank r giống như <b>số nấc chỉnh</b> của một nút: r = 4 là nút 4 nấc (chỉnh thô), r = 16 là nút 16 nấc (chỉnh tinh hơn). Nhưng nếu bài nhạc chỉ cần chỉnh thô thì nút 16 nấc cũng không hay hơn bao nhiêu — và đó chính là điều ablation hôm nay đo được.</div>
+  <div class="card"><h3 style="margin-top:0">⚠️ Quy tắc "2 model bằng tham số" KHÔNG áp dụng ở đây</h3>
+    <p style="margin-bottom:0">Tuần trước (Day 13) ta bắt 2 model phải bằng params để ablation sạch 1 biến. Ở đây <b>rank chính là biến độc lập</b> — số tham số train được KHÁC NHAU giữa các rank là đúng ý đồ, không phải lỗi. Điều giữ cố định là mọi thứ khác: dataset, split, seed (42), epoch (2), LR (1e-4), batch (4), tỉ lệ α/r = 2, decoding greedy 30 token.</p>
+  </div>
+</section>
+
+<!-- ================= BÀI 0 ================= -->
+<section id="bai0">
+  <h2><span class="num">🔍</span>Bài 0 — Rà dataset TRƯỚC khi ablation (cả 3 kiểm chứng PASS)</h2>
+  <p class="lead">Trainer nhận xét đây là điểm đáng ghi nhất của bài: cả 3 điểm yếu bị chỉ ra ở Day 16 đều được sửa ngay trong Bài 0, <b>trước khi</b> ablation — đó là quy trình của người làm nghiên cứu, không còn là làm bài tập.</p>
+  <table class="mini">
+    <tr><th>Kiểm chứng</th><th>Day 16 (cũ)</th><th>Day 17 (mới)</th></tr>
+    <tr><td>Split train/val</td><td>11/3, val toàn mẫu dịch</td><td class="num"><b>Phân tầng theo kind: 28 train (7/kind) / 4 val (1/kind)</b></td></tr>
+    <tr><td>Prompt đánh giá</td><td>Là mẫu đã học (trong train)</td><td class="num"><b>6 prompt chưa từng thấy ở train</b> (trainer soi thêm cả val — vẫn PASS)</td></tr>
+    <tr><td>Verify masking</td><td>Chỉ check mẫu 0</td><td class="num"><b>Check cả 32 mẫu</b> (-100 phủ hết prompt, label đáp án đúng)</td></tr>
+  </table>
+  <div class="ok"><b>💡 2 chi tiết được trainer khen thêm:</b> (1) Token cuối của đáp án là EOS và EOS <b>nằm trong labels</b> → model được học cách dừng (trainer kiểm chứng trên cả 32 mẫu: label cuối đều là EOS 50256). (2) 32 mẫu = 14 mẫu Day 16 + 18 mẫu mới, 8 mẫu mỗi kind (qa, summary, email, translate), viết có dấu đầy đủ (bài học Day 15).</div>
+</section>
+
+<!-- ================= BÀI 1 ================= -->
+<section id="bai1">
+  <h2><span class="num">🔢</span>Bài 1 — Đếm tham số theo rank: khớp công thức</h2>
+  <p class="lead">c_attn của GPT-2: vào 768, ra 2304 (gộp Q/K/V), 12 lớp. Mỗi lớp LoRA có 2 ma trận: A (r × 768) + B (2304 × r) → r × (768 + 2304) = r × 3072 mỗi lớp → × 12 lớp = <b>r × 36.864</b>.</p>
+
+  <div class="demo">
+    <h3>🧮 Thử ngay: máy tính tham số LoRA</h3>
+    <p style="margin-top:0">Nhập rank r — công thức r × 36.864 cho c_attn của GPT-2 (12 lớp):</p>
+    <input type="number" id="rankIn" value="16" step="1" min="1">
+    <div class="seg"><button class="btn" id="rankBtn" style="margin:0">🧮 Tính tham số</button></div>
+    <div class="big-out" id="rankOut">Bấm nút để tính…</div>
+  </div>
+
+  <table class="mini">
+    <tr><th>Rank</th><th>Train được</th><th>Tỉ lệ</th><th>Công thức</th><th>Khớp?</th></tr>
+    <tr><td>r = 4</td><td class="num">147.456</td><td class="num">0,12%</td><td class="num">147.456</td><td class="num">✅</td></tr>
+    <tr><td>r = 8</td><td class="num">294.912</td><td class="num">0,24%</td><td class="num">294.912</td><td class="num">✅</td></tr>
+    <tr><td>r = 16</td><td class="num">589.824</td><td class="num">0,47%</td><td class="num">589.824</td><td class="num">✅</td></tr>
+  </table>
+  <p class="caption" style="text-align:center">Assert đóng băng W gốc PASS ở cả 3 rank: chỉ tham số tên chứa <code>lora_</code> mới có <code>requires_grad=True</code>. Trainer kiểm chứng độc lập: 12/12 tensor lora_B bằng 0 lúc khởi tạo, lora_A khác 0 → độ lệch logits so với base = 0.00e+00.</p>
+</section>
+
+<!-- ================= BÀI 2 ================= -->
+<section id="bai2">
+  <h2><span class="num">🧪</span>Bài 2 — Bảng ablation: rank cao hơn, được thêm bao nhiêu?</h2>
+  <p class="lead">Chỉ rank thay đổi, mọi thứ khác giữ nguyên. Kết quả chạy thật (CPU-only):</p>
+  <table class="mini">
+    <tr><th>Rank</th><th>Tham số train được</th><th>Train loss cuối</th><th>Val loss cuối</th><th>Thời gian</th></tr>
+    <tr><td>r = 4</td><td class="num">147.456</td><td class="num">3,6436</td><td class="num">2,4515</td><td class="num">114,9s</td></tr>
+    <tr><td>r = 8</td><td class="num">294.912</td><td class="num">3,6286</td><td class="num">2,4352</td><td class="num">91,4s</td></tr>
+    <tr class="hl"><td>r = 16 ⭐</td><td class="num">589.824</td><td class="num">3,5502</td><td class="num">2,4002</td><td class="num">94,2s</td></tr>
+  </table>
+
+  <div class="card"><h3 style="margin-top:0">📊 Val loss theo rank — giảm đều, nhưng giảm ít</h3>
+    <p style="margin-bottom:0">Trái với kỳ vọng "r=8 ≈ r=16" của đề bài, lần chạy này khoảng 8→16 (−0,035) còn lớn hơn 4→8 (−0,016). Nhưng tổng cộng: gấp 4 lần tham số (r=4 → r=16) chỉ đổi lấy <b>~2% val loss</b> (2,4515 → 2,4002).</p>
+    <div class="bar-wrap" style="margin-top:14px"><div class="bar-fill" style="width:100%;background:#f9a8d4"></div></div>
+    <div class="bar-lab">r = 4 → val loss 2,4515</div>
+    <div class="bar-wrap"><div class="bar-fill" style="width:99.3%;background:#e879f9"></div></div>
+    <div class="bar-lab">r = 8 → val loss 2,4352 (−0,016)</div>
+    <div class="bar-wrap"><div class="bar-fill" style="width:97.9%;background:#be185d"></div></div>
+    <div class="bar-lab">r = 16 → val loss 2,4002 (−0,035) ⭐</div>
+    <p class="caption">Thanh bar tỉ lệ theo val loss (càng ngắn càng tốt). Chênh lệch giữa các rank chỉ 0,016–0,035 — nhỏ hơn độ nhiễu có thể có của chính thước đo (xem góp ý của trainer ở mục Trainer review).</p>
+  </div>
+
+  <div class="warn"><b>🤔 Vì sao train loss epoch 2 CAO HƠN epoch 1 ở cả 3 rank?</b> Ví dụ r=16: 3,3377 → 3,5502. Nguyên nhân khả dĩ nhất: cùng seed 42 nên cả 3 rank gặp cùng thứ tự shuffle, epoch 2 rơi vào batch khó hơn (mẫu email dài). Val loss — không shuffle, không dropout — mới là thước đo đáng tin, và nó giảm đều theo rank. <b>Bài học:</b> đừng hoảng khi train loss nhích lên một epoch; hãy nhìn val loss.</div>
+
+  <div class="bad"><b>📉 Đầu ra trên prompt chưa thấy: cả 3 rank đều còn echo/lan man.</b> Ví dụ: "ượn hỏi: Thủ đô của Hàn Qu…", "ượn lời: ượn lời:…". 2 epoch × 28 mẫu vẫn quá ít cho model tiếng Anh làm nhiệm vụ tiếng Việt — đúng giới hạn đã thấy ở Day 16. <b>Rank cao hơn chưa đủ để biến echo thành đáp án đúng.</b> Kết luận: với tập nhỏ + lệch ngôn ngữ này, tăng rank không phải nút thắt — dữ liệu và số bước train mới là nút thắt.</div>
+</section>
+
+<!-- ================= BÀI 3 ================= -->
+<section id="bai3">
+  <h2><span class="num">🔗</span>Bài 3 — Merge adapter r = 16: cộng note vào sách, chữ có lệch không?</h2>
+  <p class="lead">Sau khi chọn rank tốt nhất (r = 16 theo val loss), lab merge adapter vào model gốc bằng <code>merge_and_unload()</code> — tức cộng ΔW = BA vào W, rồi kiểm tra đầu ra trước/sau merge có giống nhau không.</p>
+  <div class="grid">
+    <div class="concept green"><h4>💾 Adapter chỉ 2,37 MB</h4><p>So với ~500 MB của GPT-2 đầy đủ → tiết kiệm ~99,5%. Gửi adapter qua email được, gửi cả model thì không.</p></div>
+    <div class="concept blue"><h4>✅ Merge check: 6/6 giống hệt</h4><p>Cả 6 prompt đánh giá cho đầu ra greedy giống hệt trước/sau merge trong lần chạy này.</p></div>
+    <div class="concept amber"><h4>🔬 Trainer soi sâu hơn: lệch logits tối đa 3,4e-04</h4><p>Đúng mức làm tròn float32 khi cộng BA vào W. Nếu cộng sai chiều (bẫy Conv1D của GPT-2) hoặc sai scale thì logits đã lệch hẳn. Merge đúng.</p></div>
+  </div>
+  <div class="diagram">
+    <svg viewBox="0 0 760 130" xmlns="http://www.w3.org/2000/svg" font-family="sans-serif">
+      <rect x="10" y="35" width="150" height="60" rx="12" fill="#fce7f3" stroke="#be185d" stroke-width="2"/>
+      <text x="85" y="62" text-anchor="middle" font-size="15" font-weight="700" fill="#9d174d">W gốc</text>
+      <text x="85" y="82" text-anchor="middle" font-size="12" fill="#6b7280">đóng băng, 124M</text>
+      <text x="185" y="70" font-size="22" fill="#9d174d">+</text>
+      <rect x="215" y="35" width="150" height="60" rx="12" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+      <text x="290" y="62" text-anchor="middle" font-size="15" font-weight="700" fill="#1e40af">ΔW = BA</text>
+      <text x="290" y="82" text-anchor="middle" font-size="12" fill="#6b7280">adapter, 2,37 MB</text>
+      <text x="390" y="70" font-size="22" fill="#9d174d">=</text>
+      <rect x="420" y="35" width="150" height="60" rx="12" fill="#d1fae5" stroke="#047857" stroke-width="2"/>
+      <text x="495" y="62" text-anchor="middle" font-size="15" font-weight="700" fill="#065f46">W' = W + BA</text>
+      <text x="495" y="82" text-anchor="middle" font-size="12" fill="#6b7280">model đã merge</text>
+      <text x="595" y="70" font-size="22" fill="#9d174d">→</text>
+      <rect x="620" y="35" width="130" height="60" rx="12" fill="#fef3c7" stroke="#b45309" stroke-width="2"/>
+      <text x="685" y="62" text-anchor="middle" font-size="15" font-weight="700" fill="#92400e">6/6 giống hệt</text>
+      <text x="685" y="82" text-anchor="middle" font-size="12" fill="#6b7280">đầu ra greedy</text>
+    </svg>
+    <div class="caption">Sơ đồ: W gốc + adapter = model đã merge. Vì merge chỉ là phép cộng nên đầu ra gần như không đổi — sai số duy nhất là làm tròn float32.</div>
+  </div>
+  <div class="analogy"><b>🖊️ Ví dụ — Dán note rồi viết đè lên sách:</b> merge là lúc ta quyết định <b>viết nội dung giấy note đè thẳng vào trang sách</b>, rồi vứt tờ note đi. Sách vẫn đọc y như lúc dán note — vì nội dung note không đổi, chỉ đổi chỗ chứa nó.</div>
+</section>
+
+<!-- ================= MỞ RỘNG ================= -->
+<section id="morong">
+  <h2><span class="num">↔️</span>Mở rộng — Ablation target modules: cái bẫy "khớp theo hậu tố"</h2>
+  <p class="lead">Ablation riêng (không gộp vào bảng rank): giữ r = 16, đổi target từ <code>c_attn</code> sang <code>c_attn + c_proj</code>.</p>
+  <table class="mini">
+    <tr><th>Cấu hình</th><th>Tham số train được</th><th>Train loss</th><th>Val loss</th></tr>
+    <tr><td>c_attn only</td><td class="num">589.824</td><td class="num">3,5502</td><td class="num">2,4002</td></tr>
+    <tr class="hl"><td>c_attn + c_proj</td><td class="num">1.622.016</td><td class="num">3,4426</td><td class="num">2,3722</td></tr>
+  </table>
+  <p>Val loss tốt hơn 0,028 — nhưng đi kèm gấp 2,75 lần tham số. Và quan trọng hơn: <b>con số này không nói đúng câu chuyện ban đầu</b>.</p>
+  <div class="warn"><b>🪤 Cái bẫy:</b> peft khớp <code>target_modules</code> theo <b>hậu tố tên</b>. Nên <code>"c_proj"</code> bắt cả <b>attn.c_proj</b> (768→768) VÀ <b>mlp.c_proj</b> (3072→768). Tính lại: mỗi lớp 16×(3072 + 1536 + 3840) = 135.168, × 12 lớp = 1.622.016 ✅ khớp đúng số code in. Vậy ablation này thực chất là <b>c_attn + attn.c_proj + mlp.c_proj</b> — đã lan sang MLP, không chỉ attention như ý đồ ban đầu!</div>
+  <div class="card"><h3 style="margin-top:0">🔍 Cách tự kiểm tra bẫy này (demo tương tác)</h3>
+    <p style="margin-bottom:8px">Chọn 1 tên module — xem peft khớp theo hậu tố sẽ bắt những lớp nào của GPT-2:</p>
+    <div class="seg">
+      <button class="modbtn active" data-mod="c_attn">c_attn</button>
+      <button class="modbtn" data-mod="c_proj">c_proj</button>
+      <button class="modbtn" data-mod="c_fc">c_fc</button>
+    </div>
+    <div class="big-out" id="modOut"></div>
+    <p class="caption">Mỗi khối transformer của GPT-2 có: attn.c_attn, attn.c_proj, mlp.c_fc, mlp.c_proj. Khớp theo hậu tố nghĩa là "tên kết thúc bằng chuỗi đó" — không phân biệt nó nằm ở attention hay MLP.</p>
+  </div>
+</section>
+
+<!-- ================= TRAINER ================= -->
+<section id="trainer">
+  <h2><span class="num">✅</span>Trainer review (27/10/2026): 0 lỗi code — ngày thứ 3 liên tiếp sạch hoàn toàn</h2>
+  <p class="lead">Trainer review lần này <b>không sửa dòng code nào</b> — chỉ thêm các comment <code>[TRAINER]</code> vào <code>lora_lab.py</code> (commit <code>123c909</code>). Đây là ngày thứ 3 liên tiếp sạch hoàn toàn (sau Day 15, Day 16). Trainer còn chạy lại toàn bộ lab trên máy khác: <b>mọi số liệu trong README khớp đến 4 chữ số thập phân</b>.</p>
+
+  <div class="ok"><b>🏆 Điểm đáng ghi nhất (theo trainer):</b> cả 3 điểm yếu bị chỉ ra ở Day 16 — split không phân tầng, prompt eval là mẫu đã học, verify chỉ check mẫu 0 — đều được sửa ngay trong Bài 0, TRƯỚC khi ablation. "Đó là quy trình của người làm nghiên cứu, không còn là làm bài tập."</div>
+
+  <div class="card"><h3 style="margin-top:0">📝 Các nhận xét [TRAINER] trong code (không phải lỗi — là ghi nhận + góp ý)</h3>
+    <ul class="tight">
+      <li><b>EOS trong labels:</b> token cuối đáp án là EOS và EOS nằm trong labels → model học cách dừng. Trainer kiểm chứng trên cả 32 mẫu: label cuối đều là EOS (50256). Day 16 cũng làm đúng chỗ này.</li>
+      <li><b>Split phân tầng có seed:</b> train 28 (đúng 7/kind), val 4 (đúng 1/kind), không trùng instruction giữa 2 tập — khác biệt lớn nhất so với Day 16.</li>
+      <li><b>Audit eval chặt hơn cả code:</b> trainer đối chiếu 6 prompt cả với tập val (audit của bài chỉ soi train) — vẫn PASS, cả 6 prompt đều chưa từng thấy ở bất kỳ tập nào.</li>
+      <li><b>Verify masking trên mọi mẫu:</b> vài dòng code nhưng bắt được lỗi encode ở bất kỳ mẫu nào, không chỉ mẫu đầu.</li>
+      <li><b>Khởi tạo LoRA đúng:</b> 12/12 tensor lora_B bằng 0, lora_A khác 0 → ΔW = 0 ở step 0, độ lệch logits so với base = 0.00e+00. Và α = 2r đặt ở một chỗ duy nhất → tỉ lệ α/r = 2 cố định: đổi rank là đổi ĐÚNG 1 biến, không dính confound scale.</li>
+      <li><b>Optimizer lọc theo requires_grad:</b> tránh đúng lỗi kinh điển của LoRA — truyền <code>model.parameters()</code> thô vào optimizer sẽ khiến Adam cấp phát moment cho cả W gốc và có nguy cơ cập nhật lén W gốc.</li>
+      <li><b>Merge đúng:</b> so sánh chuỗi greedy 6/6 là tốt; trainer kiểm thêm ở mức logits: lệch tối đa 3,4e-04 — đúng mức làm tròn float32 khi cộng BA vào W.</li>
+    </ul>
+  </div>
+
+  <div class="warn"><b>💬 2 góp ý (không phải lỗi) để lần sau tốt hơn:</b>
+    <ol style="margin-bottom:0">
+      <li><b>Val chỉ có 4 mẫu → val loss là thước đo rất mỏng.</b> Chênh lệch giữa các rank (0,016–0,035) nhỏ hơn độ nhiễu có thể có của chính thước đo. Kết luận "r=16 tốt nhất" đúng trên số đã đo, nhưng lần sau nên chạy 2–3 seed (hoặc val 2 mẫu/kind) để chắc thứ hạng rank ổn định trước khi chốt.</li>
+      <li><b>Adapter lưu NGOÀI repo</b> (<code>~/workspace/daily/day17/</code>) và README chưa ghi vị trí này — người đọc repo sạch sẽ không tìm thấy file để nạp lại. Lần sau hoặc ghi rõ đường dẫn trong README, hoặc lưu vào thư mục <code>day17/</code> trong repo (adapter chỉ ~2,4 MB).</li>
+    </ol>
+  </div>
+
+  <p class="caption">Theo quy ước đếm lỗi (Day 14): đây là <b>0 lỗi, 2 góp ý</b> — không nói "2 lỗi". Ghi verdict dạng note/comment như thế này cũng được (quy ước đã chốt với anh ngày 26/10).</p>
+</section>
+
+<!-- ================= SOURCE ================= -->
+<section id="source">
+  <h2><span class="num">📜</span>Toàn bộ source code — lora_lab.py</h2>
+  <p class="lead">File đầy đủ kèm comment [TRAINER] của trainer (review 27/10/2026). Bấm nút để copy:</p>
+  <button class="btn" onclick="copySrc()">📋 Copy toàn bộ code</button>
+  <pre id="srcBlock"><code><span class="cm">#!/usr/bin/env python3</span>
+<span class="cm"># -*- coding: utf-8 -*-</span>
+<span class="str">&quot;&quot;&quot;Lab ablation LoRA r = 4 / 8 / 16 (Day 17 - buoi toi).
+
+Bai 0: ra dataset truoc khi ablation - stratified split theo kind,
+    audit prompt danh gia (phai chua tung thay), masking -100 tren
+    MOI mau.
+Bai 1: gan LoRA (target c_attn), dem tham so train duoc theo rank,
+    assert W goc bi dong bang.
+Bai 2: ablation r = 4 / 8 / 16 - CHI rank thay doi, moi thu khac
+    giu nguyen: cung dataset, split, seed, epoch, LR, decoding.
+    (Quy tac &quot;2 model bang tham so&quot; cua tuan truoc KHONG ap dung
+    o day vi rank chinh la bien doc lap.)
+Bai 3: merge adapter cua rank tot nhat (theo val loss), kiem tra
+    dau ra truoc/sau merge giong nhau, luu adapter, do dung luong.
+Mo rong: ablation target modules (c_attn vs c_attn + c_proj) o
+    rank tot nhat - ablation RIENG, khong gop vao bang rank.
+
+Moi truong: CPU-only, GPT-2 124M, float32. Template co dinh:
+    Cau hoi: {instruction}\nTra loi: {output}&lt;|endoftext|&gt;
+Du lieu: 32 mau, 8 mau moi kind (qa, summary, email, translate),
+    gom 14 mau Day 16 + 18 mau moi. DU LIEU VIET CO DAU DAY DU
+    (bai hoc Day 15: tieng Viet khong dau lam model hieu sai).
+
+Cach chay (dung venv Day 15):
+    ~/workspace/venvs/day15/bin/python lora_lab.py
+
+[TRAINER] Nhan xet tong (review 27/10/2026): 0 loi code - ngay thu 3
+lien tiep sach hoan toan (sau Day 15, Day 16). Trainer da chay lai
+toan bo lab tren may khac: moi so lieu trong README khop den 4 chu
+so thap phan. Diem dang ghi nhat cua bai nay: ca 3 diem yeu bi chi
+ra o Day 16 (split khong phan tang, prompt eval la mau da hoc,
+verify chi check mau 0) deu duoc sua ngay trong Bai 0, TRUOC khi
+ablation - do la quy trinh cua nguoi lam nghien cuu, khong con la
+lam bai tap. Chi tiet tung cho o cac comment [TRAINER] ben duoi.
+&quot;&quot;&quot;</span>
+
+<span class="kw">import</span> gc
+<span class="kw">import</span> os
+<span class="kw">import</span> random
+<span class="kw">import</span> time
+<span class="kw">from</span> collections <span class="kw">import</span> Counter
+
+<span class="kw">import</span> torch
+<span class="kw">from</span> torch.utils.data <span class="kw">import</span> DataLoader, Dataset
+<span class="kw">from</span> transformers <span class="kw">import</span> AutoModelForCausalLM, AutoTokenizer
+<span class="kw">from</span> peft <span class="kw">import</span> LoraConfig, get_peft_model
+
+MODEL_DIR = os.path.expanduser(
+    <span class="str">&quot;~/.cache/modelscope/models/openai-community--gpt2/&quot;</span>
+    <span class="str">&quot;snapshots/master&quot;</span>)
+DEVICE = <span class="str">&quot;cuda&quot;</span> <span class="kw">if</span> torch.cuda.is_available() <span class="kw">else</span> <span class="str">&quot;cpu&quot;</span>
+SEED = <span class="num2">42</span>
+EPOCHS = <span class="num2">2</span>
+LEARNING_RATE = <span class="num2">1e-4</span>
+BATCH_SIZE = <span class="num2">4</span>
+MAX_NEW_TOKENS = <span class="num2">30</span>
+<span class="cm"># [TRAINER] Luu y: adapter luu NGOAI repo (~/workspace/daily/day17/)</span>
+<span class="cm"># va README chua ghi vi tri nay - nguoi doc repo sach se khong tim</span>
+<span class="cm"># thay file de nap lai. Lan sau hoac ghi ro duong dan trong README,</span>
+<span class="cm"># hoac luu vao thu muc day17/ trong repo (adapter chi ~2,4 MB).</span>
+ADAPTER_DIR = os.path.expanduser(<span class="str">&quot;~/workspace/daily/day17/adapter_best&quot;</span>)
+
+<span class="cm"># 32 mau: 8 moi kind. Kind: qa, summary, email, translate.</span>
+DATA = [
+    <span class="cm"># qa (5 mau Day 16 + 3 moi).</span>
+    {<span class="str">&quot;kind&quot;</span>: <span class="str">&quot;qa&quot;</span>, <span class="str">&quot;instruction&quot;</span>: <span class="str">&quot;Thủ đô của Việt Nam là gì?&quot;</span>,
+     <span class="str">&quot;output&quot;</span>: <span class="str">&quot;Hà Nội.&quot;</span>},
+    {<span class="str">&quot;kind&quot;</span>: <span class="str">&quot;qa&quot;</span>, <span class="str">&quot;instruction&quot;</span>: <span class="str">&quot;Thủ đô của Nhật Bản là gì?&quot;</span>,
+     <span class="str">&quot;output&quot;</span>: <span class="str">&quot;Tokyo.&quot;</span>},
+    {<span class="str">&quot;kind&quot;</span>: <span class="str">&quot;qa&quot;</span>, <span class="str">&quot;instruction&quot;</span>: <span class="str">&quot;Thủ đô của Pháp là gì?&quot;</span>,
+     <span class="str">&quot;output&quot;</span>: <span class="str">&quot;Paris.&quot;</span>},
+    {<span class="str">&quot;kind&quot;</span>: <span class="str">&quot;qa&quot;</span>, <span class="str">&quot;instruction&quot;</span>: <span class="str">&quot;Một tuần có mấy ngày?&quot;</span>,
+     <span class="str">&quot;output&quot;</span>: <span class="str">&quot;Một tuần có 7 ngày.&quot;</span>},
+    {<span class="str">&quot;kind&quot;</span>: <span class="str">&quot;qa&quot;</span>, <span class="str">&quot;instruction&quot;</span>: <span class="str">&quot;Nước sôi ở bao nhiêu độ C?&quot;</span>,
+     <span class="str">&quot;output&quot;</span>: <span class="str">&quot;Nước sôi ở 100 độ C.&quot;</span>},
+    {<span class="str">&quot;kind&quot;</span>: <span class="str">&quot;qa&quot;</span>, <span class="str">&quot;instruction&quot;</span>: <span class="str">&quot;Thủ đô của Ý là gì?&quot;</span>,
+     <span class="str">&quot;output&quot;</span>: <span class="str">&quot;Rome.&quot;</span>},
+    {<span class="str">&quot;kind&quot;</span>: <span class="str">&quot;qa&quot;</span>, <span class="str">&quot;instruction&quot;</span>: <span class="str">&quot;Một năm có mấy tháng?&quot;</span>,
+     <span class="str">&quot;output&quot;</span>: <span class="str">&quot;Một năm có 12 tháng.&quot;</span>},
+    {<span class="str">&quot;kind&quot;</span>: <span class="str">&quot;qa&quot;</span>, <span class="str">&quot;instruction&quot;</span>: <span class="str">&quot;Thủ đô của Anh là gì?&quot;</span>,
+     <span class="str">&quot;output&quot;</span>: <span class="str">&quot;London.&quot;</span>},
+    <span class="cm"># summary (3 mau Day 16 + 5 moi).</span>
+    {<span class="str">&quot;kind&quot;</span>: <span class="str">&quot;summary&quot;</span>, <span class="str">&quot;instruction&quot;</span>: <span class="str">&quot;Tóm tắt bằng một câu: Mèo là loài &quot;</span>
+     <span class="str">&quot;vật nuôi phổ biến, hiền lành và thích ngủ nhiều.&quot;</span>,
+     <span class="str">&quot;output&quot;</span>: <span class="str">&quot;Mèo là loài vật nuôi hiền lành, thích ngủ nhiều.&quot;</span>},
+    {<span class="str">&quot;kind&quot;</span>: <span class="str">&quot;summary&quot;</span>, <span class="str">&quot;instruction&quot;</span>: <span class="str">&quot;Tóm tắt bằng một câu: Chó là loài &quot;</span>
+     <span class="str">&quot;vật trung thành, thông minh và là bạn thân của con người.&quot;</span>,
+     <span class="str">&quot;output&quot;</span>: <span class="str">&quot;Chó là loài vật trung thành và thông minh.&quot;</span>},
+    {<span class="str">&quot;kind&quot;</span>: <span class="str">&quot;summary&quot;</span>, <span class="str">&quot;instruction&quot;</span>: <span class="str">&quot;Tóm tắt bằng một câu: Sách giúp con &quot;</span>
+     <span class="str">&quot;người mở rộng kiến thức, rèn tư duy và nuôi dưỡng tâm hồn.&quot;</span>,
+     <span class="str">&quot;output&quot;</span>: <span class="str">&quot;Sách giúp mở rộng kiến thức và rèn tư duy.&quot;</span>},
+    {<span class="str">&quot;kind&quot;</span>: <span class="str">&quot;summary&quot;</span>, <span class="str">&quot;instruction&quot;</span>: <span class="str">&quot;Tóm tắt bằng một câu: Hoa sen là &quot;</span>
+     <span class="str">&quot;quốc hoa của Việt Nam, tượng trưng cho sự thanh khiết và &quot;</span>
+     <span class="str">&quot;vươn lên từ bùn lầy.&quot;</span>,
+     <span class="str">&quot;output&quot;</span>: <span class="str">&quot;Hoa sen tượng trưng cho sự thanh khiết và vươn lên.&quot;</span>},
+    {<span class="str">&quot;kind&quot;</span>: <span class="str">&quot;summary&quot;</span>, <span class="str">&quot;instruction&quot;</span>: <span class="str">&quot;Tóm tắt bằng một câu: Biển là nơi &quot;</span>
+     <span class="str">&quot;sinh sống của nhiều loài sinh vật, điều hòa khí hậu và mang &quot;</span>
+     <span class="str">&quot;lại nguồn lợi thủy sản.&quot;</span>,
+     <span class="str">&quot;output&quot;</span>: <span class="str">&quot;Biển điều hòa khí hậu và mang lại nguồn lợi thủy sản.&quot;</span>},
+    {<span class="str">&quot;kind&quot;</span>: <span class="str">&quot;summary&quot;</span>, <span class="str">&quot;instruction&quot;</span>: <span class="str">&quot;Tóm tắt bằng một câu: Máy tính giúp &quot;</span>
+     <span class="str">&quot;con người xử lý thông tin nhanh, lưu trữ dữ liệu lớn và kết &quot;</span>
+     <span class="str">&quot;nối với nhau qua mạng.&quot;</span>,
+     <span class="str">&quot;output&quot;</span>: <span class="str">&quot;Máy tính giúp xử lý thông tin nhanh và kết nối qua mạng.&quot;</span>},
+    {<span class="str">&quot;kind&quot;</span>: <span class="str">&quot;summary&quot;</span>, <span class="str">&quot;instruction&quot;</span>: <span class="str">&quot;Tóm tắt bằng một câu: Thể dục mỗi &quot;</span>
+     <span class="str">&quot;ngày giúp cơ thể khỏe mạnh, tinh thần sảng khoái và phòng &quot;</span>
+     <span class="str">&quot;tránh nhiều bệnh tật.&quot;</span>,
+     <span class="str">&quot;output&quot;</span>: <span class="str">&quot;Thể dục mỗi ngày giúp cơ thể khỏe mạnh và phòng bệnh.&quot;</span>},
+    {<span class="str">&quot;kind&quot;</span>: <span class="str">&quot;summary&quot;</span>, <span class="str">&quot;instruction&quot;</span>: <span class="str">&quot;Tóm tắt bằng một câu: Du lịch giúp &quot;</span>
+     <span class="str">&quot;con người khám phá văn hóa mới, mở rộng tầm nhìn và thư giãn &quot;</span>
+     <span class="str">&quot;sau thời gian làm việc.&quot;</span>,
+     <span class="str">&quot;output&quot;</span>: <span class="str">&quot;Du lịch giúp khám phá văn hóa mới và thư giãn.&quot;</span>},
+    <span class="cm"># email (3 mau Day 16 + 5 moi).</span>
+    {<span class="str">&quot;kind&quot;</span>: <span class="str">&quot;email&quot;</span>, <span class="str">&quot;instruction&quot;</span>: <span class="str">&quot;Viết một câu chào buổi sáng lịch sự.&quot;</span>,
+     <span class="str">&quot;output&quot;</span>: <span class="str">&quot;Chào buổi sáng, chúc bạn một ngày làm việc hiệu quả.&quot;</span>},
+    {<span class="str">&quot;kind&quot;</span>: <span class="str">&quot;email&quot;</span>, <span class="str">&quot;instruction&quot;</span>: <span class="str">&quot;Viết email xin nghỉ phép 1 ngày gửi &quot;</span>
+     <span class="str">&quot;quản lý.&quot;</span>,
+     <span class="str">&quot;output&quot;</span>: <span class="str">&quot;Chào anh, em xin phép nghỉ làm ngày mai vì việc gia đình. &quot;</span>
+     <span class="str">&quot;Em sẽ bàn giao công việc cho đồng nghiệp trước khi nghỉ. &quot;</span>
+     <span class="str">&quot;Cảm ơn anh đã thông cảm.&quot;</span>},
+    {<span class="str">&quot;kind&quot;</span>: <span class="str">&quot;email&quot;</span>, <span class="str">&quot;instruction&quot;</span>: <span class="str">&quot;Viết email cảm ơn khách hàng sau &quot;</span>
+     <span class="str">&quot;buổi họp.&quot;</span>,
+     <span class="str">&quot;output&quot;</span>: <span class="str">&quot;Cảm ơn quý khách đã dành thời gian họp với chúng tôi hôm nay. &quot;</span>
+     <span class="str">&quot;Chúng tôi sẽ gửi báo giá chi tiết trong tuần này. Rất mong &quot;</span>
+     <span class="str">&quot;được hợp tác lâu dài.&quot;</span>},
+    {<span class="str">&quot;kind&quot;</span>: <span class="str">&quot;email&quot;</span>, <span class="str">&quot;instruction&quot;</span>: <span class="str">&quot;Viết email hẹn gặp đối tác vào tuần &quot;</span>
+     <span class="str">&quot;tới.&quot;</span>,
+     <span class="str">&quot;output&quot;</span>: <span class="str">&quot;Chào anh, tôi muốn hẹn gặp anh vào tuần tới để trao đổi về &quot;</span>
+     <span class="str">&quot;hợp tác. Anh cho tôi biết thời gian phù hợp nhé. Cảm ơn anh.&quot;</span>},
+    {<span class="str">&quot;kind&quot;</span>: <span class="str">&quot;email&quot;</span>, <span class="str">&quot;instruction&quot;</span>: <span class="str">&quot;Viết email thông báo họp nhóm vào &quot;</span>
+     <span class="str">&quot;sáng thứ Hai.&quot;</span>,
+     <span class="str">&quot;output&quot;</span>: <span class="str">&quot;Chào mọi người, nhóm sẽ họp vào sáng thứ Hai để chốt kế hoạch &quot;</span>
+     <span class="str">&quot;tuần. Mọi người chuẩn bị báo cáo tiến độ trước buổi họp. &quot;</span>
+     <span class="str">&quot;Cảm ơn mọi người.&quot;</span>},
+    {<span class="str">&quot;kind&quot;</span>: <span class="str">&quot;email&quot;</span>, <span class="str">&quot;instruction&quot;</span>: <span class="str">&quot;Viết email chúc mừng sinh nhật đồng &quot;</span>
+     <span class="str">&quot;nghiệp.&quot;</span>,
+     <span class="str">&quot;output&quot;</span>: <span class="str">&quot;Chúc mừng sinh nhật bạn! Chúc bạn luôn khỏe mạnh, vui vẻ và &quot;</span>
+     <span class="str">&quot;gặt hái nhiều thành công trong công việc. Cả nhóm sẽ tổ chức &quot;</span>
+     <span class="str">&quot;một buổi tiệc nhỏ vào chiều nay.&quot;</span>},
+    {<span class="str">&quot;kind&quot;</span>: <span class="str">&quot;email&quot;</span>, <span class="str">&quot;instruction&quot;</span>: <span class="str">&quot;Viết email xác nhận đã nhận được đơn &quot;</span>
+     <span class="str">&quot;hàng.&quot;</span>,
+     <span class="str">&quot;output&quot;</span>: <span class="str">&quot;Cảm ơn quý khách đã đặt hàng. Chúng tôi đã nhận được đơn hàng &quot;</span>
+     <span class="str">&quot;và sẽ xử lý trong 24 giờ tới. Quý khách sẽ nhận được thông &quot;</span>
+     <span class="str">&quot;báo khi hàng được giao đi.&quot;</span>},
+    {<span class="str">&quot;kind&quot;</span>: <span class="str">&quot;email&quot;</span>, <span class="str">&quot;instruction&quot;</span>: <span class="str">&quot;Viết email xin lỗi vì trả lời muộn.&quot;</span>,
+     <span class="str">&quot;output&quot;</span>: <span class="str">&quot;Xin lỗi anh vì tôi trả lời muộn do công việc bận. Tôi đã xem &quot;</span>
+     <span class="str">&quot;kỹ yêu cầu của anh và sẽ gửi phản hồi chi tiết ngay hôm nay. &quot;</span>
+     <span class="str">&quot;Cảm ơn anh đã thông cảm.&quot;</span>},
+    <span class="cm"># translate (3 mau Day 16 + 5 moi).</span>
+    {<span class="str">&quot;kind&quot;</span>: <span class="str">&quot;translate&quot;</span>, <span class="str">&quot;instruction&quot;</span>: <span class="str">&quot;Dịch sang tiếng Anh: Tôi yêu Việt &quot;</span>
+     <span class="str">&quot;Nam.&quot;</span>,
+     <span class="str">&quot;output&quot;</span>: <span class="str">&quot;I love Vietnam.&quot;</span>},
+    {<span class="str">&quot;kind&quot;</span>: <span class="str">&quot;translate&quot;</span>, <span class="str">&quot;instruction&quot;</span>: <span class="str">&quot;Dịch sang tiếng Anh: Cảm ơn bạn rất &quot;</span>
+     <span class="str">&quot;nhiều.&quot;</span>,
+     <span class="str">&quot;output&quot;</span>: <span class="str">&quot;Thank you very much.&quot;</span>},
+    {<span class="str">&quot;kind&quot;</span>: <span class="str">&quot;translate&quot;</span>, <span class="str">&quot;instruction&quot;</span>: <span class="str">&quot;Dịch sang tiếng Việt: Good morning.&quot;</span>,
+     <span class="str">&quot;output&quot;</span>: <span class="str">&quot;Chào buổi sáng.&quot;</span>},
+    {<span class="str">&quot;kind&quot;</span>: <span class="str">&quot;translate&quot;</span>, <span class="str">&quot;instruction&quot;</span>: <span class="str">&quot;Dịch sang tiếng Anh: Tôi đang học &quot;</span>
+     <span class="str">&quot;tiếng Nhật.&quot;</span>,
+     <span class="str">&quot;output&quot;</span>: <span class="str">&quot;I am learning Japanese.&quot;</span>},
+    {<span class="str">&quot;kind&quot;</span>: <span class="str">&quot;translate&quot;</span>, <span class="str">&quot;instruction&quot;</span>: <span class="str">&quot;Dịch sang tiếng Anh: Hẹn gặp lại &quot;</span>
+     <span class="str">&quot;ngày mai.&quot;</span>,
+     <span class="str">&quot;output&quot;</span>: <span class="str">&quot;See you tomorrow.&quot;</span>},
+    {<span class="str">&quot;kind&quot;</span>: <span class="str">&quot;translate&quot;</span>,
+     <span class="str">&quot;instruction&quot;</span>: <span class="str">&quot;Dịch sang tiếng Việt: I like coffee.&quot;</span>,
+     <span class="str">&quot;output&quot;</span>: <span class="str">&quot;Tôi thích cà phê.&quot;</span>},
+    {<span class="str">&quot;kind&quot;</span>: <span class="str">&quot;translate&quot;</span>, <span class="str">&quot;instruction&quot;</span>: <span class="str">&quot;Dịch sang tiếng Việt: How are you?&quot;</span>,
+     <span class="str">&quot;output&quot;</span>: <span class="str">&quot;Bạn khỏe không?&quot;</span>},
+    {<span class="str">&quot;kind&quot;</span>: <span class="str">&quot;translate&quot;</span>, <span class="str">&quot;instruction&quot;</span>: <span class="str">&quot;Dịch sang tiếng Anh: Chúc bạn một &quot;</span>
+     <span class="str">&quot;ngày tốt lành.&quot;</span>,
+     <span class="str">&quot;output&quot;</span>: <span class="str">&quot;Have a nice day.&quot;</span>},
+]
+
+<span class="cm"># 6 prompt danh gia: CHUA TUNG THAY trong train (kiem chung o Bai 0).</span>
+EVAL_PROMPTS = [
+    <span class="str">&quot;Câu hỏi: Thủ đô của Hàn Quốc là gì?\nTrả lời: &quot;</span>,
+    <span class="str">&quot;Câu hỏi: Thủ đô của Đức là gì?\nTrả lời: &quot;</span>,
+    <span class="str">&quot;Câu hỏi: Tóm tắt bằng một câu: Hoa hồng là loài hoa đẹp, có &quot;</span>
+    <span class="str">&quot;hương thơm và thường được tặng trong các dịp lễ.\nTrả lời: &quot;</span>,
+    <span class="str">&quot;Câu hỏi: Viết email xin lỗi khách hàng vì giao hàng trễ.&quot;</span>
+    <span class="str">&quot;\nTrả lời: &quot;</span>,
+    <span class="str">&quot;Câu hỏi: Dịch sang tiếng Anh: Hôm nay trời đẹp.\nTrả lời: &quot;</span>,
+    <span class="str">&quot;Câu hỏi: Dịch sang tiếng Việt: Thank you for your help.&quot;</span>
+    <span class="str">&quot;\nTrả lời: &quot;</span>,
+]
+
+
+<span class="kw">def</span> format_prompt(instruction):
+    <span class="str">&quot;&quot;&quot;Rap prompt theo template co dinh cua lab.&quot;&quot;&quot;</span>
+    <span class="kw">return</span> f&quot;Câu hỏi: {instruction}\nTrả lời: &quot;
+
+
+<span class="kw">def</span> encode_example(item, tok):
+    <span class="str">&quot;&quot;&quot;Ma hoa 1 mau SFT: labels che prompt bang -100.
+
+    Raises:
+        ValueError: neu instruction hoac output rong.
+    &quot;&quot;&quot;</span>
+    <span class="kw">if</span> <span class="kw">not</span> item[<span class="str">&quot;instruction&quot;</span>] <span class="kw">or</span> <span class="kw">not</span> item[<span class="str">&quot;output&quot;</span>]:
+        <span class="kw">raise</span> ValueError(<span class="str">&quot;instruction va output khong duoc rong.&quot;</span>)
+    prompt = format_prompt(item[<span class="str">&quot;instruction&quot;</span>])
+    answer = item[<span class="str">&quot;output&quot;</span>] + tok.eos_token
+    prompt_ids = tok(prompt, add_special_tokens=<span class="kw">False</span>)[<span class="str">&quot;input_ids&quot;</span>]
+    answer_ids = tok(answer, add_special_tokens=<span class="kw">False</span>)[<span class="str">&quot;input_ids&quot;</span>]
+    input_ids = prompt_ids + answer_ids
+    labels = [-<span class="num2">100</span>] * len(prompt_ids) + answer_ids
+    <span class="cm"># [TRAINER] Dung cho nguy hiem nhat cua SFT: token cuoi cua</span>
+    <span class="cm"># answer la EOS va EOS NAM TRONG labels -&gt; model duoc hoc cach</span>
+    <span class="cm"># dung. Trainer kiem chung tren ca 32 mau: label cuoi cua moi</span>
+    <span class="cm"># mau deu la EOS (50256). Day 16 ban cung lam dung cho nay.</span>
+    <span class="kw">return</span> input_ids, labels
+
+
+<span class="kw">def</span> stratified_split(data, seed=SEED, val_frac=<span class="num2">0.2</span>):
+    <span class="str">&quot;&quot;&quot;Chia train/val phan tang theo kind (80/20 moi kind).
+
+    Xao tron co seed co dinh trong tung kind. Kind co &lt; 5 mau
+    thi khong lay val (tranh val chi co 1 mau dai dien kem).
+    &quot;&quot;&quot;</span>
+    rng = random.Random(seed)
+    by_kind = {}
+    <span class="kw">for</span> item <span class="kw">in</span> data:
+        by_kind.setdefault(item[<span class="str">&quot;kind&quot;</span>], []).append(item)
+    train, val = [], []
+    <span class="kw">for</span> kind, items <span class="kw">in</span> by_kind.items():
+        items = items[:]
+        rng.shuffle(items)
+        <span class="kw">if</span> len(items) &gt;= <span class="num2">5</span>:
+            n_val = max(<span class="num2">1</span>, int(len(items) * val_frac))
+        <span class="kw">else</span>:
+            n_val = <span class="num2">0</span>
+        val.extend(items[:n_val])
+        train.extend(items[n_val:])
+    <span class="cm"># [TRAINER] Bai hoc Day 16 da thanh phan xa: split phan tang co</span>
+    <span class="cm"># seed - trainer kiem doc lap: train 28 mau (dung 7/kind), val 4</span>
+    <span class="cm"># mau (dung 1/kind), khong trung instruction giua 2 tap. Day la</span>
+    <span class="cm"># khac biet lon nhat so voi Day 16 (val toan mau dich, train 0).</span>
+    <span class="kw">return</span> train, val
+
+
+<span class="kw">def</span> audit_eval_prompts(eval_prompts, train):
+    <span class="str">&quot;&quot;&quot;Prompt danh gia phai chua tung thay trong train.
+
+    Kiem tra: khong prompt nao chua nguyen van 1 instruction
+    cua train (neu khong, diem cao chi la hoc thuoc).
+    &quot;&quot;&quot;</span>
+    train_instructions = {d[<span class="str">&quot;instruction&quot;</span>] <span class="kw">for</span> d <span class="kw">in</span> train}
+    <span class="kw">for</span> p <span class="kw">in</span> eval_prompts:
+        <span class="kw">for</span> ins <span class="kw">in</span> train_instructions:
+            <span class="kw">assert</span> ins <span class="kw">not</span> <span class="kw">in</span> p, f&quot;Prompt danh gia trung train: {ins}&quot;
+    <span class="cm"># [TRAINER] Trainer con kiem chat hon audit nay: doi chieu 6</span>
+    <span class="cm"># prompt ca voi tap VAL (audit cua ban chi soi train) - van PASS,</span>
+    <span class="cm"># ca 6 prompt deu chua tung thay o bat ky tap nao. Giu thoi quen</span>
+    <span class="cm"># nay: bo eval chi co gia tri khi no do duoc khai quat hoa.</span>
+    print(f&quot;Eval audit OK: {len(eval_prompts)} prompt deu chua tung &quot;
+          f&quot;thay trong train.&quot;)
+
+
+<span class="kw">def</span> verify_masking_all(tok):
+    <span class="str">&quot;&quot;&quot;Kiem chung masking -100 tren MOI mau (khong chi mau 0).&quot;&quot;&quot;</span>
+    <span class="kw">for</span> i, item <span class="kw">in</span> enumerate(DATA):
+        ids, labels = encode_example(item, tok)
+        prompt_len = len(tok(format_prompt(item[<span class="str">&quot;instruction&quot;</span>]),
+                             add_special_tokens=<span class="kw">False</span>)[<span class="str">&quot;input_ids&quot;</span>])
+        <span class="kw">assert</span> all(l == -<span class="num2">100</span> <span class="kw">for</span> l <span class="kw">in</span> labels[:prompt_len]), \
+            f&quot;Mau {i} chua che het prompt!&quot;
+        <span class="kw">assert</span> labels[prompt_len:] == ids[prompt_len:], \
+            f&quot;Mau {i} label dap an sai!&quot;
+    <span class="cm"># [TRAINER] Day 16 verify chi check mau 0 (dung de bai) - bai nay</span>
+    <span class="cm"># lap qua MOI mau, dung gop y cua trainer. Chi phi vai dong code</span>
+    <span class="cm"># nhung bat duoc loi encode o bat ky mau nao, khong chi mau dau.</span>
+    print(f&quot;Masking OK tren tat ca {len(DATA)} mau.&quot;)
+
+
+<span class="kw">class</span> SFTDataset(Dataset):
+    <span class="str">&quot;&quot;&quot;Dataset SFT: encode san toan bo mau luc khoi tao.&quot;&quot;&quot;</span>
+
+    <span class="kw">def</span> __init__(self, items, tok):
+        <span class="str">&quot;&quot;&quot;Args: items la list dict mau, tok la tokenizer.&quot;&quot;&quot;</span>
+        self.items = [encode_example(d, tok) <span class="kw">for</span> d <span class="kw">in</span> items]
+
+    <span class="kw">def</span> __len__(self):
+        <span class="str">&quot;&quot;&quot;Tra ve so mau.&quot;&quot;&quot;</span>
+        <span class="kw">return</span> len(self.items)
+
+    <span class="kw">def</span> __getitem__(self, i):
+        <span class="str">&quot;&quot;&quot;Tra ve dict input_ids/labels cua mau thu i.&quot;&quot;&quot;</span>
+        ids, labels = self.items[i]
+        <span class="kw">return</span> {<span class="str">&quot;input_ids&quot;</span>: ids, <span class="str">&quot;labels&quot;</span>: labels}
+
+
+<span class="kw">def</span> collate(batch, pad_id):
+    <span class="str">&quot;&quot;&quot;Dem batch ve cung do dai: pad token + nhan -100.&quot;&quot;&quot;</span>
+    max_len = max(len(b[<span class="str">&quot;input_ids&quot;</span>]) <span class="kw">for</span> b <span class="kw">in</span> batch)
+    input_ids, labels, attn = [], [], []
+    <span class="kw">for</span> b <span class="kw">in</span> batch:
+        pad = max_len - len(b[<span class="str">&quot;input_ids&quot;</span>])
+        input_ids.append(b[<span class="str">&quot;input_ids&quot;</span>] + [pad_id] * pad)
+        labels.append(b[<span class="str">&quot;labels&quot;</span>] + [-<span class="num2">100</span>] * pad)
+        attn.append([<span class="num2">1</span>] * len(b[<span class="str">&quot;input_ids&quot;</span>]) + [<span class="num2">0</span>] * pad)
+    <span class="kw">return</span> {<span class="str">&quot;input_ids&quot;</span>: torch.tensor(input_ids),
+            <span class="str">&quot;labels&quot;</span>: torch.tensor(labels),
+            <span class="str">&quot;attention_mask&quot;</span>: torch.tensor(attn)}
+
+
+<span class="kw">def</span> count_trainable(model):
+    <span class="str">&quot;&quot;&quot;Tra ve (so tham so train duoc, tong so tham so).&quot;&quot;&quot;</span>
+    trainable = sum(p.numel() <span class="kw">for</span> p <span class="kw">in</span> model.parameters()
+                    <span class="kw">if</span> p.requires_grad)
+    total = sum(p.numel() <span class="kw">for</span> p <span class="kw">in</span> model.parameters())
+    <span class="kw">return</span> trainable, total
+
+
+<span class="kw">def</span> build_lora_model(tok, rank, target_modules):
+    <span class="str">&quot;&quot;&quot;Load GPT-2 moi tinh, gan LoRA, assert W goc bi dong bang.
+
+    Ti le alpha/r giu co dinh = 2 (alpha = 2r) trong toan bo lab.
+    &quot;&quot;&quot;</span>
+    torch.manual_seed(SEED)
+    base = AutoModelForCausalLM.from_pretrained(MODEL_DIR).to(DEVICE)
+    base.config.pad_token_id = tok.pad_token_id
+    config = LoraConfig(r=rank, lora_alpha=<span class="num2">2</span> * rank, lora_dropout=<span class="num2">0.05</span>,
+                        target_modules=target_modules,
+                        task_type=<span class="str">&quot;CAUSAL_LM&quot;</span>)
+    model = get_peft_model(base, config)
+    <span class="cm"># [TRAINER] Kiem chung doc lap ca 3 rank: 12/12 tensor lora_B</span>
+    <span class="cm"># bang 0 luc khoi tao, lora_A khac 0 -&gt; delta W = 0 o step 0,</span>
+    <span class="cm"># do bang lech logits so voi base = 0.00e+00 (model khong bi pha</span>
+    <span class="cm"># truoc khi train). Va alpha = 2r dat o mot cho duy nhat nay nen</span>
+    <span class="cm"># ti le alpha/r = 2 co dinh: doi rank la doi DUNG 1 bien, khong</span>
+    <span class="cm"># dinh confound scale nhu trainer da canh bao o checklist.</span>
+    trainable, total = count_trainable(model)
+    print(f&quot;  r={rank} {target_modules}: train duoc {trainable:,} / &quot;
+          f&quot;{total:,} tham so ({trainable / total:.2%})&quot;)
+    <span class="cm"># Assert: chi tham so LoRA (ten chua &#x27;lora_&#x27;) duoc train.</span>
+    bad = [n <span class="kw">for</span> n, p <span class="kw">in</span> model.named_parameters()
+           <span class="kw">if</span> p.requires_grad <span class="kw">and</span> <span class="str">&quot;lora_&quot;</span> <span class="kw">not</span> <span class="kw">in</span> n]
+    <span class="kw">assert</span> <span class="kw">not</span> bad, f&quot;W goc chua dong bang: {bad[:<span class="num2">3</span>]}&quot;
+    <span class="kw">return</span> model
+
+
+@torch.no_grad()
+<span class="kw">def</span> val_loss(model, tok, val_items):
+    <span class="str">&quot;&quot;&quot;Loss trung binh tren tap val (khong shuffle, khong train).&quot;&quot;&quot;</span>
+    model.eval()
+    loader = DataLoader(SFTDataset(val_items, tok), batch_size=<span class="num2">4</span>,
+                        collate_fn=<span class="kw">lambda</span> b: collate(b,
+                                                     tok.pad_token_id))
+    total, steps = <span class="num2">0.0</span>, <span class="num2">0</span>
+    <span class="kw">for</span> batch <span class="kw">in</span> loader:
+        batch = {k: v.to(DEVICE) <span class="kw">for</span> k, v <span class="kw">in</span> batch.items()}
+        total += model(**batch).loss.item()
+        steps += <span class="num2">1</span>
+    model.train()
+    <span class="cm"># [TRAINER] Gop y (khong phai loi): val chi co 4 mau -&gt; val loss</span>
+    <span class="cm"># la trung binh cua 4 batch don mau, mot thuoc do rat mong.</span>
+    <span class="cm"># Chenh lech giua cac rank (0,016-0,035) nho hon do nhieu co the</span>
+    <span class="cm"># co cua chinh thuoc do. Ket luan &quot;r=16 tot nhat&quot; dung tren so</span>
+    <span class="cm"># da do, nhung lan sau nen chay 2-3 seed (hoac val 2 mau/kind)</span>
+    <span class="cm"># de chac thu hang rank on dinh truoc khi chot.</span>
+    <span class="kw">return</span> total / steps
+
+
+@torch.no_grad()
+<span class="kw">def</span> generate(model, tok, prompt):
+    <span class="str">&quot;&quot;&quot;Sinh greedy 30 token theo dung template train.&quot;&quot;&quot;</span>
+    model.eval()
+    ids = tok(prompt, return_tensors=<span class="str">&quot;pt&quot;</span>).to(DEVICE)
+    out = model.generate(**ids, max_new_tokens=MAX_NEW_TOKENS,
+                         do_sample=<span class="kw">False</span>,
+                         pad_token_id=tok.eos_token_id)
+    <span class="kw">return</span> tok.decode(out[<span class="num2">0</span>][ids[<span class="str">&quot;input_ids&quot;</span>].shape[<span class="num2">1</span>]:],
+                      skip_special_tokens=<span class="kw">True</span>)
+
+
+<span class="kw">def</span> eval_all(model, tok, title):
+    <span class="str">&quot;&quot;&quot;Sinh tren EVAL_PROMPTS, tra ve list dau ra (de doi chieu).&quot;&quot;&quot;</span>
+    print(f&quot;===== {title} =====&quot;)
+    outputs = []
+    <span class="kw">for</span> p <span class="kw">in</span> EVAL_PROMPTS:
+        text = generate(model, tok, p)
+        outputs.append(text)
+        print(<span class="str">&quot;PROMPT:&quot;</span>, p.replace(<span class="str">&quot;\n&quot;</span>, <span class="str">&quot; / &quot;</span>))
+        print(<span class="str">&quot;-&gt;&quot;</span>, text)
+    <span class="kw">return</span> outputs
+
+
+<span class="kw">def</span> train_one_rank(tok, rank, train_data, val_data, target_modules):
+    <span class="str">&quot;&quot;&quot;Train 1 rank, tra ve dict (model, train_loss, val_loss, giay).
+
+    Moi thu co dinh ngoai rank: seed, epoch, LR, batch, decoding.
+    &quot;&quot;&quot;</span>
+    model = build_lora_model(tok, rank, target_modules)
+    loader = DataLoader(
+        SFTDataset(train_data, tok), batch_size=BATCH_SIZE, shuffle=<span class="kw">True</span>,
+        collate_fn=<span class="kw">lambda</span> b: collate(b, tok.pad_token_id),
+        generator=torch.Generator().manual_seed(SEED))
+    opt = torch.optim.AdamW(
+        (p <span class="kw">for</span> p <span class="kw">in</span> model.parameters() <span class="kw">if</span> p.requires_grad),
+        lr=LEARNING_RATE)
+    <span class="cm"># [TRAINER] Cho nay tranh dung loi kinh dien cua LoRA: truyen</span>
+    <span class="cm"># model.parameters() tho vao optimizer. Loc theo requires_grad</span>
+    <span class="cm"># nen Adam chi cap phat moment cho params LoRA - vua tiet kiem</span>
+    <span class="cm"># bo nho, vua dam bao W goc khong bi cap nhat le.</span>
+    model.train()
+    t0 = time.perf_counter()
+    last_train_loss = <span class="kw">None</span>
+    <span class="kw">for</span> epoch <span class="kw">in</span> range(EPOCHS):
+        total_loss, steps = <span class="num2">0.0</span>, <span class="num2">0</span>
+        <span class="kw">for</span> batch <span class="kw">in</span> loader:
+            batch = {k: v.to(DEVICE) <span class="kw">for</span> k, v <span class="kw">in</span> batch.items()}
+            out = model(**batch)
+            out.loss.backward()
+            opt.step()
+            opt.zero_grad()
+            total_loss += out.loss.item()
+            steps += <span class="num2">1</span>
+        last_train_loss = total_loss / steps
+        print(f&quot;  r={rank} epoch {epoch + <span class="num2">1</span>}: train loss = &quot;
+              f&quot;{last_train_loss:.4f}&quot;)
+    dt = time.perf_counter() - t0
+    vl = val_loss(model, tok, val_data)
+    print(f&quot;  r={rank}: val loss cuoi = {vl:.4f} | train trong &quot;
+          f&quot;{dt:.1f}s.&quot;)
+    <span class="kw">return</span> {<span class="str">&quot;model&quot;</span>: model, <span class="str">&quot;train_loss&quot;</span>: last_train_loss,
+            <span class="str">&quot;val_loss&quot;</span>: vl, <span class="str">&quot;seconds&quot;</span>: dt}
+
+
+<span class="kw">def</span> adapter_size_mb(model, save_dir):
+    <span class="str">&quot;&quot;&quot;Luu adapter va tra ve dung luong (MB) cua thu muc.&quot;&quot;&quot;</span>
+    model.save_pretrained(save_dir)
+    total = <span class="num2">0</span>
+    <span class="kw">for</span> root, _, files <span class="kw">in</span> os.walk(save_dir):
+        <span class="kw">for</span> f <span class="kw">in</span> files:
+            total += os.path.getsize(os.path.join(root, f))
+    <span class="kw">return</span> total / <span class="num2">1e6</span>
+
+
+<span class="kw">def</span> main():
+    <span class="str">&quot;&quot;&quot;Chay lab day du: Bai 0 -&gt; Bai 1 -&gt; Bai 2 -&gt; Bai 3 -&gt; mo rong.&quot;&quot;&quot;</span>
+    print(f&quot;torch {torch.__version__} | device: {DEVICE}&quot;)
+    tok = AutoTokenizer.from_pretrained(MODEL_DIR)
+    tok.pad_token = tok.eos_token
+    print(<span class="str">&quot;\n&quot;</span> + <span class="str">&quot;=&quot;</span> * <span class="num2">72</span>)
+    print(<span class="str">&quot;BAI 0 - Ra dataset truoc khi ablation&quot;</span>)
+    print(<span class="str">&quot;=&quot;</span> * <span class="num2">72</span>)
+    train_data, val_data = stratified_split(DATA)
+    print(<span class="str">&quot;Train:&quot;</span>, len(train_data),
+          Counter(d[<span class="str">&quot;kind&quot;</span>] <span class="kw">for</span> d <span class="kw">in</span> train_data))
+    print(<span class="str">&quot;Val:  &quot;</span>, len(val_data), Counter(d[<span class="str">&quot;kind&quot;</span>] <span class="kw">for</span> d <span class="kw">in</span> val_data))
+    <span class="kw">assert</span> set(d[<span class="str">&quot;kind&quot;</span>] <span class="kw">for</span> d <span class="kw">in</span> val_data) == \
+        set(d[<span class="str">&quot;kind&quot;</span>] <span class="kw">for</span> d <span class="kw">in</span> train_data), \
+        <span class="str">&quot;Val thieu kind so voi train!&quot;</span>
+    audit_eval_prompts(EVAL_PROMPTS, train_data)
+    verify_masking_all(tok)
+    print(<span class="str">&quot;\n&quot;</span> + <span class="str">&quot;=&quot;</span> * <span class="num2">72</span>)
+    print(<span class="str">&quot;BAI 1 - Dem tham so theo rank (chua train)&quot;</span>)
+    print(<span class="str">&quot;=&quot;</span> * <span class="num2">72</span>)
+    print(<span class="str">&quot;Cong thuc: r x (768 + 2304) x 12 lop = r x 36864.&quot;</span>)
+    <span class="kw">for</span> rank <span class="kw">in</span> (<span class="num2">4</span>, <span class="num2">8</span>, <span class="num2">16</span>):
+        model = build_lora_model(tok, rank, [<span class="str">&quot;c_attn&quot;</span>])
+        <span class="kw">del</span> model
+        gc.collect()
+    print(<span class="str">&quot;\n&quot;</span> + <span class="str">&quot;=&quot;</span> * <span class="num2">72</span>)
+    print(<span class="str">&quot;BAI 2 - Ablation r = 4 / 8 / 16 (chi doi rank)&quot;</span>)
+    print(<span class="str">&quot;=&quot;</span> * <span class="num2">72</span>)
+    print(f&quot;Co dinh: seed={SEED}, epoch={EPOCHS}, lr={LEARNING_RATE}, &quot;
+          f&quot;batch={BATCH_SIZE}, alpha/r=2, target=c_attn, greedy.&quot;)
+    results = {}
+    <span class="kw">for</span> rank <span class="kw">in</span> (<span class="num2">4</span>, <span class="num2">8</span>, <span class="num2">16</span>):
+        print(f&quot;--- Rank {rank} ---&quot;)
+        res = train_one_rank(tok, rank, train_data, val_data,
+                             [<span class="str">&quot;c_attn&quot;</span>])
+        trainable, _ = count_trainable(res[<span class="str">&quot;model&quot;</span>])
+        res[<span class="str">&quot;trainable&quot;</span>] = trainable
+        res[<span class="str">&quot;eval_outputs&quot;</span>] = eval_all(
+            res[<span class="str">&quot;model&quot;</span>], tok, f&quot;EVAL r={rank} (c_attn)&quot;)
+        results[rank] = res
+    print(<span class="str">&quot;\n&quot;</span> + <span class="str">&quot;=&quot;</span> * <span class="num2">72</span>)
+    print(<span class="str">&quot;BANG ABLATION&quot;</span>)
+    print(<span class="str">&quot;=&quot;</span> * <span class="num2">72</span>)
+    <span class="kw">for</span> rank, res <span class="kw">in</span> results.items():
+        print(f&quot;r={rank}: trainable={res[<span class="str">&#x27;trainable&#x27;</span>]:,} | &quot;
+              f&quot;train loss={res[<span class="str">&#x27;train_loss&#x27;</span>]:.4f} | &quot;
+              f&quot;val loss={res[<span class="str">&#x27;val_loss&#x27;</span>]:.4f} | &quot;
+              f&quot;{res[<span class="str">&#x27;seconds&#x27;</span>]:.1f}s&quot;)
+    best_rank = min(results, key=<span class="kw">lambda</span> r: results[r][<span class="str">&quot;val_loss&quot;</span>])
+    print(f&quot;Rank tot nhat theo val loss: r={best_rank}.&quot;)
+    print(<span class="str">&quot;\n&quot;</span> + <span class="str">&quot;=&quot;</span> * <span class="num2">72</span>)
+    print(f&quot;BAI 3 - Merge adapter r={best_rank} va kiem tra&quot;)
+    print(<span class="str">&quot;=&quot;</span> * <span class="num2">72</span>)
+    best_model = results[best_rank][<span class="str">&quot;model&quot;</span>]
+    size_mb = adapter_size_mb(best_model, ADAPTER_DIR)
+    print(f&quot;Dung luong adapter r={best_rank}: {size_mb:.2f} MB &quot;
+          f&quot;(so voi ~500 MB cua GPT-2 day du).&quot;)
+    merged = best_model.merge_and_unload()
+    merged_outputs = eval_all(merged, tok,
+                              f&quot;EVAL r={best_rank} SAU MERGE&quot;)
+    same = sum(<span class="num2">1</span> <span class="kw">for</span> a, b <span class="kw">in</span> zip(results[best_rank][<span class="str">&quot;eval_outputs&quot;</span>],
+                                 merged_outputs) <span class="kw">if</span> a == b)
+    <span class="cm"># [TRAINER] So sanh chuoi greedy 6/6 la tot; trainer kiem them o</span>
+    <span class="cm"># muc logits: lech toi da 3,4e-04 - dung muc lam tron float32 khi</span>
+    <span class="cm"># cong BA vao W. Neu cong sai chieu (bay Conv1D cua GPT-2) hoac</span>
+    <span class="cm"># sai scale thi logits da lech han. Merge cua ban dung.</span>
+    print(f&quot;Merge check: {same}/{len(EVAL_PROMPTS)} dau ra giong &quot;
+          f&quot;het truoc/sau merge.&quot;)
+    print(<span class="str">&quot;\n&quot;</span> + <span class="str">&quot;=&quot;</span> * <span class="num2">72</span>)
+    print(<span class="str">&quot;MO RONG - Ablation target modules (c_attn + c_proj)&quot;</span>)
+    print(<span class="str">&quot;=&quot;</span> * <span class="num2">72</span>)
+    print(<span class="str">&quot;Chi doi target modules, giu nguyen rank tot nhat, seed, &quot;</span>
+          <span class="str">&quot;epoch, LR, dataset.&quot;</span>)
+    res_ext = train_one_rank(tok, best_rank, train_data, val_data,
+                             [<span class="str">&quot;c_attn&quot;</span>, <span class="str">&quot;c_proj&quot;</span>])
+    trainable_ext, _ = count_trainable(res_ext[<span class="str">&quot;model&quot;</span>])
+    print(f&quot;r={best_rank} c_attn+c_proj: trainable={trainable_ext:,} | &quot;
+          f&quot;train loss={res_ext[<span class="str">&#x27;train_loss&#x27;</span>]:.4f} | &quot;
+          f&quot;val loss={res_ext[<span class="str">&#x27;val_loss&#x27;</span>]:.4f} | &quot;
+          f&quot;{res_ext[<span class="str">&#x27;seconds&#x27;</span>]:.1f}s (so voi c_attn: &quot;
+          f&quot;val loss={results[best_rank][<span class="str">&#x27;val_loss&#x27;</span>]:.4f}).&quot;)
+    eval_all(res_ext[<span class="str">&quot;model&quot;</span>], tok,
+             f&quot;EVAL r={best_rank} (c_attn+c_proj)&quot;)
+    print(<span class="str">&quot;\n&quot;</span> + <span class="str">&quot;=&quot;</span> * <span class="num2">72</span>)
+    print(<span class="str">&quot;KET LUAN NHANH&quot;</span>)
+    print(<span class="str">&quot;=&quot;</span> * <span class="num2">72</span>)
+    print(f&quot;- Rank tot nhat (val loss): r={best_rank}.&quot;)
+    print(<span class="str">&quot;- Merge khong doi dau ra (hoac chi lech do lam tron).&quot;</span>)
+    print(<span class="str">&quot;- Adapter chi vai MB so voi 500 MB model day du.&quot;</span>)
+
+
+<span class="kw">if</span> __name__ == <span class="str">&quot;__main__&quot;</span>:
+    main()
+</code></pre>
+</section>
+<script>
+function copySrc(){
+  var t=document.getElementById("srcBlock").innerText;
+  navigator.clipboard.writeText(t).then(function(){alert("Đã copy "+t.length+" ký tự!");});
+}
+</script>
+
+
+<script>
+function esc(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;");}
+function rankCalc(){
+  var r=parseInt(document.getElementById("rankIn").value,10);
+  var out=document.getElementById("rankOut");
+  if(isNaN(r)||r<1){out.textContent="Nhập rank r ≥ 1 nhé!";return;}
+  var perLayer=r*(768+2304), total=perLayer*12, pct=(total/124439808*100).toFixed(2);
+  out.innerHTML="r = "+r+" → mỗi lớp: "+r+" × (768 + 2304) = "+perLayer.toLocaleString("en-US")+" params<br>"+
+    "× 12 lớp = <b>"+total.toLocaleString("en-US")+" params</b> ("+pct+"% của GPT-2 124M)<br>"+
+    "α = 2r = "+(2*r)+" → tỉ lệ α/r = 2 (cố định, đổi rank là đổi đúng 1 biến).";
+}
+document.getElementById("rankBtn").addEventListener("click",rankCalc);
+document.getElementById("rankIn").addEventListener("keydown",function(e){if(e.key==="Enter")rankCalc();});
+
+var mods={
+  c_attn:{hit:["attn.c_attn (Q/K/V gộp, 768→2304)"],note:"Chỉ bắt đúng attention — an toàn, vì không module nào khác kết thúc bằng c_attn."},
+  c_proj:{hit:["attn.c_proj (768→768)","mlp.c_proj (3072→768) ⚠️"],note:"BẪY: c_proj bắt CẢ attention lẫn MLP! Đây chính là điều xảy ra ở phần Mở rộng: 1.622.016 params thay vì chỉ attention."},
+  c_fc:{hit:["mlp.c_fc (768→3072)"],note:"Chỉ bắt đúng MLP — an toàn, vì không module nào khác kết thúc bằng c_fc."}
+};
+function showMod(name){
+  var m=mods[name];
+  document.getElementById("modOut").innerHTML="peft khớp hậu tố \""+name+"\" → bắt:<br>• "+
+    m.hit.join("<br>• ")+"<br><br>"+m.note;
+  document.querySelectorAll(".modbtn").forEach(function(b){
+    b.classList.toggle("active",b.getAttribute("data-mod")===name);
+  });
+}
+document.querySelectorAll(".modbtn").forEach(function(b){
+  b.addEventListener("click",function(){showMod(b.getAttribute("data-mod"));});
+});
+showMod("c_attn");
+</script>
+</div>
+
+<footer>
+  Day 17 — Ablation LoRA r = 4 / 8 / 16 trên GPT-2 · Tài liệu giải thích tiếng Việt cho khóa LLM-beginner · Số liệu chạy thật trên VM CPU-only.
+</footer>
+</body>
+</html>
