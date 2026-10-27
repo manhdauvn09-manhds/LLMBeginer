@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quiz Ngày 17 — LoRA | Khóa LLM 30 ngày</title>
+<style>
+:root{--bg:#0a0f1e; --card:#101830; --line:#22305a; --gold:#f5c542; --green:#4ade80; --red:#f87171; --cyan:#67e8f9; --text:#e8edf7; --muted:#93a0bd;}
+*{box-sizing:border-box;}
+body{margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.7; font-size:16.5px;}
+.wrap{max-width:760px; margin:0 auto; padding:18px 16px 60px;}
+.kicker{color:var(--gold); font-weight:700; font-size:13px; letter-spacing:1px;}
+h1{font-size:28px; line-height:1.3;}
+h2{font-size:20px; color:var(--cyan); margin-top:30px;}
+.q{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px 18px; margin:16px 0;}
+.q p{font-weight:700; margin:0 0 10px;}
+label{display:block; margin:8px 0; cursor:pointer;}
+.explain{display:none; border-left:4px solid var(--green); background:#0f2233; border-radius:0 10px 10px 0; padding:10px 14px; margin-top:12px;}
+.explain.bad{border-color:var(--red); background:#23141a;}
+.correct{color:var(--green); font-weight:700;}
+.wrong{color:var(--red); font-weight:700;}
+button{background:var(--gold); color:#14100a; font-weight:700; border:0; border-radius:10px; padding:13px 24px; font-size:16px; cursor:pointer; margin-top:10px;}
+#result{display:none; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px; margin-top:20px;}
+#copystr{font-family:monospace; background:#060a14; border:1px solid var(--line); border-radius:8px; padding:10px; margin:10px 0; word-break:break-all;}
+.note{color:var(--muted); font-size:14.5px;}
+a{color:var(--gold);}
+</style>
+</head>
+<body>
+<div class="wrap">
+<span class="kicker">QUIZ NGÀY 17 · BUỔI SÁNG</span>
+<h1>LoRA là giả thuyết low-rank cần được kiểm chứng</h1>
+<p class="note">Chọn 1 đáp án mỗi câu, bấm "Nộp bài" để chấm ngay trong file. Làm xong bấm "Copy kết quả" rồi paste vào chat để trợ lý ghi điểm. Lưu ý: file HTML này không tự gửi kết quả về được — bạn paste kết quả vào chat thì trợ lý mới ghi điểm.</p>
+
+<div class="q"><p>Câu 1. Một ma trận W có d = k = 4096. Dùng LoRA với rank r = 8, số tham số train được là bao nhiêu?</p>
+<label><input type="radio" name="q1" value="A"> A. 16.777.216 (toàn bộ ma trận)</label>
+<label><input type="radio" name="q1" value="B"> B. 65.536 — khoảng 0,39% so với full fine-tune</label>
+<label><input type="radio" name="q1" value="C"> C. 131.072 — khoảng 0,78%</label>
+<label><input type="radio" name="q1" value="D"> D. 4.096</label>
+<div class="explain" id="e1"></div></div>
+
+<div class="q"><p>Câu 2. Vì sao trong LoRA, ma trận B được khởi tạo bằng 0 còn A khởi tạo ngẫu nhiên nhỏ?</p>
+<label><input type="radio" name="q2" value="A"> A. Để ΔW ban đầu bằng 0, model mới train hoạt động y hệt model gốc</label>
+<label><input type="radio" name="q2" value="B"> B. Để tăng tốc độ học của nhánh LoRA ngay từ bước đầu</label>
+<label><input type="radio" name="q2" value="C"> C. Để giảm số tham số train được xuống một nửa</label>
+<label><input type="radio" name="q2" value="D"> D. Vì B không cần học, chỉ A mới được cập nhật</label>
+<div class="explain" id="e2"></div></div>
+
+<div class="q"><p>Câu 3. Tỉ lệ α/r trong công thức W′ = W<sub>0</sub> + (α/r)·B·A có tác dụng gì?</p>
+<label><input type="radio" name="q3" value="A"> A. Thay thế learning rate của optimizer</label>
+<label><input type="radio" name="q3" value="B"> B. Tăng rank r lên gấp α lần</label>
+<label><input type="radio" name="q3" value="C"> C. Áp dropout lên nhánh LoRA</label>
+<label><input type="radio" name="q3" value="D"> D. Giữ độ lớn của ΔW ổn định khi thay đổi rank</label>
+<div class="explain" id="e3"></div></div>
+
+<div class="q"><p>Câu 4. Lựa chọn target modules nào hợp lý nhất cho LoRA?</p>
+<label><input type="radio" name="q4" value="A"> A. Chỉ embedding và lm_head</label>
+<label><input type="radio" name="q4" value="B"> B. Mọi tham số kể cả embedding, lm_head và norm</label>
+<label><input type="radio" name="q4" value="C"> C. Các ma trận tuyến tính q, k, v, o và MLP; thường bỏ qua embedding/lm_head</label>
+<label><input type="radio" name="q4" value="D"> D. Chỉ LayerNorm, vì norm quyết định hành vi model</label>
+<div class="explain" id="e4"></div></div>
+
+<div class="q"><p>Câu 5. Phát biểu nào đúng về merge adapter so với giữ adapter rời?</p>
+<label><input type="radio" name="q5" value="A"> A. Merge làm inference chậm thêm vì phải tính cả hai nhánh</label>
+<label><input type="radio" name="q5" value="B"> B. Giữ adapter rời cho phép một model gốc phục vụ nhiều nhiệm vụ chỉ bằng cách đổi adapter</label>
+<label><input type="radio" name="q5" value="C"> C. Sau khi merge, vẫn quay lại model gốc mà không cần giữ bản gốc</label>
+<label><input type="radio" name="q5" value="D"> D. File adapter thường nặng hơn cả model gốc</label>
+<div class="explain" id="e5"></div></div>
+
+<button onclick="grade()">Nộp bài</button>
+<div id="result">
+<div id="scoreline"></div>
+<div id="copystr"></div>
+<button id="copybtn" style="display:none" onclick="copyResult()">Copy kết quả</button>
+<p class="note">Paste chuỗi kết quả vào chat để trợ lý ghi điểm nhé.</p>
+</div>
+<p><a href="Day17_lesson.html">← Quay lại bài học</a></p>
+</div>
+<script>
+const KEY = {q1:"B", q2:"A", q3:"D", q4:"C", q5:"B"};
+const WHY = {
+q1:"Số tham số = r × (d + k) = 8 × 8192 = 65.536. So với 4096 × 4096 = 16.777.216 thì chỉ khoảng 0,39%. r = 16 mới là 131.072.",
+q2:"Vì ΔW = B·A nên B = 0 kéo theo ΔW = 0 bất kể A là gì. Model bắt đầu từ đúng điểm của pretrained model, không bị hỏng kiến thức cũ ngay bước đầu. Cả A và B đều được cập nhật trong lúc train.",
+q3:"Khi tăng r, tích B·A cộng nhiều thành phần hơn nên có xu hướng lớn lên; chia cho r giữ độ lớn ΔW ổn định. α không phải learning rate — learning rate điều khiển tốc độ bước đi của optimizer.",
+q4:"LoRA gắn vào các ma trận tuyến tính của attention và MLP. Embedding và lm_head rất lớn, gắn vào sẽ mất lợi thế rẻ, trừ khi nhiệm vụ cần học nhiều token mới.",
+q5:"Giữ adapter rời: một model gốc + nhiều adapter nhỏ (vài MB đến vài chục MB) cho nhiều nhiệm vụ. Merge thì inference không tốn thêm gì nhưng mất khả năng đổi adapter nhanh — vì vậy luôn giữ bản W₀ gốc và test lại sau merge."
+};
+let graded = false, answers = {};
+function grade(){
+  graded = true; answers = {}; let score = 0;
+  for(let i=1;i<=5;i++){
+    const sel = document.querySelector('input[name=q'+i+']:checked');
+    const v = sel ? sel.value : "–"; answers["q"+i] = v;
+    const ok = (v === KEY["q"+i]); if(ok) score++;
+    const box = document.getElementById("e"+i);
+    box.style.display = "block";
+    box.className = "explain" + (ok ? "" : " bad");
+    box.innerHTML = (ok ? '<span class="correct">✔ Đúng.</span> ' : '<span class="wrong">✘ Sai.</span> Đáp án đúng: <b>'+KEY["q"+i]+'</b>. ') + WHY["q"+i];
+  }
+  const r = document.getElementById("result"); r.style.display = "block";
+  document.getElementById("scoreline").innerHTML = "Kết quả: <b>"+score+"/5</b> " + (score>=4 ? "🎉 Đạt! Sẵn sàng cho lab ablation LoRA tối nay." : "🔁 Dưới 80% — báo trợ lý để học bù nhé.");
+  document.getElementById("copystr").textContent = copyString();
+  document.getElementById("copybtn").style.display = "inline-block";
+  r.scrollIntoView({behavior:"smooth"});
+}
+function copyString(){
+  let s = "Day17 Quiz:";
+  for(let i=1;i<=5;i++) s += " " + i + answers["q"+i];
+  let sc = 0; for(let i=1;i<=5;i++) if(answers["q"+i]===KEY["q"+i]) sc++;
+  return s + " — " + sc + "/5";
+}
+function copyResult(){
+  if(!graded) return;
+  const t = copyString();
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(t).then(()=>{document.getElementById("copybtn").textContent="✅ Đã copy!"});
+  } else {
+    const ta = document.createElement("textarea"); ta.value = t; document.body.appendChild(ta);
+    ta.select(); document.execCommand("copy"); document.body.removeChild(ta);
+    document.getElementById("copybtn").textContent="✅ Đã copy!";
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ngày 17 — LoRA là giả thuyết low-rank cần được kiểm chứng | Khóa LLM 30 ngày</title>
+<style>
+:root{--bg:#0a0f1e; --card:#101830; --line:#22305a; --gold:#f5c542; --green:#4ade80;
+ --red:#f87171; --violet:#a78bfa; --cyan:#67e8f9; --text:#e8edf7; --muted:#93a0bd;}
+*{box-sizing:border-box;}
+body{margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.75; font-size:16.5px;}
+.wrap{max-width:820px; margin:0 auto; padding:18px 16px 60px;}
+.kicker{display:inline-block; font-size:13px; letter-spacing:1px; color:var(--gold); font-weight:700; margin-bottom:8px;}
+h1{font-size:30px; line-height:1.3; margin:6px 0 10px;}
+h2{font-size:22px; margin:34px 0 10px; color:var(--cyan);}
+h3{font-size:18px; margin:22px 0 8px; color:var(--gold);}
+.sub{color:var(--muted); font-size:16.5px;}
+.meta{display:flex; gap:8px; flex-wrap:wrap; margin:14px 0 6px;}
+.meta span{font-size:13.5px; background:var(--card); border:1px solid var(--line); border-radius:999px; padding:5px 14px;}
+.hero{width:100%; border-radius:14px; margin:16px 0;}
+.card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px; margin:16px 0;}
+.note{border-left:4px solid var(--green); background:#0f2233; border-radius:0 12px 12px 0; padding:12px 16px; margin:14px 0;}
+.warn{border-left:4px solid var(--red); background:#23141a; border-radius:0 12px 12px 0; padding:12px 16px; margin:14px 0;}
+.formula{background:#0a0f1e; border:1px dashed var(--violet); border-radius:10px; padding:12px 16px; margin:12px 0; font-size:17px; text-align:center;}
+.code{background:#060a14; border:1px solid var(--line); border-radius:10px; padding:12px 14px; margin:12px 0; overflow-x:auto;}
+.code pre{margin:0; font-size:14.5px; line-height:1.6; color:var(--cyan);}
+table{width:100%; border-collapse:collapse; margin:12px 0; font-size:15px;}
+th,td{border:1px solid var(--line); padding:8px 10px; text-align:left;}
+th{background:#141d3a; color:var(--gold);}
+svg{max-width:100%; height:auto; display:block; margin:12px auto;}
+.btn{display:inline-block; background:var(--gold); color:#14100a; font-weight:700; border-radius:10px; padding:12px 22px; margin:10px 8px 0 0; text-decoration:none;}
+.btn.ghost{background:transparent; color:var(--gold); border:2px solid var(--gold);}
+ul.check li{margin:6px 0;}
+.footer{color:var(--muted); font-size:14px; margin-top:40px; border-top:1px solid var(--line); padding-top:14px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+<span class="kicker">NGÀY 17 · BUỔI SÁNG — LÝ THUYẾT + QUIZ</span>
+<h1>LoRA là giả thuyết low-rank cần được kiểm chứng</h1>
+<p class="sub">Hôm qua bạn đã học SFT: dạy model biết làm theo hướng dẫn. Hôm nay ta học cách dạy rẻ hơn rất nhiều: <b>đóng băng gần như toàn bộ model, chỉ train hai ma trận nhỏ</b>. Nhưng nhớ kỹ tiêu đề bài này — LoRA không phải phép màu, nó là một giả thuyết. Và tối nay, bạn sẽ kiểm chứng nó bằng số liệu thật.</p>
+<div class="meta"><span>⏱ ~25 phút đọc</span><span>🎯 Rank · alpha · target modules · merge</span><span>🌙 Tối nay: ablation r = 4 / 8 / 16</span></div>
+<img class="hero" src="img/day17_hero.webp" alt="Minh họa: model lớn đóng băng, chỉ vài adapter nhỏ được train">
+
+<h2>Mục tiêu buổi học</h2>
+<ul class="check">
+<li>Giải thích được vì sao full fine-tune tốn bộ nhớ và dung lượng lưu trữ đến vậy.</li>
+<li>Viết được công thức W′ = W<sub>0</sub> + (α/r)·B·A và tính được số tham số train được theo rank r.</li>
+<li>Giải thích được vì sao ma trận B khởi tạo bằng 0, và α/r có tác dụng gì.</li>
+<li>Chọn được target modules hợp lý, và phân biệt merge adapter với giữ adapter rời.</li>
+<li>Biết khi nào LoRA có thể thất bại — và cách kiểm chứng bằng ablation tối nay.</li>
+</ul>
+
+<h2>1. Full fine-tune đắt ở đâu?</h2>
+<p>Lấy một ma trận trọng số W có kích thước d × k. Full fine-tune cập nhật <b>mọi</b> phần tử của W, tức là ma trận thay đổi ΔW cũng to bằng W. Với model 7 tỉ tham số, dùng AdamW, hóa đơn bộ nhớ trông như sau:</p>
+<table>
+<tr><th>Thành phần</th><th>Độ chính xác</th><th>Ước tính cho 7B</th></tr>
+<tr><td>Trọng số model</td><td>fp16 (2 byte)</td><td>~14 GB</td></tr>
+<tr><td>Gradient</td><td>fp16 (2 byte)</td><td>~14 GB</td></tr>
+<tr><td>Trạng thái Adam (m và v)</td><td>fp32 (4 + 4 byte)</td><td>~56 GB</td></tr>
+<tr><td>Bản master fp32 (nếu có)</td><td>fp32</td><td>~28 GB</td></tr>
+<tr><td><b>Tổng cộng</b></td><td></td><td><b>~112 GB</b></td></tr>
+</table>
+<p>Chưa kể: mỗi nhiệm vụ mới lại cần lưu thêm một bản copy toàn bộ model, vài chục GB. Muốn chạy 5 nhiệm vụ trên cùng một model gốc? 5 bản copy. Đó là lý do người ta đi tìm cách train ít hơn mà vẫn học được.</p>
+<div class="note"><b>Ví dụ đời thường:</b> full fine-tune giống như sửa cả cuốn từ điển chỉ để thêm vài từ mới. LoRA giống như dán vài tờ giấy note vào đúng chỗ cần sửa — cuốn từ điển gốc vẫn nguyên vẹn.</div>
+
+<h2>2. Ý tưởng cốt lõi: thay đổi cũng có thể low-rank</h2>
+<p>Giả thuyết của LoRA (Hu và cộng sự, 2021): khi fine-tune, ma trận thay đổi ΔW mà model thực sự cần <b>có rank thấp</b> — tức là nó có thể được viết gần đúng dưới dạng tích của hai ma trận mỏng. Thay vì học trực tiếp ΔW kích thước d × k, ta học:</p>
+<div class="formula">W′ = W<sub>0</sub> + ΔW &nbsp; với &nbsp; ΔW = B · A</div>
+<p>Trong đó W<sub>0</sub> bị <b>đóng băng</b> (không train), A có kích thước r × k, B có kích thước d × r, và r — gọi là <b>rank</b> — rất nhỏ so với d và k (thường 4, 8, 16, 64).</p>
+<svg viewBox="0 0 760 190" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Sơ đồ W phẩy bằng W0 cộng B nhân A">
+<rect x="20" y="55" width="150" height="100" rx="10" fill="#101830" stroke="#67e8f9" stroke-width="2"/><text x="95" y="110" fill="#e8edf7" font-size="20" text-anchor="middle">W₀ đóng băng</text>
+<text x="195" y="115" fill="#f5c542" font-size="26">+</text>
+<rect x="225" y="55" width="90" height="100" rx="10" fill="#231a3a" stroke="#a78bfa" stroke-width="2"/><text x="270" y="110" fill="#e8edf7" font-size="20" text-anchor="middle">B</text><text x="270" y="135" fill="#93a0bd" font-size="13" text-anchor="middle">d × r</text>
+<text x="335" y="115" fill="#f5c542" font-size="26">×</text>
+<rect x="365" y="55" width="150" height="100" rx="10" fill="#231a3a" stroke="#a78bfa" stroke-width="2"/><text x="440" y="110" fill="#e8edf7" font-size="20" text-anchor="middle">A</text><text x="440" y="135" fill="#93a0bd" font-size="13" text-anchor="middle">r × k</text>
+<text x="540" y="115" fill="#f5c542" font-size="26">=</text>
+<rect x="575" y="55" width="150" height="100" rx="10" fill="#0f2233" stroke="#4ade80" stroke-width="2"/><text x="650" y="110" fill="#e8edf7" font-size="20" text-anchor="middle">W′ dùng thật</text>
+</svg>
+<p>Khi chạy forward, đầu vào x đi qua cả hai nhánh rồi cộng lại: h = W<sub>0</sub>x + B·A·x. Nhánh W<sub>0</sub> giữ kiến thức cũ, nhánh B·A học cái mới.</p>
+
+<h3>Tính thử: r = 8 rẻ hơn bao nhiêu?</h3>
+<p>Với d = k = 4096 (một ma trận attention của model cỡ vừa):</p>
+<table>
+<tr><th>Rank r</th><th>Tham số train được (A + B)</th><th>Tỉ lệ so với full (16,8 triệu)</th></tr>
+<tr><td>r = 4</td><td>32.768</td><td>0,20%</td></tr>
+<tr><td>r = 8</td><td>65.536</td><td>0,39%</td></tr>
+<tr><td>r = 16</td><td>131.072</td><td>0,78%</td></tr>
+<tr><td>r = 64</td><td>524.288</td><td>3,13%</td></tr>
+</table>
+<p>Công thức tính: r × k + d × r = r × (d + k). Chỉ train dưới 1% tham số mà vẫn học được — <b>nếu</b> giả thuyết low-rank đúng với nhiệm vụ của bạn. Chữ "nếu" này rất quan trọng, xem mục 6.</p>
+
+<h2>3. Hai chi tiết khởi tạo và tỉ lệ mà ai cũng hỏi</h2>
+<h3>Vì sao B khởi tạo bằng 0, còn A khởi tạo ngẫu nhiên nhỏ?</h3>
+<p>Vì ΔW = B·A. Nếu B = 0 thì ΔW = 0 ngay từ đầu, bất kể A là gì. Nghĩa là <b>lúc mới bắt đầu train, model LoRA hoạt động y hệt model gốc</b> — không bị hỏng kiến thức cũ ngay bước đầu tiên. Sau đó gradient cập nhật cả A và B, ΔW dần dần khác 0. Nếu khởi tạo cả hai ngẫu nhiên, model sẽ thay đổi lung tung ngay từ đầu, mất điểm xuất phát tốt của pretrained model.</p>
+<h3>α (alpha) và tỉ lệ α/r để làm gì?</h3>
+<div class="formula">W′ = W<sub>0</sub> + (α / r) · B · A</div>
+<p>Khi tăng r, tích B·A có xu hướng lớn lên (cộng nhiều thành phần hơn). Chia cho r để giữ độ lớn của ΔW ổn định khi đổi rank. α là một núm vặn thêm: α = 16, r = 8 thì tỉ lệ là 2, tức là ΔW được nhân đôi. Quy tắc thực hành thường gặp: đặt α = 2r hoặc α = r, rồi giữ cố định trong cả ablation — nếu vừa đổi r vừa đổi α thì không biết cải thiện đến từ đâu.</p>
+<div class="warn"><b>Bẫy thường gặp:</b> nhầm α với learning rate. α chỉ đổi độ lớn của ΔW, còn learning rate đổi tốc độ bước đi của optimizer. Hai núm khác nhau, phải chỉnh riêng.</div>
+<h3>Dropout của LoRA</h3>
+<p>LoRA dropout (thường 0,05–0,1) áp lên đầu vào của nhánh LoRA trong lúc train, giúp tránh overfit khi dữ liệu nhỏ — đúng hoàn cảnh của fine-tune. Dữ liệu càng ít, dropout càng đáng cân nhắc; nhưng dropout quá cao sẽ làm nhánh LoRA học chậm và nhiễu.</p>
+
+<h2>4. Gắn LoRA vào đâu? Chọn target modules</h2>
+<p>Trong một Transformer block, các ứng viên là các ma trận tuyến tính: q_proj, k_proj, v_proj, o_proj của attention, và gate_proj, up_proj, down_proj của MLP. Kinh nghiệm thực hành:</p>
+<ul>
+<li><b>Bắt đầu tối thiểu:</b> chỉ q_proj và v_proj — cấu hình gốc của paper LoRA, rẻ nhất, đủ cho nhiều nhiệm vụ đơn giản.</li>
+<li><b>Mở rộng khi cần:</b> gắn tất cả các module tuyến tính (q, k, v, o + MLP) thường cho chất lượng cao hơn, vẫn rẻ vì mỗi module chỉ tốn r × (d + k).</li>
+<li><b>Thường không gắn:</b> embedding và lm_head — chúng rất lớn, gắn vào thì mất hết lợi thế rẻ, trừ khi nhiệm vụ cần học nhiều token mới.</li>
+</ul>
+<p>Nhớ rằng MLP chiếm phần lớn tham số của block, nên gắn thêm MLP là quyết định tốn kém nhất trong các lựa chọn target modules — cân nhắc bằng ablation, không gắn theo cảm tính.</p>
+
+<h2>5. Merge adapter hay giữ adapter rời?</h2>
+<img class="hero" src="img/day17_merge.webp" alt="Minh họa: adapter nhỏ hợp nhất vào model lớn">
+<table>
+<tr><th>Cách dùng</th><th>Ưu điểm</th><th>Nhược điểm</th></tr>
+<tr><td><b>Merge:</b> W′ = W<sub>0</sub> + (α/r)·B·A, lưu thành model mới</td><td>Chạy inference không tốn thêm gì, không chậm thêm, dùng được với mọi engine suy luận</td><td>Mất khả năng đổi adapter nhanh; muốn quay lại phải giữ bản W<sub>0</sub> gốc</td></tr>
+<tr><td><b>Giữ rời:</b> lưu W<sub>0</sub> + adapter nhỏ (vài MB đến vài chục MB)</td><td>Một model gốc phục vụ nhiều nhiệm vụ, chỉ cần đổi adapter; lưu trữ rẻ</td><td>Inference phải tính thêm nhánh B·A; cần engine hỗ trợ adapter</td></tr>
+</table>
+<p>Thực hành tốt: <b>luôn giữ bản W<sub>0</sub> gốc và file adapter riêng</b>, merge chỉ là bước tạo bản triển khai cuối cùng. Merge xong phải test lại: load model đã merge, chạy cùng vài prompt, đối chiếu output với bản chưa merge — nếu khác nhau thì quy trình merge có lỗi, không phải model học sai.</p>
+
+<h2>6. Khi nào giả thuyết low-rank thất bại?</h2>
+<p>LoRA giả định "thay đổi cần thiết nằm trong không gian rank thấp". Giả định này lung lay khi:</p>
+<ul>
+<li>Nhiệm vụ cần <b>kiến thức hoàn toàn mới</b> (ví dụ: dạy model một ngôn ngữ chưa từng thấy trong pretrain) thay vì chỉ đổi phong cách trả lời.</li>
+<li>Cần học <b>nhiều token mới</b> hoặc thay đổi hành vi ở diện rộng, không gói gọn trong vài hướng chính.</li>
+<li>Rank chọn quá thấp: r = 4 không đủ sức chứa thay đổi, model underfit — triệu chứng là train loss giảm chậm và eval không nhích dù tăng epoch.</li>
+</ul>
+<p>Cách kiểm chứng duy nhất là ablation: giữ mọi thứ cố định, chỉ đổi rank, rồi so chất lượng. Nếu r = 16 tốt hơn r = 4 rõ rệt, giả thuyết low-rank ở mức r = 4 đã sai với nhiệm vụ này. Nếu r = 16 và r = 64 gần như nhau, rank cao hơn chỉ tốn thêm tham số mà không thêm chất lượng — đó là lúc dừng lại.</p>
+
+<h2>⚡ Góc tiết kiệm năng lượng</h2>
+<div class="card">
+<p><b>LoRA tiết kiệm ở ba chỗ, không chỉ một:</b> (1) optimizer state chỉ tính trên &lt;1% tham số nên VRAM giảm mạnh, có thể train trên GPU nhỏ hơn; (2) checkpoint mỗi nhiệm vụ chỉ vài MB đến vài chục MB thay vì hàng chục GB, tiết kiệm lưu trữ và truyền tải; (3) thử nghiệm rẻ nên bạn dám chạy ablation r = 4/8/16 thay vì đoán mò — và ablation rẻ chính là cách tránh lãng phí lớn nhất.</p>
+<p>Nhưng đừng tự suy diễn "LoRA luôn xanh hơn". Tối nay hãy đo: <b>chất lượng trên mỗi kWh</b> và <b>MB lưu trữ</b> so với full fine-tune (nếu model đủ nhỏ để chạy full). Một adapter train lâu gấp đôi vì rank quá thấp có thể tốn điện hơn một lần full fine-tune nhanh — đo end-to-end mới kết luận được, giống bài học ngày 18 về QLoRA sẽ nhắc lại.</p>
+</div>
+
+<h2>7. Chuẩn bị cho lab tối nay — checklist ablation rank</h2>
+<p>Tối nay bạn fine-tune LoRA với r = 4, 8, 16 và lập bảng ablation. Để bảng này có ý nghĩa, <b>chỉ duy nhất rank được phép thay đổi</b>. Mọi thứ còn lại giữ cố định:</p>
+<ul class="check">
+<li>✅ <b>Dataset, split, seed, decoding, số epoch, learning rate</b> giữ nguyên cho cả ba lần chạy.</li>
+<li>✅ <b>Chia train/val có seed và phân tầng (stratified):</b> tỉ lệ các loại mẫu trong val phải giống train — không để val toàn một loại mẫu (ví dụ: toàn câu dịch) trong khi train không có loại đó.</li>
+<li>✅ <b>Prompt đánh giá phải là prompt chưa từng thấy:</b> không dùng lại nguyên văn prompt trong train để đánh giá, nếu không điểm cao chỉ là học thuộc.</li>
+<li>✅ <b>Kiểm tra masking trên từng mẫu:</b> loss chỉ tính trên phần assistant, nhãn của phần prompt là -100 — kiểm tra trước khi train, không đoán.</li>
+<li>✅ Chạy pilot 50 mẫu trước; chỉ scale lên khi eval tăng.</li>
+</ul>
+<div class="warn"><b>Lưu ý về dataset trước lab tối:</b> trước khi chạy ablation, hãy rà lại dataset của bạn theo đúng checklist trên — đặc biệt là split validation đã phân tầng chưa và prompt đánh giá có bị trùng với prompt train không. Một bảng ablation chạy trên split lệch và eval trùng train sẽ cho kết luận sai, dù code LoRA đúng hoàn toàn.</div>
+
+<h2>Tóm tắt</h2>
+<ul>
+<li>Full fine-tune tốn VRAM vì gradient + trạng thái Adam trên 100% tham số; mỗi nhiệm vụ tốn thêm một bản copy model.</li>
+<li>LoRA: đóng băng W<sub>0</sub>, chỉ train A (r × k) và B (d × r); ΔW = B·A; B khởi tạo 0 để model ban đầu không đổi.</li>
+<li>Tỉ lệ α/r giữ độ lớn ΔW ổn định khi đổi rank; α không phải learning rate.</li>
+<li>Target modules: bắt đầu q + v, mở rộng sang o và MLP khi cần; thường bỏ qua embedding/lm_head.</li>
+<li>Merge cho inference nhanh, giữ adapter rời cho đa nhiệm vụ — luôn giữ bản gốc và test sau merge.</li>
+<li>LoRA là giả thuyết: kiểm chứng bằng ablation rank, và ablation chỉ có giá trị khi mọi thứ khác cố định.</li>
+</ul>
+
+<p><a class="btn" href="Day17_quiz.html">📝 Làm quiz Ngày 17 (5 câu)</a>
+<a class="btn ghost" href="Day17_video.mp4">🎬 Xem video giải thích</a></p>
+
+<p class="footer">Khóa "Trở thành AI Engineer (LLM)" — Ngày 17 · Buổi sáng. Làm quiz xong bấm "Copy kết quả" rồi paste vào chat để trợ lý ghi điểm. File HTML này không tự gửi kết quả về được.</p>
+</div>
+</body>
+</html>
