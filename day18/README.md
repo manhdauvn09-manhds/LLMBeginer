@@ -45,9 +45,14 @@ Double quantization (số học tay): 100.000 tham số → 1.563 scale
 kiệm 4.689 byte = **0,375 bit/tham số** (từ 4,5 xuống 4,125
 bit/tham số, khớp con số bài sáng ~4,5 → ~4,13).
 
-Áp cho GPT-2 (124.587.264 params): tiết kiệm 5,84 MB trên scale;
-trọng số 4-bit ~62,3 MB + scale int8 ~1,9 MB = **~64,2 MB** (so
+Áp cho GPT-2 (124.439.808 params): tiết kiệm 5,83 MB trên scale;
+trọng số 4-bit ~62,2 MB + scale int8 ~1,9 MB = **~64,2 MB** (so
 với fp16 ~249 MB, fp32 ~498 MB).
+<!-- [TRAINER] Đã sửa số params GPT-2: bản đầu ghi 124.587.264 —
+đó là tổng Day 17 khi đã gắn adapter LoRA r=4 (124.439.808 base +
+147.456 adapter). Đếm trực tiếp từ model: base = 124.439.808.
+Số scale kéo theo: 1.944.372 scale, tiết kiệm 5,83 MB (trước ghi
+5,84). Kết luận ~64,2 MB không đổi. -->
 
 ## Bài 1 — Gắn LoRA, kiểm tra dtype tận tay
 
@@ -110,7 +115,13 @@ không cần nó (peak chỉ ~2,1 GB, RAM còn nhiều).
 
 ## Bài 3 — Tách ba nguồn lỗi
 
-**(a) Lỗi do nén (thuần túy, chưa train):** base fp32 vs base
+<!-- [TRAINER] Đã sửa nhãn (a)/(c) ở hai mục dưới cho khớp đề bài
+((a) dữ liệu, (b) adapter, (c) nén) và khớp chính đoạn kết luận ở
+cuối mục này — bản đầu gắn (a) cho nén và (c) cho dữ liệu trong
+tiêu đề mục, nhưng kết luận lại dùng (c) cho nén, (a) cho dữ
+liệu. Nội dung đo không đổi, chỉ sửa nhãn. -->
+
+**(c) Lỗi do nén (thuần túy, chưa train):** base fp32 vs base
 4-bit chưa train sinh trên 6 prompt đánh giá: **0/6 đầu ra giống
 nhau**. Nhiễu lượng tử làm đầu ra khác hẳn ngay từ trước khi
 train — nhưng cả hai đều là "tiếng Việt rác" (base model vốn
@@ -122,7 +133,7 @@ chỉ +0,017 val loss — tức adapter rank 8 gần như bù được hết
 nhiễu nén trên thước đo val loss. Phần chênh lệch vượt quá sai
 số nén thuần túy là rất nhỏ.
 
-**(c) Lỗi do dữ liệu:** audit lại Ngày 17 trên đúng dataset đang
+**(a) Lỗi do dữ liệu:** audit lại Ngày 17 trên đúng dataset đang
 dùng: PASS hết (28 train / 4 val phân tầng theo kind, eval
 không trùng train, masking −100 trên cả 32 mẫu). Dữ liệu KHÔNG
 phải nguồn lỗi ở đây.

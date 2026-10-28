@@ -171,9 +171,14 @@ def main():
           f"{bool((out_zero == 0).all())} (khong chia cho 0).")
     print("\nDouble quantization (so hoc tay):")
     double_quant_math(100_000)
-    print("\nAp dung cho GPT-2 (124.587.264 params, de doi chieu):")
-    double_quant_math(124_587_264)
-    print("  Trong so 4-bit: ~62,3 MB + scale int8 ~1,9 MB = "
+    # [TRAINER] Sua so tham so GPT-2: 124.587.264 la tong cua Day 17
+    # khi DA gan adapter LoRA r=4 (124.439.808 cua base + 147.456
+    # adapter). Dem truc tiep tu model: GPT-2 base co 124.439.808
+    # tham so. So scale doi theo: 1.944.372 scale, tiet kiem double
+    # quant 5,83 MB (thay vi 5,84) - ket luan ~64,2 MB khong doi.
+    print("\nAp dung cho GPT-2 (124.439.808 params, de doi chieu):")
+    double_quant_math(124_439_808)
+    print("  Trong so 4-bit: ~62,2 MB + scale int8 ~1,9 MB = "
           "~64,2 MB (so voi fp16 ~249 MB, fp32 ~498 MB).")
 
 
