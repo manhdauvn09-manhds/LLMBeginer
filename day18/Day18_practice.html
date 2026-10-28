@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ngày 18 — Buổi tối: Đo cái giá của QLoRA bằng số liệu | Khóa LLM 30 ngày</title>
+<style>
+:root{--bg:#0a0f1e;--card:#101830;--line:#22305a;--gold:#f5c542;--green:#4ade80;--red:#f87171;--violet:#a78bfa;--cyan:#67e8f9;--text:#e8edf7;--muted:#93a0bd;}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;line-height:1.75;font-size:16.5px;}
+.wrap{max-width:820px;margin:0 auto;padding:18px 16px 60px;}
+.kicker{display:inline-block;font-size:13px;letter-spacing:1px;color:var(--gold);font-weight:700;margin-bottom:8px;}
+h1{font-size:29px;line-height:1.3;margin:6px 0 10px;}
+h2{font-size:22px;margin:34px 0 10px;color:var(--cyan);}
+h3{font-size:18px;margin:22px 0 8px;color:var(--gold);}
+.sub{color:var(--muted);}
+.meta{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 6px;}
+.meta span{font-size:13.5px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:5px 14px;}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin:16px 0;}
+.note{border-left:4px solid var(--green);background:#0f2233;border-radius:0 12px 12px 0;padding:12px 16px;margin:14px 0;}
+.warn{border-left:4px solid var(--red);background:#23141a;border-radius:0 12px 12px 0;padding:12px 16px;margin:14px 0;}
+.todo{border-left:4px solid var(--gold);background:#221d0c;border-radius:0 12px 12px 0;padding:12px 16px;margin:14px 0;}
+.code{background:#060a14;border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:12px 0;overflow-x:auto;}
+.code pre{margin:0;font-size:14px;line-height:1.6;color:var(--cyan);white-space:pre-wrap;word-break:break-word;}
+button.ans-btn{background:var(--gold);color:#1a1200;border:0;border-radius:999px;padding:8px 18px;font-size:15px;font-weight:700;cursor:pointer;margin:8px 0;}
+.ans{display:none;background:#0f2233;border:1px solid var(--line);border-radius:10px;padding:12px 16px;margin:10px 0;}
+.ans.open{display:block;}
+ol li,ul li{margin:6px 0;}
+table{width:100%;border-collapse:collapse;margin:12px 0;font-size:15.5px;}
+th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;}
+th{color:var(--gold);}
+@media(max-width:560px){h1{font-size:24px;}h2{font-size:20px;}body{font-size:16px;}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<span class="kicker">NGÀY 18 · BUỔI TỐI — THỰC HÀNH</span>
+<h1>QLoRA rẻ hơn ở đâu, đắt hơn ở đâu? Đo bằng số liệu</h1>
+<p class="sub">Sáng nay bạn học lý thuyết: QLoRA = base nén 4-bit bằng PTQ (NF4 + double quantization) + LoRA train ở bf16 + dequant mỗi lần forward. Tối nay bạn kiểm chứng câu tiêu đề của bài sáng — "đổi bài toán, không xóa bài toán" — bằng thí nghiệm có kiểm soát: cùng một model nhỏ, cùng một dataset SFT của Ngày 16–17, chỉ đổi cách giữ trọng số gốc (fp16 so với 4-bit), rồi đo VRAM, tốc độ, loss và chất lượng đầu ra. Và khi kết quả kém, bạn sẽ biết cách tách ba nguồn lỗi: dữ liệu, adapter, hay chính phép nén.</p>
+<div class="meta"><span>⏱ ~75–90 phút</span><span>🐍 Python + PyTorch + transformers + peft + bitsandbytes</span><span>🖥️ Colab / Kaggle GPU (T4) cho Bài 1–3 — Bài 0 chạy được trên CPU</span><span>📦 Model lab: GPT-2 124M</span></div>
+
+<div class="card">
+<h2 style="margin-top:0">Quy tắc vàng của lab tối nay — viết ra trước khi chạy</h2>
+<p><b>“Thứ duy nhất thay đổi là cách giữ trọng số gốc (fp16 so với NF4 4-bit). Mọi thứ khác giữ nguyên: cùng model GPT-2, cùng dataset, cùng split phân tầng của Ngày 17, cùng seed, cùng rank r, cùng tỉ lệ α/r, cùng learning rate, cùng số epoch, cùng decoding greedy.”</b></p>
+<ul>
+<li><b>Rank cố định cho cả hai cấu hình:</b> r = 8, α = 16 (tỉ lệ α/r = 2, đúng như ablation Ngày 17), target modules <code>c_attn</code>, learning rate 1e-4, epoch = 2, batch_size = 4.</li>
+<li><b>Đừng đổi learning rate để "cứu" bản 4-bit.</b> Nếu bản 4-bit học kém hơn, đó chính là cái giá của nén cần ghi nhận — không phải lỗi cần vá giữa chừng khi đang đo.</li>
+<li><b>Đo VRAM bằng code, không đoán:</b> dùng <code>torch.cuda.reset_peak_memory_stats()</code> và <code>torch.cuda.max_memory_allocated()</code> trước và sau mỗi lần train. Con số lý thuyết (~14 GB so với ~3,5 GB cho model 7B) chỉ đúng với model lớn; với GPT-2 124M bạn sẽ thấy tỉ lệ tương tự nhưng số tuyệt đối nhỏ hơn nhiều — tỉ lệ mới là thứ cần đối chiếu.</li>
+</ul>
+<p class="note"><b>⚡ Green checkpoint:</b> ghi lại cho mỗi cấu hình: peak VRAM, thời gian train, train loss cuối, val loss cuối, và tốc độ (tokens/giây hoặc giây/epoch). Cuối lab bạn trả lời được câu hỏi thực tế: "tiết kiệm được bao nhiêu VRAM thì phải trả bao nhiêu tốc độ và bao nhiêu chất lượng — và có đáng không?"</p>
+</div>
+
+<h2>Chuẩn bị</h2>
+<div class="code"><pre>pip install -q transformers peft bitsandbytes torch
+# Trên Colab / Kaggle: bật GPU (Runtime → GPU, loại T4 là đủ).
+# Bài 1–3 BẮT BUỘC có GPU: bitsandbytes load_in_4bit không chạy tốt trên CPU.
+# Không có GPU tối nay: làm kỹ Bài 0 (chạy được trên CPU) + đọc code Bài 1–3
+# và điền bảng lý thuyết ở Bài 2, rồi nộp bài kèm ghi chú "chưa có GPU".
+import torch
+print("GPU:", torch.cuda.is_available())
+print("Thiết bị:", torch.cuda.get_device_name(0) if torch.cuda.is_available() else "CPU")
+print("bf16 hỗ trợ:", torch.cuda.is_bf16_supported() if torch.cuda.is_available() else "n/a (cần GPU)")</pre></div>
+<p>Dùng lại dataset SFT và các hàm đã PASS ở Ngày 17: <code>encode_example()</code> (mask prompt bằng −100), <code>stratified_split()</code> (chia phân tầng theo kind, seed 42) và <code>EVAL_PROMPTS</code> (prompt chưa từng thấy trong train). Nếu bạn đã sửa dataset ở Ngày 17, dùng đúng bản đã sửa — đừng đổi dataset giữa hai cấu hình, kẻo không biết chênh lệch đến từ nén hay từ dữ liệu.</p>
+
+<h2>Bài 0 — Sờ tận tay NF4: vì sao 16 mức chia theo phân phối chuẩn lại thắng int4? (20 phút, chạy được trên CPU)</h2>
+<p>Trước khi chạm vào bitsandbytes, hãy tự lượng tử hóa một tensor trọng số giả lập bằng PyTorch thuần — không cần GPU, không cần model thật. Bạn sẽ thấy bằng mắt vì sao NF4 hợp với trọng số hơn int4: trọng số tập trung quanh 0, nên mức lượng tử phải dày quanh 0, thưa ở đuôi.</p>
+<div class="code"><pre>import torch
+
+torch.manual_seed(42)
+# Giả lập trọng số: phân phối chuẩn, giống dạng phân bố thật của trọng số mạng nơ-ron.
+w = torch.randn(100_000)
+
+# 16 mức NF4: 16 khoảng có xác suất bằng nhau của phân phối chuẩn.
+# Dùng quantile: 17 biên chia phân phối thành 16 khoảng đều xác suất,
+# mức đại diện của mỗi khoảng là trung điểm của hai biên kề nhau.
+edges = torch.tensor([-float("inf")] + [torch.distributions.Normal(0, 1).icdf(torch.tensor((i + 1) / 17)).item() for i in range(15)] + [float("inf")])
+# TODO (bạn tự làm): từ edges tính 16 mức đại diện (centers).
+# Gợi ý: centers[i] = trung điểm của edges[i] và edges[i+1], với hai đầu
+# vô cực thì lấy mức biên là ±(giá trị quantile 1/34 và 33/34) — hoặc đơn giản
+# dùng torch.quantile(w, ...) trên chính tensor mẫu để xấp xỉ.
+# Sau đó viết hàm quantize_dequantize(w, centers, block_size=64):
+#   chia w thành block 64 số, mỗi block có scale = max(abs(block)),
+#   chuẩn hóa block về [-1, 1], gán mỗi số vào mức centers gần nhất, rồi dequant.
+
+def quantize_dequantize_int4(w, block_size=64):
+    """Đối chứng: int4 chia đều theo khoảng giá trị, không theo phân phối."""
+    out = torch.empty_like(w)
+    for i in range(0, len(w), block_size):
+        block = w[i:i + block_size]
+        scale = block.abs().max()
+        q = torch.round(block / scale * 7).clamp(-8, 7)  # 16 mức nguyên đều nhau
+        out[i:i + block_size] = q / 7 * scale
+    return out
+
+# TODO (bạn tự làm): hoàn thiện quantize_dequantize_nf4(w, centers, block_size=64)
+# theo gợi ý ở trên, rồi chạy và in kết quả:
+#   w_nf4 = quantize_dequantize_nf4(w, centers)
+#   w_int4 = quantize_dequantize_int4(w)
+#   print("MSE NF4 :", ((w - w_nf4) ** 2).mean().item())
+#   print("MSE int4:", ((w - w_int4) ** 2).mean().item())
+# Kỳ vọng: MSE của NF4 THẤP HƠN int4 trên dữ liệu phân phối chuẩn.
+# Thử thêm: đổi w thành phân phối đều (torch.rand) rồi chạy lại —
+# NF4 còn thắng không? Vì sao? (Gợi ý: NF4 chỉ thắng khi dữ liệu thật sự
+# giống phân phối chuẩn — đó là giả định của nó, không phải chân lý phổ quát.)</pre></div>
+<p class="note"><b>Double quantization, nhìn bằng một phép tính tay:</b> mỗi block 64 trọng số cần 1 scale fp32 (4 byte). Với 100.000 trọng số, số scale là 100.000 / 64 ≈ 1.563 scale, tốn ~6,25 KB. Nén các scale đó xuống 8-bit (1 byte) thì chỉ còn ~1,56 KB — tiết kiệm ~4,7 KB trên 100.000 tham số, tức ~0,37 bit mỗi tham số, đúng con số bài sáng nêu (từ ~4,5 bit xuống ~4,13 bit mỗi tham số). Nhỏ trên GPT-2, nhưng với model 7 tỉ tham số đó là ~0,3 GB — khoảng trống quyết định giữa "chạy được" và "tràn VRAM".</p>
+
+<h2>Bài 1 — Gắn LoRA lên base fp16 và base 4-bit, kiểm tra dtype tận tay (20 phút, cần GPU)</h2>
+<p>Hai cấu hình chỉ khác nhau ở cách load base. Mọi thứ còn lại — rank, α, target modules, optimizer — giữ nguyên. Sau khi build, in dtype ra để kiểm tra, đừng tin cấu hình trên giấy.</p>
+<div class="code"><pre>import torch
+from transformers import AutoModelForCausalLM, BitsAndBytesConfig
+from peft import LoraConfig, get_peft_model
+
+device = "cuda"  # Bài này bắt buộc GPU
+tok = ...  # dùng lại tokenizer GPT-2 của Ngày 16–17 (pad_token = eos_token)
+
+bnb_config = BitsAndBytesConfig(
+    load_in_4bit=True,               # nén base xuống 4-bit (PTQ)
+    bnb_4bit_quant_type="nf4",      # NF4, không phải int4
+    bnb_4bit_use_double_quant=True, # nén luôn các hằng số scale
+    bnb_4bit_compute_dtype=torch.bfloat16,  # tính bằng bf16
+)
+
+def build_model(use_4bit):
+    """TODO: bạn điền phần thân hàm.
+    Gợi ý: nếu use_4bit: load GPT-2 với quantization_config=bnb_config,
+    torch_dtype=torch.bfloat16; nếu không: load thường với
+    torch_dtype=torch.float16. Sau đó gắn LoraConfig(r=8, lora_alpha=16,
+    lora_dropout=0.05, target_modules=['c_attn'], task_type='CAUSAL_LM')
+    bằng get_peft_model, rồi đưa model lên GPU (bản 4-bit đã ở đúng device
+    khi load — đừng .to() lại một cách mù quáng, kiểm tra trước)."""
+    if use_4bit:
+        base = AutoModelForCausalLM.from_pretrained(
+            "gpt2", quantization_config=bnb_config, torch_dtype=torch.bfloat16)
+    else:
+        base = AutoModelForCausalLM.from_pretrained("gpt2", torch_dtype=torch.float16).to(device)
+    config = LoraConfig(r=8, lora_alpha=16, lora_dropout=0.05,
+                        target_modules=["c_attn"], task_type="CAUSAL_LM")
+    model = get_peft_model(base, config)
+    return model
+
+def inspect_model(model, name):
+    """TODO (bạn tự làm): in ra và kiểm tra 3 thứ:
+    1. dtype của một tham số base (tên không chứa 'lora_') — bản 4-bit phải
+       là kiểu lượng tử (bitsandbytes), không phải fp16 thuần; bản fp16 là fp16.
+    2. dtype của một tham số adapter (tên chứa 'lora_') — cả hai bản đều phải
+       là bf16 (adapter luôn học ở độ chính xác cao, không bị nén theo base).
+    3. requires_grad: chỉ tham số 'lora_' mới True — base phải đóng băng ở cả hai bản.
+    In thêm số tham số train được: hai bản phải BẰNG NHAU (cùng rank, cùng
+    target modules) — nếu khác nhau, bạn đã đổi thứ gì đó ngoài cách nén."""
+    trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    total = sum(p.numel() for p in model.parameters())
+    print(f"{name}: train được {trainable:,} / {total:,} tham số")
+    for n, p in model.named_parameters():
+        if "lora_" not in n:
+            print(f"  base  : {n[:60]}... dtype={p.dtype} requires_grad={p.requires_grad}")
+            break
+    for n, p in model.named_parameters():
+        if "lora_" in n:
+            print(f"  adapter: {n[:60]}... dtype={p.dtype} requires_grad={p.requires_grad}")
+            break
+
+# TODO (bạn tự làm): build và inspect cả hai bản, ghi lại kết quả.
+# model_fp16 = build_model(use_4bit=False); inspect_model(model_fp16, "LoRA fp16")
+# model_4bit = build_model(use_4bit=True);  inspect_model(model_4bit, "QLoRA 4-bit")</pre></div>
+<div class="warn"><b>Bẫy ở đây:</b> nếu bạn để compute dtype mặc định lẫn lộn (một phần fp32, một phần bf16), bản 4-bit sẽ vừa chậm vừa tốn VRAM mà không hiểu vì sao — đúng cảnh báo của bài sáng. Dấu hiệu: dtype adapter không phải bf16, hoặc VRAM đo được ở Bài 2 cao bất thường so với bản fp16. Khắc phục: đặt <code>bnb_4bit_compute_dtype</code> rõ ràng là bf16 và kiểm tra bằng <code>inspect_model</code>, đừng đoán.</div>
+
+<h2>Bài 2 — Train cả hai bản trên cùng một dữ liệu, đo VRAM + tốc độ + loss (30 phút, cần GPU)</h2>
+<p>Chạy pilot trước: 1 cấu hình, 1 epoch, toàn bộ train_data của bạn (tập Ngày 17 vốn nhỏ) — chỉ scale lên khi không báo lỗi. Sau đó chạy đủ hai bản với cùng một vòng train. Dùng lại <code>SFTDataset</code> và <code>collate</code> của Ngày 16–17 (đệm bằng pad token, nhãn đệm −100).</p>
+<div class="code"><pre>import time, torch
+from torch.utils.data import Dataset, DataLoader
+
+# Dùng đúng encode_example() đã PASS ở Bài 0 của Ngày 17 và collate của Ngày 16.
+# CỐ ĐỊNH cho cả hai bản — TODO (bạn ghi rõ vào phần nộp bài):
+#   seed = 42, epoch = 2, learning rate = 1e-4, batch_size = 4,
+#   decoding đánh giá: greedy, max_new_tokens = 30, cùng EVAL_PROMPTS của Ngày 17.
+
+def train_one_config(use_4bit, train_data, val_data, epochs=2, lr=1e-4):
+    """TODO: bạn điền phần thân hàm.
+    Gợi ý: torch.manual_seed(42) → build_model(use_4bit) mới tinh →
+    torch.cuda.reset_peak_memory_stats() → train trên train_data bằng AdamW
+    chỉ trên tham số requires_grad (lr cố định) → tính val loss cuối trên
+    val_data (model.eval, torch.no_grad, không shuffle) → sinh thử trên
+    EVAL_PROMPTS bằng greedy → trả về dict {peak_vram_GB, time_s, train_loss,
+    val_loss, outputs}. Đo peak VRAM bằng torch.cuda.max_memory_allocated()
+    chia cho 1024**3, đo thời gian bằng time.time() quanh vòng train."""
+    torch.manual_seed(42)
+    model = build_model(use_4bit)
+    loader = DataLoader(SFTDataset(train_data), batch_size=4, shuffle=True,
+                        collate_fn=collate, generator=torch.Generator().manual_seed(42))
+    opt = torch.optim.AdamW((p for p in model.parameters() if p.requires_grad), lr=lr)
+    torch.cuda.reset_peak_memory_stats()
+    t0 = time.time()
+    model.train()
+    for epoch in range(epochs):
+        total_loss, steps = 0.0, 0
+        for batch in loader:
+            batch = {k: v.to(device) for k, v in batch.items()}
+            out = model(**batch)
+            out.loss.backward()
+            opt.step(); opt.zero_grad()
+            total_loss += out.loss.item(); steps += 1
+        print(f"{'QLoRA 4-bit' if use_4bit else 'LoRA fp16'} epoch {epoch + 1}: train loss = {total_loss / steps:.4f}")
+    peak_gb = torch.cuda.max_memory_allocated() / 1024**3
+    elapsed = time.time() - t0
+    print(f"Peak VRAM: {peak_gb:.2f} GB | Thời gian: {elapsed:.1f}s")
+    # TODO: tính val loss + sinh thử EVAL_PROMPTS bằng greedy, trả về dict kết quả.
+    return model  # TODO: trả về thêm peak_gb, elapsed, train/val loss, outputs
+
+# TODO (bạn tự làm): chạy lần lượt train_one_config(False, ...) rồi (True, ...),
+# mỗi lần load model mới tinh. Điền bảng kết quả bên dưới.</pre></div>
+
+<p>Điền bảng so sánh của bạn (copy bảng này vào phần nộp bài):</p>
+<table>
+<tr><th>Cấu hình</th><th>Peak VRAM (GB)</th><th>Thời gian train</th><th>Train loss cuối</th><th>Val loss cuối</th><th>Nhận xét đầu ra trên prompt chưa thấy</th></tr>
+<tr><td>LoRA fp16 (chuẩn tham chiếu)</td><td></td><td></td><td></td><td></td><td></td></tr>
+<tr><td>QLoRA 4-bit (NF4 + double quant)</td><td></td><td></td><td></td><td></td><td></td></tr>
+</table>
+<p>Kết quả mong đợi (không cần hoàn hảo): peak VRAM của bản 4-bit thấp hơn rõ rệt (phần trọng số gốc nhỏ lại); thời gian train thường chậm hơn một chút vì dequant mỗi lần forward; train/val loss của bản 4-bit gần với bản fp16 nhưng có thể lệch nhẹ — lệch nhỏ và đều là bình thường, lệch lớn và thất thường mới là dấu hiệu cần chẩn đoán ở Bài 3. Với GPT-2 nhỏ trên T4, chênh lệch tuyệt đối sẽ nhỏ hơn nhiều so với model 7B — hãy đọc <b>tỉ lệ</b> và <b>hướng chênh lệch</b>, đừng so con số tuyệt đối với bảng bài sáng.</p>
+
+<div class="card">
+<h3 style="margin-top:0">🔬 Mở rộng (không bắt buộc, 10 phút nếu còn sức)</h3>
+<p><b>Paged optimizer — lưới an toàn, không phải chế độ mặc định:</b> thử thay AdamW thường bằng <code>bitsandbytes.optim.PagedAdamW8bit</code> cho bản 4-bit (cùng learning rate, cùng dữ liệu), ghi lại peak VRAM và thời gian. Kỳ vọng: VRAM optimizer giảm thêm, tốc độ có thể chậm hơn — và nếu bạn phải dựa vào paged optimizer liên tục mới chạy nổi, tín hiệu đúng là "batch đang quá lớn so với card", không phải "cứ chạy tiếp là ổn", đúng như bài sáng cảnh báo. Ghi rõ trong phần nộp bài: bạn có cần paged optimizer không, và vì sao.</p>
+</div>
+
+<h2>Bài 3 — Khi kết quả kém: tách ba nguồn lỗi (15 phút)</h2>
+<p>Đây là kỹ năng chẩn đoán bài sáng hứa hẹn: kết quả kém có thể đến từ (a) dữ liệu, (b) adapter, hoặc (c) phép nén. Đừng đoán — tách chúng ra bằng ba phép so sánh, mỗi phép chỉ đổi một thứ:</p>
+<ol>
+<li><b>Lỗi do nén (c) — đo riêng, không cần train:</b> lấy base GPT-2 chưa gắn LoRA, sinh thử trên EVAL_PROMPTS ở dạng fp16 và ở dạng load 4-bit (chưa train gì cả). Nếu hai đầu ra đã khác nhau rõ rệt ngay từ trước khi train, phần chênh lệch đó là sai số nén thuần túy — adapter về sau không thể "học bù" hoàn toàn phần này.</li>
+<li><b>Lỗi do adapter (b):</b> so sánh bản LoRA fp16 đã train với bản QLoRA 4-bit đã train (bảng Bài 2). Phần chênh lệch <i>vượt quá</i> chênh lệch đã đo ở bước 1 mới là phần do tương tác giữa adapter và base đã nén — ví dụ adapter rank 8 không đủ sức bù sai số nén trên nhiệm vụ này.</li>
+<li><b>Lỗi do dữ liệu (a):</b> chạy lại audit Ngày 17 trên đúng dataset đang dùng: tỉ lệ kind train/val có phân tầng không, prompt đánh giá có trùng train không, masking −100 có đúng trên mọi mẫu không. Nếu audit này FAIL, mọi kết luận ở bước 1–2 đều treo lơ lửng — sửa dataset trước, rồi chạy lại Bài 2.</li>
+</ol>
+<p>Viết kết luận chẩn đoán của bạn thành một đoạn ngắn: "Trên nhiệm vụ này, chênh lệch QLoRA so với LoRA chủ yếu đến từ ___ (nén / adapter / dữ liệu), bằng chứng là ___". Một đoạn như vậy có giá trị hơn cả bảng số, vì nó cho thấy bạn biết đọc thí nghiệm, không chỉ chạy thí nghiệm.</p>
+
+<div class="card">
+<h3 style="margin-top:0">⚡ Góc tiết kiệm năng lượng — đừng mặc định "4-bit = xanh hơn"</h3>
+<p>Lấy số đo của chính bạn ở Bài 2 và tính: nếu bản 4-bit chậm hơn X% (thời gian tăng theo tỉ lệ 1 + X/100) nhưng chạy trên card tiêu thụ điện bằng Y lần card lớn (ví dụ card nhỏ tiêu thụ bằng một nửa, Y = 0,5), tổng năng lượng thay đổi theo tỉ lệ (1 + X/100) × Y. Ví dụ bài sáng: chậm hơn 30% trên card bằng nửa điện → 1,3 × 0,5 = 0,65 (giảm); chậm hơn gấp đôi → 2 × 0,5 = 1 (hòa). Áp dụng công thức này cho tỉ lệ thời gian bạn đo được, rồi trả lời: trong lab tối nay, QLoRA tiết kiệm hay tốn năng lượng hơn LoRA fp16 — và với điều kiện nào thì kết luận đảo ngược? Mọi kết luận đều phải có số đo đi kèm, không đoán.</p>
+</div>
+
+<h2>3 câu tự kiểm tra nhanh</h2>
+
+<div class="card">
+<p><b>1. Vì sao trọng số 4-bit vẫn phải dequant về bf16 trước khi nhân với activation, thay vì tính trực tiếp ở 4-bit?</b></p>
+<button class="ans-btn" onclick="this.nextElementSibling.classList.toggle('open')">Hiện đáp án</button>
+<div class="ans">Vì phép nhân ma trận cần độ chính xác cao để cộng dồn không bị tràn số và mất thông tin — 4-bit chỉ có 16 mức, không đủ để biểu diễn kết quả trung gian. Nén chỉ để lưu trữ và giảm băng thông bộ nhớ; phép tính vẫn diễn ra ở bf16 (compute dtype). "Model 4-bit" nghĩa là lưu trữ 4-bit, không phải tính toán 4-bit.</div>
+</div>
+
+<div class="card">
+<p><b>2. Vì sao NF4 thắng int4 trên trọng số thật, nhưng có thể không thắng trên dữ liệu phân phối đều?</b></p>
+<button class="ans-btn" onclick="this.nextElementSibling.classList.toggle('open')">Hiện đáp án</button>
+<div class="ans">Vì NF4 chia 16 mức theo xác suất bằng nhau của phân phối chuẩn — dày quanh 0, thưa ở đuôi — đúng với dạng phân bố của trọng số (tập trung quanh 0). Trên dữ liệu phân phối đều, mọi vùng giá trị đều hay gặp như nhau, nên chia đều theo khoảng giá trị (int4) mới là tối ưu, còn NF4 lại lãng phí mức ở vùng trung tâm. NF4 là giả định về dữ liệu, không phải chân lý phổ quát — Bài 0 cho bạn tự kiểm chứng điều này.</div>
+</div>
+
+<div class="card">
+<p><b>3. Bản QLoRA cho val loss tệ hơn hẳn bản LoRA fp16. Bạn kết luận ngay "4-bit làm hỏng model" được không? Cần kiểm tra thêm gì trước?</b></p>
+<button class="ans-btn" onclick="this.nextElementSibling.classList.toggle('open')">Hiện đáp án</button>
+<div class="ans">Không được kết luận vội. Cần tách ba nguồn lỗi như Bài 3: (1) đo sai số nén thuần túy bằng cách so base fp16 với base 4-bit chưa train; (2) kiểm tra lại audit dataset (phân tầng, eval trùng train, masking) — nếu dataset lệch thì cả hai bản đều đo sai; (3) chỉ phần chênh lệch vượt quá sai số nén thuần túy mới là phần do adapter tương tác với base đã nén. Có thể nguyên nhân thật là dataset, hoặc rank 8 không đủ bù sai số nén — mỗi nguyên nhân có cách sửa khác nhau.</div>
+</div>
+
+<h2>Bẫy thường gặp</h2>
+<div class="warn">
+<ul>
+<li><b>Tưởng "model 4-bit" thì mọi thứ đều 4-bit:</b> adapter vẫn phải ở bf16, compute dtype vẫn là bf16; nén chỉ áp dụng cho trọng số gốc bị đóng băng. Khắc phục: chạy <code>inspect_model</code> ở Bài 1 và in dtype của cả base lẫn adapter ra, đừng tin cấu hình trên giấy.</li>
+<li><b>Để compute dtype lẫn lộn (fp32 xen bf16):</b> bản 4-bit vừa chậm vừa tốn VRAM bất thường mà không hiểu vì sao. Khắc phục: đặt <code>bnb_4bit_compute_dtype</code> rõ ràng là bf16 ngay từ <code>BitsAndBytesConfig</code>, kiểm tra lại bằng dtype adapter.</li>
+<li><b>Đổi learning rate hoặc rank để "cứu" bản 4-bit giữa chừng:</b> bảng so sánh trở nên vô nghĩa — không biết cải thiện đến từ nén hay từ siêu tham số. Khắc phục: giữ r = 8, α = 16, LR = 1e-4, seed, epoch, decoding cố định cho cả hai bản; bản 4-bit học kém hơn chính là kết quả cần ghi nhận.</li>
+<li><b>Lạm dụng paged optimizer như chế độ chạy thường xuyên:</b> paged optimizer là lưới an toàn khi VRAM spike, đọc/ghi qua RAM chậm hơn VRAM nhiều lần. Khắc phục: nếu nó kích hoạt liên tục, giảm batch hoặc sequence length thay vì coi đó là bình thường.</li>
+</ul>
+</div>
+
+<h2>Checklist nộp bài</h2>
+<div class="todo">
+<p>Paste vào chat để được nhận xét chi tiết:</p>
+<ol>
+<li>Bài 0: MSE của NF4 so với int4 trên trọng số phân phối chuẩn (và trên phân phối đều, nếu bạn thử) + kết luận ngắn: NF4 thắng khi nào, vì sao.</li>
+<li>Bài 1: kết quả <code>inspect_model</code> cho cả hai bản — dtype base, dtype adapter, requires_grad, số tham số train được (hai bản có bằng nhau không?).</li>
+<li>Bài 2: bảng so sánh đầy đủ (peak VRAM, thời gian train, train/val loss cuối, nhận xét đầu ra trên prompt chưa thấy) + kết luận: tiết kiệm được bao nhiêu VRAM thì trả bao nhiêu tốc độ và chất lượng.</li>
+<li>Bài 3: đoạn chẩn đoán một đoạn — chênh lệch QLoRA so với LoRA chủ yếu đến từ nén / adapter / dữ liệu, bằng chứng là gì.</li>
+<li>Góc năng lượng: áp dụng công thức (1 + X/100) × Y cho số đo của bạn — QLoRA tiết kiệm hay tốn năng lượng hơn trong lab này, và với điều kiện nào thì kết luận đảo ngược?</li>
+<li>(Không bắt buộc) Kết quả paged optimizer, nếu bạn làm phần mở rộng — có cần nó không, vì sao.</li>
+</ol>
+<p>Ngày mai (Ngày 19): tiếp tục tuần 3 — từ fine-tune tiết kiệm sang các kỹ thuật mở rộng sau SFT/QLoRA, với cùng tinh thần "mọi cải tiến đều có cái giá, và cái giá phải đo được".</p>
+</div>
+
+<p class="sub">Khóa “Trở thành AI Engineer (LLM)” — Ngày 18, buổi tối. Buổi tối không có video; video 5 phút thuộc về bài học buổi sáng.</p>
+</div>
+</body>
+</html>
