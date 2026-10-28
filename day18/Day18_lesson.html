@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ngày 18 — QLoRA đổi bài toán VRAM nhưng không miễn phí | Khóa LLM 30 ngày</title>
+<style>
+:root{--bg:#0a0f1e; --card:#101830; --line:#22305a; --gold:#f5c542; --green:#4ade80;
+ --red:#f87171; --violet:#a78bfa; --cyan:#67e8f9; --text:#e8edf7; --muted:#93a0bd;}
+*{box-sizing:border-box;}
+body{margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.75; font-size:16.5px;}
+.wrap{max-width:820px; margin:0 auto; padding:18px 16px 60px;}
+.kicker{display:inline-block; font-size:13px; letter-spacing:1px; color:var(--gold); font-weight:700; margin-bottom:8px;}
+h1{font-size:30px; line-height:1.3; margin:6px 0 10px;}
+h2{font-size:22px; margin:34px 0 10px; color:var(--cyan);}
+h3{font-size:18px; margin:22px 0 8px; color:var(--gold);}
+.sub{color:var(--muted); font-size:16.5px;}
+.meta{display:flex; gap:8px; flex-wrap:wrap; margin:14px 0 6px;}
+.meta span{font-size:13.5px; background:var(--card); border:1px solid var(--line); border-radius:999px; padding:5px 14px;}
+.hero{width:100%; border-radius:14px; margin:16px 0;}
+.card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px; margin:16px 0;}
+.note{border-left:4px solid var(--green); background:#0f2233; border-radius:0 12px 12px 0; padding:12px 16px; margin:14px 0;}
+.warn{border-left:4px solid var(--red); background:#23141a; border-radius:0 12px 12px 0; padding:12px 16px; margin:14px 0;}
+.formula{background:#0a0f1e; border:1px dashed var(--violet); border-radius:10px; padding:12px 16px; margin:12px 0; font-size:17px; text-align:center;}
+.code{background:#060a14; border:1px solid var(--line); border-radius:10px; padding:12px 14px; margin:12px 0; overflow-x:auto;}
+.code pre{margin:0; font-size:14.5px; line-height:1.6; color:var(--cyan);}
+table{width:100%; border-collapse:collapse; margin:12px 0; font-size:15px;}
+th,td{border:1px solid var(--line); padding:8px 10px; text-align:left;}
+th{background:#141d3a; color:var(--gold);}
+svg{max-width:100%; height:auto; display:block; margin:12px auto;}
+.btn{display:inline-block; background:var(--gold); color:#14100a; font-weight:700; border-radius:10px; padding:12px 22px; margin:10px 8px 0 0; text-decoration:none;}
+.btn.ghost{background:transparent; color:var(--gold); border:2px solid var(--gold);}
+ul.check li{margin:6px 0;}
+.footer{color:var(--muted); font-size:14px; margin-top:40px; border-top:1px solid var(--line); padding-top:14px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+<span class="kicker">NGÀY 18 · BUỔI SÁNG — LÝ THUYẾT + QUIZ</span>
+<h1>QLoRA đổi bài toán VRAM nhưng không miễn phí</h1>
+<p class="sub">Hôm qua bạn học LoRA: đóng băng model gốc, chỉ train hai ma trận nhỏ. Hôm nay ta đi thêm một bước: <b>nén chính model gốc xuống 4-bit rồi mới gắn LoRA lên trên</b>. Kết quả là một model 7 tỉ tham số có thể fine-tune trên một card đồ họa phổ thông. Nhưng nhớ tiêu đề bài: QLoRA đổi bài toán, không xóa bài toán — cái giá của nó nằm ở tốc độ, độ chính xác và cả năng lượng.</p>
+<div class="meta"><span>⏱ ~25 phút đọc</span><span>🎯 QLoRA · NF4 · double quantization</span><span>📝 Quiz 5 câu ở file riêng</span></div>
+<img class="hero" src="img/day18_hero.webp" alt="Minh họa model lớn được nén gọn để vừa trên một card đồ họa nhỏ">
+
+<h2>🎯 Mục tiêu buổi học</h2>
+<ul class="check">
+<li>Phân biệt <b>post-training quantization (PTQ)</b> và <b>quantization-aware training (QAT)</b>.</li>
+<li>Hiểu <b>NF4</b>: vì sao 4-bit dạng này hợp với trọng số của mạng nơ-ron hơn số nguyên 4-bit thông thường.</li>
+<li>Hiểu luồng <b>dequant</b> (giải nén) và vai trò của <b>compute dtype</b> (thường là bf16).</li>
+<li>Hiểu <b>double quantization</b> và <b>paged optimizer</b> tiết kiệm thêm VRAM ở đâu.</li>
+<li>Đọc được bảng so sánh LoRA fp16 và QLoRA 4-bit, và biết khi nào <b>không</b> nên chọn 4-bit.</li>
+</ul>
+
+<h2>1. Vì sao LoRA vẫn chưa đủ rẻ?</h2>
+<p>LoRA đã cắt gần hết chi phí train: gradient và trạng thái optimizer chỉ còn tính trên vài triệu tham số adapter. Nhưng <b>trọng số gốc vẫn phải nằm trong VRAM</b> để chạy forward và backward. Một model 7 tỉ tham số ở fp16 tốn khoảng 14 GB chỉ cho trọng số — chưa kể activation và optimizer của adapter. Với card 16 GB, bạn gần như không còn chỗ thở.</p>
+<p>Ý tưởng của QLoRA rất thẳng: <b>nếu trọng số gốc bị đóng băng và không cần gradient, tại sao phải giữ nó ở 16-bit?</b> Nén nó xuống 4-bit, VRAM cho trọng số giảm từ 14 GB xuống còn khoảng 3,5 GB. Phần tiết kiệm được đó chính là thứ biến "không chạy nổi" thành "chạy được".</p>
+
+<svg viewBox="0 0 760 170" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="So sánh VRAM trọng số">
+<rect x="20" y="30" width="340" height="110" rx="12" fill="#101830" stroke="#22305a"/>
+<text x="190" y="62" text-anchor="middle" fill="#f5c542" font-size="17" font-weight="700">LoRA fp16 — 7B</text>
+<text x="190" y="95" text-anchor="middle" fill="#e8edf7" font-size="15">Trọng số gốc: ~14 GB</text>
+<text x="190" y="120" text-anchor="middle" fill="#93a0bd" font-size="14">+ adapter + optimizer + activation</text>
+<rect x="400" y="30" width="340" height="110" rx="12" fill="#101830" stroke="#4ade80"/>
+<text x="570" y="62" text-anchor="middle" fill="#4ade80" font-size="17" font-weight="700">QLoRA 4-bit — 7B</text>
+<text x="570" y="95" text-anchor="middle" fill="#e8edf7" font-size="15">Trọng số gốc: ~3,5 GB</text>
+<text x="570" y="120" text-anchor="middle" fill="#93a0bd" font-size="14">+ adapter bf16 + optimizer + activation</text>
+</svg>
+
+<h2>2. PTQ và QAT: nén trước hay nén trong lúc học?</h2>
+<p><b>Post-training quantization (PTQ)</b> là nén một model đã train xong, không train lại (hoặc chỉ hiệu chỉnh rất nhẹ). Nhanh, rẻ, nhưng lỗi làm tròn là cố định — model phải chịu toàn bộ sai số nén. QLoRA dùng PTQ cho phần base: lấy trọng số fp16, lượng tử hóa xuống 4-bit một lần rồi đóng băng.</p>
+<p><b>Quantization-aware training (QAT)</b> là đưa phép lượng tử hóa vào ngay trong quá trình train, để model "học cách sống chung" với sai số làm tròn và tự điều chỉnh. Chất lượng thường cao hơn PTQ, nhưng đắt hơn nhiều vì phải train lại. Đây là lý do QAT ít dùng cho LLM lớn, còn PTQ là lựa chọn thực tế của QLoRA.</p>
+<div class="note"><b>Nhớ bằng một câu:</b> PTQ = nén xong rồi dùng; QAT = tập sống với nén trong lúc học. QLoRA chọn PTQ cho base, và chỉ train adapter ở độ chính xác cao — đó là sự thỏa hiệp khôn ngoan, không phải phép màu.</div>
+
+<h2>3. NF4: 4-bit nhưng không phải số nguyên thông thường</h2>
+<p>4-bit chỉ có 16 giá trị có thể biểu diễn. Câu hỏi là: chọn 16 giá trị nào? Nếu chia đều theo kiểu số nguyên (int4), ta lãng phí nhiều mức vào vùng giá trị hiếm gặp, và thiếu độ phân giải ở vùng giá trị hay gặp nhất.</p>
+<p>Trọng số của mạng nơ-ron thường phân bố gần giống <b>phân phối chuẩn</b> (tập trung quanh 0, đuôi mỏng dần). <b>NF4 (NormalFloat4)</b> chọn 16 mức sao cho mỗi mức chứa một lượng xác suất bằng nhau theo phân phối chuẩn — tức là dày đặc quanh 0, thưa dần ở hai đuôi. Nhờ đó, với cùng 4-bit, NF4 giữ được nhiều thông tin hơn int4 cho đúng loại dữ liệu mà ta đang nén.</p>
+<div class="formula">NF4: 16 mức = 16 khoảng có xác suất bằng nhau của phân phối chuẩn<br>int4: 16 mức chia đều theo khoảng giá trị — lãng phí ở vùng hiếm gặp</div>
+<img src="img/day18_nf4.webp" alt="Minh họa các mức lượng tử hóa tập trung quanh 0">
+<p>Một chi tiết thực hành: NF4 lượng tử hóa theo <b>block</b> (thường 64 trọng số một block), mỗi block có một hằng số scale riêng. Block nhỏ thì chính xác hơn nhưng tốn thêm bộ nhớ cho các hằng số scale — và đó chính là chỗ double quantization ra tay ở mục tiếp theo.</p>
+
+<h2>4. Dequant và compute dtype: nén để lưu, mở ra để tính</h2>
+<p>Khi chạy forward, trọng số 4-bit không thể nhân trực tiếp với activation. Luồng làm việc là:</p>
+<div class="formula">W<sub>4-bit</sub> → dequant (× scale) → W<sub>bf16</sub> → nhân với x → cộng với đầu ra LoRA (B·A)</div>
+<p>Tức là <b>nén chỉ để lưu trữ và giảm băng thông bộ nhớ</b>; phép tính vẫn diễn ra ở độ chính xác cao hơn. <b>Compute dtype</b> là độ chính xác dùng để tính — trong QLoRA thường là <b>bf16</b>. Chọn bf16 thay vì fp16 vì bf16 có dải động (exponent) rộng hơn, ít tràn số khi cộng dồn, phù hợp với huấn luyện; còn adapter LoRA cũng được giữ ở bf16 để học ổn định.</p>
+<div class="warn"><b>Bẫy thường gặp:</b> tưởng rằng "model 4-bit" thì mọi phép tính đều 4-bit. Không phải vậy. Nếu compute dtype đặt sai (ví dụ để mặc định fp32 lẫn lộn với bf16), bạn sẽ gặp vừa chậm vừa tốn VRAM mà không hiểu vì sao — tối nay khi chạy lab, hãy in dtype của model và của adapter ra để kiểm tra.</div>
+
+<h2>5. Double quantization: nén luôn cả thước đo</h2>
+<p>Mỗi block 64 trọng số cần một hằng số scale (thường lưu ở fp32). Với model 7 tỉ tham số, riêng các hằng số scale đã tốn khoảng 0,5 GB — không nhỏ. <b>Double quantization</b> là lượng tử hóa chính các hằng số scale đó xuống 8-bit (fp8), mỗi nhóm scale lại có thêm một hằng số scale cấp hai.</p>
+<p>Tiết kiệm thêm được khoảng 0,37 bit cho mỗi tham số (từ 4,5 bit xuống ~4,13 bit mỗi tham số nếu tính cả overhead). Con số nghe nhỏ, nhưng với model lớn và card chật, đó có thể là khoảng trống quyết định giữa "chạy được" và "tràn VRAM". Cái giá: thêm một tầng làm tròn nữa, tức thêm một chút sai số — lại là một sự đánh đổi, không phải bữa trưa miễn phí.</p>
+
+<svg viewBox="0 0 760 190" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Double quantization">
+<rect x="20" y="20" width="220" height="150" rx="12" fill="#101830" stroke="#22305a"/>
+<text x="130" y="55" text-anchor="middle" fill="#f5c542" font-size="16" font-weight="700">Cấp 1</text>
+<text x="130" y="85" text-anchor="middle" fill="#e8edf7" font-size="14">Trọng số → NF4</text>
+<text x="130" y="110" text-anchor="middle" fill="#93a0bd" font-size="14">mỗi block 64 số:</text>
+<text x="130" y="135" text-anchor="middle" fill="#93a0bd" font-size="14">1 scale fp32</text>
+<rect x="270" y="20" width="220" height="150" rx="12" fill="#101830" stroke="#22305a"/>
+<text x="380" y="55" text-anchor="middle" fill="#f5c542" font-size="16" font-weight="700">Cấp 2</text>
+<text x="380" y="85" text-anchor="middle" fill="#e8edf7" font-size="14">Scale fp32 → fp8</text>
+<text x="380" y="110" text-anchor="middle" fill="#93a0bd" font-size="14">mỗi nhóm scale:</text>
+<text x="380" y="135" text-anchor="middle" fill="#93a0bd" font-size="14">1 scale cấp hai</text>
+<rect x="520" y="20" width="220" height="150" rx="12" fill="#101830" stroke="#4ade80"/>
+<text x="630" y="55" text-anchor="middle" fill="#4ade80" font-size="16" font-weight="700">Kết quả</text>
+<text x="630" y="85" text-anchor="middle" fill="#e8edf7" font-size="14">~4,13 bit / tham số</text>
+<text x="630" y="110" text-anchor="middle" fill="#93a0bd" font-size="14">thay vì ~4,5 bit</text>
+<text x="630" y="135" text-anchor="middle" fill="#93a0bd" font-size="14">+ một chút sai số mới</text>
+</svg>
+
+<h2>6. Paged optimizer: khi VRAM cạn, "phân trang" ra RAM</h2>
+<p>Ngay cả khi base đã nén, <b>trạng thái optimizer</b> (Adam giữ 2 số cho mỗi tham số trainable) vẫn có thể gây tràn VRAM, nhất là khi batch lớn hoặc sequence dài. <b>Paged optimizer</b> (trong bitsandbytes) hoạt động như bộ nhớ ảo của hệ điều hành: khi VRAM sắp cạn, trạng thái optimizer được "phân trang" tạm ra RAM hệ thống, rồi đưa trở lại khi cần.</p>
+<p>Nhờ đó, một cú spike bộ nhớ ngắn không còn làm sập cả buổi train. Cái giá là tốc độ: đọc/ghi qua RAM chậm hơn VRAM nhiều lần, nên paged optimizer là <b>lưới an toàn</b>, không phải chế độ chạy thường xuyên. Nếu bạn thấy nó kích hoạt liên tục, tín hiệu đúng không phải "hay quá, cứ chạy tiếp" mà là "batch đang quá lớn so với card".</p>
+
+<h2>7. Công thức QLoRA đầy đủ — và bảng so sánh</h2>
+<div class="code"><pre>from transformers import BitsAndBytesConfig
+
+bnb_config = BitsAndBytesConfig(
+    load_in_4bit=True,              # nén base xuống 4-bit (PTQ)
+    bnb_4bit_quant_type="nf4",     # NF4, không phải int4
+    bnb_4bit_use_double_quant=True,# nén luôn các hằng số scale
+    bnb_4bit_compute_dtype="bfloat16",  # tính bằng bf16
+)
+# Sau đó gắn LoRA lên trên, chỉ train adapter ở bf16.
+# Paged optimizer: optim="paged_adamw_8bit" khi cần lưới an toàn.</pre></div>
+<table>
+<tr><th></th><th>LoRA fp16 (7B)</th><th>QLoRA 4-bit (7B)</th></tr>
+<tr><td>VRAM trọng số gốc</td><td>~14 GB</td><td>~3,5 GB</td></tr>
+<tr><td>Adapter + optimizer</td><td>bf16, như nhau</td><td>bf16, như nhau</td></tr>
+<tr><td>Tốc độ train</td><td>Nhanh hơn</td><td>Chậm hơn (dequant mỗi bước)</td></tr>
+<tr><td>Chất lượng</td><td>Chuẩn tham chiếu</td><td>Gần bằng, có thể lệch ở tác vụ nhạy với số</td></tr>
+<tr><td>Chạy được trên card 16 GB?</td><td>Chật vật</td><td>Được</td></tr>
+</table>
+
+<h2>8. Cái giá phải trả — và khi nào đừng dùng 4-bit</h2>
+<ul>
+<li><b>Tốc độ:</b> mỗi lần forward phải dequant trọng số, nên tokens/s thường thấp hơn LoRA fp16. Nếu bạn đã có card đủ lớn, 4-bit chỉ làm bạn chậm lại.</li>
+<li><b>Lỗi định lượng:</b> sai số làm tròn là cố định và không thể học bù hoàn toàn bằng adapter nhỏ. Tác vụ đòi hỏi tính toán chính xác, hoặc phân biệt tinh tế giữa các đáp án gần giống nhau, dễ bị ảnh hưởng nhất.</li>
+<li><b>Khó chẩn đoán:</b> khi kết quả kém, bạn phải phân biệt lỗi do dữ liệu, do adapter, hay do chính phép nén — tối nay lab sẽ dạy cách tách ba nguồn lỗi này bằng cách so sánh cùng dataset trên hai cấu hình.</li>
+<li><b>Không tự động tiết kiệm năng lượng:</b> chậm hơn có nghĩa là card chạy lâu hơn; nếu thời gian tăng nhiều hơn mức công suất giảm, tổng năng lượng có thể tăng. Đừng mặc định "4-bit = xanh hơn".</li>
+</ul>
+
+<h2>⚡ Góc tiết kiệm năng lượng</h2>
+<div class="card">
+<p><b>Quy tắc:</b> đo joule/request hoặc kWh/1.000 token cho cả hai cấu hình, đừng đoán. QLoRA cho phép bạn train trên phần cứng sẵn có thay vì thuê card lớn — đó là tiết kiệm thật về tài nguyên, nhưng chỉ khi tổng thời gian chạy không phình quá mức. Pilot nhỏ trước, đo xong rồi mới scale — đúng tinh thần từ Day 16.</p>
+<p><b>Bài tập tư duy:</b> nếu QLoRA chậm hơn 30% nhưng dùng card tiêu thụ điện bằng một nửa, tổng năng lượng tăng hay giảm? (Trả lời: 1,3 × 0,5 = 0,65 — giảm. Nhưng nếu chậm hơn gấp đôi thì 2 × 0,5 = 1 — hòa. Mọi kết luận đều phải có số đo đi kèm.)</p>
+</div>
+
+<h2>📝 Tóm tắt</h2>
+<ul class="check">
+<li>QLoRA = base nén 4-bit bằng PTQ (NF4 + double quantization) + LoRA train ở bf16.</li>
+<li>NF4 hợp với trọng số vì nó chia theo phân phối chuẩn, dày quanh 0.</li>
+<li>Dequant xảy ra mỗi lần forward; compute dtype thường là bf16.</li>
+<li>Paged optimizer là lưới an toàn khi VRAM spike, không phải chế độ mặc định nên lạm dụng.</li>
+<li>4-bit đổi VRAM lấy tốc độ và một chút chất lượng — chỉ dùng khi VRAM thực sự là nút thắt.</li>
+</ul>
+
+<p><a class="btn" href="Day18_quiz.html">📝 Làm quiz Ngày 18 (5 câu)</a>
+<a class="btn ghost" href="Day18_video.mp4">🎬 Xem video giải thích</a></p>
+
+<div class="footer">Khóa "Trở thành AI Engineer (LLM)" — Ngày 18 · Buổi sáng. Làm quiz xong bấm "Copy kết quả" rồi paste vào chat để trợ lý ghi điểm. File HTML không tự gửi kết quả về được.</div>
+</div>
+</body>
+</html>

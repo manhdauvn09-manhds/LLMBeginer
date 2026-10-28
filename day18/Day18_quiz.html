@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quiz Ngày 18 — QLoRA | Khóa LLM 30 ngày</title>
+<style>
+:root{--bg:#0a0f1e; --card:#101830; --line:#22305a; --gold:#f5c542; --green:#4ade80; --red:#f87171; --cyan:#67e8f9; --text:#e8edf7; --muted:#93a0bd;}
+*{box-sizing:border-box;}
+body{margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.7; font-size:16.5px;}
+.wrap{max-width:760px; margin:0 auto; padding:18px 16px 60px;}
+.kicker{color:var(--gold); font-weight:700; font-size:13px; letter-spacing:1px;}
+h1{font-size:28px; line-height:1.3;}
+h2{font-size:20px; color:var(--cyan); margin-top:30px;}
+.q{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px 18px; margin:16px 0;}
+.q p{font-weight:700; margin:0 0 10px;}
+label{display:block; margin:8px 0; cursor:pointer;}
+.explain{display:none; border-left:4px solid var(--green); background:#0f2233; border-radius:0 10px 10px 0; padding:10px 14px; margin-top:12px;}
+.explain.bad{border-color:var(--red); background:#23141a;}
+.correct{color:var(--green); font-weight:700;}
+.wrong{color:var(--red); font-weight:700;}
+button{background:var(--gold); color:#14100a; font-weight:700; border:0; border-radius:10px; padding:13px 24px; font-size:16px; cursor:pointer; margin-top:10px;}
+#result{display:none; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px; margin-top:20px;}
+#copystr{font-family:monospace; background:#060a14; border:1px solid var(--line); border-radius:8px; padding:10px; margin:10px 0; word-break:break-all;}
+.note{color:var(--muted); font-size:14.5px;}
+a{color:var(--gold);}
+</style>
+</head>
+<body>
+<div class="wrap">
+<span class="kicker">QUIZ NGÀY 18 · BUỔI SÁNG</span>
+<h1>QLoRA đổi bài toán VRAM nhưng không miễn phí</h1>
+<p class="note">Chọn 1 đáp án mỗi câu, bấm "Nộp bài" để chấm ngay trong file. Làm xong bấm "Copy kết quả" rồi paste vào chat để trợ lý ghi điểm. Lưu ý: file HTML này không tự gửi kết quả về được — bạn paste kết quả vào chat thì trợ lý mới ghi điểm.</p>
+
+<div class="q"><p>Câu 1. Trong QLoRA, phần trọng số gốc (base) được lượng tử hóa bằng phương pháp nào?</p>
+<label><input type="radio" name="q1" value="A"> A. Quantization-aware training: train lại toàn bộ model với phép lượng tử hóa</label>
+<label><input type="radio" name="q1" value="B"> B. Post-training quantization: nén model đã train xong một lần rồi đóng băng</label>
+<label><input type="radio" name="q1" value="C"> C. Không nén base, chỉ nén adapter LoRA xuống 4-bit</label>
+<label><input type="radio" name="q1" value="D"> D. Train base ở 4-bit ngay từ đầu (pretrain 4-bit)</label>
+<div class="explain" id="e1"></div></div>
+
+<div class="q"><p>Câu 2. Vì sao NF4 phù hợp với trọng số mạng nơ-ron hơn int4 thông thường?</p>
+<label><input type="radio" name="q2" value="A"> A. Vì NF4 dùng 32 mức thay vì 16 mức</label>
+<label><input type="radio" name="q2" value="B"> B. Vì NF4 chia đều theo khoảng giá trị, không phụ thuộc phân phối</label>
+<label><input type="radio" name="q2" value="C"> C. Vì 16 mức của NF4 ứng với 16 khoảng có xác suất bằng nhau của phân phối chuẩn — dày quanh 0, thưa ở đuôi</label>
+<label><input type="radio" name="q2" value="D"> D. Vì NF4 không cần hằng số scale nào</label>
+<div class="explain" id="e2"></div></div>
+
+<div class="q"><p>Câu 3. Khi chạy forward trong QLoRA, trọng số 4-bit được xử lý thế nào?</p>
+<label><input type="radio" name="q3" value="A"> A. Nhân trực tiếp với activation ở 4-bit, không cần giải nén</label>
+<label><input type="radio" name="q3" value="B"> B. Dequant về bf16 (compute dtype) rồi mới nhân với activation, sau đó cộng đầu ra LoRA</label>
+<label><input type="radio" name="q3" value="C"> C. Giải nén về fp32 một lần duy nhất rồi giữ nguyên trong VRAM suốt buổi train</label>
+<label><input type="radio" name="q3" value="D"> D. Chuyển thành int8 rồi mới tính, vì GPU không tính được bf16</label>
+<div class="explain" id="e3"></div></div>
+
+<div class="q"><p>Câu 4. Double quantization tiết kiệm VRAM ở chỗ nào?</p>
+<label><input type="radio" name="q4" value="A"> A. Nén adapter LoRA từ bf16 xuống 4-bit</label>
+<label><input type="radio" name="q4" value="B"> B. Nén chính các hằng số scale (fp32) của từng block xuống fp8, giảm khoảng 0,37 bit mỗi tham số</label>
+<label><input type="radio" name="q4" value="C"> C. Giảm số lượng block lượng tử hóa từ 64 xuống 8</label>
+<label><input type="radio" name="q4" value="D"> D. Loại bỏ hoàn toàn trạng thái optimizer của Adam</label>
+<div class="explain" id="e4"></div></div>
+
+<div class="q"><p>Câu 5. Trường hợp nào KHÔNG nên chọn QLoRA 4-bit?</p>
+<label><input type="radio" name="q5" value="A"> A. Card đồ họa đã đủ lớn cho LoRA fp16 và bạn cần tốc độ train nhanh nhất</label>
+<label><input type="radio" name="q5" value="B"> B. Bạn chỉ có card 16 GB và muốn fine-tune model 7B</label>
+<label><input type="radio" name="q5" value="C"> C. Bạn muốn thử nghiệm nhanh trên phần cứng sẵn có trước khi thuê card lớn</label>
+<label><input type="radio" name="q5" value="D"> D. Bạn cần một adapter nhỏ để triển khai nhiều nhiệm vụ</label>
+<div class="explain" id="e5"></div></div>
+
+<button onclick="grade()">Nộp bài</button>
+<div id="result">
+<div id="scoreline"></div>
+<div id="copystr"></div>
+<button id="copybtn" style="display:none" onclick="copyResult()">Copy kết quả</button>
+<p class="note">Paste chuỗi kết quả vào chat để trợ lý ghi điểm nhé.</p>
+</div>
+<p><a href="Day18_lesson.html">← Quay lại bài học</a></p>
+</div>
+<script>
+const KEY = {q1:"B", q2:"C", q3:"B", q4:"B", q5:"A"};
+const WHY = {
+q1:"QLoRA lấy model đã train xong, lượng tử hóa xuống 4-bit một lần (PTQ) rồi đóng băng base, chỉ train adapter. QAT phải train lại với phép lượng tử hóa nên đắt hơn nhiều và không phải cách QLoRA làm với base.",
+q2:"Trọng số phân bố gần giống phân phối chuẩn: tập trung quanh 0. NF4 chia 16 mức theo xác suất bằng nhau nên dày quanh 0, giữ được nhiều thông tin nhất ở vùng hay gặp. Int4 chia đều theo giá trị nên lãng phí mức vào vùng hiếm gặp.",
+q3:"4-bit chỉ để lưu trữ và giảm băng thông bộ nhớ. Mỗi lần forward, trọng số được dequant về bf16 (compute dtype) rồi mới nhân với activation, sau đó cộng nhánh LoRA. Nếu giữ nguyên dạng đã dequant trong VRAM thì mất hết lợi ích tiết kiệm.",
+q4:"Mỗi block 64 trọng số cần một scale fp32; cộng lại khoảng 0,5 GB cho model 7B. Double quantization nén các scale này xuống fp8 (có thêm scale cấp hai), tiết kiệm khoảng 0,37 bit mỗi tham số — nhỏ nhưng có thể quyết định việc chạy được hay tràn VRAM.",
+q5:"Khi VRAM không phải nút thắt, 4-bit chỉ làm bạn chậm lại vì phải dequant mỗi bước, lại thêm sai số làm tròn. QLoRA sinh ra để giải bài toán VRAM, không phải để thay thế LoRA fp16 trong mọi trường hợp."
+};
+let graded = false, answers = {};
+function grade(){
+  graded = true; answers = {}; let score = 0;
+  for(let i=1;i<=5;i++){
+    const sel = document.querySelector('input[name=q'+i+']:checked');
+    const v = sel ? sel.value : "–"; answers["q"+i] = v;
+    const ok = (v === KEY["q"+i]); if(ok) score++;
+    const box = document.getElementById("e"+i);
+    box.style.display = "block";
+    box.className = "explain" + (ok ? "" : " bad");
+    box.innerHTML = (ok ? '<span class="correct">✔ Đúng.</span> ' : '<span class="wrong">✘ Sai.</span> Đáp án đúng: <b>'+KEY["q"+i]+'</b>. ') + WHY["q"+i];
+  }
+  const r = document.getElementById("result"); r.style.display = "block";
+  document.getElementById("scoreline").innerHTML = "Kết quả: <b>"+score+"/5</b> " + (score>=4 ? "🎉 Đạt! Sẵn sàng cho lab so sánh LoRA fp16 và QLoRA tối nay." : "🔁 Dưới 80% — báo trợ lý để học bù nhé.");
+  document.getElementById("copystr").textContent = copyString();
+  document.getElementById("copybtn").style.display = "inline-block";
+  r.scrollIntoView({behavior:"smooth"});
+}
+function copyString(){
+  let s = "Day18 Quiz:";
+  for(let i=1;i<=5;i++) s += " " + i + answers["q"+i];
+  let sc = 0; for(let i=1;i<=5;i++) if(answers["q"+i]===KEY["q"+i]) sc++;
+  return s + " — " + sc + "/5";
+}
+function copyResult(){
+  if(!graded) return;
+  const t = copyString();
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(t).then(()=>{document.getElementById("copybtn").textContent="✅ Đã copy!"});
+  } else {
+    const ta = document.createElement("textarea"); ta.value = t; document.body.appendChild(ta);
+    ta.select(); document.execCommand("copy"); document.body.removeChild(ta);
+    document.getElementById("copybtn").textContent="✅ Đã copy!";
+  }
+}
+</script>
+</body>
+</html>
