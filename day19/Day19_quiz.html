@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quiz Ngày 19 — Preference learning | Khóa LLM 30 ngày</title>
+<style>
+:root{--bg:#0a0f1e; --card:#101830; --line:#22305a; --gold:#f5c542; --green:#4ade80; --red:#f87171; --cyan:#67e8f9; --text:#e8edf7; --muted:#93a0bd;}
+*{box-sizing:border-box;}
+body{margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.7; font-size:16.5px;}
+.wrap{max-width:760px; margin:0 auto; padding:18px 16px 60px;}
+.kicker{color:var(--gold); font-weight:700; font-size:13px; letter-spacing:1px;}
+h1{font-size:28px; line-height:1.3;}
+h2{font-size:20px; color:var(--cyan); margin-top:30px;}
+.q{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px 18px; margin:16px 0;}
+.q p{font-weight:700; margin:0 0 10px;}
+label{display:block; margin:8px 0; cursor:pointer;}
+.explain{display:none; border-left:4px solid var(--green); background:#0f2233; border-radius:0 10px 10px 0; padding:10px 14px; margin-top:12px;}
+.explain.bad{border-color:var(--red); background:#23141a;}
+.correct{color:var(--green); font-weight:700;}
+.wrong{color:var(--red); font-weight:700;}
+button{background:var(--gold); color:#14100a; font-weight:700; border:0; border-radius:10px; padding:13px 24px; font-size:16px; cursor:pointer; margin-top:10px;}
+#result{display:none; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px; margin-top:20px;}
+#copystr{font-family:monospace; background:#060a14; border:1px solid var(--line); border-radius:8px; padding:10px; margin:10px 0; word-break:break-all;}
+.note{color:var(--muted); font-size:14.5px;}
+a{color:var(--gold);}
+</style>
+</head>
+<body>
+<div class="wrap">
+<span class="kicker">QUIZ NGÀY 19 · BUỔI SÁNG</span>
+<h1>Preference learning cần baseline SFT mạnh</h1>
+<p class="note">Chọn 1 đáp án mỗi câu, bấm "Nộp bài" để chấm ngay trong file. Làm xong bấm "Copy kết quả" rồi paste vào chat để trợ lý ghi điểm. Lưu ý: file HTML này không tự gửi kết quả về được — bạn paste kết quả vào chat thì trợ lý mới ghi điểm.</p>
+
+<div class="q"><p>Câu 1. Vì sao chỉ dùng SFT thì model vẫn chưa biết chọn câu trả lời tốt hơn?</p>
+<label><input type="radio" name="q1" value="A"> A. Vì SFT không dạy model ngữ pháp tiếng Việt</label>
+<label><input type="radio" name="q1" value="B"> B. Vì SFT chỉ dạy bắt chước phân phối của dữ liệu mẫu, không có tín hiệu nào nói "đáp án này tốt hơn đáp án kia"</label>
+<label><input type="radio" name="q1" value="C"> C. Vì SFT không dùng được với model trên 7 tỉ tham số</label>
+<label><input type="radio" name="q1" value="D"> D. Vì SFT luôn làm model quên kiến thức đã pretrain</label>
+<div class="explain" id="e1"></div></div>
+
+<div class="q"><p>Câu 2. Một preference pair gồm những gì?</p>
+<label><input type="radio" name="q2" value="A"> A. Một prompt và một đáp án hoàn hảo do chuyên gia viết</label>
+<label><input type="radio" name="q2" value="B"> B. Một prompt, một điểm số tuyệt đối từ 1 đến 10 cho mỗi đáp án</label>
+<label><input type="radio" name="q2" value="C"> C. Một prompt, một đáp án được chọn (chosen) và một đáp án bị loại (rejected)</label>
+<label><input type="radio" name="q2" value="D"> D. Hai prompt khác nhau và đáp án tốt nhất cho mỗi prompt</label>
+<div class="explain" id="e2"></div></div>
+
+<div class="q"><p>Câu 3. Reward model học điều gì qua loss Bradley–Terry?</p>
+<label><input type="radio" name="q3" value="A"> A. Điểm tuyệt đối của từng câu trả lời, độc lập với các câu trả lời khác</label>
+<label><input type="radio" name="q3" value="B"> B. Xếp hạng đúng: đẩy điểm của đáp án được chọn lên cao hơn đáp án bị loại, qua loss −log σ(r<sub>w</sub> − r<sub>l</sub>)</label>
+<label><input type="radio" name="q3" value="C"> C. Sinh ra câu trả lời mới có điểm cao nhất có thể</label>
+<label><input type="radio" name="q3" value="D"> D. Đo độ lệch KL giữa policy và model tham chiếu</label>
+<div class="explain" id="e3"></div></div>
+
+<div class="q"><p>Câu 4. DPO khác RLHF với PPO ở điểm cốt lõi nào?</p>
+<label><input type="radio" name="q4" value="A"> A. DPO không cần dữ liệu cặp so sánh, chỉ cần prompt trần</label>
+<label><input type="radio" name="q4" value="B"> B. DPO train reward model lớn hơn rồi mới tối ưu policy</label>
+<label><input type="radio" name="q4" value="C"> C. DPO bỏ reward model và vòng sampling: tối ưu trực tiếp từ cặp so sánh bằng loss trên tỉ lệ log-prob với model tham chiếu, KL ẩn sẵn trong loss</label>
+<label><input type="radio" name="q4" value="D"> D. DPO không dùng model tham chiếu, nên không cần KL regularization</label>
+<div class="explain" id="e4"></div></div>
+
+<div class="q"><p>Câu 5. Đâu là dấu hiệu của reward hacking, và cách xử lý đúng?</p>
+<label><input type="radio" name="q5" value="A"> A. Reward tăng nhưng chất lượng qua đánh giá mù không tăng — dừng sớm, siết KL, nâng chất lượng cặp so sánh</label>
+<label><input type="radio" name="q5" value="B"> B. Reward tăng chậm — tăng hệ số β để model học nhanh hơn</label>
+<label><input type="radio" name="q5" value="C"> C. Model trả lời ngắn lại — tăng độ dài tối đa khi sinh mẫu</label>
+<label><input type="radio" name="q5" value="D"> D. Reward model cho điểm thấp — bỏ luôn số hạng KL để model tự do tối ưu</label>
+<div class="explain" id="e5"></div></div>
+
+<button onclick="grade()">Nộp bài</button>
+<div id="result">
+<div id="scoreline"></div>
+<div id="copystr"></div>
+<button id="copybtn" style="display:none" onclick="copyResult()">Copy kết quả</button>
+<p class="note">Paste chuỗi kết quả vào chat để trợ lý ghi điểm nhé.</p>
+</div>
+<p><a href="Day19_lesson.html">← Quay lại bài học</a></p>
+</div>
+<script>
+const KEY = {q1:"B", q2:"C", q3:"B", q4:"C", q5:"A"};
+const WHY = {
+q1:"SFT dạy model bắt chước phân phối dữ liệu mẫu. Nếu dữ liệu chứa cả đáp án hay và đáp án dở, model học cả hai mà không có lý do để ưu tiên đáp án hay. Preference learning bổ sung đúng tín hiệu còn thiếu: 'cái này tốt hơn cái kia'.",
+q2:"Preference pair = (prompt, chosen y_w, rejected y_l). Người gán nhãn chỉ cần so sánh, không cần viết đáp án hoàn hảo hay chấm điểm tuyệt đối — vì vậy dữ liệu cặp vừa rẻ vừa nhất quán hơn.",
+q3:"Reward model không học điểm tuyệt đối mà học xếp hạng: loss Bradley–Terry −log σ(r_w − r_l) đẩy hiệu điểm lên cao cho đến khi sigmoid gần bằng 1, tức model xếp chosen trên rejected một cách chắc chắn.",
+q4:"DPO viết thẳng reward tối ưu dưới dạng tỉ lệ log-prob với model tham chiếu rồi đưa vào công thức Bradley–Terry, nên không cần train reward model riêng, không cần sampling, không cần value model — đơn giản và ổn định hơn PPO. KL vẫn hiện diện ẩn qua các số hạng log π_ref.",
+q5:"Reward tăng mà chất lượng mù không tăng là dấu hiệu model đang khai thác kẽ hở của reward model (trả lời dài, nịnh, trình bày rỗng...), không phải tiến bộ thật. Xử lý: dừng sớm, siết KL vừa đủ, nâng chất lượng cặp so sánh và kiểm tra bằng đánh giá mù."
+};
+let graded = false, answers = {};
+function grade(){
+  graded = true; answers = {}; let score = 0;
+  for(let i=1;i<=5;i++){
+    const sel = document.querySelector('input[name=q'+i+']:checked');
+    const v = sel ? sel.value : "–"; answers["q"+i] = v;
+    const ok = (v === KEY["q"+i]); if(ok) score++;
+    const box = document.getElementById("e"+i);
+    box.style.display = "block";
+    box.className = "explain" + (ok ? "" : " bad");
+    box.innerHTML = (ok ? '<span class="correct">✔ Đúng.</span> ' : '<span class="wrong">✘ Sai.</span> Đáp án đúng: <b>'+KEY["q"+i]+'</b>. ') + WHY["q"+i];
+  }
+  const r = document.getElementById("result"); r.style.display = "block";
+  document.getElementById("scoreline").innerHTML = "Kết quả: <b>"+score+"/5</b> " + (score>=4 ? "🎉 Đạt! Sẵn sàng cho lab viết dpo_loss.py tối nay." : "🔁 Dưới 80% — báo trợ lý để học bù nhé.");
+  document.getElementById("copystr").textContent = copyString();
+  document.getElementById("copybtn").style.display = "inline-block";
+  r.scrollIntoView({behavior:"smooth"});
+}
+function copyString(){
+  let s = "Day19 Quiz:";
+  for(let i=1;i<=5;i++) s += " " + i + answers["q"+i];
+  let sc = 0; for(let i=1;i<=5;i++) if(answers["q"+i]===KEY["q"+i]) sc++;
+  return s + " — " + sc + "/5";
+}
+function copyResult(){
+  if(!graded) return;
+  const t = copyString();
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(t).then(()=>{document.getElementById("copybtn").textContent="✅ Đã copy!"});
+  } else {
+    const ta = document.createElement("textarea"); ta.value = t; document.body.appendChild(ta);
+    ta.select(); document.execCommand("copy"); document.body.removeChild(ta);
+    document.getElementById("copybtn").textContent="✅ Đã copy!";
+  }
+}
+</script>
+</body>
+</html>

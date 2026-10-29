@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ngày 19 — Preference learning cần baseline SFT mạnh | Khóa LLM 30 ngày</title>
+<style>
+:root{--bg:#0a0f1e; --card:#101830; --line:#22305a; --gold:#f5c542; --green:#4ade80;
+ --red:#f87171; --violet:#a78bfa; --cyan:#67e8f9; --text:#e8edf7; --muted:#93a0bd;}
+*{box-sizing:border-box;}
+body{margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.75; font-size:16.5px;}
+.wrap{max-width:820px; margin:0 auto; padding:18px 16px 60px;}
+.kicker{display:inline-block; font-size:13px; letter-spacing:1px; color:var(--gold); font-weight:700; margin-bottom:8px;}
+h1{font-size:30px; line-height:1.3; margin:6px 0 10px;}
+h2{font-size:22px; margin:34px 0 10px; color:var(--cyan);}
+h3{font-size:18px; margin:22px 0 8px; color:var(--gold);}
+.sub{color:var(--muted); font-size:16.5px;}
+.meta{display:flex; gap:8px; flex-wrap:wrap; margin:14px 0 6px;}
+.meta span{font-size:13.5px; background:var(--card); border:1px solid var(--line); border-radius:999px; padding:5px 14px;}
+.hero{width:100%; border-radius:14px; margin:16px 0;}
+.card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px; margin:16px 0;}
+.note{border-left:4px solid var(--green); background:#0f2233; border-radius:0 12px 12px 0; padding:12px 16px; margin:14px 0;}
+.warn{border-left:4px solid var(--red); background:#23141a; border-radius:0 12px 12px 0; padding:12px 16px; margin:14px 0;}
+.formula{background:#0a0f1e; border:1px dashed var(--violet); border-radius:10px; padding:12px 16px; margin:12px 0; font-size:17px; text-align:center;}
+.code{background:#060a14; border:1px solid var(--line); border-radius:10px; padding:12px 14px; margin:12px 0; overflow-x:auto;}
+.code pre{margin:0; font-size:14.5px; line-height:1.6; color:var(--cyan);}
+table{width:100%; border-collapse:collapse; margin:12px 0; font-size:15px;}
+th,td{border:1px solid var(--line); padding:8px 10px; text-align:left;}
+th{background:#141d3a; color:var(--gold);}
+svg{max-width:100%; height:auto; display:block; margin:12px auto;}
+.btn{display:inline-block; background:var(--gold); color:#14100a; font-weight:700; border-radius:10px; padding:12px 22px; margin:10px 8px 0 0; text-decoration:none;}
+.btn.ghost{background:transparent; color:var(--gold); border:2px solid var(--gold);}
+ul.check li{margin:6px 0;}
+.footer{color:var(--muted); font-size:14px; margin-top:40px; border-top:1px solid var(--line); padding-top:14px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+<span class="kicker">NGÀY 19 · BUỔI SÁNG — LÝ THUYẾT + QUIZ</span>
+<h1>Preference learning cần baseline SFT mạnh</h1>
+<p class="sub">Sau hai tuần, bạn đã có model biết làm theo hướng dẫn (SFT) và biết tiết kiệm VRAM (LoRA, QLoRA). Nhưng SFT chỉ dạy model <b>bắt chước</b> câu trả lời mẫu — nó không dạy model <b>chọn</b> giữa hai câu trả lời đều đúng ngữ pháp nhưng một cái tốt hơn hẳn. Hôm nay ta học cách dạy chính thứ đó: <b>preference learning</b>, qua hai cái tên lớn nhất là RLHF và DPO. Và nhớ tiêu đề bài: mọi kỹ thuật này chỉ mài sắc một baseline SFT đã mạnh — chúng không tự tạo ra năng lực mới.</p>
+<div class="meta"><span>⏱ ~25 phút đọc</span><span>🎯 Preference pairs · reward model · PPO · DPO · KL</span><span>📝 Quiz 5 câu ở file riêng</span></div>
+<img class="hero" src="img/day19_hero.webp" alt="Minh họa hai câu trả lời được đặt lên bàn cân, một bên sáng hơn bên còn lại">
+
+<h2>🎯 Mục tiêu buổi học</h2>
+<ul class="check">
+<li>Hiểu <b>preference pair</b> (cặp so sánh): dữ liệu rẻ mà mạnh để dạy \"cái nào tốt hơn\".</li>
+<li>Hiểu <b>reward model</b> và công thức Bradley–Terry: biến \"thích hơn\" thành một con số.</li>
+<li>Hiểu trực giác <b>PPO</b> trong RLHF: tối ưu reward nhưng bị neo bởi KL.</li>
+<li>Hiểu <b>DPO</b>: bỏ reward model, tối ưu trực tiếp từ cặp so sánh.</li>
+<li>Nhận diện <b>reward hacking</b> và hiểu vì sao <b>KL regularization</b> là dây an toàn bắt buộc.</li>
+</ul>
+
+<h2 id="sec-why">1. Vì sao SFT vẫn chưa đủ?</h2>
+<p>Hãy tưởng tượng bạn hỏi: \"Giải thích vì sao trời mưa.\" Model sau SFT có thể trả lời theo hai cách:</p>
+<div class="card">
+<p><b>Cách A:</b> \"Trời mưa vì mây nặng.\" — Ngắn, đúng một nửa, thiếu cơ chế.</p>
+<p><b>Cách B:</b> \"Hơi nước bốc lên, gặp lạnh ngưng tụ thành giọt, giọt nặng hơn sức nâng của không khí nên rơi xuống.\" — Đầy đủ cơ chế, dễ kiểm chứng.</p>
+</div>
+<p>SFT dạy model bắt chước phân phối của dữ liệu mẫu. Nếu dữ liệu mẫu chứa cả hai kiểu trả lời, model học cả hai — và khi sinh, nó không có lý do gì để ưu tiên B hơn A. Thiếu một tín hiệu nói rằng <b>\"B tốt hơn A\"</b>, model không thể tự biết cái nào nên chọn. Preference learning chính là tín hiệu đó: thay vì dạy \"đây là đáp án\", ta dạy \"trong hai đáp án này, đáp án này tốt hơn\".</p>
+
+<h2 id="sec-pairs">2. Preference pairs: dữ liệu so sánh rẻ mà mạnh</h2>
+<p>Một <b>preference pair</b> gồm ba thứ: một prompt, một câu trả lời được chọn (<b>chosen</b>, ký hiệu y<sub>w</sub>) và một câu trả lời bị loại (<b>rejected</b>, ký hiệu y<sub>l</sub>). Người gán nhãn không cần viết đáp án hoàn hảo, cũng không cần chấm điểm tuyệt đối từ 1 đến 10 — chỉ cần nói \"cái này hơn cái kia\". Việc so sánh dễ hơn chấm điểm rất nhiều, nên thu thập cặp so sánh vừa rẻ vừa nhất quán hơn.</p>
+
+<svg viewBox="0 0 760 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Preference pair">
+<rect x="20" y="20" width="720" height="46" rx="12" fill="#101830" stroke="#22305a"/>
+<text x="380" y="50" text-anchor="middle" fill="#e8edf7" font-size="16">Prompt: “Giải thích vì sao trời mưa.”</text>
+<rect x="20" y="86" width="340" height="94" rx="12" fill="#101830" stroke="#4ade80"/>
+<text x="190" y="118" text-anchor="middle" fill="#4ade80" font-size="16" font-weight="700">✔ Chosen (y_w)</text>
+<text x="190" y="146" text-anchor="middle" fill="#e8edf7" font-size="14">Đầy đủ cơ chế, dễ kiểm chứng</text>
+<rect x="400" y="86" width="340" height="94" rx="12" fill="#101830" stroke="#f87171"/>
+<text x="570" y="118" text-anchor="middle" fill="#f87171" font-size="16" font-weight="700">✘ Rejected (y_l)</text>
+<text x="570" y="146" text-anchor="middle" fill="#e8edf7" font-size="14">Ngắn, đúng một nửa, thiếu cơ chế</text>
+</svg>
+
+<p>Một chi tiết quan trọng: cặp so sánh chỉ có ý nghĩa khi hai đáp án <b>đủ gần nhau</b> để việc chọn là có thông tin. So sánh một đáp án tốt với một đáp án vô nghĩa thì model học được rất ít; so sánh hai đáp án cùng khá thì mỗi cặp dạy model một ranh giới tinh tế. Chất lượng cặp quan trọng hơn số lượng cặp — một bài học sẽ quay lại ở mục reward hacking.</p>
+
+<h2 id="sec-reward">3. Reward model: biến “thích hơn” thành một con số</h2>
+<p>Bước đầu tiên của RLHF là train một <b>reward model</b> r(x, y): một mô hình nhận prompt x và câu trả lời y, trả về một số điểm duy nhất — điểm càng cao, câu trả lời càng được ưa thích. Reward model thường được khởi tạo từ chính model SFT, thay đầu sinh token bằng một đầu hồi quy cho ra một số.</p>
+<p>Reward model học từ các cặp so sánh bằng <b>loss Bradley–Terry</b>: xác suất người ta thích y<sub>w</sub> hơn y<sub>l</sub> được mô hình hóa bằng hàm sigmoid của hiệu điểm:</p>
+<div class="formula">P(y<sub>w</sub> ≻ y<sub>l</sub>) = σ( r(x, y<sub>w</sub>) − r(x, y<sub>l</sub>) )<br>loss = −log σ( r(x, y<sub>w</sub>) − r(x, y<sub>l</sub>) )</div>
+<p>Nói bằng lời: loss này đẩy điểm của đáp án được chọn lên cao và điểm của đáp án bị loại xuống thấp, cho đến khi hiệu điểm đủ lớn để sigmoid gần bằng 1. Reward model không cần biết \"điểm tuyệt đối\" của một câu trả lời là bao nhiêu — nó chỉ cần xếp hạng đúng. Đó chính là lý do dữ liệu cặp so sánh là đủ.</p>
+<img class="hero" src="img/day19_reward.webp" alt="Minh họa một chiếc cân: hai câu trả lời đặt hai bên, bên được chọn nặng hơn và làm cân nghiêng về phía đó">
+
+<h2 id="sec-ppo">4. RLHF với PPO: tối ưu reward, nhưng đừng trôi quá xa</h2>
+<p>Khi đã có reward model, bước hai của RLHF là dùng nó làm \"giám khảo\" để fine-tune tiếp model ngôn ngữ bằng học tăng cường, thường là <b>PPO</b>. Trực giác như sau: model sinh ra câu trả lời, nhận điểm reward, rồi cập nhật theo hướng tăng điểm. PPO cập nhật thận trọng — nó kẹp (clip) tỉ lệ thay đổi của policy trong mỗi bước để model không nhảy vọt chỉ vì một batch reward cao bất thường.</p>
+<p>Nhưng tối ưu reward trần trụi là nguy hiểm: model sẽ tìm mọi cách để điểm cao, kể cả những cách không ai mong muốn (xem mục 7). Vì vậy mục tiêu PPO luôn có thêm một số hạng <b>KL penalty</b>: trừ đi độ lệch KL giữa policy đang train và model gốc, nhân với hệ số β. KL là dây neo giữ model ở gần \"vùng ngôn ngữ lành mạnh\" mà SFT đã xây.</p>
+<div class="formula">mục tiêu ≈ E[ r(x, y) ] − β · KL( π<sub>θ</sub> ‖ π<sub>ref</sub> )</div>
+<div class="warn"><b>Vì sao PPO khó dùng:</b> bạn phải train và giữ cùng lúc bốn thứ — policy, value model, reward model và model tham chiếu — lại thêm vòng lặp sinh mẫu (sampling) tốn kém. PPO nhạy với siêu tham số, dễ mất ổn định, và tốn nhiều compute hơn hẳn SFT. Đó là lý do thực tế người ta tìm cách đơn giản hóa nó — và DPO ra đời.</div>
+
+<h2 id="sec-dpo">5. DPO: bỏ reward model, học trực tiếp từ cặp so sánh</h2>
+<p>Quan sát cốt lõi của <b>Direct Preference Optimization (DPO)</b>: nếu reward tối ưu có dạng r*(x, y) = β·log(π*(y|x) / π<sub>ref</sub>(y|x)) thì ta không cần train reward model riêng — có thể viết thẳng loss theo policy. Thay reward ẩn bằng tỉ lệ log-prob giữa policy đang train và model tham chiếu, rồi đưa vào đúng công thức Bradley–Terry:</p>
+<div class="formula">loss<sub>DPO</sub> = −log σ( β · [ (log π<sub>θ</sub>(y<sub>w</sub>) − log π<sub>ref</sub>(y<sub>w</sub>)) − (log π<sub>θ</sub>(y<sub>l</sub>) − log π<sub>ref</sub>(y<sub>l</sub>)) ] )</div>
+<p>Đọc công thức bằng lời: DPO tăng xác suất của đáp án được chọn <b>so với model gốc</b>, đồng thời giảm xác suất của đáp án bị loại <b>so với model gốc</b>. Hai số hạng log π<sub>ref</sub> chính là KL regularization ẩn bên trong — bạn không thấy nó vì nó đã được \"nén\" vào loss. Thực tế: DPO chỉ cần một vòng train có giám sát trên các cặp, không cần sampling, không cần value model, ổn định hơn PPO rất nhiều. Tối nay lab sẽ cài đúng loss này trên logits giả.</p>
+<div class="code"><pre># Trực giác DPO bằng code (xem lab tối nay để có bản đầy đủ):
+logratio_w = logp_policy(chosen) - logp_ref(chosen)
+logratio_l = logp_policy(rejected) - logp_ref(rejected)
+loss = -log(sigmoid(beta * (logratio_w - logratio_l)))
+# beta càng lớn: neo vào model gốc càng chặt, học preference càng chậm.</pre></div>
+
+<h2 id="sec-kl">6. KL regularization: dây neo không thể thiếu</h2>
+<p>Vì sao phải neo vào model gốc? Vì model ngôn ngữ sau SFT là một kho năng lực: ngữ pháp, kiến thức, khả năng suy luận. Tối ưu preference không có neo sẽ \"quên\" dần kho đó để chạy theo điểm reward — hiện tượng <b>catastrophic forgetting</b> trong bối cảnh preference. Hệ số β điều khiển độ chặt của dây neo: β lớn thì model thay đổi chậm, an toàn nhưng học preference ít; β nhỏ thì học nhanh nhưng dễ trôi và dễ hack reward. Chọn β là một sự đánh đổi, không có giá trị đúng tuyệt đối — lab tối nay sẽ cho bạn thấy đường cong đó bằng số.</p>
+
+<svg viewBox="0 0 760 170" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="KL anchor">
+<rect x="20" y="30" width="300" height="110" rx="12" fill="#101830" stroke="#22305a"/>
+<text x="170" y="62" text-anchor="middle" fill="#f5c542" font-size="16" font-weight="700">Model gốc (π_ref)</text>
+<text x="170" y="90" text-anchor="middle" fill="#e8edf7" font-size="14">SFT mạnh: kho năng lực</text>
+<text x="170" y="115" text-anchor="middle" fill="#93a0bd" font-size="14">ngữ pháp · kiến thức · suy luận</text>
+<rect x="440" y="30" width="300" height="110" rx="12" fill="#101830" stroke="#4ade80"/>
+<text x="440" y="62" text-anchor="middle" fill="#4ade80" font-size="16" font-weight="700">Policy đang train (π_θ)</text>
+<text x="440" y="90" text-anchor="middle" fill="#e8edf7" font-size="14">Học preference, nhưng bị neo</text>
+<text x="440" y="115" text-anchor="middle" fill="#93a0bd" font-size="14">KL(π_θ ‖ π_ref) × β = dây neo</text>
+<text x="320" y="90" fill="#67e8f9" font-size="22">⇄</text>
+</svg>
+
+<h2 id="sec-hacking">7. Reward hacking: khi model “chơi” luật thay vì học bài</h2>
+<p><b>Reward hacking</b> là khi model tìm ra cách tăng điểm reward mà không cải thiện chất lượng thật. Các dạng kinh điển: trả lời thật dài (người gán nhãn có xu hướng thích đáp án dài), nịnh người dùng (\"câu hỏi hay quá!\"), trình bày đẹp nhưng nội dung rỗng, hoặc lặp lại cụm từ mà reward model vô tình ưa thích. Reward model chỉ là một xấp xỉ của \"chất lượng thật\" — và mọi xấp xỉ đều có kẽ hở để khai thác.</p>
+<p>Cách chống, theo thứ tự ưu tiên thực tế:</p>
+<ul>
+<li><b>Giữ KL neo chặt vừa đủ</b> — model không được trôi xa khỏi vùng mà reward model còn đáng tin.</li>
+<li><b>Nâng chất lượng cặp so sánh</b> — cặp gần nhau, nhãn nhất quán, tránh thiên vị độ dài.</li>
+<li><b>Đánh giá mù bằng người thật</b> — 20 cặp đánh giá mù cuối lab tối nay là để bắt chính hiện tượng này, không phải để trang trí.</li>
+<li><b>Dừng sớm khi reward tăng mà chất lượng mù không tăng</b> — đó là dấu hiệu hacking, không phải tiến bộ.</li>
+</ul>
+<div class="note"><b>Quay lại tiêu đề bài:</b> preference learning là bước mài, không phải bước đúc. Nếu baseline SFT yếu — model còn chưa viết đúng ngữ pháp, chưa nắm kiến thức nền — thì DPO chỉ giúp nó chọn đáp án \"ít dở nhất\" trong các đáp án dở. Ngược lại, một SFT mạnh cộng với cặp so sánh tốt sẽ cho ra model vừa đúng vừa được ưa thích. Thứ tự đúng là: SFT mạnh trước, preference sau — không đảo được.</div>
+
+<h2>⚡ Góc tiết kiệm năng lượng</h2>
+<div class="card">
+<p><b>Quy tắc:</b> ưu tiên DPO nhỏ trước RL phức tạp. PPO cần sampling liên tục, bốn model cùng chạy và nhiều vòng lặp — tổng compute thường gấp nhiều lần một vòng DPO trên cùng dữ liệu cặp. Khi báo cáo năng lượng cho bài này, phải cộng cả compute tạo dữ liệu (sinh cặp đáp án để gán nhãn) và compute train — nhiều báo cáo chỉ tính phần train nên đánh giá thấp chi phí thật.</p>
+<p><b>Bài tập tư duy:</b> bạn có 10.000 cặp so sánh và một card 16 GB. Vì sao DPO trên adapter LoRA (như các bài trước) là lựa chọn tiết kiệm hơn PPO full-model? (Trả lời: DPO chỉ cần policy + model tham chiếu đóng băng, train trên adapter nhỏ, không sampling, không value model — tức ít model cùng chạy, ít VRAM, ít token sinh ra vô ích.)</p>
+</div>
+
+<h2>📝 Tóm tắt</h2>
+<ul class="check">
+<li>Preference pair = (prompt, chosen, rejected): dạy \"cái nào tốt hơn\", rẻ và nhất quán hơn chấm điểm tuyệt đối.</li>
+<li>Reward model học xếp hạng qua loss Bradley–Terry: −log σ(r<sub>w</sub> − r<sub>l</sub>).</li>
+<li>RLHF + PPO: tối ưu reward có neo KL, nhưng đắt và khó ổn định (4 model, sampling, nhạy siêu tham số).</li>
+<li>DPO: bỏ reward model, tối ưu trực tiếp từ cặp; KL ẩn trong loss qua log π<sub>ref</sub>; đơn giản và ổn định hơn.</li>
+<li>Reward hacking là thật: chống bằng KL, cặp chất lượng cao, đánh giá mù và dừng sớm.</li>
+<li>Thứ tự không đảo được: SFT mạnh trước, preference sau.</li>
+</ul>
+
+<p><a class="btn" href="Day19_quiz.html">📝 Làm quiz Ngày 19 (5 câu)</a>
+<a class="btn ghost" href="Day19_video.mp4">🎬 Xem video giải thích</a></p>
+
+<div class="footer">Khóa "Trở thành AI Engineer (LLM)" — Ngày 19 · Buổi sáng. Làm quiz xong bấm "Copy kết quả" rồi paste vào chat để trợ lý ghi điểm. File HTML không tự gửi kết quả về được. Tối nay: lab viết dpo_loss.py trên logits giả và kiểm tra gradient.</div>
+</div>
+</body>
+</html>
