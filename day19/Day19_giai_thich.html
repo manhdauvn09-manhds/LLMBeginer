@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 19 — Tự code loss DPO trên logits giả</title>
+<style>
+  :root{
+    --bg:#f5f3ff; --card:#ffffff; --ink:#23272f; --muted:#6b7280;
+    --accent:#6d28d9; --accent-dark:#5b21b6; --accent-soft:#ede9fe;
+    --blue:#2563eb; --blue-soft:#dbeafe;
+    --amber:#b45309; --amber-soft:#fef3c7;
+    --green:#047857; --green-soft:#d1fae5;
+    --red:#b91c1c; --red-soft:#fee2e2;
+    --cyan:#0891b2; --cyan-soft:#cffafe;
+    --line:#ddd6fe; --code-bg:#1e2230;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    line-height:1.75;font-size:16.5px}
+  .wrap{max-width:960px;margin:0 auto;padding:0 20px}
+  header.hero{background:linear-gradient(135deg,#5b21b6 0%,#6d28d9 55%,#a78bfa 100%);
+    color:#fff;padding:64px 0 48px;margin-bottom:8px}
+  header.hero h1{margin:0 0 12px;font-size:2.1rem;line-height:1.3}
+  header.hero p{margin:6px 0;opacity:.92;max-width:720px}
+  .tag{display:inline-block;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.35);
+    border-radius:999px;padding:3px 14px;font-size:.85rem;margin-bottom:14px}
+  nav.sticky{position:sticky;top:0;z-index:50;background:rgba(245,243,255,.96);
+    backdrop-filter:blur(6px);border-bottom:1px solid var(--line)}
+  nav.sticky .wrap{display:flex;gap:4px;overflow-x:auto;padding:10px 20px;white-space:nowrap}
+  nav.sticky a{color:var(--muted);text-decoration:none;font-size:.88rem;padding:6px 10px;border-radius:8px}
+  nav.sticky a:hover{background:var(--accent-soft);color:var(--accent-dark)}
+  section{padding:34px 0;border-bottom:1px solid var(--line)}
+  h2{font-size:1.55rem;margin:0 0 6px;color:#5b21b6}
+  h2 .num{display:inline-block;background:var(--accent);color:#fff;font-size:.95rem;
+    width:34px;height:34px;line-height:34px;text-align:center;border-radius:10px;margin-right:10px;vertical-align:middle}
+  h3{font-size:1.15rem;margin:26px 0 8px}
+  .lead{color:#4b5563;font-size:1.05rem}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:20px 22px;margin:16px 0;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin:18px 0}
+  .concept{background:var(--card);border:1px solid var(--line);border-top:4px solid var(--accent);
+    border-radius:12px;padding:16px 18px}
+  .concept h4{margin:0 0 6px;font-size:1.02rem}
+  .concept p{margin:0;font-size:.93rem;color:#4b5563}
+  .concept.blue{border-top-color:var(--blue)} .concept.amber{border-top-color:var(--amber)}
+  .concept.green{border-top-color:var(--green)} .concept.red{border-top-color:var(--red)}
+  .concept.cyan{border-top-color:var(--cyan)}
+  pre{background:var(--code-bg);color:#e8eaf2;border-radius:12px;padding:18px 20px;
+    overflow-x:auto;font-size:.86rem;line-height:1.6;margin:14px 0;max-height:560px;overflow-y:auto}
+  code{font-family:"SF Mono",Consolas,"Courier New",monospace}
+  p code, li code, td code{background:var(--accent-soft);padding:1px 7px;border-radius:6px;font-size:.88em;color:#5b21b6}
+  pre code{background:none;padding:0;color:inherit}
+  .kw{color:#c792ea}.fn{color:#82aaff}.str{color:#c3e88d}.cm{color:#697098;font-style:italic}.num2{color:#f78c6c}
+  .diagram{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px 10px;margin:18px 0;text-align:center;overflow-x:auto}
+  .diagram svg{max-width:100%;height:auto}
+  .caption{font-size:.9rem;color:var(--muted);margin-top:10px;font-style:italic}
+  .analogy{background:#f5f3ff;border:1px solid #c4b5fd;border-left:6px solid var(--accent);
+    border-radius:10px;padding:16px 20px;margin:16px 0}
+  .analogy b{color:#5b21b6}
+  .warn{background:#fffbeb;border:1px solid #fcd34d;border-left:6px solid var(--amber);
+    border-radius:10px;padding:16px 20px;margin:16px 0}
+  .warn b{color:#92400e}
+  .ok{background:#ecfdf5;border:1px solid #6ee7b7;border-left:6px solid var(--green);
+    border-radius:10px;padding:16px 20px;margin:16px 0}
+  .bad{background:#fef2f2;border:1px solid #fecaca;border-left:6px solid var(--red);
+    border-radius:10px;padding:16px 20px;margin:16px 0}
+  table.mini{border-collapse:collapse;margin:14px auto;font-size:.9rem;min-width:70%}
+  table.mini th, table.mini td{border:1px solid var(--line);padding:8px 14px;text-align:left}
+  table.mini th{background:var(--accent-soft)}
+  table.mini td.num{font-family:monospace;text-align:center;white-space:nowrap}
+  table.mini tr.hl td{background:#ede9fe;font-weight:700}
+  .demo{background:#fff;border:2px solid var(--accent);border-radius:16px;padding:24px;margin:18px 0}
+  .demo h3{margin-top:0}
+  input[type=text], input[type=number]{width:100%;padding:10px 14px;font-size:.95rem;border:2px solid var(--line);
+    border-radius:10px;margin:8px 0;font-family:monospace}
+  input[type=range]{width:100%;margin:10px 0}
+  .seg{display:flex;gap:8px;margin:10px 0;flex-wrap:wrap}
+  .seg button{border:2px solid var(--line);background:#fff;border-radius:10px;
+    padding:8px 18px;font-size:1rem;cursor:pointer}
+  .seg button.active{border-color:var(--accent);background:var(--accent-soft);font-weight:700}
+  .big-out{background:var(--code-bg);color:#e8eaf2;border-radius:12px;padding:18px 20px;
+    font-family:monospace;font-size:.92rem;margin-top:12px;line-height:1.9;word-break:break-word}
+  .btn{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:10px 22px;
+    font-size:1rem;cursor:pointer;margin:10px 8px 0 0}
+  .btn:hover{background:#5b21b6}
+  .formula{text-align:center;font-size:1.15rem;background:#f5f3ff;border-radius:10px;
+    padding:18px;margin:14px 0;font-family:Georgia,serif}
+  .formula small{display:block;font-family:inherit;font-size:.85rem;color:var(--muted);margin-top:6px}
+  footer{padding:36px 0 60px;color:var(--muted);font-size:.9rem;text-align:center}
+  ul.tight li{margin-bottom:6px}
+  .bar-wrap{background:#f3f4f6;border-radius:8px;height:26px;margin:6px 0;position:relative;border:1px solid var(--line)}
+  .bar-fill{height:100%;border-radius:8px}
+  .bar-lab{font-family:monospace;font-size:.82rem;color:#374151;margin-top:2px}
+  @media(max-width:600px){header.hero h1{font-size:1.6rem}body{font-size:15.5px}}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="tag">📄 Phân tích: day19/dpo_lab.py</span>
+    <h1>Day 19 — Tự code loss DPO<br>trên logits giả</h1>
+    <p>Không cần model thật, không cần GPU: toàn bộ lab chạy trong <b>~4 giây trên CPU</b> với logits giả. Vậy mà nó chứng minh được 3 điều quan trọng: vì sao phải detach model tham chiếu, vì sao β là "dây neo", và vì sao tối ưu reward trần sẽ bị hack.</p>
+    <p style="font-size:.9rem;opacity:.8">Số liệu trong bài là kết quả chạy thật (torch 2.14.1+cpu, logits giả, seed 0).</p>
+  </div>
+</header>
+
+<nav class="sticky"><div class="wrap">
+  <a href="#tong-quan">🍿 Tóm tắt 30 giây</a>
+  <a href="#dpo">🧩 DPO là gì</a>
+  <a href="#bai1">🔢 Bài 1</a>
+  <a href="#bai2">⚖️ Bài 2</a>
+  <a href="#bai3">🎚️ Bài 3</a>
+  <a href="#bai4">🪤 Bài 4</a>
+  <a href="#source">📜 Source code</a>
+</div></nav>
+
+<div class="wrap">
+
+<!-- ================= TỔNG QUAN ================= -->
+<section id="tong-quan">
+  <h2><span class="num">🍿</span>Tóm tắt 30 giây cho người ngoại đạo</h2>
+  <p class="lead">SFT dạy model "nói đúng mẫu". DPO dạy model "thích câu này hơn câu kia" — bằng cách so sánh từng cặp: một câu được chọn (chosen) và một câu bị loại (rejected), rồi đẩy câu được chọn lên, kéo câu bị loại xuống, trong khi vẫn neo vào model gốc để khỏi trôi quá xa.</p>
+  <div class="grid">
+    <div class="concept"><h4>🔢 Bài 1 — Log-prob</h4><p>Log-prob của câu 4 token = <b>−9,1231</b> (luôn âm); đổi token thành argmax → tăng lên −7,8405. Câu rỗng → ValueError.</p></div>
+    <div class="concept blue"><h4>⚖️ Bài 2 — Loss + gradient</h4><p>Policy = ref → loss đúng <b>0,6931</b> = −log(0,5). Một bước −grad: loss giảm, chosen tăng, rejected giảm. Quên detach → mốc tự di chuyển.</p></div>
+    <div class="concept amber"><h4>🎚️ Bài 3 — Quét β ⭐</h4><p>Phát hiện quan trọng: độ trôi theo β có dạng <b>chữ U ngược, đỉnh ở β=0,1</b> — KHÔNG đơn điệu như đề bài nói. "β nhỏ trôi xa hơn" chỉ đúng ở giới hạn tiệm cận.</p></div>
+    <div class="concept red"><h4>🪤 Bài 4 — Reward hacking</h4><p>Reward −14,4 → +0,1 trong 30 bước, độ dài 4 → 34, nhưng token có thông tin đứng yên ở 4. Model học "dài" thay vì "hay".</p></div>
+  </div>
+  <div class="analogy"><b>⚓ Ví dụ — Dây neo:</b> DPO giống như dạy chó đi dạo: bạn muốn nó đi về phía câu trả lời hay (chosen) và tránh câu dở (rejected), nhưng vẫn cột dây neo vào cột mốc cũ (model tham chiếu) để nó không chạy mất. β chính là <b>độ dài dây neo</b>: dây càng ngắn (β lớn) càng giữ gần mốc, dây càng dài (β nhỏ) càng cho trôi xa.</div>
+</section>
+
+<!-- ================= DPO LÀ GÌ ================= -->
+<section id="dpo">
+  <h2><span class="num">🧩</span>DPO là gì: học từ cặp "thích hơn", không cần hàm reward riêng</h2>
+  <p class="lead">RLHF cổ điển cần train thêm một model reward rồi mới tối ưu policy — cồng kềnh. DPO bỏ luôn model reward: loss được viết trực tiếp từ policy và model tham chiếu (ref). Mỗi mẫu train là một cặp: câu được con người chọn (w = winner) và câu bị loại (l = loser).</p>
+  <div class="formula">Loss = −log σ( β × [ (logp<sub>policy</sub>(w) − logp<sub>ref</sub>(w)) − (logp<sub>policy</sub>(l) − logp<sub>ref</sub>(l)) ] )
+    <small>σ là hàm sigmoid · β là hệ số neo (phải &gt; 0) · ref luôn được detach — mốc không bao giờ di chuyển</small>
+  </div>
+  <div class="diagram">
+    <svg viewBox="0 0 760 150" xmlns="http://www.w3.org/2000/svg" font-family="sans-serif">
+      <rect x="10" y="45" width="170" height="60" rx="12" fill="#ede9fe" stroke="#6d28d9" stroke-width="2"/>
+      <text x="95" y="72" text-anchor="middle" font-size="15" font-weight="700" fill="#5b21b6">Cặp preference</text>
+      <text x="95" y="92" text-anchor="middle" font-size="12" fill="#6b7280">chosen ✅ / rejected ❌</text>
+      <text x="205" y="80" font-size="22" fill="#6d28d9">→</text>
+      <rect x="240" y="45" width="170" height="60" rx="12" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+      <text x="325" y="72" text-anchor="middle" font-size="15" font-weight="700" fill="#1e40af">Hiệu log-ratio</text>
+      <text x="325" y="92" text-anchor="middle" font-size="12" fill="#6b7280">Δ = ratio(w) − ratio(l)</text>
+      <text x="435" y="80" font-size="22" fill="#6d28d9">→</text>
+      <rect x="470" y="45" width="130" height="60" rx="12" fill="#fef3c7" stroke="#b45309" stroke-width="2"/>
+      <text x="535" y="72" text-anchor="middle" font-size="15" font-weight="700" fill="#92400e">× β rồi σ</text>
+      <text x="535" y="92" text-anchor="middle" font-size="12" fill="#6b7280">sigmoid(β·Δ)</text>
+      <text x="625" y="80" font-size="22" fill="#6d28d9">→</text>
+      <rect x="650" y="45" width="100" height="60" rx="12" fill="#d1fae5" stroke="#047857" stroke-width="2"/>
+      <text x="700" y="72" text-anchor="middle" font-size="15" font-weight="700" fill="#065f46">−log σ</text>
+      <text x="700" y="92" text-anchor="middle" font-size="12" fill="#6b7280">loss DPO</text>
+    </svg>
+    <div class="caption">Dòng chảy của loss DPO: từ cặp preference → hiệu log-ratio → sigmoid → loss. Δ càng lớn (policy phân biệt chosen/rejected càng rõ) thì loss càng nhỏ.</div>
+  </div>
+</section>
+
+<!-- ================= BÀI 1 ================= -->
+<section id="bai1">
+  <h2><span class="num">🔢</span>Bài 1 — Log-prob của một câu trả lời: 3 bước, không có gì bí ẩn</h2>
+  <p class="lead"><code>sequence_logprob</code> làm đúng 3 việc: (1) log_softmax theo chiều vocab → bảng log-xác suất, (2) gather log-prob của đúng token tại mỗi vị trí, (3) cộng tất cả lại.</p>
+  <table class="mini">
+    <tr><th>Thí nghiệm (câu 4 token, vocab 10, seed 0)</th><th>Kết quả</th><th>Ý nghĩa</th></tr>
+    <tr><td>Log-prob câu gốc [3, 1, 7, 2]</td><td class="num">−9,1231</td><td>Luôn âm — đúng bản chất log(xác suất &lt; 1)</td></tr>
+    <tr><td>Đổi token 0 thành argmax tại vị trí đó</td><td class="num">−7,8405 (tăng)</td><td>Gather đúng chiều: token tốt nhất cho log-prob cao nhất</td></tr>
+    <tr><td>Câu rỗng</td><td class="num">ValueError</td><td>Tổng trên 0 token = 0.0, không còn là log-prob âm — dễ gây hiểu nhầm nên chặn</td></tr>
+    <tr><td>Token vượt vocab / β ≤ 0</td><td class="num">ValueError</td><td>Guard ngay đầu hàm (checklist edge case)</td></tr>
+  </table>
+  <div class="demo">
+    <h3>🧮 Thử ngay: máy tính loss DPO</h3>
+    <p style="margin-top:0">Nhập β và hiệu margin Δ = ratio(w) − ratio(l) — công thức −log σ(β·Δ):</p>
+    <label>β (hệ số neo, &gt; 0):</label>
+    <input type="number" id="betaIn" value="0.1" step="0.05" min="0.01">
+    <label>Δ margin (hiệu log-ratio):</label>
+    <input type="number" id="marginIn" value="0" step="0.5">
+    <button class="btn" id="lossBtn" style="margin-left:0">🧮 Tính loss</button>
+    <div class="big-out" id="lossOut">Bấm nút để tính…</div>
+    <p class="caption">Thử Δ = 0 → loss = 0,6931 (đúng điểm xuất phát policy = ref ở Bài 2). Δ càng lớn → loss càng tiến về 0. β càng lớn → cùng một Δ cho loss nhỏ hơn (vì β nhân trực tiếp vào margin trong sigmoid).</p>
+  </div>
+</section>
+
+<!-- ================= BÀI 2 ================= -->
+<section id="bai2">
+  <h2><span class="num">⚖️</span>Bài 2 — Loss DPO và gradient: hai phía ngược dấu, mốc đứng yên</h2>
+  <p class="lead">Điểm xuất phát "chưa phân biệt được chosen và rejected": khi policy = ref, cả hai hiệu log-ratio đều bằng 0 → sigmoid(0) = 0,5 → loss = −log(0,5) = <b>0,6931</b>. Code assert đúng đến 1e-4.</p>
+  <table class="mini">
+    <tr><th>Sau một bước −grad (lr = 0,1)</th><th>Trước</th><th>Sau</th><th>Chiều</th></tr>
+    <tr><td>Loss</td><td class="num">0,6931</td><td class="num">0,6905</td><td>✅ giảm</td></tr>
+    <tr><td>Chosen logp</td><td class="num">−19,3522</td><td class="num">−19,3258</td><td>⬆️ tăng</td></tr>
+    <tr><td>Rejected logp</td><td class="num">−18,0526</td><td class="num">−18,0794</td><td>⬇️ giảm</td></tr>
+  </table>
+  <p>Gradient hai phía ngược dấu (norm 0,1150 / 0,1157) vì loss phụ thuộc vào <b>hiệu</b> (logp_w − logp_l): tăng chosen hoặc giảm rejected đều làm tăng hiệu, giảm loss. Đúng trực giác DPO: đẩy chosen lên, kéo rejected xuống.</p>
+
+  <div class="bad"><b>🚨 Thí nghiệm "quên detach" — lỗi nghiêm trọng, không phải lỗi nhỏ:</b> nếu không detach ref, gradient chạy ngược vào ref với norm đúng 0,1150 / 0,1157 — tức mốc tự di chuyển theo hướng làm loss giảm. Hậu quả: <b>loss có thể giảm mà policy chẳng học được gì</b> (cả hai cùng trôi). Với detach đúng trong hàm (phòng thủ cả khi caller đưa ref có grad), ref grad = <b>None</b> — mốc không di chuyển. Hàm <code>dpo_loss</code> detach ref ngay bên trong chính vì vậy.</div>
+
+  <div class="card"><h3 style="margin-top:0">💬 Trả lời 3 câu của đề bài</h3>
+    <ol class="tight" style="margin-bottom:0">
+      <li><b>Vì sao loss ~0,693?</b> Policy = ref → cả hai hiệu bằng 0 → sigmoid(0) = 0,5 → −log(0,5) = 0,693.</li>
+      <li><b>Vì sao gradient chosen/rejected ngược dấu?</b> Loss phụ thuộc vào hiệu (logp_w − logp_l): tăng chosen hoặc giảm rejected đều tăng hiệu, giảm loss.</li>
+      <li><b>Quên detach thì sao?</b> Gradient chạy vào ref, mốc di chuyển theo hướng làm loss giảm — policy có thể không học gì mà loss vẫn giảm. Lỗi nghiêm trọng.</li>
+    </ol>
+  </div>
+</section>
+
+<!-- ================= BÀI 3 ================= -->
+<section id="bai3">
+  <h2><span class="num">🎚️</span>Bài 3 — Quét β: phát hiện quan trọng, đề bài nói chưa đủ</h2>
+  <p class="lead">Cùng cặp logits giả, cùng SGD lr = 0,5, chỉ β thay đổi. Đề bài nói "β càng nhỏ, policy càng trôi xa ref và học preference càng nhanh". Số đo thật cho thấy câu này <b>chỉ đúng một nửa</b>.</p>
+  <table class="mini">
+    <tr><th>β</th><th>Δchosen 50 bước</th><th>Δchosen 200 bước</th><th>Độ lệch rejected (50b)</th><th>Loss 50b</th></tr>
+    <tr><td>0,05</td><td class="num">+2,9656</td><td class="num">+8,7366</td><td class="num">−3,1592</td><td class="num">0,5541</td></tr>
+    <tr class="hl"><td>0,1 ⭐</td><td class="num">+4,6831</td><td class="num">+9,7818</td><td class="num">−5,1517</td><td class="num">0,3217</td></tr>
+    <tr><td>0,5</td><td class="num">+4,0078</td><td class="num">+5,2658</td><td class="num">−4,3459</td><td class="num">0,0155</td></tr>
+    <tr><td>1,0</td><td class="num">+2,7389</td><td class="num">+3,3724</td><td class="num">−2,8914</td><td class="num">0,0037</td></tr>
+  </table>
+
+  <div class="card"><h3 style="margin-top:0">📊 Độ trôi sau 50 bước: chữ U ngược, đỉnh ở β = 0,1</h3>
+    <p style="margin-bottom:0">Với ngân sách 50 bước cố định, độ trôi KHÔNG đơn điệu theo β: β = 0,05 trôi ít nhất trong nhóm nhỏ (+2,97), β = 0,1 trôi nhiều nhất (+4,68), rồi giảm dần về β = 1,0 (+2,74).</p>
+    <div class="bar-wrap" style="margin-top:14px"><div class="bar-fill" style="width:63%;background:#a78bfa"></div></div>
+    <div class="bar-lab">β = 0,05 → +2,9656</div>
+    <div class="bar-wrap"><div class="bar-fill" style="width:100%;background:#6d28d9"></div></div>
+    <div class="bar-lab">β = 0,1 → +4,6831 ⭐ đỉnh U ngược</div>
+    <div class="bar-wrap"><div class="bar-fill" style="width:86%;background:#8b5cf6"></div></div>
+    <div class="bar-lab">β = 0,5 → +4,0078</div>
+    <div class="bar-wrap"><div class="bar-fill" style="width:58%;background:#c4b5fd"></div></div>
+    <div class="bar-lab">β = 1,0 → +2,7389</div>
+  </div>
+
+  <div class="warn"><b>🔬 Giải thích bằng cơ chế gradient:</b> gradient tỉ lệ với <b>β·σ(−β·Δ)</b>. β nhỏ khởi động chậm (gradient nhỏ) nhưng không bao hòa; β lớn khởi động nhanh nhưng bão hòa sớm ở Δ nhỏ. Chạy thêm 200 bước để kiểm chứng: β = 0,05 vẫn tiếp tục trôi (+2,97 → +8,74) trong khi β = 1,0 gần như đứng yên (+2,74 → +3,37). Vậy:
+    <ul style="margin-bottom:0">
+      <li><b>"β nhỏ trôi xa hơn" chỉ đúng ở giới hạn tiệm cận</b> (đủ bước), không đúng trong ngân sách bước cố định.</li>
+      <li><b>"Học nhanh" nếu đo bằng loss thì ngược lại:</b> β lớn giảm loss nhanh hơn (0,55 → 0,004) vì β nhân trực tiếp vào margin trong sigmoid.</li>
+    </ul>
+  </div>
+
+  <div class="demo">
+    <h3>🎚️ Thử ngay: so sánh 50 bước vs 200 bước</h3>
+    <p style="margin-top:0">Chọn β để xem độ trôi chosen sau 50 và 200 bước (số đo thật từ lab):</p>
+    <div class="seg">
+      <button class="betabtn active" data-beta="0.05">β = 0,05</button>
+      <button class="betabtn" data-beta="0.1">β = 0,1</button>
+      <button class="betabtn" data-beta="0.5">β = 0,5</button>
+      <button class="betabtn" data-beta="1.0">β = 1,0</button>
+    </div>
+    <div class="big-out" id="betaOut"></div>
+    <p class="caption">Bài học phương pháp: đừng suy diễn cơ chế từ một bảng số duy nhất — chạy thêm một ngân sách bước khác để kiểm chứng, đúng như checklist "ablation chỉ đổi 1 biến" của khóa này.</p>
+  </div>
+
+  <p class="caption">Ghi chú trung thực của lab: vì policy khởi tạo = ref nên (a) logp chosen tăng và (b) độ lệch khỏi ref <b>trùng nhau đúng</b> — không phải 2 số độc lập như đề bài liệt kê; nếu khởi tạo khác ref thì chúng mới khác nhau.</p>
+</section>
+
+<!-- ================= BÀI 4 ================= -->
+<section id="bai4">
+  <h2><span class="num">🪤</span>Bài 4 — Mô phỏng reward hacking: reward tăng, chất lượng đứng yên</h2>
+  <p class="lead">Reward = logp_policy(câu) + 0,5 × độ dài. Tối ưu trần 30 bước (không KL, không ref), mỗi bước nối thêm 1 token đệm vô nghĩa. Kết quả:</p>
+  <table class="mini">
+    <tr><th>Bước</th><th>Độ dài</th><th>Reward</th><th>Token có thông tin</th></tr>
+    <tr><td>0</td><td class="num">4</td><td class="num">−14,410</td><td class="num">4</td></tr>
+    <tr><td>10</td><td class="num">14</td><td class="num">−9,982</td><td class="num">4 (đứng yên)</td></tr>
+    <tr><td>20</td><td class="num">24</td><td class="num">−6,630</td><td class="num">4 (đứng yên)</td></tr>
+    <tr><td>30</td><td class="num">34</td><td class="num">+0,096</td><td class="num">4 (đứng yên)</td></tr>
+  </table>
+  <p>Reward tăng đều (từ −14,4 lên +0,1) nhờ cộng độ dài (+0,5 mỗi token đệm) và logp token đệm cũng tăng theo ascent — nhưng câu không thêm thông tin gì. Đó là reward hacking thu nhỏ: tối ưu reward trần mà không có KL neo về ref, model học "độ dài" thay vì "chất lượng". Lý do bài sáng yêu cầu đánh giá μ + dừng sớm, không chỉ nhìn reward.</p>
+
+  <div class="demo">
+    <h3>📏 Thử ngay: kéo thanh bước để xem reward hacking diễn ra</h3>
+    <p style="margin-top:0">Kéo từ 0 → 30 bước (nội suy tuyến tính giữa các điểm đo thật 0/10/20/30 — token thông tin luôn = 4):</p>
+    <input type="range" id="hackRange" min="0" max="30" step="1" value="0">
+    <div class="big-out" id="hackOut"></div>
+    <p class="caption">Điểm mấu chốt: đường reward đi lên dốc đều trong khi đường "thông tin" là đường thẳng ngang. Nếu chỉ nhìn reward, bạn sẽ tưởng model càng ngày càng giỏi.</p>
+  </div>
+
+  <div class="analogy"><b>📝 Ví dụ — Chấm bài theo số trang:</b> reward hacking giống như giáo viên chấm điểm theo <b>số trang</b> thay vì nội dung: học sinh viết dài lê thê toàn câu đệm, điểm tăng vù vù mà bài không hay hơn chữ nào. KL neo về ref trong DPO chính là "thang điểm nội dung" giữ cho model khỏi học mẹo độ dài.</div>
+</section>
+
+<!-- ================= CHECKLIST ================= -->
+<section id="checklist">
+  <h2><span class="num">✅</span>Checklist tự soát 7 điểm — lab này áp dụng ra sao</h2>
+  <ul class="tight">
+    <li><b>Edge case:</b> câu rỗng, token vượt vocab, β ≤ 0 đều có ValueError rõ ràng ở đầu hàm.</li>
+    <li><b>Docstring đúng code:</b> viết sau khi đọc lại code (kiểu trả về, Args).</li>
+    <li><b>Device:</b> không có tensor mới kiểu arange/zeros trong forward (lab logits giả, CPU) — không dính bug device.</li>
+    <li><b>File I/O:</b> không đọc file — không dính giả định shape file.</li>
+    <li><b>Đo thời gian:</b> bằng <code>perf_counter()</code>.</li>
+    <li><b>Ablation 1 biến:</b> quét β giữ nguyên cặp logits, seed, bước, lr; thêm bản 200 bước để kiểm chứng cơ chế thay vì suy diễn từ 1 bảng số.</li>
+    <li><b>Resource cleanup:</b> không có resource cần đóng trong finally (không tracker, không file).</li>
+  </ul>
+  <p class="caption">Nguyên tắc tiết kiệm của khóa học, thể hiện rõ ở lab này: chứng minh công thức đúng trên đồ chơi trước (3,9 giây CPU), rồi mới đốt GPU cho model thật.</p>
+</section>
+
+<!-- ================= SOURCE ================= -->
+<section id="source">
+  <h2><span class="num">📜</span>Toàn bộ source code — dpo_lab.py</h2>
+  <p class="lead">File đầy đủ. Bấm nút để copy:</p>
+  <button class="btn" onclick="copySrc()">📋 Copy toàn bộ code</button>
+  <pre id="srcBlock"><code><span class="cm">#!/usr/bin/env python3</span>
+<span class="cm"># -*- coding: utf-8 -*-</span>
+<span class="str">&quot;&quot;&quot;Lab DPO tren logits gia (Day 19 - buoi toi).
+
+Khong can model that, khong can GPU, chi can logits gia va
+PyTorch tren CPU. Lam xong se hieu vi sao phai detach model
+tham chieu va vi sao beta la day neo.
+
+Bai 1: log-prob cua mot cau tra loi (log_softmax -&gt; gather
+    -&gt; cong). Kiem chung: log-prob am, tang khi doi token thanh
+    argmax.
+Bai 2: loss DPO + soi gradient. Policy == ref -&gt; loss ~0.693.
+    Gradient chosen/rejected nguoc dau. Thi nghiem quen detach
+    (ref nhan gradient -&gt; moc tu di chuyen, loi nghiem trong).
+Bai 3: quet beta {0.05, 0.1, 0.5, 1.0}, moi beta train 50 buoc
+    SGD (lr=0.5) tren cung cap logits gia. Chi beta thay doi,
+    moi thu khac giu nguyen.
+Bai 4 (nang cao): mo phong reward hacking - reward = logp +
+    0.5 x do dai, toi uu tran 30 buoc: reward tang, do dai tang,
+    so token co thong tin dung yen.
+
+Cach chay (CPU, venv Day 15):
+    ~/workspace/venvs/day15/bin/python dpo_lab.py
+&quot;&quot;&quot;</span>
+
+<span class="kw">import</span> time
+
+<span class="kw">import</span> torch
+<span class="kw">import</span> torch.nn.functional <span class="kw">as</span> F
+
+BETA_SWEEP = [<span class="num2">0.05</span>, <span class="num2">0.1</span>, <span class="num2">0.5</span>, <span class="num2">1.0</span>]
+SWEEP_STEPS = <span class="num2">50</span>
+SWEEP_LR = <span class="num2">0.5</span>
+HACK_STEPS = <span class="num2">30</span>
+HACK_LR = <span class="num2">0.5</span>
+HACK_BONUS = <span class="num2">0.5</span>
+
+
+<span class="kw">def</span> sequence_logprob(logits, tokens):
+    <span class="str">&quot;&quot;&quot;Tong log-prob cua mot cau tra loi tu logits cua model.
+
+    Args:
+        logits: tensor (T, V) - logits du doan token tiep theo
+            tai moi vi tri.
+        tokens: tensor (T,) - cac token cua cau tra loi.
+
+    Returns:
+        Tensor scalar: tong log-prob (luon am vi log xac suat
+        &lt; 1, tru khi cau rong).
+
+    Raises:
+        ValueError: neu cau rong (tong tren 0 token = 0.0, khong
+            con la log-prob am, de gay hieu nham) hoac token
+            vuot khoi vocab.
+    &quot;&quot;&quot;</span>
+    <span class="kw">if</span> tokens.numel() == <span class="num2">0</span>:
+        <span class="kw">raise</span> ValueError(<span class="str">&quot;tokens khong duoc rong.&quot;</span>)
+    <span class="kw">if</span> tokens.min().item() &lt; <span class="num2">0</span> <span class="kw">or</span> tokens.max().item() &gt;= logits.shape[<span class="num2">1</span>]:
+        <span class="kw">raise</span> ValueError(<span class="str">&quot;token vuot khoi vocab.&quot;</span>)
+    <span class="cm"># Buoc 1: log_softmax theo chieu vocab.</span>
+    log_probs = F.log_softmax(logits, dim=-<span class="num2">1</span>)
+    <span class="cm"># Buoc 2: gather log-prob cua dung token tai moi vi tri.</span>
+    picked = log_probs.gather(<span class="num2">1</span>, tokens.unsqueeze(<span class="num2">1</span>)).squeeze(<span class="num2">1</span>)
+    <span class="cm"># Buoc 3: cong tat ca lai.</span>
+    <span class="kw">return</span> picked.sum()
+
+
+<span class="kw">def</span> dpo_loss(policy_logits_w, policy_logits_l, ref_logits_w,
+             ref_logits_l, tokens_w, tokens_l, beta=<span class="num2">0.1</span>):
+    <span class="str">&quot;&quot;&quot;Loss DPO: -log sigmoid(beta * (ratio_w - ratio_l)).
+
+    ratio = logp_policy - logp_ref (do lech khoi moc). Ref DUOC
+    DETACH trong ham (phong thu: ke ca caller dua ref co grad
+    thi ham van detach) - ref la moc co dinh, khong nhan grad.
+
+    Args:
+        beta: he so neo, phai &gt; 0 (beta &lt;= 0 lam mat y nghia
+            &quot;neo ve ref&quot; cua loss).
+
+    Raises:
+        ValueError: neu beta &lt;= 0.
+    &quot;&quot;&quot;</span>
+    <span class="kw">if</span> beta &lt;= <span class="num2">0</span>:
+        <span class="kw">raise</span> ValueError(<span class="str">&quot;beta phai &gt; 0.&quot;</span>)
+    logp_w = sequence_logprob(policy_logits_w, tokens_w)
+    logp_l = sequence_logprob(policy_logits_l, tokens_l)
+    logp_ref_w = sequence_logprob(ref_logits_w.detach(), tokens_w)
+    logp_ref_l = sequence_logprob(ref_logits_l.detach(), tokens_l)
+    logits = beta * ((logp_w - logp_ref_w) - (logp_l - logp_ref_l))
+    <span class="kw">return</span> -F.logsigmoid(logits)
+
+
+<span class="kw">def</span> dpo_loss_no_detach(policy_logits_w, policy_logits_l, ref_logits_w,
+                       ref_logits_l, tokens_w, tokens_l, beta=<span class="num2">0.1</span>):
+    <span class="str">&quot;&quot;&quot;Ban DPO QUEN detach (chi de thi nghiem Bay 1, khong dung).
+
+    Giong dpo_loss nhung khong detach ref - gradient se chay
+    nguoc vao ref, moc tu di chuyen.
+    &quot;&quot;&quot;</span>
+    logp_w = sequence_logprob(policy_logits_w, tokens_w)
+    logp_l = sequence_logprob(policy_logits_l, tokens_l)
+    logp_ref_w = sequence_logprob(ref_logits_w, tokens_w)
+    logp_ref_l = sequence_logprob(ref_logits_l, tokens_l)
+    logits = beta * ((logp_w - logp_ref_w) - (logp_l - logp_ref_l))
+    <span class="kw">return</span> -F.logsigmoid(logits)
+
+
+<span class="kw">def</span> bai1():
+    <span class="str">&quot;&quot;&quot;Bai 1: log-prob cua mot cau tra loi.&quot;&quot;&quot;</span>
+    print(<span class="str">&quot;=&quot;</span> * <span class="num2">72</span>)
+    print(<span class="str">&quot;BAI 1 - Log-prob cua mot cau tra loi&quot;</span>)
+    print(<span class="str">&quot;=&quot;</span> * <span class="num2">72</span>)
+    torch.manual_seed(<span class="num2">0</span>)
+    logits = torch.randn(<span class="num2">4</span>, <span class="num2">10</span>)
+    tokens = torch.tensor([<span class="num2">3</span>, <span class="num2">1</span>, <span class="num2">7</span>, <span class="num2">2</span>])
+    lp = sequence_logprob(logits, tokens)
+    print(f&quot;logprob: {lp.item():.4f} (phai am).&quot;)
+    <span class="kw">assert</span> lp.item() &lt; <span class="num2">0</span>, <span class="str">&quot;log-prob phai am!&quot;</span>
+    <span class="cm"># Doi token dau thanh argmax tai vi tri do -&gt; log-prob tang.</span>
+    tokens_better = tokens.clone()
+    tokens_better[<span class="num2">0</span>] = logits[<span class="num2">0</span>].argmax()
+    lp_better = sequence_logprob(logits, tokens_better)
+    print(f&quot;Sau khi doi token 0 thanh argmax: {lp_better.item():.4f} &quot;
+          f&quot;(tang: {lp_better.item() &gt; lp.item()}).&quot;)
+    <span class="kw">assert</span> lp_better.item() &gt; lp.item(), <span class="str">&quot;argmax phai tang logprob!&quot;</span>
+    <span class="cm"># Edge case: cau rong bi chan.</span>
+    <span class="kw">try</span>:
+        sequence_logprob(logits, torch.tensor([], dtype=torch.long))
+        print(<span class="str">&quot;CANH BAO: cau rong khong bi chan!&quot;</span>)
+    <span class="kw">except</span> ValueError <span class="kw">as</span> exc:
+        print(f&quot;Edge case cau rong: chan dung ({exc}).&quot;)
+    <span class="cm"># Edge case: beta &lt;= 0 bi chan.</span>
+    <span class="kw">try</span>:
+        dpo_loss(logits, logits, logits, logits, tokens, tokens,
+                 beta=<span class="num2">0.0</span>)
+        print(<span class="str">&quot;CANH BAO: beta=0 khong bi chan!&quot;</span>)
+    <span class="kw">except</span> ValueError <span class="kw">as</span> exc:
+        print(f&quot;Edge case beta=0: chan dung ({exc}).&quot;)
+
+
+<span class="kw">def</span> bai2():
+    <span class="str">&quot;&quot;&quot;Bai 2: loss DPO va soi gradient.&quot;&quot;&quot;</span>
+    print(<span class="str">&quot;\n&quot;</span> + <span class="str">&quot;=&quot;</span> * <span class="num2">72</span>)
+    print(<span class="str">&quot;BAI 2 - Loss DPO va gradient&quot;</span>)
+    print(<span class="str">&quot;=&quot;</span> * <span class="num2">72</span>)
+    torch.manual_seed(<span class="num2">0</span>)
+    vocab_size, seq_len = <span class="num2">20</span>, <span class="num2">5</span>
+    base = torch.randn(seq_len, vocab_size)
+    ref_w, ref_l = base.clone(), base.clone()
+    pol_w = base.clone().requires_grad_(<span class="kw">True</span>)
+    pol_l = base.clone().requires_grad_(<span class="kw">True</span>)
+    tok_w = torch.randint(<span class="num2">0</span>, vocab_size, (seq_len,))
+    tok_l = torch.randint(<span class="num2">0</span>, vocab_size, (seq_len,))
+    loss = dpo_loss(pol_w, pol_l, ref_w, ref_l, tok_w, tok_l,
+                    beta=<span class="num2">0.1</span>)
+    print(f&quot;loss khi policy == ref: {loss.item():.4f} &quot;
+          f&quot;(ky vong ~0.693 = -log(0.5)).&quot;)
+    <span class="kw">assert</span> abs(loss.item() - <span class="num2">0.693147</span>) &lt; <span class="num2">1e-4</span>, <span class="str">&quot;loss phai ~0.693!&quot;</span>
+    loss.backward()
+    print(f&quot;grad policy chosen, norm: {pol_w.grad.norm().item():.4f}&quot;)
+    print(f&quot;grad policy rejected, norm: &quot;
+          f&quot;{pol_l.grad.norm().item():.4f}&quot;)
+    <span class="cm"># Buoc nho theo -grad: loss phai giam, chosen logp tang,</span>
+    <span class="cm"># rejected logp giam (kiem chung so hoc, khong doan).</span>
+    lp_w_before = sequence_logprob(pol_w.detach(), tok_w).item()
+    lp_l_before = sequence_logprob(pol_l.detach(), tok_l).item()
+    step = <span class="num2">0.1</span>
+    pol_w_new = pol_w.detach() - step * pol_w.grad
+    pol_l_new = pol_l.detach() - step * pol_l.grad
+    loss_new = dpo_loss(pol_w_new, pol_l_new, ref_w, ref_l,
+                        tok_w, tok_l, beta=<span class="num2">0.1</span>).item()
+    lp_w_after = sequence_logprob(pol_w_new, tok_w).item()
+    lp_l_after = sequence_logprob(pol_l_new, tok_l).item()
+    print(f&quot;Sau buoc -grad (lr={step}): loss {loss.item():.4f} -&gt; &quot;
+          f&quot;{loss_new:.4f} (giam: {loss_new &lt; loss.item()}).&quot;)
+    print(f&quot;  chosen logp: {lp_w_before:.4f} -&gt; {lp_w_after:.4f} &quot;
+          f&quot;(tang: {lp_w_after &gt; lp_w_before}).&quot;)
+    print(f&quot;  rejected logp: {lp_l_before:.4f} -&gt; {lp_l_after:.4f} &quot;
+          f&quot;(giam: {lp_l_after &lt; lp_l_before}).&quot;)
+    <span class="cm"># Thi nghiem quen detach: ref nhan gradient (Bay 1).</span>
+    print(<span class="str">&quot;\nThi nghiem QUEN detach (de doi chieu):&quot;</span>)
+    ref_w_g = base.clone().requires_grad_(<span class="kw">True</span>)
+    ref_l_g = base.clone().requires_grad_(<span class="kw">True</span>)
+    pol_w2 = base.clone().requires_grad_(<span class="kw">True</span>)
+    pol_l2 = base.clone().requires_grad_(<span class="kw">True</span>)
+    loss_bad = dpo_loss_no_detach(pol_w2, pol_l2, ref_w_g, ref_l_g,
+                                  tok_w, tok_l, beta=<span class="num2">0.1</span>)
+    loss_bad.backward()
+    print(f&quot;  grad ref chosen, norm: &quot;
+          f&quot;{ref_w_g.grad.norm().item():.4f} (phai &gt; 0 neu quen &quot;
+          f&quot;detach - moc tu di chuyen!).&quot;)
+    print(f&quot;  grad ref rejected, norm: &quot;
+          f&quot;{ref_l_g.grad.norm().item():.4f}.&quot;)
+    <span class="cm"># Voi detach dung (ham tu detach ben trong): ke ca ref co</span>
+    <span class="cm"># requires_grad thi grad van None - moc khong di chuyen.</span>
+    ref_w_d = base.clone().requires_grad_(<span class="kw">True</span>)
+    ref_l_d = base.clone().requires_grad_(<span class="kw">True</span>)
+    pol_w3 = base.clone().requires_grad_(<span class="kw">True</span>)
+    pol_l3 = base.clone().requires_grad_(<span class="kw">True</span>)
+    loss_ok = dpo_loss(pol_w3, pol_l3, ref_w_d, ref_l_d,
+                       tok_w, tok_l, beta=<span class="num2">0.1</span>)
+    loss_ok.backward()
+    print(f&quot;  Voi detach dung (ref co requires_grad): ref grad = &quot;
+          f&quot;{ref_w_d.grad} (None = moc khong di chuyen).&quot;)
+
+
+<span class="kw">def</span> bai3():
+    <span class="str">&quot;&quot;&quot;Bai 3: quet beta - day neo chat hay long?
+
+    Chi beta thay doi; cung cap logits gia, cung lr. Vi policy
+    khoi tao = ref nen (a) logp chosen tang va (b) do lech khoi
+    ref TRUNG NHAU - ghi ro dieu nay thay vi gia vo la 2 so
+    khac nhau. Them do lech phia rejected de thay muc do policy
+    dich chuyen toan dien.
+
+    PHAT HIEN QUAN TRONG (so that, khong theo de bai): voi 50
+    buoc co dinh, do troi KHONG don dieu theo beta ma co dang
+    chu U nguoc, dinh o beta=0.1. Ly do: gradient ti le voi
+    beta*sigmoid(-beta*Δ) - beta nho khoi dong cham (gradient
+    nho) nhung khong bao hoa, beta lon khoi dong nhanh nhung
+    bao hoa som. Chay them 200 buoc de kiem chung: beta nho
+    van tiep tuc troi (+2.97 -&gt; +8.74) trong khi beta=1.0 gan
+    nhu dung yen (+2.74 -&gt; +3.37). Vay khang dinh &quot;beta nho
+    troi xa hon&quot; cua de bai chi dung o gioi han TIEM CAN (du
+    buoc), khong dung trong ngan sach buoc co dinh. Va &quot;hoc
+    nhanh&quot; neu do bang loss thi nguoc lai: beta lon giam loss
+    nhanh hon (vi beta nhan truc tiep vao margin trong
+    sigmoid) - loss cuoi 50 buoc: 0.55 / 0.32 / 0.016 / 0.004.
+    &quot;&quot;&quot;</span>
+    print(<span class="str">&quot;\n&quot;</span> + <span class="str">&quot;=&quot;</span> * <span class="num2">72</span>)
+    print(<span class="str">&quot;BAI 3 - Quet beta&quot;</span>)
+    print(<span class="str">&quot;=&quot;</span> * <span class="num2">72</span>)
+    print(<span class="str">&quot;beta | Δchosen 50b | Δchosen 200b | do lech rejected &quot;</span>
+          <span class="str">&quot;(50b) | loss 50b&quot;</span>)
+    <span class="kw">for</span> beta <span class="kw">in</span> BETA_SWEEP:
+        torch.manual_seed(<span class="num2">0</span>)
+        vocab_size, seq_len = <span class="num2">20</span>, <span class="num2">5</span>
+        base = torch.randn(seq_len, vocab_size)
+        ref_w, ref_l = base.clone(), base.clone()
+        tok_w = torch.randint(<span class="num2">0</span>, vocab_size, (seq_len,))
+        tok_l = torch.randint(<span class="num2">0</span>, vocab_size, (seq_len,))
+        row = {}
+        <span class="kw">for</span> steps <span class="kw">in</span> (<span class="num2">50</span>, <span class="num2">200</span>):
+            pol_w = base.clone().requires_grad_(<span class="kw">True</span>)
+            pol_l = base.clone().requires_grad_(<span class="kw">True</span>)
+            opt = torch.optim.SGD([pol_w, pol_l], lr=SWEEP_LR)
+            lp_w_init = sequence_logprob(pol_w.detach(),
+                                         tok_w).item()
+            <span class="kw">for</span> _ <span class="kw">in</span> range(steps):
+                opt.zero_grad()
+                loss = dpo_loss(pol_w, pol_l, ref_w, ref_l,
+                                tok_w, tok_l, beta=beta)
+                loss.backward()
+                opt.step()
+            lp_w_final = sequence_logprob(pol_w.detach(),
+                                          tok_w).item()
+            lp_l_final = sequence_logprob(pol_l.detach(),
+                                          tok_l).item()
+            lp_ref_w = sequence_logprob(ref_w, tok_w).item()
+            lp_ref_l = sequence_logprob(ref_l, tok_l).item()
+            row[steps] = (lp_w_final - lp_w_init,
+                          lp_l_final - lp_ref_l, loss.item())
+        print(f&quot;{beta:&gt;4} | {row[<span class="num2">50</span>][<span class="num2">0</span>]:&gt;+11.4f} | &quot;
+              f&quot;{row[<span class="num2">200</span>][<span class="num2">0</span>]:&gt;+12.4f} | {row[<span class="num2">50</span>][<span class="num2">1</span>]:&gt;+16.4f} | &quot;
+              f&quot;{row[<span class="num2">50</span>][<span class="num2">2</span>]:.4f}&quot;)
+    print(<span class="str">&quot;Ghi chu: vi policy khoi tao = ref nen Δlogp chosen va &quot;</span>
+          <span class="str">&quot;do lech khoi ref trung nhau dung - khong phai 2 so &quot;</span>
+          <span class="str">&quot;doc lap.&quot;</span>)
+
+
+<span class="kw">def</span> bai4():
+    <span class="str">&quot;&quot;&quot;Bai 4: mo phong reward hacking bang mat.
+
+    Reward = logp_policy(cau) + 0.5 x do dai. Moi buoc: noi them
+    1 token dem vo nghia (id 0) vao cau, roi gradient ascent
+    truc tiep reward (khong KL, khong ref). In sau moi 10 buoc:
+    do dai, reward, so token co thong tin (khong dem).
+    &quot;&quot;&quot;</span>
+    print(<span class="str">&quot;\n&quot;</span> + <span class="str">&quot;=&quot;</span> * <span class="num2">72</span>)
+    print(<span class="str">&quot;BAI 4 - Mo phong reward hacking&quot;</span>)
+    print(<span class="str">&quot;=&quot;</span> * <span class="num2">72</span>)
+    torch.manual_seed(<span class="num2">0</span>)
+    vocab_size, max_len = <span class="num2">20</span>, <span class="num2">40</span>
+    filler_id = <span class="num2">0</span>
+    logits = torch.randn(max_len, vocab_size, requires_grad=<span class="kw">True</span>)
+    <span class="cm"># Cau ban dau: 4 token co thong tin (khac filler).</span>
+    tokens = torch.tensor([<span class="num2">3</span>, <span class="num2">1</span>, <span class="num2">7</span>, <span class="num2">2</span>])
+    n_informative = len(tokens)
+    print(<span class="str">&quot;buoc | do dai | reward | token thong tin (that)&quot;</span>)
+    <span class="kw">for</span> step <span class="kw">in</span> range(HACK_STEPS + <span class="num2">1</span>):
+        <span class="kw">if</span> step &gt; <span class="num2">0</span>:
+            <span class="cm"># Noi them 1 token dem, roi ascent reward.</span>
+            tokens = torch.cat([tokens,
+                                torch.tensor([filler_id])])
+            reward = sequence_logprob(logits[:len(tokens)],
+                                      tokens) + HACK_BONUS * len(tokens)
+            reward.backward()
+            <span class="kw">with</span> torch.no_grad():
+                logits += HACK_LR * logits.grad
+            logits.grad = <span class="kw">None</span>
+        <span class="kw">if</span> step % <span class="num2">10</span> == <span class="num2">0</span> <span class="kw">or</span> step == HACK_STEPS:
+            reward_now = sequence_logprob(
+                logits[:len(tokens)].detach(),
+                tokens) + HACK_BONUS * len(tokens)
+            print(f&quot;{step:&gt;4} | {len(tokens):&gt;6} | &quot;
+                  f&quot;{reward_now.item():&gt;7.3f} | {n_informative} &quot;
+                  f&quot;(dung yen).&quot;)
+    print(<span class="str">&quot;Ket luan: reward tang deu nho cong do dai (+0.5 moi &quot;</span>
+          <span class="str">&quot;token dem) va logp cua token dem cung tang theo &quot;</span>
+          <span class="str">&quot;ascent, nhung so token co thong tin dung yen o 4 - &quot;</span>
+          <span class="str">&quot;cau dai ra ma khong them thong tin gi. Do la reward &quot;</span>
+          <span class="str">&quot;hacking thu nho: toi uu reward tran ma khong co KL &quot;</span>
+          <span class="str">&quot;neo ve ref, model se hoc &#x27;do dai&#x27; thay vi &#x27;chat luong&#x27;.&quot;</span>)
+
+
+<span class="kw">def</span> main():
+    <span class="str">&quot;&quot;&quot;Chay lab day du: Bai 1 -&gt; 4, do tong thoi gian CPU.&quot;&quot;&quot;</span>
+    t0 = time.perf_counter()
+    bai1()
+    bai2()
+    bai3()
+    bai4()
+    dt = time.perf_counter() - t0
+    print(<span class="str">&quot;\n&quot;</span> + <span class="str">&quot;=&quot;</span> * <span class="num2">72</span>)
+    print(f&quot;TOAN BO LAB CHAY TRONG {dt:.1f}s TREN CPU &quot;
+          f&quot;(logits gia, compute gan nhu bang 0 - dung nguyen tac &quot;
+          f&quot;tiet kiem cua khoa hoc: chung minh cong thuc dung &quot;
+          f&quot;tren do choi truoc, roi moi dot GPU cho model that).&quot;)
+
+
+<span class="kw">if</span> __name__ == <span class="str">&quot;__main__&quot;</span>:
+    main()
+</code></pre>
+</section>
+<script>
+function copySrc(){
+  var t=document.getElementById("srcBlock").innerText;
+  navigator.clipboard.writeText(t).then(function(){alert("Đã copy "+t.length+" ký tự!");});
+}
+</script>
+
+
+<script>
+function sigmoid(x){return 1/(1+Math.exp(-x));}
+function lossCalc(){
+  var b=parseFloat(document.getElementById("betaIn").value);
+  var d=parseFloat(document.getElementById("marginIn").value);
+  var out=document.getElementById("lossOut");
+  if(isNaN(b)||b<=0){out.textContent="β phải > 0 nhé!";return;}
+  if(isNaN(d)){out.textContent="Nhập Δ margin nhé!";return;}
+  var loss=-Math.log(sigmoid(b*d));
+  out.innerHTML="β = "+b+", Δ = "+d+" → β·Δ = "+(b*d).toFixed(4)+"<br>"+
+    "σ(β·Δ) = "+sigmoid(b*d).toFixed(4)+"<br>"+
+    "<b>Loss DPO = "+loss.toFixed(4)+"</b><br>"+
+    (d===0 ? "Đúng điểm xuất phát policy = ref: loss = 0,6931." :
+     (d>0 ? "Δ dương: policy đã phân biệt chosen tốt hơn → loss < 0,6931." :
+            "Δ âm: policy đang thích rejected hơn chosen → loss > 0,6931!"));
+}
+document.getElementById("lossBtn").addEventListener("click",lossCalc);
+document.getElementById("betaIn").addEventListener("keydown",function(e){if(e.key==="Enter")lossCalc();});
+document.getElementById("marginIn").addEventListener("keydown",function(e){if(e.key==="Enter")lossCalc();});
+
+var betaData={
+  "0.05":{d50:"+2,9656",d200:"+8,7366",rej:"−3,1592",loss:"0,5541",note:"Khởi động chậm nhưng không bão hòa: 200 bước trôi tiếp lên +8,74 — xa nhất ở giới hạn tiệm cận."},
+  "0.1":{d50:"+4,6831",d200:"+9,7818",rej:"−5,1517",loss:"0,3217",note:"ĐỈNH U ngược ở 50 bước (+4,68) và vẫn cao nhất ở 200 bước (+9,78)."},
+  "0.5":{d50:"+4,0078",d200:"+5,2658",rej:"−4,3459",loss:"0,0155",note:"Bão hòa sớm: 200 bước chỉ thêm +1,26 so với 50 bước, nhưng loss giảm rất nhanh."},
+  "1.0":{d50:"+2,7389",d200:"+3,3724",rej:"−2,8914",loss:"0,0037",note:"Bão hòa mạnh nhất: 200 bước gần như đứng yên (+3,37), loss nhỏ nhất (0,0037)."}
+};
+function showBeta(b){
+  var d=betaData[b];
+  document.getElementById("betaOut").innerHTML="β = "+b+" → Δchosen 50 bước: <b>"+d.d50+"</b> · 200 bước: <b>"+d.d200+"</b><br>"+
+    "Độ lệch rejected (50b): "+d.rej+" · Loss 50b: "+d.loss+"<br>"+d.note;
+  document.querySelectorAll(".betabtn").forEach(function(btn){
+    btn.classList.toggle("active",btn.getAttribute("data-beta")===b);
+  });
+}
+document.querySelectorAll(".betabtn").forEach(function(btn){
+  btn.addEventListener("click",function(){showBeta(btn.getAttribute("data-beta"));});
+});
+showBeta("0.05");
+
+var hackPts=[[0,4,-14.410],[10,14,-9.982],[20,24,-6.630],[30,34,0.096]];
+function hackShow(){
+  var s=parseInt(document.getElementById("hackRange").value,10);
+  var r;
+  for(var i=0;i<hackPts.length-1;i++){
+    if(s>=hackPts[i][0]&&s<=hackPts[i+1][0]){
+      var f=(s-hackPts[i][0])/(hackPts[i+1][0]-hackPts[i][0]);
+      r=hackPts[i][2]+f*(hackPts[i+1][2]-hackPts[i][2]);
+      break;
+    }
+  }
+  document.getElementById("hackOut").innerHTML="Bước "+s+" → độ dài: <b>"+(4+s)+"</b> · reward: <b>"+r.toFixed(3)+"</b> · token có thông tin: <b>4 (đứng yên)</b><br>"+
+    "Câu dài thêm "+s+" token đệm nhưng không thêm thông tin nào — reward tăng mà chất lượng không tăng.";
+}
+document.getElementById("hackRange").addEventListener("input",hackShow);
+hackShow();
+</script>
+</div>
+
+<footer>
+  Day 19 — Tự code loss DPO trên logits giả · Tài liệu giải thích tiếng Việt cho khóa LLM-beginner · Số liệu chạy thật trên CPU (3,9 giây).
+</footer>
+</body>
+</html>
