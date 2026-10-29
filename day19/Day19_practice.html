@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ngày 19 — Buổi tối: Tự code loss DPO trên logits giả | Khóa LLM 30 ngày</title>
+<style>
+:root{--bg:#0a0f1e;--card:#101830;--line:#22305a;--gold:#f5c542;--green:#4ade80;--red:#f87171;--violet:#a78bfa;--cyan:#67e8f9;--text:#e8edf7;--muted:#93a0bd;}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;line-height:1.75;font-size:16.5px;}
+.wrap{max-width:820px;margin:0 auto;padding:18px 16px 60px;}
+.kicker{display:inline-block;font-size:13px;letter-spacing:1px;color:var(--gold);font-weight:700;margin-bottom:8px;}
+h1{font-size:29px;line-height:1.3;margin:6px 0 10px;}
+h2{font-size:22px;margin:34px 0 10px;color:var(--cyan);}
+h3{font-size:18px;margin:22px 0 8px;color:var(--gold);}
+.sub{color:var(--muted);}
+.meta{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 6px;}
+.meta span{font-size:13.5px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:5px 14px;}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin:16px 0;}
+.note{border-left:4px solid var(--green);background:#0f2233;border-radius:0 12px 12px 0;padding:12px 16px;margin:14px 0;}
+.warn{border-left:4px solid var(--red);background:#23141a;border-radius:0 12px 12px 0;padding:12px 16px;margin:14px 0;}
+.formula{background:#0a0f1e;border:1px dashed var(--violet);border-radius:10px;padding:12px 16px;margin:12px 0;font-size:17px;text-align:center;}
+.code{background:#060a14;border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:12px 0;overflow-x:auto;}
+.code pre{margin:0;font-size:14px;line-height:1.6;color:var(--cyan);white-space:pre-wrap;}
+button.ans{background:var(--gold);color:#14100a;font-weight:700;border:0;border-radius:10px;padding:9px 18px;cursor:pointer;margin:6px 0;}
+.ans-box{display:none;background:#0f2233;border:1px solid var(--line);border-radius:10px;padding:12px 16px;margin:10px 0;}
+.footer{color:var(--muted);font-size:14px;margin-top:40px;border-top:1px solid var(--line);padding-top:14px;}
+a{color:var(--cyan);}
+</style>
+<script>
+function show(id){document.getElementById(id).style.display='block';}
+</script>
+</head>
+<body>
+<div class="wrap">
+<span class="kicker">NGÀY 19 · BUỔI TỐI — BÀI THỰC HÀNH</span>
+<h1>Tự code loss DPO trên logits giả</h1>
+<p class="sub">Sáng nay bạn đã hiểu trực giác: DPO tăng xác suất của đáp án được chọn <b>so với model gốc</b> và giảm xác suất của đáp án bị loại <b>so với model gốc</b>. Tối nay ta biến công thức đó thành code chạy được — không cần model thật, không cần GPU, chỉ cần logits giả và PyTorch trên CPU. Làm xong bài này, bạn sẽ không bao giờ quên vì sao phải <code>detach</code> model tham chiếu và vì sao β là dây neo.</p>
+<div class="meta"><span>⏱ ~40 phút</span><span>🧪 Python + PyTorch (CPU là đủ)</span><span>🎯 DPO loss · log-prob · gradient · β</span></div>
+
+<div class="note"><b>Chuẩn bị (2 phút):</b> tạo file <code>dpo_lab.py</code>, chạy <code>python dpo_lab.py</code> sau mỗi bài. Toàn bộ lab dùng tensor giả — không tải model, không cần GPU. Nếu chưa cài torch: <code>pip install torch --index-url https://download.pytorch.org/whl/cpu</code>.</div>
+
+<h2>Bài 1 — Log-prob của một câu trả lời (nền móng của DPO)</h2>
+<p>DPO không làm việc trên logits thô mà trên <b>log-prob của cả câu trả lời</b>: tổng log-prob của từng token trong câu, tính từ logits của model. Viết hàm sau (gợi ý từng bước, bạn tự điền phần chính):</p>
+<div class="code"><pre>import torch
+import torch.nn.functional as F
+
+def sequence_logprob(logits, tokens):
+    """logits: (T, V) — logits dự đoán token tiếp theo tại mỗi vị trí.
+       tokens: (T,) — các token của câu trả lời.
+       Trả về: tổng log-prob của câu (một số vô hướng)."""
+    # BƯỚC 1: log_softmax theo chiều vocab (dim=-1)
+    # BƯỚC 2: gather log-prob của đúng token tại mỗi vị trí
+    # BƯỚC 3: cộng tất cả lại -> một scalar
+    ...  # bạn viết 3 dòng này
+
+# Kiểm tra nhanh:
+torch.manual_seed(0)
+logits = torch.randn(4, 10)          # câu 4 token, vocab 10
+tokens = torch.tensor([3, 1, 7, 2])
+lp = sequence_logprob(logits, tokens)
+print("logprob:", lp.item())         # phải là số ÂM (log của xác suất &lt; 1)
+assert lp.item() &lt; 0, "log-prob phải âm!"</pre></div>
+<p><b>Kiểm chứng:</b> log-prob in ra phải âm. Thử đổi một token thành token có logit cao nhất ở vị trí đó — log-prob tổng phải tăng lên. Nếu không, xem lại bước gather: bạn có đang gather đúng chiều không?</p>
+
+<h2>Bài 2 — Viết loss DPO và soi gradient</h2>
+<p>Công thức buổi sáng, viết lại bằng code:</p>
+<div class="formula">loss<sub>DPO</sub> = −log σ( β · [ (log π<sub>θ</sub>(y<sub>w</sub>) − log π<sub>ref</sub>(y<sub>w</sub>)) − (log π<sub>θ</sub>(y<sub>l</sub>) − log π<sub>ref</sub>(y<sub>l</sub>)) ] )</div>
+<p>Viết hàm <code>dpo_loss</code> rồi chạy thí nghiệm sau. Gợi ý: <code>log π<sub>ref</sub></code> phải được <b>detach</b> — model tham chiếu là mốc cố định, không được nhận gradient.</p>
+<div class="code"><pre>def dpo_loss(policy_logits_w, policy_logits_l,
+             ref_logits_w, ref_logits_l, tokens_w, tokens_l, beta=0.1):
+    logp_w = sequence_logprob(policy_logits_w, tokens_w)
+    logp_l = sequence_logprob(policy_logits_l, tokens_l)
+    # ref: DÙNG DETACH — thử bỏ detach xem gradient chảy đi đâu (bẫy số 1)
+    logp_ref_w = sequence_logprob(ref_logits_w.detach(), tokens_w)
+    logp_ref_l = sequence_logprob(ref_logits_l.detach(), tokens_l)
+    logits = beta * ((logp_w - logp_ref_w) - (logp_l - logp_ref_l))
+    return -F.logsigmoid(logits)
+
+# Thí nghiệm: policy ban đầu = ref (chưa học gì) -> loss phải ~ log(2) = 0.693
+torch.manual_seed(0)
+V, T = 20, 5
+base = torch.randn(T, V)
+ref_w, ref_l = base.clone(), base.clone()
+pol_w = base.clone().requires_grad_(True)
+pol_l = base.clone().requires_grad_(True)
+tok_w = torch.randint(0, V, (T,))
+tok_l = torch.randint(0, V, (T,))
+loss = dpo_loss(pol_w, pol_l, ref_w, ref_l, tok_w, tok_l, beta=0.1)
+print("loss khi policy == ref:", loss.item())   # kỳ vọng ~0.693
+loss.backward()
+print("grad của policy chosen, norm:", pol_w.grad.norm().item())
+print("grad của policy rejected, norm:", pol_l.grad.norm().item())
+# Dấu gradient: chosen phải được ĐẨY LÊN, rejected bị KÉO XUỐNG.
+# Kiểm tra bằng tay: cộng một bước nhỏ theo -grad vào pol_w, loss có giảm không?</pre></div>
+<p><b>Bạn phải tự trả lời 3 câu sau khi chạy:</b> (1) Vì sao loss ≈ 0.693 khi policy = ref? (2) Gradient của chosen và rejected có dấu ngược nhau không — vì sao điều đó đúng với trực giác DPO? (3) Nếu quên <code>detach</code> ở ref, điều gì xảy ra với gradient — và vì sao đó là lỗi nghiêm trọng chứ không phải lỗi nhỏ?</p>
+
+<h2>Bài 3 — Quét β: dây neo chặt hay lỏng?</h2>
+<p>Lặp lại thí nghiệm Bài 2 với β ∈ {0.05, 0.1, 0.5, 1.0}, mỗi β train 50 bước gradient descent nhỏ (lr = 0.5) trên cùng một cặp logits giả, rồi ghi lại hai số sau mỗi β: (a) log-prob của chosen tăng bao nhiêu so với ban đầu, (b) độ lệch khỏi ref — tức (logp<sub>policy</sub>(chosen) − logp<sub>ref</sub>(chosen)).</p>
+<div class="code"><pre>for beta in [0.05, 0.1, 0.5, 1.0]:
+    # khởi tạo lại policy = ref, train 50 bước với dpo_loss(beta),
+    # in ra: beta, logp chosen cuối - đầu, độ lệch khỏi ref
+    ...  # bạn viết vòng lặp này (gợi ý: dùng torch.optim.SGD)</pre></div>
+<p><b>Kết quả bạn sẽ thấy (và phải giải thích được):</b> β càng nhỏ, policy càng trôi xa khỏi ref và học preference càng nhanh — nhưng cũng càng dễ "quên" mốc gốc. β càng lớn, policy càng bám ref, an toàn nhưng học chậm. Đây chính là đường cong đánh đổi mà bài sáng đã nói: <b>không có β đúng tuyệt đối, chỉ có β phù hợp với dữ liệu và mức rủi ro bạn chấp nhận.</b></p>
+
+<h2>Bài 4 (nâng cao, 10 phút) — Mô phỏng reward hacking bằng mắt</h2>
+<p>Giả sử reward model của bạn có thiên vị độ dài: nó cộng thêm +0.5 điểm cho mỗi token thừa. Viết một vòng lặp "tối ưu reward trần trụi" (không có KL, không có ref): mỗi bước, tăng logit của token "đệm" vô nghĩa (ví dụ token lặp lại) để câu trả lời dài thêm mà reward vẫn tăng. Quan sát: reward tăng đều, nhưng "chất lượng thật" (bạn tự chấm bằng mắt: câu có thêm thông tin gì không?) đứng yên. Đó là reward hacking thu nhỏ — và là lý do bài sáng yêu cầu <b>đánh giá mù + dừng sớm</b>, không chỉ nhìn reward.</p>
+<div class="warn"><b>Đừng bỏ qua bài này vì nó "không có code mẫu":</b> chính việc tự nghĩ ra cách mô phỏng mới là phần học. Gợi ý bắt đầu: reward = logp_policy(chosen) + 0.5 × độ_dài, tối ưu trực tiếp reward này 30 bước, in độ dài câu sau mỗi 10 bước.</div>
+
+<h2>📝 Tự kiểm tra nhanh (3 câu, bấm để hiện đáp án)</h2>
+
+<h3>Câu 1. Vì sao DPO không cần reward model riêng mà vẫn có KL regularization?</h3>
+<button class="ans" onclick="show('a1')">Hiện đáp án</button>
+<div class="ans-box" id="a1">Vì reward tối ưu có dạng r*(x, y) = β·log(π*(y|x) / π<sub>ref</sub>(y|x)) — thay thẳng dạng này vào loss Bradley–Terry thì log π<sub>ref</sub> xuất hiện ngay trong loss. KL không biến mất, nó được "nén" vào loss qua số hạng log π<sub>ref</sub>: policy bị phạt ngầm mỗi khi trôi xa model gốc. DPO đơn giản hơn PPO (không sampling, không value model) nhưng không phải là "không có neo".</div>
+
+<h3>Câu 2. Quên detach model tham chiếu thì sao?</h3>
+<button class="ans" onclick="show('a2')">Hiện đáp án</button>
+<div class="ans-box" id="a2">Gradient sẽ chảy ngược vào ref (nếu ref có requires_grad) hoặc — nguy hiểm hơn — bạn vô tình train cả ref theo hướng làm loss giảm bằng cách "dời mốc" thay vì cải thiện policy. Khi mốc cũng di chuyển, hiệu (logp_policy − logp_ref) có thể giảm loss mà policy chẳng học được gì. Ref phải là hằng số trong suốt quá trình train.</div>
+
+<h3>Câu 3. Loss ≈ 0.693 khi policy = ref nói lên điều gì?</h3>
+<button class="ans" onclick="show('a3')">Hiện đáp án</button>
+<div class="ans-box" id="a3">Khi policy = ref, cả hai hiệu log-ratio đều bằng 0 nên sigmoid(0) = 0.5, loss = −log(0.5) = 0.693. Đó là điểm xuất phát "chưa phân biệt được chosen và rejected" — mọi cặp đều 50/50. DPO train thành công khi loss giảm dần về 0, tức policy gán xác suất cao hơn hẳn cho chosen so với rejected, tính tương đối với ref.</div>
+
+<h2>⚠️ Bẫy thường gặp</h2>
+<div class="card">
+<p><b>1. Quên detach ref (bẫy nghiêm trọng nhất).</b> Xem đáp án Câu 2. Quy tắc: bất cứ tensor nào thuộc về "mốc so sánh" đều phải detach trước khi đưa vào loss.</p>
+<p><b>2. Cộng log-prob sai chiều / quên log_softmax.</b> Dùng logits thô thay cho log-prob, hoặc softmax thay cho log_softmax rồi mới log lại, đều làm sai thang đo. Luôn: log_softmax → gather → cộng.</p>
+<p><b>3. Chuẩn hóa log-prob theo độ dài một cách vô tội vạ.</b> Chia tổng log-prob cho số token nghe có vẻ công bằng, nhưng nó thay đổi bản chất bài toán: DPO gốc dùng tổng, không dùng trung bình. Nếu bạn chuẩn hóa, hãy ghi rõ đó là biến thể (length-normalized DPO) và kiểm tra xem nó có làm model thiên vị câu ngắn hay không — ngược lại với thiên vị câu dài của reward hacking.</p>
+</div>
+
+<h2>⚡ Góc tiết kiệm năng lượng</h2>
+<div class="card"><p>Lab này chạy trên CPU với logits giả — tổng compute gần như bằng 0, nhưng nó dạy đúng loss mà bản thật dùng. Đó là nguyên tắc tiết kiệm xuyên suốt khóa học: <b>chứng minh công thức đúng trên đồ chơi trước, rồi mới đốt GPU cho mô hình thật.</b> Khi lên model thật, DPO trên adapter LoRA (như các bài trước) vẫn là lựa chọn rẻ hơn PPO full-model: chỉ 2 model (policy + ref đóng băng), không sampling, không value model.</p></div>
+
+<h2>✅ Checklist nộp bài</h2>
+<ul>
+<li>Chạy được <code>dpo_lab.py</code>: loss ban đầu ≈ 0.693, gradient chosen/rejected ngược dấu.</li>
+<li>Bảng quét β (4 giá trị): logp chosen tăng + độ lệch khỏi ref cho mỗi β, kèm 1 câu giải thích đường cong đánh đổi.</li>
+<li>(Nâng cao) Mô tả ngắn mô phỏng reward hacking ở Bài 4: reward tăng, chất lượng đứng yên ở đâu.</li>
+<li><b>Paste code/kết quả vào chat để được nhận xét chi tiết.</b> Ghi rõ: bạn có gặp bẫy nào trong 3 bẫy trên không, và bạn sửa bằng cách nào.</li>
+</ul>
+
+<p><a href="Day19_lesson.html">← Quay lại bài học buổi sáng</a> · <a href="Day19_quiz.html">📝 Quiz Ngày 19</a></p>
+<div class="footer">Khóa "Trở thành AI Engineer (LLM)" — Ngày 19 · Buổi tối. Sáng mai (Ngày 20): tiếp tục tuần 3 — giữ nhịp, ôn lại chỗ hổng nếu quiz chưa đạt.</div>
+</div>
+</body>
+</html>
