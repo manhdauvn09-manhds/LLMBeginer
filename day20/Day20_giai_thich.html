@@ -283,7 +283,7 @@
     <tr class="hl"><td>Đầy đủ (13)</td><td>guarded</td><td class="num">12/13</td><td class="num">PASS</td><td>Chỉ R2 (severity 2); adversarial 1/11 = 9% ≤ 25%; golden 0 lỗi</td></tr>
   </table>
   <div class="diagram">
-    <svg viewBox="0 0 760 210" xmlns="http://www.w3.org/2000/svg" font-family="sans-serif">
+    <svg viewBox="0 0 760 330" xmlns="http://www.w3.org/2000/svg" font-family="sans-serif">
       <rect x="280" y="10" width="200" height="44" rx="12" fill="#ede9fe" stroke="#6d28d9" stroke-width="2"/>
       <text x="380" y="38" text-anchor="middle" font-size="15" font-weight="700" fill="#5b21b6">Kết quả 13 case</text>
       <text x="380" y="72" font-size="20" fill="#6d28d9">↓</text>
@@ -293,6 +293,11 @@
       <rect x="240" y="146" width="280" height="40" rx="12" fill="#fef3c7" stroke="#b45309" stroke-width="2"/>
       <text x="380" y="172" text-anchor="middle" font-size="14" font-weight="700" fill="#92400e">Lỗi golden &gt; 0? → FAIL</text>
       <text x="380" y="200" font-size="20" fill="#6d28d9">↓ không</text>
+      <rect x="240" y="210" width="280" height="40" rx="12" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+      <text x="380" y="236" text-anchor="middle" font-size="14" font-weight="700" fill="#1e40af">Lỗi adversarial &gt; 25%? → FAIL</text>
+      <text x="380" y="264" font-size="20" fill="#6d28d9">↓ không</text>
+      <rect x="280" y="274" width="200" height="44" rx="12" fill="#d1fae5" stroke="#047857" stroke-width="2"/>
+      <text x="380" y="302" text-anchor="middle" font-size="15" font-weight="700" fill="#065f46">PASS — ghi điểm gãy để sửa sau</text>
     </svg>
     <div class="caption">Gate kiểm tra lần lượt 3 luật (luật thứ ba: lỗi adversarial &gt; 25% → FAIL). Vượt cả 3 mới PASS — và điểm gãy (như R2) vẫn được ghi lại để sửa sau, kể cả khi PASS.</div>
   </div>
