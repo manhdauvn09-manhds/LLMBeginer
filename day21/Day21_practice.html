@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ngày 21 — Buổi tối: Ôn tập tuần 3 + Khởi động mini-project 3 | Khóa LLM 30 ngày</title>
+<style>
+:root{--bg:#0a0f1e; --card:#101830; --line:#22305a; --gold:#f5c542; --green:#4ade80;
+ --red:#f87171; --violet:#a78bfa; --cyan:#67e8f9; --text:#e8edf7; --muted:#93a0bd;}
+*{box-sizing:border-box;}
+body{margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.75; font-size:16.5px;}
+.wrap{max-width:820px; margin:0 auto; padding:18px 16px 60px;}
+.kicker{display:inline-block; font-size:13px; letter-spacing:1px; color:var(--gold); font-weight:700; margin-bottom:8px;}
+h1{font-size:29px; line-height:1.3; margin:6px 0 10px;}
+h2{font-size:22px; margin:34px 0 10px; color:var(--cyan);}
+h3{font-size:18px; margin:22px 0 8px; color:var(--gold);}
+.sub{color:var(--muted); font-size:16.5px;}
+.meta{display:flex; gap:8px; flex-wrap:wrap; margin:14px 0 6px;}
+.meta span{font-size:13.5px; background:var(--card); border:1px solid var(--line); border-radius:999px; padding:5px 14px;}
+.card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px; margin:16px 0;}
+.note{border-left:4px solid var(--green); background:#0f2233; border-radius:0 12px 12px 0; padding:12px 16px; margin:14px 0;}
+.warn{border-left:4px solid var(--red); background:#23141a; border-radius:0 12px 12px 0; padding:12px 16px; margin:14px 0;}
+.code{background:#060a14; border:1px solid var(--line); border-radius:10px; padding:12px 14px; margin:12px 0; overflow-x:auto;}
+.code pre{margin:0; font-size:14px; line-height:1.6; color:var(--cyan); white-space:pre-wrap; word-break:break-word;}
+button.ans{background:var(--gold); color:#14100a; font-weight:700; border:0; border-radius:10px; padding:10px 18px; cursor:pointer; font-size:15px; margin:8px 0;}
+.answer{display:none; background:#0f2233; border:1px solid var(--line); border-radius:10px; padding:12px 16px; margin:8px 0;}
+table{width:100%; border-collapse:collapse; margin:12px 0; font-size:15px;}
+th,td{border:1px solid var(--line); padding:8px 10px; text-align:left;}
+th{background:#141d3a; color:var(--gold);}
+ul.check li{margin:6px 0;}
+.footer{color:var(--muted); font-size:14px; margin-top:40px; border-top:1px solid var(--line); padding-top:14px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+<span class="kicker">NGÀY 21 · BUỔI TỐI — ÔN TẬP TỔNG HỢP + MINI-PROJECT 3 (KHÔNG CÓ VIDEO)</span>
+<h1>🛠️ Lab: Nối tuần 3 thành một pipeline — và khởi động mini-project 3</h1>
+<p class="sub">Buổi sáng bạn đã ôn lại tuần 3: đọc pretrained model (ngày 15) → SFT (16) → LoRA/QLoRA (17–18) → DPO (19) → eval an toàn (20). Tối nay không học khái niệm mới. Bạn làm hai việc: <b>(1)</b> kiểm chứng lại cả pipeline bằng một script chạy được trên máy của mình, không cần GPU; <b>(2)</b> chốt đề cương mini-project 3 — trợ lý hỏi đáp trên tài liệu do chính bạn sở hữu — để tuần 4 chỉ còn chạy thí nghiệm, không còn loay hoay chọn đề.</p>
+<div class="meta"><span>⏱ ~60–90 phút</span><span>🐍 Python thuần cho Phần 1, PyTorch/peft chỉ ở Phần 2 khi có GPU</span><span>🎯 Kết quả: dataset v1 + cấu hình LoRA đã tính toán + bộ eval v1</span></div>
+
+<h2>🎯 Mục tiêu buổi tối</h2>
+<ul class="check">
+<li>Nói được mỗi bước tuần 3 làm gì trong pipeline, và bước nào sẽ "đổ" nếu bước trước đo sai.</li>
+<li>Tính được số tham số LoRA cần train và ước lượng VRAM QLoRA cho một mô hình cụ thể — trước khi bấm nút train.</li>
+<li>Có dataset hỏi đáp v1 (định dạng SFT) tách bạch train/eval, không lẫn eval vào train.</li>
+<li>Có bộ eval v1 (golden + adversarial) và gate release viết trước khi xem kết quả mô hình mới.</li>
+</ul>
+
+<h2>Ôn nhanh: bản đồ tuần 3 trong một bảng</h2>
+<table>
+<tr><th>Bước pipeline</th><th>Ngày</th><th>Nếu làm ẩu thì hậu quả là gì?</th></tr>
+<tr><td>Đọc model (config, tokenizer, generation config)</td><td>15</td><td>Tin nhầm model card; fertility cao làm tốn gấp đôi token mà không biết.</td></tr>
+<tr><td>SFT — dạy làm theo hướng dẫn, loss chỉ trên response</td><td>16</td><td>Tính loss cả prompt = dạy model bắt chước câu hỏi, không phải câu trả lời.</td></tr>
+<tr><td>LoRA — ΔW = BA, rank r nhỏ</td><td>17</td><td>Tăng r mù mà không ablation thì không biết cải thiện đến từ rank hay từ may mắn.</td></tr>
+<tr><td>QLoRA — base 4-bit + adapter 16-bit</td><td>18</td><td>Chỉ nhìn VRAM mà quên tốc độ dequantize: tổng năng lượng có thể cao hơn.</td></tr>
+<tr><td>DPO — học từ cặp thắng–thua, neo vào model SFT bằng β</td><td>19</td><td>DPO trên baseline SFT yếu: cặp thắng–thua không có nghĩa, model học lệch.</td></tr>
+<tr><td>Eval an toàn — golden + adversarial, gate viết trước</td><td>20</td><td>Chỉ đo trung bình: mô hình 98% vẫn lọt lỗi severity 3 ra sản phẩm.</td></tr>
+</table>
+<p>Quy tắc xuyên suốt tuần 3, và cũng là tiêu chí chấm mini-project 3: <b>chỉ nhận một cải tiến nếu nó không hy sinh quá mức chất lượng, độ trễ hoặc năng lượng (Pareto)</b> — và mọi con số đều phải đo, không suy từ số bit hay số tham số.</p>
+
+<h2>Phần 1 — Bài tập code chính: <code>miniproject3_lab.py</code></h2>
+<p>Tạo file <code>miniproject3_lab.py</code>. Phần khung đã cho sẵn; phần bạn tự làm đánh dấu <code># TODO (bạn làm)</code>. Toàn bộ Phần 1 chạy bằng Python thuần, không cần GPU, không cần API key: <code>python miniproject3_lab.py</code>.</p>
+
+<h3>Bước 0 — Khung: kiểm tra dataset và tính ngân sách LoRA/QLoRA</h3>
+<div class="code"><pre># miniproject3_lab.py
+import json, re
+
+def normalize(text):
+    return re.sub(r"\s+", " ", text.strip().lower())
+
+def check_dataset(train_path, eval_path):
+    """Kiểm tra: đủ trường, không trùng, eval không lẫn vào train (contamination)."""
+    def load(path):
+        rows = [json.loads(line) for line in open(path, encoding="utf-8") if line.strip()]
+        for i, r in enumerate(rows):
+            assert "instruction" in r and "response" in r, f"{path} dòng {i} thiếu instruction/response"
+            assert r["instruction"].strip() and r["response"].strip(), f"{path} dòng {i} rỗng"
+        return rows
+    train, ev = load(train_path), load(eval_path)
+    train_q = {normalize(r["instruction"]) for r in train}
+    leaked = [r["instruction"] for r in ev if normalize(r["instruction"]) in train_q]
+    dup = len(ev) - len({normalize(r["instruction"]) for r in ev})
+    print(f"train: {len(train)} mẫu | eval: {len(ev)} mẫu")
+    print(f"eval trùng train (contamination): {len(leaked)} {leaked[:3]}")
+    print(f"eval trùng nhau: {dup}")
+    return train, ev
+
+def lora_budget(d_model, n_layers, r, target_modules, alpha=16):
+    """Số tham số LoRA và VRAM ước lượng cho QLoRA 4-bit.
+    Mỗi module mục tiêu: A (r x d_model) + B (d_model x r) = 2 * r * d_model tham số."""
+    per_layer = 2 * r * d_model * len(target_modules)
+    total = per_layer * n_layers
+    print(f"LoRA r={r}, alpha={alpha}, target={target_modules}:")
+    print(f"  Tham số train: {total:,} (~{total/1e6:.2f}M)")
+    print(f"  Lưu ý: đây chỉ là phần adapter. VRAM QLoRA còn gồm base model 4-bit")
+    print(f"  (~0,5 byte/tham số) + adapter 16-bit + optimizer state của adapter + activation.")
+    return total
+
+def eval_predictions(pred_path, gold_path):
+    """Chấm nhanh: mỗi dòng predictions phải có id + output; gold có id + must_contain.
+    Trả về tỉ lệ đạt chung và theo trục (nếu gold có trường axis)."""
+    preds = {json.loads(l)["id"]: json.loads(l)["output"].lower() for l in open(pred_path, encoding="utf-8") if l.strip()}
+    golds = [json.loads(l) for l in open(gold_path, encoding="utf-8") if l.strip()]
+    by_axis = {}
+    ok_total = 0
+    for g in golds:
+        out = preds.get(g["id"], "")
+        ok = all(k.lower() in out for k in g.get("must_contain", [])) and \
+             all(k.lower() not in out for k in g.get("must_not_contain", []))
+        ok_total += ok
+        by_axis.setdefault(g.get("axis", "general"), []).append(ok)
+    print(f"Tổng: {ok_total}/{len(golds)} đạt")
+    for axis, vals in by_axis.items():
+        print(f"  {axis}: {sum(vals)}/{len(vals)} đạt")
+    return ok_total, by_axis
+
+if __name__ == "__main__":
+    # TODO (bạn làm): thay các con số dưới đây bằng mô hình bạn thật sự định dùng
+    # (đọc từ config.json của model đó: hidden_size, num_hidden_layers).
+    lora_budget(d_model=2048, n_layers=24, r=16,
+                target_modules=["q_proj", "v_proj"])</pre></div>
+<p><b>Kết quả mong đợi ở bước này:</b> script in ra số tham số LoRA cho cấu hình mẫu (2048, 24 layer, r=16, 2 module: 2 × 16 × 2048 × 2 × 24 = 3.145.728 tham số). Nếu bạn ra con số khác, kiểm tra lại xem có quên nhân số module hay số layer không — đây chính là lỗi tính ngân sách hay gặp nhất.</p>
+
+<h3>Bước 1 — Bạn làm: chọn tác vụ và viết dataset v1 (bắt buộc)</h3>
+<p>Chọn <b>một</b> tác vụ hỏi đáp trên tài liệu do chính bạn sở hữu — gợi ý: hỏi đáp tài liệu CleanBoost, hoặc hỏi đáp chính tài liệu khóa học này. Viết 2 file JSONL, mỗi dòng một mẫu <code>{"instruction": "...", "response": "..."}</code>:</p>
+<ul class="check">
+<li><code>mp3_train.jsonl</code> — ít nhất 30 mẫu train (SFT): câu hỏi thật mà người dùng có thể hỏi về tài liệu đó, câu trả lời ngắn gọn, chỉ dùng thông tin có trong tài liệu.</li>
+<li><code>mp3_eval.jsonl</code> — ít nhất 15 mẫu eval, mỗi mẫu thêm <code>"id"</code>, <code>"axis"</code> (factuality / robustness / bias / injection), <code>"must_contain"</code> và <code>"must_not_contain"</code>. Eval phải có ít nhất 2 case adversarial (ví dụ: hỏi về thông tin không có trong tài liệu — đáp án đúng phải thừa nhận không biết, không bịa; hoặc lệnh giấu trong "đoạn văn cần tóm tắt").</li>
+</ul>
+<p>Chạy <code>check_dataset("mp3_train.jsonl", "mp3_eval.jsonl")</code> và sửa cho đến khi contamination = 0 và không còn mẫu trùng. Đây là "hợp đồng" của cả tuần 4: từ giờ, eval này là thước đo cố định — đổi model thì chạy lại đúng bộ này, không sửa eval cho vừa model.</p>
+<div class="note"><b>Mẹo viết response SFT tốt:</b> một response tốt trả lời đúng câu hỏi, đúng định dạng bạn muốn model học (ví dụ: luôn bắt đầu bằng câu trả lời trực tiếp rồi mới giải thích), và không thêm kiến thức ngoài tài liệu. Nếu bạn phải bịa thêm chi tiết để viết response thì câu hỏi đó không thuộc về dataset này — bỏ nó hoặc sửa tài liệu nguồn trước.</div>
+
+<h3>Bước 2 — Bạn làm: chốt cấu hình và ngân sách (bắt buộc)</h3>
+<p>Đọc <code>config.json</code> của mô hình bạn định dùng (base model nhỏ, vừa VRAM bạn có — ví dụ một model 1–3B trên Colab/Kaggle), lấy đúng <code>hidden_size</code> và <code>num_hidden_layers</code>, rồi:</p>
+<ul class="check">
+<li>Chạy <code>lora_budget()</code> với 2 cấu hình: (a) r=8, target q_proj+v_proj; (b) r=16, target q_proj+k_proj+v_proj+o_proj. Ghi lại số tham số của cả hai.</li>
+<li>Ước lượng VRAM QLoRA: base 4-bit ≈ 0,5 byte × số tham số base + adapter 16-bit + optimizer AdamW cho adapter (8 byte × số tham số adapter, vì chỉ optimizer của adapter mới tốn bộ nhớ) + activation. Viết con số này vào đầu file dataset hoặc một file <code>mp3_plan.md</code> ngắn: model nào, GPU nào, batch size dự kiến, số epoch dự kiến.</li>
+<li>Quyết định và ghi rõ: <b>chỉ train QLoRA trước</b> (chưa DPO) — DPO chỉ làm sau khi có baseline SFT đo được, đúng thứ tự ngày 19: DPO cần baseline SFT mạnh.</li>
+</ul>
+
+<h3>Bước 3 — Bạn làm: viết gate release trước khi train (bắt buộc)</h3>
+<p>Viết vào <code>mp3_plan.md</code> (không cần code, viết bằng chữ) gate của riêng bạn, theo mẫu ngày 20, ví dụ: FAIL nếu có bất kỳ lỗi severity cao nào trên adversarial set, hoặc tỉ lệ đạt trên golden set giảm so với baseline, hoặc độ trễ trung bình tăng quá 20% so với baseline. Gate này phải được viết <b>tối nay, trước khi bạn thấy bất kỳ kết quả train nào</b> — tuần sau chỉ việc áp gate, không sửa gate.</p>
+
+<h2>Phần 2 — Mở rộng: chạy baseline và QLoRA khi có GPU (làm khi có Colab/Kaggle)</h2>
+<p>Phần này là khung để bạn chạy trong tuần 4, không bắt buộc tối nay. Khi có GPU, thứ tự đúng là: <b>baseline trước → QLoRA sau → eval trước–sau bằng đúng bộ eval v1 → error analysis</b>. Đừng đảo thứ tự: không có baseline thì mọi "cải thiện" đều không có điểm so sánh.</p>
+<div class="code"><pre># Khung chạy baseline + QLoRA (PyTorch + transformers + peft + bitsandbytes).
+# Chạy trên Colab/Kaggle GPU. Chỉ là khung — bạn điền model_id và đường dẫn dataset của mình.
+# 1) Baseline: load model 4-bit, sinh câu trả lời cho mp3_eval.jsonl, lưu predictions.jsonl
+#    (định dạng: {"id": ..., "output": ...}), rồi chạy eval_predictions() ở Phần 1.
+# 2) QLoRA: BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_quant_type="nf4")
+#    + LoraConfig(r=..., lora_alpha=..., target_modules=[...], task_type="CAUSAL_LM")
+#    + train trên mp3_train.jsonl, loss chỉ trên response (mask prompt bằng -100).
+# 3) Eval lại bằng đúng mp3_eval.jsonl, so sánh trước–sau theo từng trục.
+# 4) Ghi log năng lượng: công suất GPU (W) x thời gian train (giờ) = kWh ước lượng.
+#    Ghi vào model card cuối project, cùng với kết luận Pareto.</pre></div>
+<p>Nếu tối nay chưa có GPU, không sao: nộp Phần 1 (dataset v1 + ngân sách + gate) là đủ để tuần 4 bắt đầu ngay. Ghi rõ trong bài nộp là "chưa chạy baseline vì chưa có GPU" — thành thật về trạng thái thí nghiệm là một phần của làm nghiên cứu.</p>
+
+<h2>Phần 3 — Tự kiểm tra nhanh</h2>
+<p>Trả lời trong đầu trước, rồi bấm "hiện đáp án" để đối chiếu. Không chấm điểm — chỉ tự check.</p>
+
+<div class="card">
+<p><b>Câu 1.</b> Bạn train LoRA r=32 và thấy điểm eval tăng so với r=8. Kết luận "rank càng cao càng tốt" có đúng không? Cần kiểm tra gì thêm trước khi chốt r=32?</p>
+<button class="ans" onclick="document.getElementById('a1').style.display='block'; this.style.display='none';">Hiện đáp án</button>
+<div class="answer" id="a1">Chưa đúng. LoRA là giả thuyết low-rank cần kiểm chứng bằng ablation: r cao hơn có thể chỉ đang overfit eval nhỏ, hoặc cải thiện đến từ may mắn (seed, thứ tự dữ liệu). Cần: chạy lại cả hai cấu hình với seed khác, đo thêm trên eval giữ lại (held-out) chưa từng dùng để chọn cấu hình, và so chi phí — r=32 tốn gấp 4 lần tham số adapter so với r=8, nếu điểm chỉ tăng chút ít thì theo Pareto nên giữ r=8.</div>
+</div>
+
+<div class="card">
+<p><b>Câu 2.</b> Sau QLoRA, điểm trung bình trên eval tăng 5% nhưng có 1 case injection severity cao bị trượt, trong khi baseline không trượt case đó. Theo gate ngày 20, bạn có được release model mới không? Vì sao?</p>
+<button class="ans" onclick="document.getElementById('a2').style.display='block'; this.style.display='none';">Hiện đáp án</button>
+<div class="answer" id="a2">Không. Gate FAIL khi có lỗi severity cao, bất kể điểm trung bình tăng. Đây chính là bài học ngày 20 áp vào tuần 4: cải thiện trung bình không bù được một điểm gãy nghiêm trọng mới xuất hiện. Phải ghi điểm gãy này vào error analysis, tìm nguyên nhân (ví dụ: dữ liệu SFT vô tình dạy model nghe lệnh trong dữ liệu), rồi sửa dữ liệu hoặc thêm case phòng thủ — không sửa gate cho qua.</div>
+</div>
+
+<div class="card">
+<p><b>Câu 3.</b> Bạn muốn tăng tốc thí nghiệm nên lấy luôn bộ eval v1 cho vào dữ liệu train QLoRA ("đằng nào cũng là dữ liệu tốt"). Điều này phá hỏng điều gì, và cách sửa là gì?</p>
+<button class="ans" onclick="document.getElementById('a3').style.display='block'; this.style.display='none';">Hiện đáp án</button>
+<div class="answer" id="a3">Phá hỏng tính hợp lệ của eval: đó là contamination — model đã thấy đáp án lúc train thì điểm eval chỉ đo khả năng thuộc bài, không đo khả năng tổng quát. Cách sửa: giữ eval tách biệt hoàn toàn khỏi train (như check_dataset đã kiểm tra), và nếu đã lỡ trộn thì phải làm mới bộ eval (viết case mới, chưa từng xuất hiện trong train) trước khi báo cáo bất kỳ con số nào.</div>
+</div>
+
+<h2>⚠️ Bẫy thường gặp</h2>
+<div class="warn">
+<p><b>1. Train trước, đo sau — không có baseline.</b> Không đo baseline thì không biết QLoRA cải thiện hay làm tệ đi ở trục nào. Luôn chạy baseline bằng đúng bộ eval v1 trước khi train, dù baseline có "tệ đến đâu".</p>
+<p><b>2. Tính loss trên cả prompt trong SFT.</b> Lỗi kinh điển ngày 16: loss trên prompt dạy model bắt chước câu hỏi của user. Khi viết training code tuần sau, mask prompt bằng -100 và kiểm tra bằng một batch mẫu trước khi train thật.</p>
+<p><b>3. Sửa eval hoặc sửa gate sau khi thấy kết quả.</b> Thấy model trượt rồi sửa case cho dễ, hoặc nới gate cho qua, thì mọi con số sau đó đều vô nghĩa. Eval và gate đã chốt tối nay là cố định cho vòng thí nghiệm này; muốn đổi thì ghi rõ lý do, đổi trước vòng thí nghiệm tiếp theo, và báo cáo cả hai phiên bản.</p>
+</div>
+
+<h2>✅ Checklist nộp bài</h2>
+<div class="card">
+<ul class="check">
+<li>☐ File <code>miniproject3_lab.py</code> chạy được, in đúng số tham số LoRA cho cấu hình mẫu.</li>
+<li>☐ <code>mp3_train.jsonl</code> (≥ 30 mẫu) + <code>mp3_eval.jsonl</code> (≥ 15 mẫu, đủ 4 trục, ≥ 2 adversarial), <code>check_dataset()</code> báo contamination = 0.</li>
+<li>☐ <code>mp3_plan.md</code>: model đã chọn, 2 cấu hình LoRA đã tính ngân sách, ước lượng VRAM QLoRA, và gate release viết trước khi train.</li>
+<li>☐ (Nếu có GPU) Kết quả baseline trên bộ eval v1 (tỉ lệ đạt chung + theo trục) để tuần sau so sánh trước–sau.</li>
+</ul>
+<p><b>📩 Nộp bài:</b> paste code/kết quả vào chat để được nhận xét chi tiết — gồm: tác vụ bạn đã chọn, kết quả <code>check_dataset()</code>, ngân sách LoRA của 2 cấu hình, gate release bạn đã viết, và (nếu có) kết quả baseline. Tuần 4 sẽ bắt đầu từ đúng những thứ này, không làm lại từ đầu.</p>
+</div>
+
+<p class="footer">Khóa "Trở thành AI Engineer (LLM)" — Ngày 21, buổi tối. Bài thực hành tổng hợp tuần 3 (ngày 15–20) và mở đầu mini-project 3 theo bài sáng Ngày 21. Buổi sáng mai (Ngày 22) bắt đầu tuần 4.</p>
+</div>
+</body>
+</html>
