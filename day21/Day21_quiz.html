@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quiz Ngày 21 — Ôn tập tuần 3 | Khóa LLM 30 ngày</title>
+<style>
+:root{--bg:#0a0f1e; --card:#101830; --line:#22305a; --gold:#f5c542; --green:#4ade80; --red:#f87171; --cyan:#67e8f9; --text:#e8edf7; --muted:#93a0bd;}
+*{box-sizing:border-box;}
+body{margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.7; font-size:16.5px;}
+.wrap{max-width:760px; margin:0 auto; padding:18px 16px 60px;}
+h1{font-size:26px; line-height:1.3;}
+.kicker{font-size:13px; letter-spacing:1px; color:var(--gold); font-weight:700;}
+.sub{color:var(--muted);}
+.q{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px 18px; margin:16px 0;}
+.q p{margin:0 0 10px; font-weight:700;}
+label{display:block; padding:8px 10px; margin:6px 0; border:1px solid var(--line); border-radius:10px; cursor:pointer;}
+label:hover{border-color:var(--gold);}
+label input{margin-right:10px;}
+.expl{display:none; margin-top:10px; padding:10px 14px; border-left:4px solid var(--green); background:#0f2233; border-radius:0 10px 10px 0;}
+.expl.wrong{border-color:var(--red); background:#23141a;}
+.btn{display:inline-block; background:var(--gold); color:#14100a; font-weight:700; border:none; border-radius:10px; padding:13px 26px; margin:12px 8px 0 0; font-size:16px; cursor:pointer;}
+.btn.ghost{background:transparent; color:var(--gold); border:2px solid var(--gold);}
+#score{font-size:20px; font-weight:700; margin-top:20px;}
+#copyout{background:#060a14; border:1px solid var(--line); border-radius:10px; padding:12px 14px; margin-top:12px; font-family:monospace; word-break:break-all;}
+.note{color:var(--muted); font-size:14.5px; margin-top:24px; border-top:1px solid var(--line); padding-top:12px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+<span class="kicker">QUIZ NGÀY 21 · ÔN TẬP TUẦN 3</span>
+<h1>Quiz ôn tập: ngày 15–20</h1>
+<p class="sub">8 câu trắc nghiệm. Chọn đáp án rồi bấm "Nộp bài" để chấm điểm ngay trong file và xem giải thích từng câu. Làm xong bấm "Copy kết quả" rồi paste vào chat để trợ lý ghi điểm.</p>
+
+<div class="q" data-answer="B"><p>1. Khi đọc một pretrained model trước khi dùng, thông tin nào cho biết một ngôn ngữ sẽ tốn nhiều token (và tiền) hơn các ngôn ngữ khác?</p>
+<label><input type="radio" name="q1" value="A"> A. Số layer trong config</label>
+<label><input type="radio" name="q1" value="B"> B. Fertility của tokenizer trên ngôn ngữ đó</label>
+<label><input type="radio" name="q1" value="C"> C. Kích thước file weight</label>
+<label><input type="radio" name="q1" value="D"> D. Ngày phát hành model card</label>
+<div class="expl">Đúng: fertility = số token trung bình cho một từ. Ngôn ngữ bị tách vụn thì cùng một văn bản tốn gấp đôi token, gấp đôi chi phí và context.</div></div>
+
+<div class="q" data-answer="C"><p>2. Trong SFT, vì sao loss chỉ tính trên token của phần response mà không tính trên prompt?</p>
+<label><input type="radio" name="q2" value="A"> A. Vì prompt thường quá dài, tính cả sẽ tràn VRAM</label>
+<label><input type="radio" name="q2" value="B"> B. Vì prompt không chứa thông tin hữu ích</label>
+<label><input type="radio" name="q2" value="C"> C. Vì tính cả prompt là dạy model bắt chước câu hỏi thay vì học cách trả lời</label>
+<label><input type="radio" name="q2" value="D"> D. Vì prompt đã được học ở pretraining nên không cần học lại</label>
+<div class="expl">Đúng: mục tiêu SFT là dạy định dạng hành vi trả lời. Tính loss trên prompt sẽ tối ưu việc sinh ra câu hỏi của người dùng — sai mục tiêu.</div></div>
+
+<div class="q" data-answer="A"><p>3. LoRA với W' = W + BA, rank r = 8, d = k = 4096. Số tham số train được của một ma trận này khoảng bao nhiêu so với full fine-tune?</p>
+<label><input type="radio" name="q3" value="A"> A. Khoảng 0,4% (2 × 4096 × 8 so với 4096 × 4096)</label>
+<label><input type="radio" name="q3" value="B"> B. Khoảng 50%</label>
+<label><input type="radio" name="q3" value="C"> C. Khoảng 12,5%</label>
+<label><input type="radio" name="q3" value="D"> D. Bằng 100% vì BA vẫn phủ hết ma trận</label>
+<div class="expl">Đúng: BA có 2×4096×8 = 65.536 tham số, so với 16,7 triệu của W gốc — khoảng 0,4%. Đó là lý do LoRA train rẻ đến vậy.</div></div>
+
+<div class="q" data-answer="D"><p>4. QLoRA đổi cái gì lấy cái gì?</p>
+<label><input type="radio" name="q4" value="A"> A. Đổi chất lượng lấy tốc độ train nhanh hơn</label>
+<label><input type="radio" name="q4" value="B"> B. Đổi độ chính xác lấy khả năng chạy batch lớn hơn</label>
+<label><input type="radio" name="q4" value="C"> C. Đổi số layer lấy context dài hơn</label>
+<label><input type="radio" name="q4" value="D"> D. Đổi VRAM lấy tốc độ: base 4-bit vừa bộ nhớ nhưng dequantize làm train chậm hơn</label>
+<div class="expl">Đúng: QLoRA cho phép train model lớn trên GPU nhỏ nhờ base 4-bit, nhưng mỗi bước phải dequantize nên tổng thời gian train thường chậm hơn — phải đo kWh trọn vòng, không suy từ VRAM.</div></div>
+
+<div class="q" data-answer="B"><p>5. Trong loss DPO, vai trò của model tham chiếu π<sub>ref</sub> và hệ số β là gì?</p>
+<label><input type="radio" name="q5" value="A"> A. π<sub>ref</sub> là reward model, β là learning rate</label>
+<label><input type="radio" name="q5" value="B"> B. π<sub>ref</sub> neo model không trôi quá xa khỏi model SFT, β điều chỉnh độ mạnh của ràng buộc đó</label>
+<label><input type="radio" name="q5" value="C"> C. π<sub>ref</sub> sinh đáp án thua, β là nhiệt độ sampling</label>
+<label><input type="radio" name="q5" value="D"> D. π<sub>ref</sub> chỉ dùng lúc eval, không có trong loss</label>
+<div class="expl">Đúng: DPO tăng xác suất đáp án thắng, giảm đáp án thua, nhưng hiệu số log-prob được đo tương đối với π<sub>ref</sub>. β nhỏ = học mạnh, dễ lệch; β lớn = học dè.</div></div>
+
+<div class="q" data-answer="A"><p>6. Điều kiện tiên quyết thường bị bỏ qua trước khi chạy DPO là gì?</p>
+<label><input type="radio" name="q6" value="A"> A. Cần một baseline SFT mạnh — cặp thắng–thua chỉ có nghĩa khi model đã biết làm theo hướng dẫn</label>
+<label><input type="radio" name="q6" value="B"> B. Cần train reward model trước bằng PPO</label>
+<label><input type="radio" name="q6" value="C"> C. Cần ít nhất 1 triệu cặp preference</label>
+<label><input type="radio" name="q6" value="D"> D. Cần full fine-tune thay vì LoRA</label>
+<div class="expl">Đúng: DPO bỏ được reward model và PPO, nhưng không bỏ được SFT. Nếu model chưa biết làm theo hướng dẫn, "thắng–thua" chỉ là nhiễu.</div></div>
+
+<div class="q" data-answer="C"><p>7. Một trợ lý đạt 97% trên golden set nhưng bịa số liệu y tế trong 3% còn lại. Theo bài ngày 20, eval đang thiếu thứ gì nghiêm trọng nhất?</p>
+<label><input type="radio" name="q7" value="A"> A. Thiếu thêm dữ liệu train</label>
+<label><input type="radio" name="q7" value="B"> B. Thiếu perplexity thấp hơn</label>
+<label><input type="radio" name="q7" value="C"> C. Thiếu adversarial set và failure taxonomy theo mức nghiêm trọng — điểm trung bình che giấu lỗi nghiêm trọng</label>
+<label><input type="radio" name="q7" value="D"> D. Thiếu tăng temperature lúc eval</label>
+<div class="expl">Đúng: lỗi không ngang nhau. Eval tốt tối thiểu hóa lỗi nghiêm trọng, không tối đa hóa trung bình — cần phân loại thất bại theo severity và case đối kháng cố tình tìm điểm gãy.</div></div>
+
+<div class="q" data-answer="D"><p>8. Mô hình nói "tôi chắc chắn 95%" nhưng chỉ đúng 60% số lần như vậy. Hiện tượng này gọi là gì và chỉ số nào đo nó?</p>
+<label><input type="radio" name="q8" value="A"> A. Position bias, đo bằng accuracy</label>
+<label><input type="radio" name="q8" value="B"> B. Judge drift, đo bằng perplexity</label>
+<label><input type="radio" name="q8" value="C"> C. Contamination, đo bằng F1</label>
+<label><input type="radio" name="q8" value="D"> D. Mất calibration, đo bằng ECE (càng gần 0 càng tốt)</label>
+<div class="expl">Đúng: calibration = mức tin cậy khớp tần suất đúng thật. ECE (Expected Calibration Error) càng gần 0 càng tốt; mô hình tự tin quá mức nguy hiểm hơn mô hình kém chính xác nhưng thật thà.</div></div>
+
+<button class="btn" onclick="grade()">Nộp bài</button>
+<button class="btn ghost" onclick="copyRes()">Copy kết quả</button>
+<div id="score"></div>
+<div id="copyout" style="display:none"></div>
+
+<script>
+let result = "";
+function grade(){
+  const qs = document.querySelectorAll('.q'); let s = 0; const letters = [];
+  qs.forEach((q, i) => {
+    const ans = q.dataset.answer;
+    const picked = q.querySelector('input:checked');
+    const expl = q.querySelector('.expl');
+    expl.style.display = 'block';
+    if (picked && picked.value === ans) { s++; letters.push(ans); expl.classList.remove('wrong'); }
+    else { letters.push(picked ? picked.value : '–'); expl.classList.add('wrong'); }
+  });
+  result = "Day21 Quiz: " + letters.map((l, i) => (i+1) + l).join(' ') + " — " + s + "/8";
+  document.getElementById('score').textContent = "Kết quả của bạn: " + s + "/8" + (s >= 6 ? " 🎉 Đạt! Sẵn sàng cho mini-project 3." : " 🔁 Dưới 70% — ôn lại các câu sai trong tài liệu ngày tương ứng trước buổi tối nhé.");
+  const co = document.getElementById('copyout'); co.style.display = 'block'; co.textContent = result;
+}
+function copyRes(){
+  if (!result) grade();
+  navigator.clipboard.writeText(result).then(() => alert("Đã copy! Paste vào chat để trợ lý ghi điểm."));
+}
+</script>
+
+<p class="note">Lưu ý: file HTML này không tự gửi kết quả về được — bạn bấm "Copy kết quả" rồi paste vào chat để trợ lý ghi điểm. Dưới 70% (dưới 6/8) → buổi tối sẽ ôn lại chỗ hổng trước khi vào mini-project 3.</p>
+<p class="note"><a href="Day21_lesson.html" style="color:var(--gold)">← Quay lại tài liệu bài học</a></p>
+</div>
+</body>
+</html>

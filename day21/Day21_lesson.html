@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ngày 21 — Ôn tập tuần 3: từ đọc pretrained model đến eval an toàn | Khóa LLM 30 ngày</title>
+<style>
+:root{--bg:#0a0f1e; --card:#101830; --line:#22305a; --gold:#f5c542; --green:#4ade80;
+ --red:#f87171; --violet:#a78bfa; --cyan:#67e8f9; --text:#e8edf7; --muted:#93a0bd;}
+*{box-sizing:border-box;}
+body{margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.75; font-size:16.5px;}
+.wrap{max-width:820px; margin:0 auto; padding:18px 16px 60px;}
+.kicker{display:inline-block; font-size:13px; letter-spacing:1px; color:var(--gold); font-weight:700; margin-bottom:8px;}
+h1{font-size:30px; line-height:1.3; margin:6px 0 10px;}
+h2{font-size:22px; margin:34px 0 10px; color:var(--cyan);}
+h3{font-size:18px; margin:22px 0 8px; color:var(--gold);}
+.sub{color:var(--muted); font-size:16.5px;}
+.meta{display:flex; gap:8px; flex-wrap:wrap; margin:14px 0 6px;}
+.meta span{font-size:13.5px; background:var(--card); border:1px solid var(--line); border-radius:999px; padding:5px 14px;}
+.hero{width:100%; border-radius:14px; margin:16px 0;}
+.card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px; margin:16px 0;}
+.note{border-left:4px solid var(--green); background:#0f2233; border-radius:0 12px 12px 0; padding:12px 16px; margin:14px 0;}
+.warn{border-left:4px solid var(--red); background:#23141a; border-radius:0 12px 12px 0; padding:12px 16px; margin:14px 0;}
+.formula{background:#0a0f1e; border:1px dashed var(--violet); border-radius:10px; padding:12px 16px; margin:12px 0; font-size:17px; text-align:center;}
+table{width:100%; border-collapse:collapse; margin:12px 0; font-size:15px;}
+th,td{border:1px solid var(--line); padding:8px 10px; text-align:left;}
+th{background:#141d3a; color:var(--gold);}
+svg{max-width:100%; height:auto; display:block; margin:12px auto;}
+.btn{display:inline-block; background:var(--gold); color:#14100a; font-weight:700; border-radius:10px; padding:12px 22px; margin:10px 8px 0 0; text-decoration:none;}
+.btn.ghost{background:transparent; color:var(--gold); border:2px solid var(--gold);}
+ul.check li{margin:6px 0;}
+.footer{color:var(--muted); font-size:14px; margin-top:40px; border-top:1px solid var(--line); padding-top:14px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+<span class="kicker">NGÀY 21 · BUỔI SÁNG — ÔN TẬP TUẦN 3</span>
+<h1>Ôn tập tuần 3: từ đọc pretrained model đến eval an toàn</h1>
+<p class="sub">Tuần 3 là tuần bạn chuyển từ "hiểu mô hình hoạt động ra sao" sang "biến một mô hình có sẵn thành thứ dùng được thật": đọc pretrained model như đọc codebase (ngày 15), dạy nó làm theo hướng dẫn bằng SFT (ngày 16), rồi tinh chỉnh rẻ bằng LoRA và QLoRA (ngày 17–18), dạy nó chọn câu trả lời hay hơn bằng RLHF/DPO (ngày 19), và cuối cùng kiểm tra xem nó thất bại ở đâu bằng eval an toàn (ngày 20). Hôm nay ta không học khái niệm mới — ta nối 6 ngày thành một pipeline duy nhất, rồi soi lại những chỗ dễ nhầm nhất. Tối nay, mini-project 3 bắt đầu: bạn sẽ tự tay chạy trọn pipeline này trên một tác vụ thật.</p>
+<div class="meta"><span>⏱ ~25 phút đọc</span><span>🎯 SFT · LoRA · QLoRA · DPO · eval an toàn</span><span>📝 Quiz 8 câu ở file riêng</span></div>
+<img class="hero" src="img/day21_hero.webp" alt="Minh họa hành trình tuần 3: từ mô hình pretrained thô đến trợ lý an toàn">
+
+<h2>🎯 Mục tiêu buổi ôn tập</h2>
+<ul class="check">
+<li>Nối 6 ngày thành một pipeline: đọc model → SFT → LoRA/QLoRA → DPO → eval an toàn.</li>
+<li>Phân biệt rạch ròi: SFT dạy <i>làm theo hướng dẫn</i>, DPO dạy <i>chọn hay hơn</i>, eval đo <i>thất bại ở đâu</i>.</li>
+<li>Nhớ đúng công thức và con số cốt lõi: rank r của LoRA, VRAM của QLoRA, loss của DPO, ECE của calibration.</li>
+<li>Tự chẩn đoán: làm quiz 8 câu, câu nào sai là chỗ hổng cần ôn lại trước mini-project 3.</li>
+</ul>
+
+<svg viewBox="0 0 760 150" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Pipeline tuần 3">
+<rect x="10" y="45" width="108" height="60" rx="12" fill="#101830" stroke="#67e8f9"/><text x="64" y="72" text-anchor="middle" fill="#67e8f9" font-size="13" font-weight="700">Đọc model</text><text x="64" y="92" text-anchor="middle" fill="#e8edf7" font-size="12">Ngày 15</text>
+<text x="126" y="82" text-anchor="middle" fill="#93a0bd" font-size="20">→</text>
+<rect x="142" y="45" width="108" height="60" rx="12" fill="#101830" stroke="#f5c542"/><text x="196" y="72" text-anchor="middle" fill="#f5c542" font-size="13" font-weight="700">SFT</text><text x="196" y="92" text-anchor="middle" fill="#e8edf7" font-size="12">Ngày 16</text>
+<text x="258" y="82" text-anchor="middle" fill="#93a0bd" font-size="20">→</text>
+<rect x="274" y="45" width="108" height="60" rx="12" fill="#101830" stroke="#a78bfa"/><text x="390" y="72" text-anchor="middle" fill="#a78bfa" font-size="13" font-weight="700">LoRA/QLoRA</text><text x="390" y="92" text-anchor="middle" fill="#e8edf7" font-size="12">Ngày 17–18</text>
+<text x="390" y="82" text-anchor="middle" fill="#93a0bd" font-size="20">→</text>
+<rect x="406" y="45" width="108" height="60" rx="12" fill="#101830" stroke="#4ade80"/><text x="522" y="72" text-anchor="middle" fill="#4ade80" font-size="13" font-weight="700">DPO</text><text x="522" y="92" text-anchor="middle" fill="#e8edf7" font-size="12">Ngày 19</text>
+<text x="522" y="82" text-anchor="middle" fill="#93a0bd" font-size="20">→</text>
+<rect x="538" y="45" width="108" height="60" rx="12" fill="#101830" stroke="#f87171"/><text x="592" y="72" text-anchor="middle" fill="#f87171" font-size="13" font-weight="700">Eval an toàn</text><text x="592" y="92" text-anchor="middle" fill="#e8edf7" font-size="12">Ngày 20</text>
+<text x="380" y="135" text-anchor="middle" fill="#93a0bd" font-size="13">Mỗi bước sau chỉ đáng tin khi bước trước đã đo đúng</text>
+</svg>
+
+<h2 id="sec-map">1. Bản đồ tuần 3: mỗi ngày trả lời một câu hỏi</h2>
+<table>
+<tr><th>Ngày</th><th>Câu hỏi cốt lõi</th><th>Đáp án một dòng</th></tr>
+<tr><td><b>15</b></td><td>Mô hình này thực ra là cái gì?</td><td>Đọc config, tokenizer, weight và generation config trước khi tin bất kỳ demo nào.</td></tr>
+<tr><td><b>16</b></td><td>Làm sao dạy model làm theo hướng dẫn?</td><td>SFT: train trên cặp instruction → response, loss chỉ tính trên phần response.</td></tr>
+<tr><td><b>17</b></td><td>Tinh chỉnh rẻ mà vẫn mạnh?</td><td>LoRA: đóng băng W, học thêm ΔW = BA với rank r nhỏ.</td></tr>
+<tr><td><b>18</b></td><td>VRAM không đủ thì sao?</td><td>QLoRA: base model 4-bit + adapter LoRA 16-bit, đổi VRAM lấy tốc độ.</td></tr>
+<tr><td><b>19</b></td><td>Dạy model chọn câu hay hơn, không chỉ đúng?</td><td>DPO: học trực tiếp từ cặp thắng–thua, không cần reward model riêng.</td></tr>
+<tr><td><b>20</b></td><td>Làm sao biết nó thất bại ở đâu?</td><td>Eval an toàn: golden set + adversarial set trên 4 trục, gate release viết trước khi xem kết quả.</td></tr>
+</table>
+
+<h2 id="sec-15-16">2. Ngày 15–16: đọc model rồi mới dạy model</h2>
+<p>Bài học ngày 15 nghe như "kỹ năng đọc", nhưng nó là <b>kỹ năng phòng vệ</b>: một model card ghi "7B, chat" chưa nói gì về dữ liệu train, license, ngôn ngữ hỗ trợ hay giới hạn. Đọc config cho biết kiến trúc thật (số layer, hidden size, context length); đọc tokenizer cho biết fertility — một ngôn ngữ mà tokenizer tách quá vụn sẽ tốn gấp đôi token và tiền; đọc generation config cho biết vì sao cùng một prompt, hai người chạy ra hai kết quả khác nhau (temperature, top-p mặc định khác nhau).</p>
+<p>Ngày 16 đặt viên gạch đầu tiên của alignment: SFT không dạy kiến thức mới, nó dạy <b>định dạng hành vi</b> — mô hình đã biết rất nhiều từ pretraining, SFT chỉ dạy nó "khi người ta hỏi thế này thì trả lời thế kia". Vì vậy loss chỉ tính trên token của response, không tính trên prompt: tính cả prompt là dạy model bắt chước câu hỏi của người dùng, không phải câu trả lời.</p>
+<div class="warn"><b>Bẫy thường gặp:</b> SFT trên dữ liệu kém chất lượng còn tệ hơn không SFT. Một nghìn cặp instruction–response sạch, đúng định dạng, thắng mười nghìn cặp nhiễu, trùng lặp, trả lời lan man. Đây cũng là lý do ngày 8 (dữ liệu sạch) quay lại ám tuần 3.</div>
+
+<h2 id="sec-lora">3. Ngày 17–18: LoRA và QLoRA — rẻ, nhưng không miễn phí</h2>
+<p>Công thức phải thuộc lòng:</p>
+<div class="formula">W' = W + ΔW, &nbsp; ΔW = B·A &nbsp; với &nbsp; B ∈ ℝ<sup>d×r</sup>, A ∈ ℝ<sup>r×k</sup>, r ≪ min(d, k)</div>
+<img class="hero" src="img/day21_lora.webp" alt="Minh họa LoRA: ma trận lớn đóng băng, hai module adapter nhỏ phát sáng">
+<p>Với r = 8 hoặc 16, số tham số cần train chỉ bằng khoảng 0,1–1% mô hình gốc, nhưng vẫn đủ sức thay đổi hành vi vì cập nhật cần học thường có rank thấp — đó là giả thuyết low-rank, và nó cần được kiểm chứng bằng ablation (tăng r xem có cải thiện không, chứ không tin mù). Scaling factor α/r quyết định độ lớn của cập nhật: tăng α mà không đổi r là tăng "liều lượng" của cùng một hướng học.</p>
+<p>QLoRA thêm một tầng: base model nén về 4-bit (NF4) để vừa VRAM, adapter LoRA vẫn train ở 16-bit, cộng thêm double quantization và paged optimizer để khỏi tràn bộ nhớ. Cái giá phải trả là tốc độ: dequantize liên tục làm train chậm hơn, và 4-bit làm mất một phần chất lượng ở những tác vụ cần độ chính xác cao. Quy tắc chọn: <b>đo quality–memory–latency thật trên phần cứng của bạn</b>, đừng suy từ số bit.</p>
+<div class="note"><b>Nối với tuần 2:</b> LoRA/QLoRA là câu trả lời thực tế cho scaling law ngày 11 — khi không đủ ngân sách train full model, bạn đổi một phần chất lượng lấy khả năng train được, và phải đo xem phần đánh đổi đó là bao nhiêu.</div>
+
+<h2 id="sec-dpo">4. Ngày 19: DPO — từ "làm theo" sang "chọn hay hơn"</h2>
+<p>SFT dạy model bắt chước một đáp án mẫu. Nhưng "hay hơn" là khái niệm so sánh: cùng một câu hỏi, đáp án A tốt hơn đáp án B. RLHF cổ điển cần 3 bước (SFT → reward model → PPO), vừa nặng vừa dễ mất ổn định. DPO gộp lại: học trực tiếp từ cặp thắng–thua bằng loss dạng:</p>
+<div class="formula">L<sub>DPO</sub> = −log σ( β · [log π<sub>θ</sub>(y<sub>w</sub>|x) − log π<sub>ref</sub>(y<sub>w</sub>|x) − log π<sub>θ</sub>(y<sub>l</sub>|x) + log π<sub>ref</sub>(y<sub>l</sub>|x)] )</div>
+<p>Đọc công thức bằng lời: tăng xác suất của đáp án thắng, giảm xác suất của đáp án thua, nhưng neo vào model tham chiếu (π<sub>ref</sub>, thường là model sau SFT) bằng hệ số β để model không trôi quá xa. β nhỏ = học mạnh, dễ lệch; β lớn = học dè, an toàn hơn. Và điều kiện tiên quyết của ngày 19 mà nhiều người bỏ qua: <b>DPO cần baseline SFT mạnh</b> — cặp thắng–thua chỉ có nghĩa khi cả hai đáp án đều từ một model đã biết làm theo hướng dẫn.</p>
+
+<h2 id="sec-eval">5. Ngày 20: eval an toàn — đo thất bại, không đo trung bình</h2>
+<p>Tuần 3 kết thúc bằng một cú "phanh": mọi con số đẹp ở ngày 15–19 đều vô nghĩa nếu eval chỉ đo trung bình. Bốn trục phải nhớ:</p>
+<ul>
+<li><b>Factuality:</b> mô hình có bịa không? Kiểm tra bằng grounded QA và tính cả điểm cho câu trả lời "tôi không biết" đúng lúc.</li>
+<li><b>Robustness:</b> đổi cách hỏi, đáp án có đổi không? Paraphrase test và position bias là hai phép thử rẻ mà bắt được nhiều lỗi.</li>
+<li><b>Bias:</b> cặp đối chứng — cùng câu hỏi, chỉ đổi một thuộc tính của người được nhắc đến, rồi so đáp án.</li>
+<li><b>Prompt injection:</b> hướng dẫn chỉ đến từ hệ thống và người dùng; mọi thứ còn lại là dữ liệu, kể cả khi nó viết bằng giọng ra lệnh.</li>
+</ul>
+<p>Và hai khái niệm "hậu kiểm" dễ bị quên: <b>calibration</b> (mô hình nói chắc 80% thì phải đúng khoảng 80% số lần như vậy; ECE càng gần 0 càng tốt) và <b>judge drift</b> (giám khảo LLM cũng trôi theo thời gian — chống bằng tập neo cố định và đóng băng cấu hình chấm). Gate release phải viết <i>trước</i> khi xem kết quả, nếu không nó chỉ là giấy chứng nhận viết sau.</p>
+
+<h2 id="sec-energy">⚡ Góc tiết kiệm năng lượng</h2>
+<p>Tuần 3 là tuần "xanh" nhất của khóa học nếu nhìn đúng: LoRA/QLoRA không chỉ tiết kiệm tiền, mà tiết kiệm điện theo cấp số nhân — train 0,1% tham số nghĩa là optimizer state nhỏ hơn hàng chục lần, checkpoint nhẹ hơn, và một chiếc GPU tiêu dùng cũng train được thứ trước đây cần cụm máy chủ. Nhưng có một cạm bẫy xanh: QLoRA train chậm hơn do dequantize, nên tổng năng lượng chưa chắc đã thấp hơn full fine-tune ngắn — phải đo kWh trọn vòng đời, không đo mỗi VRAM lúc train. Và ở ngày 20, một bộ eval chạy mỗi release cũng tốn điện: golden set nên gọn, chạy nhanh, chỉ mở rộng adversarial set khi có thay đổi lớn.</p>
+
+<h2 id="sec-project">6. Mở đầu mini-project 3: trợ lý miền hẹp có bằng chứng</h2>
+<p>Tối nay, mini-project 3 bắt đầu và kéo dài sang tuần 4: bạn chọn một tác vụ hỏi đáp trên tài liệu do chính bạn sở hữu (ví dụ: hỏi đáp tài liệu CleanBoost, hoặc tài liệu khóa học này), rồi chạy trọn pipeline tuần 3 — baseline → QLoRA → eval trước–sau → error analysis — và kết thúc bằng một model card và energy report. Kết luận phải viết theo Pareto: chỉ nhận một cải tiến nếu nó không hy sinh quá mức chất lượng, độ trễ hoặc năng lượng. Buổi tối sẽ có hướng dẫn từng bước; buổi sáng nay chỉ cần bạn nắm chắc bản đồ tuần 3 và làm quiz để biết mình hổng ở đâu.</p>
+
+<h2>📝 Tóm tắt</h2>
+<ul class="check">
+<li>Đọc model trước khi dạy model: config, tokenizer, generation config quyết định mọi kết quả sau đó.</li>
+<li>SFT dạy định dạng hành vi, loss chỉ trên response; DPO dạy chọn hay hơn từ cặp thắng–thua, neo vào model SFT bằng β.</li>
+<li>LoRA: ΔW = BA, rank r nhỏ; QLoRA: base 4-bit + adapter 16-bit, đổi VRAM lấy tốc độ — phải benchmark thật.</li>
+<li>Eval an toàn đo thất bại: golden + adversarial, 4 trục, calibration (ECE), judge drift, gate viết trước.</li>
+<li>Tiết kiệm năng lượng thực sự = đo kWh trọn vòng đời, không đo mỗi VRAM hay số bit.</li>
+</ul>
+
+<p><a class="btn" href="Day21_quiz.html">📝 Làm quiz 8 câu ngay</a><a class="btn ghost" href="Day21_video.mp4">🎬 Xem video ôn tập</a></p>
+<p class="footer">Khóa "Trở thành AI Engineer (LLM)" — Ngày 21 · Ôn tập tuần 3 (ngày 15–20). File quiz nằm riêng: Day21_quiz.html — làm xong bấm "Copy kết quả" rồi paste vào chat để trợ lý ghi điểm. File HTML không tự gửi kết quả về được.</p>
+</div>
+</body>
+</html>
