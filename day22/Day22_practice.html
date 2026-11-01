@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ngày 22 — Buổi tối: Lab Quantization | Khóa LLM 30 ngày</title>
+<style>
+:root{--bg:#0a0f1e;--card:#101830;--line:#22305a;--gold:#f5c542;--green:#4ade80;--red:#f87171;--violet:#a78bfa;--cyan:#67e8f9;--text:#e8edf7;--muted:#93a0bd;}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;line-height:1.75;font-size:16.5px;}
+.wrap{max-width:820px;margin:0 auto;padding:18px 16px 60px;}
+.kicker{display:inline-block;font-size:13px;letter-spacing:1px;color:var(--gold);font-weight:700;margin-bottom:8px;}
+h1{font-size:29px;line-height:1.3;margin:6px 0 10px;}
+h2{font-size:22px;margin:34px 0 10px;color:var(--cyan);}
+h3{font-size:18px;margin:22px 0 8px;color:var(--gold);}
+.sub{color:var(--muted);font-size:16.5px;}
+.meta{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 6px;}
+.meta span{font-size:13.5px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:5px 14px;}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin:16px 0;}
+.note{border-left:4px solid var(--green);background:#0f2233;border-radius:0 12px 12px 0;padding:12px 16px;margin:14px 0;}
+.warn{border-left:4px solid var(--red);background:#23141a;border-radius:0 12px 12px 0;padding:12px 16px;margin:14px 0;}
+.code{background:#060a14;border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:12px 0;overflow-x:auto;}
+.code pre{margin:0;font-size:14px;line-height:1.6;color:var(--cyan);white-space:pre-wrap;word-break:break-word;}
+button.ans{background:var(--gold);color:#14100a;font-weight:700;border:0;border-radius:10px;padding:10px 18px;cursor:pointer;font-size:15px;margin:8px 0;}
+.answer{display:none;background:#0f2233;border:1px solid var(--line);border-radius:10px;padding:12px 16px;margin:8px 0;}
+table{width:100%;border-collapse:collapse;margin:12px 0;font-size:15px;}
+th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;}
+th{background:#141d3a;color:var(--gold);}
+ul.check li{margin:6px 0;}
+.footer{color:var(--muted);font-size:14px;margin-top:40px;border-top:1px solid var(--line);padding-top:14px;}
+code{background:#0a0f1e;border:1px solid var(--line);border-radius:6px;padding:1px 7px;font-size:15px;}
+</style>
+<script>
+function toggle(id){var el=document.getElementById(id);el.style.display=(el.style.display==='block')?'none':'block';}
+</script>
+</head>
+<body>
+<div class="wrap">
+<span class="kicker">NGÀY 22 · BUỔI TỐI — TUẦN 4: GREEN LLM (KHÔNG CÓ VIDEO)</span>
+<h1>🛠️ Lab: Quantize thật, đo thật — đừng tin con số trên model card</h1>
+<p class="sub">Buổi sáng bạn đã học: affine quantization, dynamic/static PTQ, weight-only, outlier và GPTQ/AWQ/SmoothQuant, cùng benchmark quality – memory – latency – energy. Tối nay bạn tự tay làm tròn trọng số, phá nó bằng outlier, rồi đo xem INT8/INT4 thực sự đổi được gì trên máy của mình.</p>
+<div class="meta"><span>⏱ ~60–90 phút</span><span>🐍 Python + PyTorch, chạy được trên CPU</span><span>🎯 Kết quả: bảng benchmark + quyết định INT8 hay INT4</span></div>
+
+<h2>🎯 Mục tiêu buổi tối</h2>
+<div class="card"><ul>
+<li>Viết được hàm affine quantization (symmetric và asymmetric) và tính được scale, zero-point, sai số làm tròn.</li>
+<li>Chứng minh bằng số: một outlier có thể phá hỏng quantize per-tensor, và per-channel cứu được bao nhiêu.</li>
+<li>Quantize weight-only một MLP nhỏ ở INT8 và INT4, đo độ chính xác, bộ nhớ và độ trễ — rồi tự quyết định mức nào phù hợp với workload của mình.</li>
+</ul></div>
+
+<h2>Chuẩn bị (5 phút)</h2>
+<p>Tạo file <code>quant_lab.py</code>. Chỉ cần PyTorch và NumPy, không cần GPU, không cần tải mô hình lớn. Mọi thí nghiệm tối nay đều chạy trên CPU — đúng tinh thần buổi sáng: đo trên phần cứng mình có, không đo trên phần cứng của người khác.</p>
+<div class="code"><pre>import time
+import torch
+import torch.nn as nn
+
+torch.manual_seed(0)
+print("torch:", torch.__version__)</pre></div>
+
+<h2>Bài 1 — Viết hàm affine quantization (phần chính, tự làm)</h2>
+<p><strong>Yêu cầu:</strong> tự viết hàm dưới đây, đừng copy đáp án ở cuối bài trước khi thử. Công thức buổi sáng:</p>
+<p style="text-align:center"><code>s = (max − min) / (2^b − 1)</code> &nbsp;·&nbsp; <code>x<sub>q</sub> = clamp(round(x / s) + z, 0, 2^b − 1)</code> &nbsp;·&nbsp; <code>x̂ = s · (x<sub>q</sub> − z)</code></p>
+<div class="code"><pre>def quantize_dequantize(x, bits=8, symmetric=False):
+    """Trả về (x_hat, scale, zero_point). TODO: bạn viết phần thân hàm."""
+    # Gợi ý từng bước:
+    # 1. Nếu symmetric: s = max(abs(min), abs(max)) / (2**(bits-1) - 1), z = 0,
+    #    mức từ -(2**(bits-1)-1) đến +(2**(bits-1)-1).
+    # 2. Nếu asymmetric: s = (max - min) / (2**bits - 1),
+    #    z = round(-min / s), mức từ 0 đến 2**bits - 1.
+    # 3. x_q = clamp(round(x / s) + z, ...), rồi x_hat = s * (x_q - z).
+    raise NotImplementedError("Bạn viết hàm này")</pre></div>
+<p><strong>Kiểm tra ngay:</strong></p>
+<div class="code"><pre>x = torch.tensor([-1.2, -0.3, 0.0, 0.3, 0.6])
+x_hat, s, z = quantize_dequantize(x, bits=8, symmetric=False)
+print("scale ~", round(float(s), 5), "| zero-point:", int(z))
+print("x_hat:", x_hat.tolist())
+print("sai số lớn nhất:", float((x_hat - x).abs().max()))
+# Kỳ vọng: scale ≈ 0.00706, x = 0.3 khôi phục ≈ 0.299, sai số tối đa &lt; scale/2.</pre></div>
+<p>Tiếp theo, tự làm thêm 2 việc: (a) quantize cùng tensor về INT4 và in sai số lớn nhất — so với INT8 thì sai số tăng khoảng bao nhiêu lần? (b) Thử một tensor lệch hẳn một phía, ví dụ toàn giá trị trong [0.5, 2.5], so sánh symmetric và asymmetric: cách nào tận dụng mức tốt hơn, vì sao?</p>
+
+<h2>Bài 2 — Outlier phá thang đo như thế nào?</h2>
+<p>Tạo một ma trận trọng số giả có một channel outlier lớn gấp hàng chục lần các channel còn lại — đúng kiểu activation của LLM buổi sáng đã mô tả:</p>
+<div class="code"><pre># 4 channel, mỗi channel 1000 giá trị ~ N(0, 1), riêng channel 0 nhân 50
+W = torch.randn(4, 1000)
+W[0] *= 50.0
+
+# TODO 1: quantize per-tensor (một scale chung cho cả ma trận) về INT8,
+# rồi tính sai số trung bình (MSE) riêng cho channel 0 và cho các channel còn lại.
+# TODO 2: quantize per-channel (mỗi hàng một scale riêng) về INT8,
+# rồi tính lại MSE theo từng channel.
+# TODO 3: in bảng so sánh và viết 1 câu kết luận: outlier làm hại ai nhất?</pre></div>
+<div class="note"><strong>Kết quả bạn nên thấy:</strong> per-tensor thì các channel bình thường bị dồn vào vài mức, MSE của chúng tăng vọt; per-channel thì mỗi channel có thang đo riêng nên sai số trở lại mức bình thường. Đây chính là lý do GPTQ/AWQ phải xử lý outlier theo channel, không dùng một scale chung.</div>
+<p><strong>Nâng cao (không bắt buộc):</strong> lặp lại với INT4. Per-channel có còn cứu được không, hay ở INT4 ngay cả per-channel cũng bắt đầu đuối? Ghi nhận xét này vào bảng benchmark ở Bài 4.</p>
+
+<h2>Bài 3 — Weight-only quantize một MLP thật</h2>
+<p><strong>Bước 1 — Train một MLP nhỏ (code cho sẵn, chạy nhanh trên CPU):</strong></p>
+<div class="code"><pre># Dữ liệu tổng hợp 2 lớp, 2 chiều — đủ để đo accuracy, không cần tải dataset
+X = torch.randn(2000, 2)
+y = ((X[:, 0] ** 2 + X[:, 1] ** 2) &gt; 1.0).long()
+Xtr, Xte, ytr, yte = X[:1600], X[1600:], y[:1600], y[1600:]
+
+mlp = nn.Sequential(nn.Linear(2, 32), nn.ReLU(), nn.Linear(32, 32),
+                     nn.ReLU(), nn.Linear(32, 2))
+opt = torch.optim.AdamW(mlp.parameters(), lr=0.01)
+for epoch in range(200):
+    opt.zero_grad()
+    loss = nn.CrossEntropyLoss()(mlp(Xtr), ytr)
+    loss.backward(); opt.step()
+with torch.no_grad():
+    acc_fp = (mlp(Xte).argmax(1) == yte).float().mean().item()
+print(f"Accuracy FP32: {acc_fp:.3f}")</pre></div>
+<p><strong>Bước 2 — Weight-only quantize (phần chính, tự làm):</strong> dùng hàm ở Bài 1, quantize <em>chỉ trọng số</em> của từng lớp <code>nn.Linear</code> (activation vẫn giữ FP32 khi tính — đúng định nghĩa weight-only buổi sáng), rồi thay trọng số đã giải mã ngược vào mô hình và đo lại accuracy. Làm ở cả INT8 và INT4.</p>
+<div class="code"><pre>def quantize_model_weights(model, bits):
+    # TODO: với mỗi nn.Linear trong model:
+    #   W_hat, _, _ = quantize_dequantize(layer.weight.data, bits=bits)
+    #   layer.weight.data = W_hat
+    # Lưu ý: làm trên bản copy (copy.deepcopy) để không phá model gốc.
+    pass
+
+# TODO: đo accuracy sau INT8 và sau INT4, in ra cùng accuracy FP32.</pre></div>
+<p><strong>Bước 3 — Đo bộ nhớ và độ trễ (đừng chỉ đo accuracy):</strong></p>
+<div class="code"><pre>n_params = sum(p.numel() for p in mlp.parameters())
+for name, bpp in [("FP32", 4), ("INT8", 1), ("INT4", 0.5)]:
+    print(f"{name}: ~{n_params * bpp / 1024:.1f} KB trọng số")
+
+# Độ trễ: đo riêng batch 1 và batch 256, mỗi mức 200 lần, lấy trung bình.
+# TODO: viết vòng đo bằng time.perf_counter() cho model FP32 (bản gốc).
+# Ghi chú quan trọng ở phần bẫy: mô hình INT8 "giả lập" bằng dequantize
+# về FP32 rồi tính FP32 sẽ KHÔNG nhanh hơn — muốn nhanh thật cần kernel
+# INT8 thật (xem mục bẫy thường gặp).</pre></div>
+<p><strong>Bước 4 — Năng lượng (ước lượng, theo Green checkpoint):</strong> nếu máy của bạn không có công cụ đo điện năng, ước lượng thô: energy/token ∝ số byte trọng số phải đọc mỗi lần decode (batch 1, memory-bound). Tính tỉ lệ byte INT8/FP32 và INT4/FP32, ghi vào bảng — và ghi rõ đây là ước lượng, không phải số đo điện năng thật.</p>
+
+<h2>Bài 4 — Bảng benchmark và quyết định của bạn</h2>
+<p>Điền bảng dưới đây bằng số bạn đo được (không copy số minh họa buổi sáng), rồi viết quyết định:</p>
+<table>
+<tr><th>Phiên bản</th><th>Accuracy (test)</th><th>Bộ nhớ trọng số</th><th>Độ trễ batch 1</th><th>Độ trễ batch 256</th></tr>
+<tr><td>FP32 (gốc)</td><td>…</td><td>… KB</td><td>… ms</td><td>… ms</td></tr>
+<tr><td>INT8 weight-only</td><td>…</td><td>… KB</td><td>… ms</td><td>… ms</td></tr>
+<tr><td>INT4 weight-only</td><td>…</td><td>… KB</td><td>… ms</td><td>… ms</td></tr>
+</table>
+<p><strong>Quyết định (viết 3–4 câu, paste cùng kết quả):</strong> (1) Nếu mô hình này là chatbot cần giữ chất lượng, bạn chọn mức nào? (2) Nếu chạy offline trên máy yếu và chấp nhận giảm nhẹ, mức nào mới đáng? (3) Regression set của bạn là gì — liệt kê 5–10 input đại diện (kể cả trường hợp biên, gần biên quyết định) mà mọi phiên bản quantize sau này đều phải chạy qua trước khi release.</p>
+
+<h2>✅ Tự kiểm tra nhanh</h2>
+
+<h3>Câu 1: Vì sao INT4 thường giữ được chất lượng cho weight-only ở batch 1, nhưng vẫn có thể làm sụp điểm task dù perplexity chỉ tăng nhẹ?</h3>
+<button class="ans" onclick="toggle('a1')">Hiện đáp án</button>
+<div class="answer" id="a1">Perplexity là trung bình trên mọi token nên che giấu lỗi ở những câu khó, hiếm. Điểm task (trắc nghiệm, tóm tắt, code) nhạy với đúng những câu đó. Quy tắc buổi sáng: nếu perplexity tăng nhẹ nhưng điểm task sụp thì tin điểm task. Ngoài ra, batch 1 là memory-bound nên giảm byte đọc giúp tốc độ, nhưng sai số làm tròn vẫn cộng dồn qua các lớp — tốc độ không bù được chất lượng đã mất.</div>
+
+<h3>Câu 2: Calibration set toàn câu tiếng Anh ngắn, triển khai chạy văn bản tiếng Việt dài nhiều code — điều gì xảy ra với static PTQ?</h3>
+<button class="ans" onclick="toggle('a2')">Hiện đáp án</button>
+<div class="answer" id="a2">Scale đã đóng băng từ calibration set sẽ lệch khỏi phân phối thật: min/max activation đo được không còn đại diện, nhiều giá trị thật rơi ngoài thang đo hoặc bị dồn vào ít mức. Kết quả: đo trên calibration thì ngon, ra thật thì nát. Cách chữa: calibration set phải giống workload thật — cùng ngôn ngữ, cùng độ dài, cùng dạng nhiệm vụ.</div>
+
+<h3>Câu 3: Bạn quantize xong, đo thấy INT8 "giả lập" chạy chậm ngang FP32. Có phải quantization vô dụng không?</h3>
+<button class="ans" onclick="toggle('a3')">Hiện đáp án</button>
+<div class="answer" id="a3">Không. Giả lập (dequantize về FP32 rồi tính bằng phép nhân FP32) vẫn đọc và tính ở FP32 nên không thể nhanh hơn — đó là giới hạn của cách đo, không phải của quantization. Muốn nhanh thật cần kernel INT8/INT4 thật và định dạng được engine hỗ trợ (GGUF cho local/CPU, GPTQ/AWQ cho GPU). Luôn phân biệt "sai số của phương pháp" với "tốc độ của engine".</div>
+
+<h2>⚠️ Bẫy thường gặp</h2>
+<div class="warn"><ul>
+<li><strong>Quên KV cache khi tính bộ nhớ:</strong> công thức "số tham số × byte" mới chỉ là trọng số. Bộ nhớ lúc chạy thật còn cộng KV cache (tăng theo độ dài context và batch) — đo bộ nhớ lúc chạy thật, đừng đọc con số trên model card.</li>
+<li><strong>Đo tốc độ bằng mô hình giả lập rồi kết luận:</strong> dequantize về FP32 rồi tính FP32 thì tốc độ không đổi (xem Câu 3). Muốn kết luận về tốc độ, phải dùng kernel/format thật hoặc nói rõ "chưa đo được tốc độ thật".</li>
+<li><strong>Chỉ đo một chế độ batch:</strong> INT4 nhanh gấp đôi ở batch 1 nhưng ngang FP16 ở batch lớn là bình thường — batch lớn đã compute-bound nên đọc trọng số không còn là cổ chai. Luôn đo cả batch 1 và batch lớn, cả energy/token ở hai chế độ.</li>
+</ul></div>
+
+<h2>📩 Checklist nộp bài</h2>
+<div class="card"><ul class="check">
+<li>☐ Code <code>quant_lab.py</code> (hàm quantize + thí nghiệm outlier + quantize MLP) chạy được, không lỗi.</li>
+<li>☐ Bảng benchmark Bài 4 với số đo thật của bạn: accuracy FP32 / INT8 / INT4, bộ nhớ, độ trễ batch 1 và batch 256.</li>
+<li>☐ Quyết định INT8 hay INT4 cho 2 workload (chatbot giữ chất lượng / máy yếu offline) + regression set 5–10 input.</li>
+<li>☐ Paste code/kết quả vào chat để được nhận xét chi tiết — ghi rõ bạn chạy trên CPU hay GPU nào, vì mọi con số tối nay chỉ có ý nghĩa trên đúng máy đó.</li>
+</ul></div>
+
+<p class="footer">Khóa "Trở thành AI Engineer (LLM)" — Ngày 22 · Buổi tối. Bài sáng cùng ngày: Quantization — giảm precision phải đo trên phần cứng thật. Ngày mai (23) tiếp tục tuần 4.</p>
+</div>
+</body>
+</html>
