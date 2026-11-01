@@ -18,7 +18,7 @@ không bịa thêm.
   (golden/adversarial), `axis`, `severity`, `must_contain`,
   `must_not_contain`, `response` tham chiếu. Phân bố trục:
   factuality 7, robustness 5, bias 2, injection 3; trong đó
-  10 adversarial (gồm 5 case severity 3).
+  10 adversarial (gồm 4 case severity 3).
 - `check_dataset()` báo: contamination = 0, eval trùng nhau
   = 0. Eval là thước đo cố định của vòng thí nghiệm này; muốn
   đổi eval phải ghi lý do, đổi trước vòng sau, báo cáo cả hai

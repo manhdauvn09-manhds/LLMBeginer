@@ -63,11 +63,28 @@ def load_jsonl(path, need_response=True):
             except json.JSONDecodeError as exc:
                 raise ValueError(f"{path} dong {i}: JSON loi "
                                  f"({exc}).")
-            if "instruction" not in r or "response" not in r:
+            # [TRAINER] need_response truoc day la tham so CHET
+            # (khai bao nhung khong dung): file nao doc cung bi
+            # bat co response. Nay dung that: need_response=False
+            # thi chi bat instruction - tien cho cac file phu
+            # (vd predictions trung gian) khong co response.
+            if "instruction" not in r or \
+                    (need_response and "response" not in r):
                 raise ValueError(f"{path} dong {i}: thieu "
                                  f"instruction/response.")
+            # [TRAINER] Kiem tra kieu truoc khi .strip(): neu
+            # instruction la so (JSON ghi 123 thay vi "123") thi
+            # code cu sap bang AttributeError khong ro so dong,
+            # pha cam ket "bao loi ro" cua chinh ham nay. Nay
+            # raise ValueError kem so dong nhu cac loi khac.
+            if not isinstance(r["instruction"], str) or \
+                    (need_response and
+                     not isinstance(r["response"], str)):
+                raise ValueError(f"{path} dong {i}: instruction/"
+                                 f"response phai la chuoi.")
             if not r["instruction"].strip() or \
-                    not r["response"].strip():
+                    (need_response and
+                     not r["response"].strip()):
                 raise ValueError(f"{path} dong {i}: rong.")
             rows.append(r)
     return rows
@@ -86,10 +103,18 @@ def check_dataset(train_path, eval_path):
               if normalize(r["instruction"]) in train_q]
     dup = len(ev) - len({normalize(r["instruction"])
                          for r in ev})
+    # [TRAINER] Ban goc chi dem trung TRONG eval, khong dem
+    # trung trong train - trong khi docstring ghi "khong
+    # trung" chung chung. Train trung noi bo lam SFT hoc lap
+    # mot mau nhieu lan (overweight) ma khong ai biet. Dataset
+    # v1 hien tai sach (0 trung - da kiem chung), nhung ham
+    # kiem tra phai bat duoc o cac vong sau.
+    dup_train = len(train) - len(train_q)
     print(f"train: {len(train)} mau | eval: {len(ev)} mau")
     print(f"eval trung train (contamination): {len(leaked)} "
           f"{leaked[:3]}")
     print(f"eval trung nhau: {dup}")
+    print(f"train trung nhau: {dup_train}")
     return train, ev
 
 
@@ -119,8 +144,17 @@ def module_shapes(config):
     kv_heads = config["num_key_value_heads"]
     head_dim = d // heads
     kv_dim = kv_heads * head_dim
+    # [TRAINER] Bo sung 3 module MLP (gate/up: d -> inter,
+    # down: inter -> d). Ban goc chi co 4 module attention:
+    # truyen "gate_proj" (rat thuong gap khi LoRA target ca
+    # MLP o tuan 4) se sap bang KeyError tran, khong ro
+    # nguyen nhan. Kem theo loi goi ro rang o lora_budget_exact
+    # cho module chua biet.
+    inter = config["intermediate_size"]
     return {"q_proj": (d, d), "k_proj": (d, kv_dim),
-            "v_proj": (d, kv_dim), "o_proj": (d, d)}
+            "v_proj": (d, kv_dim), "o_proj": (d, d),
+            "gate_proj": (d, inter), "up_proj": (d, inter),
+            "down_proj": (inter, d)}
 
 
 def lora_budget_exact(config, r, target_modules, alpha=16):
@@ -129,6 +163,14 @@ def lora_budget_exact(config, r, target_modules, alpha=16):
     Moi module: r * (in + out). Tra ve tong so tham so.
     """
     shapes = module_shapes(config)
+    # [TRAINER] Bao loi som va ro: module khong co trong bang
+    # shape thi ValueError liet ke cac module duoc ho tro,
+    # thay vi KeyError giua cong thuc (xem module_shapes).
+    unknown = [m for m in target_modules if m not in shapes]
+    if unknown:
+        raise ValueError(f"Module chua biet kich thuoc: "
+                         f"{unknown}. Ho tro: "
+                         f"{sorted(shapes)}")
     per_layer = sum(r * (shapes[m][0] + shapes[m][1])
                     for m in target_modules)
     total = per_layer * config["num_hidden_layers"]
@@ -148,8 +190,15 @@ def estimate_base_params(config):
     layers = config["num_hidden_layers"]
     inter = config["intermediate_size"]
     shapes = module_shapes(config)
+    # [TRAINER] Chi cong 4 module ATTENTION vao attn. module_
+    # shapes nay chua ca MLP (phuc vu lora_budget_exact) nen
+    # neu sum() tren toan bo dict thi MLP bi cong 2 lan (mot
+    # lan trong attn, mot lan trong mlp o duoi) - tong tham so
+    # base se doi tu 1,54B len 2,70B. Giu danh sach module
+    # attention ro rang tai day.
+    attn_names = ["q_proj", "k_proj", "v_proj", "o_proj"]
     attn = sum(shapes[m][0] * shapes[m][1]
-               for m in shapes) + 2 * d
+               for m in attn_names) + 2 * d
     mlp = d * inter * 3
     embed = config["vocab_size"] * d
     total = embed + layers * (attn + mlp)
@@ -185,10 +234,24 @@ def eval_predictions(pred_path, gold_path):
     luong. Tra ve (ok_total, by_axis).
     """
     preds = {}
+    bad_rows = 0
     for line in open(pred_path, encoding="utf-8"):
         if line.strip():
             row = json.loads(line)
+            # [TRAINER] Ban goc truy cap thang row["id"] /
+            # row["output"]: chi 1 dong predictions loi dinh
+            # dang (thieu id) la KeyError lam chet ca lan cham,
+            # mat het ket qua cua cac mau con lai. Nay bo qua
+            # dong loi, dem va bao o cuoi - cung tinh than
+            # phong thu nhu load_jsonl.
+            if "id" not in row or "output" not in row or \
+                    not isinstance(row["output"], str):
+                bad_rows += 1
+                continue
             preds[row["id"]] = row["output"].lower()
+    if bad_rows:
+        print(f"Canh bao: bo qua {bad_rows} dong predictions "
+              f"loi dinh dang (thieu id/output).")
     golds = load_jsonl(gold_path)
     by_axis = {}
     ok_total = 0
