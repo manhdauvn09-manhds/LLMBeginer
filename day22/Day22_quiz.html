@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quiz Ngày 22 — Quantization | Khóa LLM 30 ngày</title>
+<style>
+:root{--bg:#0a0f1e; --card:#101830; --line:#22305a; --gold:#f5c542; --green:#4ade80; --red:#f87171; --cyan:#67e8f9; --text:#e8edf7; --muted:#93a0bd;}
+*{box-sizing:border-box;}
+body{margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif; line-height:1.7; font-size:16.5px;}
+.wrap{max-width:780px; margin:0 auto; padding:18px 16px 60px;}
+.kicker{color:var(--gold); font-size:13px; letter-spacing:1px; font-weight:700;}
+h1{font-size:28px; line-height:1.3;}
+.sub{color:var(--muted);}
+.q{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px; margin:18px 0;}
+.q h3{margin:0 0 10px; color:var(--cyan); font-size:18px;}
+label{display:block; padding:8px 10px; margin:6px 0; border:1px solid var(--line); border-radius:10px; cursor:pointer;}
+label:hover{border-color:var(--gold);}
+label input{margin-right:10px;}
+.expl{display:none; margin-top:12px; padding:12px 14px; border-radius:10px; font-size:15.5px;}
+.expl.ok{display:block; background:#0f2233; border-left:4px solid var(--green);}
+.expl.bad{display:block; background:#23141a; border-left:4px solid var(--red);}
+button{background:var(--gold); color:#14100a; font-weight:700; border:none; border-radius:10px; padding:13px 26px; font-size:16px; cursor:pointer; margin:8px 8px 0 0;}
+button.ghost{background:transparent; color:var(--gold); border:2px solid var(--gold);}
+#result{font-size:19px; font-weight:700; margin-top:20px;}
+#copyout{background:#0a0f1e; border:1px dashed var(--gold); border-radius:10px; padding:12px 16px; margin-top:12px; font-size:16px; word-break:break-all;}
+.note{color:var(--muted); font-size:14.5px; margin-top:24px; border-top:1px solid var(--line); padding-top:14px;}
+a{color:var(--gold);}
+</style>
+</head>
+<body>
+<div class="wrap">
+<span class="kicker">NGÀY 22 · QUIZ — 5 CÂU</span>
+<h1>Quiz: Quantization</h1>
+<p class="sub">Chọn đáp án rồi bấm "Nộp bài" để chấm điểm ngay trong file và xem giải thích từng câu. Sau đó bấm "Copy kết quả" rồi paste vào chat để trợ lý ghi điểm.</p>
+<form id="quiz">
+<div class="q" data-answer="C"><h3>Câu 1. Một mô hình 7 tỉ tham số ở FP32 nặng khoảng 28 GB. Về INT4, bộ nhớ trọng số còn khoảng bao nhiêu?</h3>
+<label><input type="radio" name="q1" value="A"> A. Khoảng 21 GB</label>
+<label><input type="radio" name="q1" value="B"> B. Khoảng 14 GB</label>
+<label><input type="radio" name="q1" value="C"> C. Khoảng 3,5 GB</label>
+<label><input type="radio" name="q1" value="D"> D. Khoảng 0,9 GB</label>
+<div class="expl">Đáp án C. INT4 dùng 0,5 byte mỗi tham số: 7 tỉ × 0,5 byte ≈ 3,5 GB — bằng 1/8 so với FP32 (4 byte). Chưa tính KV cache và bộ nhớ chạy.</div></div>
+
+<div class="q" data-answer="B"><h3>Câu 2. Trong affine quantization, scale s được tính như thế nào?</h3>
+<label><input type="radio" name="q2" value="A"> A. s = (max + min) / 2<sup>b</sup></label>
+<label><input type="radio" name="q2" value="B"> B. s = (max − min) / (2<sup>b</sup> − 1)</label>
+<label><input type="radio" name="q2" value="C"> C. s = max / số tham số</label>
+<label><input type="radio" name="q2" value="D"> D. s = 1 / (max − min)</label>
+<div class="expl">Đáp án B. Scale là độ rộng đoạn giá trị chia cho số khoảng giữa các mức: (max − min) / (2<sup>b</sup> − 1). Đoạn càng rộng hoặc bit càng thấp thì mức càng thưa, sai số làm tròn càng lớn.</div></div>
+
+<div class="q" data-answer="A"><h3>Câu 3. Static PTQ khác dynamic PTQ ở điểm nào?</h3>
+<label><input type="radio" name="q3" value="A"> A. Static PTQ đo scale trước từ calibration set rồi đóng băng; dynamic PTQ tính scale lúc chạy theo từng batch</label>
+<label><input type="radio" name="q3" value="B"> B. Static PTQ train lại mô hình, dynamic PTQ thì không</label>
+<label><input type="radio" name="q3" value="C"> C. Static PTQ chỉ dùng cho INT4, dynamic PTQ chỉ dùng cho INT8</label>
+<label><input type="radio" name="q3" value="D"> D. Static PTQ không cần dữ liệu, dynamic PTQ cần calibration set</label>
+<div class="expl">Đáp án A. Static PTQ chạy trước một calibration set để đo min/max activation rồi đóng băng scale — nhanh lúc chạy nhưng scale chỉ đúng nếu calibration giống dữ liệu thật. Dynamic PTQ tính scale ngay lúc chạy, khỏi chuẩn bị trước nhưng tốn thêm thời gian mỗi lần chạy.</div></div>
+
+<div class="q" data-answer="D"><h3>Câu 4. Vì sao outlier trong activation phá hỏng quantization ngây thơ?</h3>
+<label><input type="radio" name="q4" value="A"> A. Vì outlier làm mô hình chạy chậm hơn gấp nhiều lần</label>
+<label><input type="radio" name="q4" value="B"> B. Vì outlier khiến bộ nhớ tăng thay vì giảm</label>
+<label><input type="radio" name="q4" value="C"> C. Vì outlier chỉ xuất hiện ở mô hình đã train lỗi</label>
+<label><input type="radio" name="q4" value="D"> D. Vì một vài giá trị cực lớn kéo giãn đoạn [min, max], khiến hàng nghìn giá trị bình thường bị dồn vào chỉ vài mức</label>
+<div class="expl">Đáp án D. Scale tính từ [min, max] chung bị outlier kéo giãn, nên phần lớn giá trị — vốn nằm trong đoạn hẹp — chỉ còn vài mức để biểu diễn, sai số làm tròn bùng nổ. Cách chữa: per-channel scale, giữ riêng channel outlier ở precision cao, hoặc GPTQ / AWQ / SmoothQuant.</div></div>
+
+<div class="q" data-answer="B"><h3>Câu 5. Phát biểu nào đúng về benchmark quantization?</h3>
+<label><input type="radio" name="q5" value="A"> A. Chỉ cần đo perplexity là đủ, vì perplexity phản ánh mọi lỗi</label>
+<label><input type="radio" name="q5" value="B"> B. Phải đo chất lượng + bộ nhớ + độ trễ + năng lượng trên đúng phần cứng triển khai, ở cả batch 1 và batch lớn</label>
+<label><input type="radio" name="q5" value="C"> C. Con số tokens/s của nhà cung cấp dùng được cho mọi máy</label>
+<label><input type="radio" name="q5" value="D"> D. INT4 luôn nhanh gấp đôi INT8 ở mọi workload nên cứ chọn INT4</label>
+<div class="expl">Đáp án B. Perplexity trung bình che giấu lỗi ở câu khó, nên cần thêm điểm task; batch 1 memory-bound còn batch lớn compute-bound nên tốc độ lợi được khác nhau; và con số đo trên máy khác không chuyển sang máy của bạn được. Benchmark phải đo đủ bốn trục, trên phần cứng thật.</div></div>
+</form>
+<button onclick="grade()">Nộp bài</button>
+<button class="ghost" onclick="copyResult()">Copy kết quả</button>
+<div id="result"></div>
+<div id="copyout" style="display:none"></div>
+<p class="note">Lưu ý: file HTML này không tự gửi kết quả về được. Sau khi bấm "Copy kết quả", hãy paste chuỗi kết quả vào chat để trợ lý ghi điểm cho bạn. Đáp án đúng không hiện trước khi nộp bài — giải thích chỉ mở sau khi bạn chọn và nộp.</p>
+<p><a href="Day22_lesson.html">← Về lại tài liệu bài học</a></p>
+<script>
+let graded = false, answers = [];
+function grade(){
+  const qs = document.querySelectorAll('.q');
+  let score = 0; answers = [];
+  qs.forEach((q, i) => {
+    const sel = q.querySelector('input:checked');
+    const v = sel ? sel.value : '–';
+    answers.push(v);
+    const expl = q.querySelector('.expl');
+    if (v === q.dataset.answer) { score++; expl.className = 'expl ok'; expl.innerHTML = '✅ Đúng. ' + expl.innerHTML; }
+    else { expl.className = 'expl bad'; expl.innerHTML = '❌ Chưa đúng. ' + expl.innerHTML; }
+  });
+  graded = true;
+  document.getElementById('result').textContent = 'Bạn được ' + score + '/' + qs.length + ' câu.';
+  const out = document.getElementById('copyout');
+  out.style.display = 'block';
+  out.textContent = 'Day22 Quiz: ' + answers.map((a, i) => (i+1) + a).join(' ') + ' — ' + score + '/' + qs.length;
+}
+function copyResult(){
+  if (!graded) { alert('Hãy bấm "Nộp bài" trước đã nhé.'); return; }
+  const t = document.getElementById('copyout').textContent;
+  navigator.clipboard.writeText(t).then(() => alert('Đã copy! Paste vào chat để trợ lý ghi điểm nhé.'));
+}
+</script>
+</div>
+</body>
+</html>
