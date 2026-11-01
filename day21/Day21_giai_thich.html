@@ -115,6 +115,7 @@
   <a href="#ngansach">💰 Ngân sách LoRA</a>
   <a href="#gate">🚪 Gate + kế hoạch</a>
   <a href="#baseline">📉 Baseline CPU</a>
+  <a href="#trainer">🧑‍🏫 Trainer review</a>
   <a href="#source">📜 Source code</a>
 </div></nav>
 
@@ -153,7 +154,7 @@
   </table>
   <div class="ok"><b>✅ <code>check_dataset()</code> PASS cả hai kiểm tra:</b> contamination = 0 (không eval nào trùng instruction với train, sau chuẩn hóa lower + gộp khoảng trắng) và eval trùng nhau = 0. Hàm đọc JSONL phòng thủ: báo rõ số dòng nếu JSON lỗi, thiếu trường, hoặc instruction/response rỗng.</div>
   <div class="warn"><b>🪤 Bẫy ngày 21 — eval là thước đo cố định:</b> muốn đổi eval phải ghi lý do, đổi TRƯỚC vòng sau, và báo cáo cả hai phiên bản. Đổi eval sau khi thấy model trượt để "cho qua" thì eval không còn đo được gì nữa — cùng một lỗi tư duy như sửa gate sau khi thấy số ở Day 20.</div>
-  <div class="warn"><b>⚠️ Điểm cần đối chiếu (phát hiện khi kiểm chứng):</b> <code>mp3_plan.md</code> ghi "10 adversarial (gồm 5 case severity 3)", nhưng đếm thật trong <code>mp3_eval.jsonl</code> chỉ có <b>4 case severity 3</b> (E13, E14, E15, E16). Tài liệu này dùng con số đếm từ file làm chuẩn. Kế hoạch nên sửa lại cho khớp trước vòng train tuần sau — chênh 1 case trên 17 mẫu là ~6%, đủ làm lệch mọi so sánh nhỏ.</div>
+  <div class="ok"><b>✅ Đã đối chiếu và sửa (commit 0ce43b1):</b> <code>mp3_plan.md</code> từng ghi "10 adversarial (gồm 5 case severity 3)", trong khi đếm thật trong <code>mp3_eval.jsonl</code> chỉ có <b>4 case severity 3</b> (E13, E14, E15, E16). Kế hoạch đã được sửa về 4 cho khớp với file dữ liệu. Chênh 1 case trên 17 mẫu là ~6%, đủ làm lệch mọi so sánh nhỏ — đây là lý do tài liệu luôn lấy số đếm từ file làm chuẩn.</div>
 </section>
 
 <!-- ================= NGÂN SÁCH ================= -->
@@ -294,6 +295,24 @@
 </section>
 
 <!-- ================= SOURCE ================= -->
+
+<!-- ================= TRAINER ================= -->
+<section id="trainer">
+  <h2><span class="num">🧑‍🏫</span>Trainer review: 5 chỗ sửa, đã sửa hết (commit 7a7e175 → 0ce43b1)</h2>
+  <p class="lead">Review lần này không bắt lỗi tính toán — mọi con số trong tài liệu (ngân sách 1.089.536 / 4.358.144, tổng 1,54B, baseline 2/17) đều giữ nguyên. Cả 5 chỗ sửa đều là <b>phòng thủ và rõ ràng</b>: những chỗ code "chạy được hôm nay nhưng sẽ cắn vào vòng sau". Không chỗ nào làm đổi kết luận.</p>
+  <div class="card">
+    <ol class="tight" style="margin-bottom:0">
+      <li><b>Tham số chết <code>need_response</code> → dùng thật.</b> <code>load_jsonl()</code> khai báo tham số này nhưng không dùng: file nào đọc cũng bị bắt có <code>response</code>. Nay <code>need_response=False</code> thì chỉ bắt <code>instruction</code> — tiện cho các file phụ (ví dụ predictions trung gian) không có response.</li>
+      <li><b>Kiểm tra kiểu trước khi gọi <code>.strip()</code>.</b> Nếu <code>instruction</code> là số (JSON ghi <code>123</code> thay vì <code>"123"</code>) thì code cũ sập bằng <code>AttributeError</code> không rõ số dòng, phá đúng cam kết "báo lỗi rõ" của hàm. Nay raise <code>ValueError</code> kèm số dòng như các lỗi khác.</li>
+      <li><b><code>check_dataset()</code> đếm trùng cả trong train.</b> Bản gốc chỉ đếm trùng trong eval, trong khi docstring ghi "không trùng" chung chung. Train trùng nội bộ làm SFT học lặp một mẫu nhiều lần (overweight) mà không ai biết. Dataset v1 hiện tại sạch (train trùng nhau: 0 — đã kiểm chứng), nhưng hàm kiểm tra phải bắt được ở các vòng sau.</li>
+      <li><b>Mở rộng bảng tra cứu phải audit mọi nơi dùng nó.</b> <code>module_shapes()</code> thêm 3 module MLP (gate/up/down) để tuần 4 target cả MLP không bị <code>KeyError</code> trần; <code>lora_budget_exact()</code> gặp module lạ thì raise <code>ValueError</code> liệt kê module hỗ trợ. Quan trọng nhất: <code>estimate_base_params()</code> chỉ cộng 4 module attention — nếu <code>sum()</code> cả dict mới thì MLP bị cộng 2 lần, tổng tham số base đội từ 1,54B lên 2,70B.</li>
+      <li><b><code>eval_predictions()</code> bỏ qua dòng predictions lỗi, có đếm.</b> Bản gốc truy cập thẳng <code>row["id"]</code>/<code>row["output"]</code>: chỉ 1 dòng lỗi định dạng là <code>KeyError</code> làm chết cả lần chấm, mất hết kết quả các mẫu còn lại. Nay bỏ qua dòng lỗi, đếm và báo ở cuối — cùng tinh thần phòng thủ như <code>load_jsonl</code>.</li>
+    </ol>
+    <p style="margin-top:12px;margin-bottom:0">Cùng commit sửa còn sửa <code>mp3_plan.md</code>: 5 → 4 case severity 3 cho khớp số đếm thật trong file eval (xem mục dataset ở trên).</p>
+  </div>
+  <div class="ok"><b>✅ Tổng kết review:</b> 5 chỗ sửa, 0 lỗi tính toán, 0 con số thay đổi. Giá trị của review nằm ở các vòng sau: tuần 4 target MLP, đọc file lạ, chấm predictions lỗi — tất cả đều là đường code sẽ chạy thật.</div>
+</section>
+
 <section id="source">
   <h2><span class="num">📜</span>Toàn bộ source code</h2>
   <p class="lead">Hai file. Bấm nút để copy từng file:</p>
@@ -364,11 +383,28 @@ CONFIG_05B = {<span class="str">&quot;hidden_size&quot;</span>: <span class="num
             <span class="kw">except</span> json.JSONDecodeError <span class="kw">as</span> exc:
                 <span class="kw">raise</span> ValueError(f&quot;{path} dong {i}: JSON loi &quot;
                                  f&quot;({exc}).&quot;)
-            <span class="kw">if</span> <span class="str">&quot;instruction&quot;</span> <span class="kw">not</span> <span class="kw">in</span> r <span class="kw">or</span> <span class="str">&quot;response&quot;</span> <span class="kw">not</span> <span class="kw">in</span> r:
+            <span class="cm"># [TRAINER] need_response truoc day la tham so CHET</span>
+            <span class="cm"># (khai bao nhung khong dung): file nao doc cung bi</span>
+            <span class="cm"># bat co response. Nay dung that: need_response=False</span>
+            <span class="cm"># thi chi bat instruction - tien cho cac file phu</span>
+            <span class="cm"># (vd predictions trung gian) khong co response.</span>
+            <span class="kw">if</span> <span class="str">&quot;instruction&quot;</span> <span class="kw">not</span> <span class="kw">in</span> r <span class="kw">or</span> \
+                    (need_response <span class="kw">and</span> <span class="str">&quot;response&quot;</span> <span class="kw">not</span> <span class="kw">in</span> r):
                 <span class="kw">raise</span> ValueError(f&quot;{path} dong {i}: thieu &quot;
                                  f&quot;instruction/response.&quot;)
+            <span class="cm"># [TRAINER] Kiem tra kieu truoc khi .strip(): neu</span>
+            <span class="cm"># instruction la so (JSON ghi 123 thay vi &quot;123&quot;) thi</span>
+            <span class="cm"># code cu sap bang AttributeError khong ro so dong,</span>
+            <span class="cm"># pha cam ket &quot;bao loi ro&quot; cua chinh ham nay. Nay</span>
+            <span class="cm"># raise ValueError kem so dong nhu cac loi khac.</span>
+            <span class="kw">if</span> <span class="kw">not</span> isinstance(r[<span class="str">&quot;instruction&quot;</span>], str) <span class="kw">or</span> \
+                    (need_response <span class="kw">and</span>
+                     <span class="kw">not</span> isinstance(r[<span class="str">&quot;response&quot;</span>], str)):
+                <span class="kw">raise</span> ValueError(f&quot;{path} dong {i}: instruction/&quot;
+                                 f&quot;response phai la chuoi.&quot;)
             <span class="kw">if</span> <span class="kw">not</span> r[<span class="str">&quot;instruction&quot;</span>].strip() <span class="kw">or</span> \
-                    <span class="kw">not</span> r[<span class="str">&quot;response&quot;</span>].strip():
+                    (need_response <span class="kw">and</span>
+                     <span class="kw">not</span> r[<span class="str">&quot;response&quot;</span>].strip()):
                 <span class="kw">raise</span> ValueError(f&quot;{path} dong {i}: rong.&quot;)
             rows.append(r)
     <span class="kw">return</span> rows
@@ -387,10 +423,18 @@ CONFIG_05B = {<span class="str">&quot;hidden_size&quot;</span>: <span class="num
               <span class="kw">if</span> normalize(r[<span class="str">&quot;instruction&quot;</span>]) <span class="kw">in</span> train_q]
     dup = len(ev) - len({normalize(r[<span class="str">&quot;instruction&quot;</span>])
                          <span class="kw">for</span> r <span class="kw">in</span> ev})
+    <span class="cm"># [TRAINER] Ban goc chi dem trung TRONG eval, khong dem</span>
+    <span class="cm"># trung trong train - trong khi docstring ghi &quot;khong</span>
+    <span class="cm"># trung&quot; chung chung. Train trung noi bo lam SFT hoc lap</span>
+    <span class="cm"># mot mau nhieu lan (overweight) ma khong ai biet. Dataset</span>
+    <span class="cm"># v1 hien tai sach (0 trung - da kiem chung), nhung ham</span>
+    <span class="cm"># kiem tra phai bat duoc o cac vong sau.</span>
+    dup_train = len(train) - len(train_q)
     print(f&quot;train: {len(train)} mau | eval: {len(ev)} mau&quot;)
     print(f&quot;eval trung train (contamination): {len(leaked)} &quot;
           f&quot;{leaked[:<span class="num2">3</span>]}&quot;)
     print(f&quot;eval trung nhau: {dup}&quot;)
+    print(f&quot;train trung nhau: {dup_train}&quot;)
     <span class="kw">return</span> train, ev
 
 
@@ -420,8 +464,17 @@ CONFIG_05B = {<span class="str">&quot;hidden_size&quot;</span>: <span class="num
     kv_heads = config[<span class="str">&quot;num_key_value_heads&quot;</span>]
     head_dim = d // heads
     kv_dim = kv_heads * head_dim
+    <span class="cm"># [TRAINER] Bo sung 3 module MLP (gate/up: d -&gt; inter,</span>
+    <span class="cm"># down: inter -&gt; d). Ban goc chi co 4 module attention:</span>
+    <span class="cm"># truyen &quot;gate_proj&quot; (rat thuong gap khi LoRA target ca</span>
+    <span class="cm"># MLP o tuan 4) se sap bang KeyError tran, khong ro</span>
+    <span class="cm"># nguyen nhan. Kem theo loi goi ro rang o lora_budget_exact</span>
+    <span class="cm"># cho module chua biet.</span>
+    inter = config[<span class="str">&quot;intermediate_size&quot;</span>]
     <span class="kw">return</span> {<span class="str">&quot;q_proj&quot;</span>: (d, d), <span class="str">&quot;k_proj&quot;</span>: (d, kv_dim),
-            <span class="str">&quot;v_proj&quot;</span>: (d, kv_dim), <span class="str">&quot;o_proj&quot;</span>: (d, d)}
+            <span class="str">&quot;v_proj&quot;</span>: (d, kv_dim), <span class="str">&quot;o_proj&quot;</span>: (d, d),
+            <span class="str">&quot;gate_proj&quot;</span>: (d, inter), <span class="str">&quot;up_proj&quot;</span>: (d, inter),
+            <span class="str">&quot;down_proj&quot;</span>: (inter, d)}
 
 
 <span class="kw">def</span> lora_budget_exact(config, r, target_modules, alpha=<span class="num2">16</span>):
@@ -430,6 +483,14 @@ CONFIG_05B = {<span class="str">&quot;hidden_size&quot;</span>: <span class="num
     Moi module: r * (in + out). Tra ve tong so tham so.
     &quot;&quot;&quot;</span>
     shapes = module_shapes(config)
+    <span class="cm"># [TRAINER] Bao loi som va ro: module khong co trong bang</span>
+    <span class="cm"># shape thi ValueError liet ke cac module duoc ho tro,</span>
+    <span class="cm"># thay vi KeyError giua cong thuc (xem module_shapes).</span>
+    unknown = [m <span class="kw">for</span> m <span class="kw">in</span> target_modules <span class="kw">if</span> m <span class="kw">not</span> <span class="kw">in</span> shapes]
+    <span class="kw">if</span> unknown:
+        <span class="kw">raise</span> ValueError(f&quot;Module chua biet kich thuoc: &quot;
+                         f&quot;{unknown}. Ho tro: &quot;
+                         f&quot;{sorted(shapes)}&quot;)
     per_layer = sum(r * (shapes[m][<span class="num2">0</span>] + shapes[m][<span class="num2">1</span>])
                     <span class="kw">for</span> m <span class="kw">in</span> target_modules)
     total = per_layer * config[<span class="str">&quot;num_hidden_layers&quot;</span>]
@@ -449,8 +510,15 @@ CONFIG_05B = {<span class="str">&quot;hidden_size&quot;</span>: <span class="num
     layers = config[<span class="str">&quot;num_hidden_layers&quot;</span>]
     inter = config[<span class="str">&quot;intermediate_size&quot;</span>]
     shapes = module_shapes(config)
+    <span class="cm"># [TRAINER] Chi cong 4 module ATTENTION vao attn. module_</span>
+    <span class="cm"># shapes nay chua ca MLP (phuc vu lora_budget_exact) nen</span>
+    <span class="cm"># neu sum() tren toan bo dict thi MLP bi cong 2 lan (mot</span>
+    <span class="cm"># lan trong attn, mot lan trong mlp o duoi) - tong tham so</span>
+    <span class="cm"># base se doi tu 1,54B len 2,70B. Giu danh sach module</span>
+    <span class="cm"># attention ro rang tai day.</span>
+    attn_names = [<span class="str">&quot;q_proj&quot;</span>, <span class="str">&quot;k_proj&quot;</span>, <span class="str">&quot;v_proj&quot;</span>, <span class="str">&quot;o_proj&quot;</span>]
     attn = sum(shapes[m][<span class="num2">0</span>] * shapes[m][<span class="num2">1</span>]
-               <span class="kw">for</span> m <span class="kw">in</span> shapes) + <span class="num2">2</span> * d
+               <span class="kw">for</span> m <span class="kw">in</span> attn_names) + <span class="num2">2</span> * d
     mlp = d * inter * <span class="num2">3</span>
     embed = config[<span class="str">&quot;vocab_size&quot;</span>] * d
     total = embed + layers * (attn + mlp)
@@ -486,10 +554,24 @@ CONFIG_05B = {<span class="str">&quot;hidden_size&quot;</span>: <span class="num
     luong. Tra ve (ok_total, by_axis).
     &quot;&quot;&quot;</span>
     preds = {}
+    bad_rows = <span class="num2">0</span>
     <span class="kw">for</span> line <span class="kw">in</span> open(pred_path, encoding=<span class="str">&quot;utf-8&quot;</span>):
         <span class="kw">if</span> line.strip():
             row = json.loads(line)
+            <span class="cm"># [TRAINER] Ban goc truy cap thang row[&quot;id&quot;] /</span>
+            <span class="cm"># row[&quot;output&quot;]: chi 1 dong predictions loi dinh</span>
+            <span class="cm"># dang (thieu id) la KeyError lam chet ca lan cham,</span>
+            <span class="cm"># mat het ket qua cua cac mau con lai. Nay bo qua</span>
+            <span class="cm"># dong loi, dem va bao o cuoi - cung tinh than</span>
+            <span class="cm"># phong thu nhu load_jsonl.</span>
+            <span class="kw">if</span> <span class="str">&quot;id&quot;</span> <span class="kw">not</span> <span class="kw">in</span> row <span class="kw">or</span> <span class="str">&quot;output&quot;</span> <span class="kw">not</span> <span class="kw">in</span> row <span class="kw">or</span> \
+                    <span class="kw">not</span> isinstance(row[<span class="str">&quot;output&quot;</span>], str):
+                bad_rows += <span class="num2">1</span>
+                <span class="kw">continue</span>
             preds[row[<span class="str">&quot;id&quot;</span>]] = row[<span class="str">&quot;output&quot;</span>].lower()
+    <span class="kw">if</span> bad_rows:
+        print(f&quot;Canh bao: bo qua {bad_rows} dong predictions &quot;
+              f&quot;loi dinh dang (thieu id/output).&quot;)
     golds = load_jsonl(gold_path)
     by_axis = {}
     ok_total = <span class="num2">0</span>

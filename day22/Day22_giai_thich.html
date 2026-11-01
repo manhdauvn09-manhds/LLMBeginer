@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 22 — Quantization: lượng tử hóa, đo thật, đừng tin số trên model card</title>
+<style>
+  :root{
+    --bg:#ecfeff; --card:#ffffff; --ink:#23272f; --muted:#6b7280;
+    --accent:#0e7490; --accent-dark:#155e75; --accent-soft:#cffafe;
+    --blue:#2563eb; --blue-soft:#dbeafe;
+    --amber:#b45309; --amber-soft:#fef3c7;
+    --green:#047857; --green-soft:#d1fae5;
+    --red:#b91c1c; --red-soft:#fee2e2;
+    --violet:#6d28d9; --violet-soft:#ede9fe;
+    --line:#a5f3fc; --code-bg:#1e2230;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    line-height:1.75;font-size:16.5px}
+  .wrap{max-width:960px;margin:0 auto;padding:0 20px}
+  header.hero{background:linear-gradient(135deg,#164e63 0%,#0e7490 55%,#22d3ee 100%);
+    color:#fff;padding:64px 0 48px;margin-bottom:8px}
+  header.hero h1{margin:0 0 12px;font-size:2.1rem;line-height:1.3}
+  header.hero p{margin:6px 0;opacity:.92;max-width:720px}
+  .tag{display:inline-block;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.35);
+    border-radius:999px;padding:3px 14px;font-size:.85rem;margin-bottom:14px}
+  nav.sticky{position:sticky;top:0;z-index:50;background:rgba(236,254,255,.96);
+    backdrop-filter:blur(6px);border-bottom:1px solid var(--line)}
+  nav.sticky .wrap{display:flex;gap:4px;overflow-x:auto;padding:10px 20px;white-space:nowrap}
+  nav.sticky a{color:var(--muted);text-decoration:none;font-size:.88rem;padding:6px 10px;border-radius:8px}
+  nav.sticky a:hover{background:var(--accent-soft);color:var(--accent-dark)}
+  section{padding:34px 0;border-bottom:1px solid var(--line)}
+  h2{font-size:1.55rem;margin:0 0 6px;color:#164e63}
+  h2 .num{display:inline-block;background:var(--accent);color:#fff;font-size:.95rem;
+    width:34px;height:34px;line-height:34px;text-align:center;border-radius:10px;margin-right:10px;vertical-align:middle}
+  h3{font-size:1.15rem;margin:26px 0 8px}
+  .lead{color:#4b5563;font-size:1.05rem}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:20px 22px;margin:16px 0;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin:18px 0}
+  .concept{background:var(--card);border:1px solid var(--line);border-top:4px solid var(--accent);
+    border-radius:12px;padding:16px 18px}
+  .concept h4{margin:0 0 6px;font-size:1.02rem}
+  .concept p{margin:0;font-size:.93rem;color:#4b5563}
+  .concept.blue{border-top-color:var(--blue)} .concept.amber{border-top-color:var(--amber)}
+  .concept.green{border-top-color:var(--green)} .concept.red{border-top-color:var(--red)}
+  .concept.violet{border-top-color:var(--violet)}
+  pre{background:var(--code-bg);color:#e8eaf2;border-radius:12px;padding:18px 20px;
+    overflow-x:auto;font-size:.86rem;line-height:1.6;margin:14px 0;max-height:560px;overflow-y:auto}
+  code{font-family:"SF Mono",Consolas,"Courier New",monospace}
+  p code, li code, td code{background:var(--accent-soft);padding:1px 7px;border-radius:6px;font-size:.88em;color:#164e63}
+  pre code{background:none;padding:0;color:inherit}
+  .kw{color:#c792ea}.fn{color:#82aaff}.str{color:#c3e88d}.cm{color:#697098;font-style:italic}.num2{color:#f78c6c}
+  .diagram{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px 10px;margin:18px 0;text-align:center;overflow-x:auto}
+  .diagram svg{max-width:100%;height:auto}
+  .caption{font-size:.9rem;color:var(--muted);margin-top:10px;font-style:italic}
+  .analogy{background:#ecfeff;border:1px solid #67e8f9;border-left:6px solid var(--accent);
+    border-radius:10px;padding:16px 20px;margin:16px 0}
+  .analogy b{color:#164e63}
+  .warn{background:#fffbeb;border:1px solid #fcd34d;border-left:6px solid var(--amber);
+    border-radius:10px;padding:16px 20px;margin:16px 0}
+  .warn b{color:#92400e}
+  .ok{background:#ecfdf5;border:1px solid #6ee7b7;border-left:6px solid var(--green);
+    border-radius:10px;padding:16px 20px;margin:16px 0}
+  .bad{background:#fef2f2;border:1px solid #fecaca;border-left:6px solid var(--red);
+    border-radius:10px;padding:16px 20px;margin:16px 0}
+  table.mini{border-collapse:collapse;margin:14px auto;font-size:.9rem;min-width:70%}
+  table.mini th, table.mini td{border:1px solid var(--line);padding:8px 14px;text-align:left}
+  table.mini th{background:var(--accent-soft)}
+  table.mini td.num{font-family:monospace;text-align:center;white-space:nowrap}
+  table.mini tr.hl td{background:#cffafe;font-weight:700}
+  .demo{background:#fff;border:2px solid var(--accent);border-radius:16px;padding:24px;margin:18px 0}
+  .demo h3{margin-top:0}
+  input[type=range]{width:100%;margin:8px 0}
+  .seg{display:flex;gap:8px;margin:10px 0;flex-wrap:wrap}
+  .seg button{border:2px solid var(--line);background:#fff;border-radius:10px;
+    padding:8px 18px;font-size:1rem;cursor:pointer}
+  .seg button.active{border-color:var(--accent);background:var(--accent-soft);font-weight:700}
+  .big-out{background:var(--code-bg);color:#e8eaf2;border-radius:12px;padding:18px 20px;
+    font-family:monospace;font-size:.92rem;margin-top:12px;line-height:1.9;word-break:break-word}
+  .btn{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:10px 22px;
+    font-size:1rem;cursor:pointer;margin:10px 8px 0 0}
+  .btn:hover{background:#164e63}
+  .formula{text-align:center;font-size:1.15rem;background:#ecfeff;border-radius:10px;
+    padding:18px;margin:14px 0;font-family:Georgia,serif}
+  .formula small{display:block;font-family:inherit;font-size:.85rem;color:var(--muted);margin-top:6px}
+  footer{padding:36px 0 60px;color:var(--muted);font-size:.9rem;text-align:center}
+  ul.tight li{margin-bottom:6px}
+  .bar-wrap{background:#f3f4f6;border-radius:8px;height:26px;margin:6px 0;position:relative;border:1px solid var(--line)}
+  .bar-fill{height:100%;border-radius:8px}
+  .bar-lab{font-family:monospace;font-size:.82rem;color:#374151;margin-top:2px}
+  .before-after{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:14px 0}
+  .before-after .col{border-radius:12px;padding:16px 18px}
+  .before-after .before{background:#fef2f2;border:1px solid #fecaca}
+  .before-after .after{background:#ecfdf5;border:1px solid #6ee7b7}
+  .before-after h4{margin:0 0 6px}
+  .before-after p{margin:0;font-size:.93rem}
+  @media(max-width:600px){header.hero h1{font-size:1.6rem}body{font-size:15.5px}.before-after{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="tag">📄 Phân tích: day22/quant_lab.py (bản đã sửa theo Trainer review, commit 21cee66) + README.md</span>
+    <h1>Day 22 — Quantization:<br>lượng tử hóa, đo thật, đừng tin số trên model card</h1>
+    <p>Tuần 4 (Green LLM) mở đầu bằng việc tự tay viết hàm lượng tử hóa affine, xem một giá trị ngoại lai phá thang đo như thế nào, rồi lượng tử hóa một MLP thật và đo accuracy / bộ nhớ / độ trễ / regression — để kết luận bằng số đo, không phải bằng tin đồn "INT4 nhanh hơn 8 lần".</p>
+    <p style="font-size:.9rem;opacity:.8">Chạy trên CPU (torch 2.14.1+cpu), không GPU, không tải model lớn. Toàn bộ lab ~7 giây. Số liệu trong bài là kết quả chạy thật của bản code đã sửa theo review.</p>
+  </div>
+</header>
+
+<nav class="sticky"><div class="wrap">
+  <a href="#tong-quan">🍿 Tóm tắt 30 giây</a>
+  <a href="#bai1">📏 Bài 1: Affine quantization</a>
+  <a href="#bai2">💥 Bài 2: Outlier</a>
+  <a href="#bai34">🤖 Bài 3+4: MLP thật + quyết định</a>
+  <a href="#trainer">🧑‍🏫 Trainer review: 3 lỗi</a>
+  <a href="#source">📜 Source code</a>
+</div></nav>
+
+<div class="wrap">
+
+<!-- ================= TỔNG QUAN ================= -->
+<section id="tong-quan">
+  <h2><span class="num">🍿</span>Tóm tắt 30 giây cho người ngoại đạo</h2>
+  <p class="lead">Model AI lưu trọng số bằng số thập phân 32-bit rất tốn bộ nhớ. Lượng tử hóa (quantization) là đổi sang số nguyên ít bit hơn (8 hoặc 4 bit) — như đổi thước đo từ milimet sang centimet: gọn hơn, nhưng mỗi lần đo sẽ lệch một chút. Bài này tự viết thước đo đó, đo xem lệch bao nhiêu, khi nào thì lệch đến mức không dùng được nữa, và khi nào lời quảng cáo "nhanh hơn, nhẹ hơn" là thật.</p>
+  <div class="grid">
+    <div class="concept"><h4>📏 Bài 1 — Thước affine</h4><p>INT8 asymmetric: scale 0,00706, zero-point 170, khớp đề bài. INT4 sai số gấp 17× INT8. Dữ liệu lệch một phía: asymmetric tốt hơn symmetric 2,4× vì không bỏ phí nửa thang đo.</p></div>
+    <div class="concept amber"><h4>💥 Bài 2 — Outlier phá thang đo</h4><p>Một channel ×50 làm MSE của các channel bình thường vọt lên 0,167 ở per-tensor — thông tin gần như mất hết. Per-channel cứu về 0,0001 (tốt hơn 2844× ở INT8).</p></div>
+    <div class="concept green"><h4>🤖 Bài 3+4 — MLP thật, quyết định thật</h4><p>MLP 1.218 tham số: INT8 giữ nguyên accuracy 0,995 + regression 8/8, nhẹ 4× → chọn INT8. INT4 (kể cả per-channel sạch: 0,990 / 75%) vẫn trượt gate → CHƯA release, ngược dự định ban đầu.</p></div>
+    <div class="concept red"><h4>🧑‍🏫 Trainer review: 3 lỗi thật</h4><p>Lần đầu sau chuỗi ngày sạch: (1) guard tensor hằng số trả tham số không nhất quán; (2) nhãn regression sai + nhãn chết; (3) ablation đổi 2 biến cùng lúc. Cả 3 đã sửa (commit 21cee66) — và kết luận INT4 không đổi.</p></div>
+  </div>
+  <div class="analogy"><b>📐 Ví dụ — Đổi thước đo:</b> trọng số FP32 như cân tiểu ly đo từng 0,001g. INT8 như cân nhà bếp chia 256 vạch, INT4 như cân chợ chỉ có 16 vạch. Cân chợ vẫn cân được gạo, nhưng cân thuốc thì lệch chết người. Bài này trả lời: với từng việc, cân nào là đủ — bằng cách cân thử, không phải bằng cảm giác.</div>
+</section>
+
+<!-- ================= BÀI 1 ================= -->
+<section id="bai1">
+  <h2><span class="num">📏</span>Bài 1 — Affine quantization: tự viết thước đo</h2>
+  <p class="lead">Hàm <code>quantize_dequantize</code> tự viết, không dùng thư viện có sẵn: lấy min/max của tensor làm hai đầu thước, chia đều thành 2<sup>b</sup> mức, làm tròn mỗi giá trị về mức gần nhất, rồi "giải mã ngược" về số thập phân để đo sai số.</p>
+  <div class="formula">scale s = (max − min) / (2<sup>b</sup> − 1) &nbsp;·&nbsp; x<sub>q</sub> = clamp(round(x/s) + z, lo, hi) &nbsp;·&nbsp; x̂ = s · (x<sub>q</sub> − z)
+    <small>Asymmetric: z = round(−min/s), mức 0…2<sup>b</sup>−1 · Symmetric: z = 0, mức −(2<sup>b−1</sup>−1)…+(2<sup>b−1</sup>−1), s = max(|min|,|max|) / (2<sup>b−1</sup>−1)</small>
+  </div>
+
+  <div class="diagram">
+    <svg viewBox="0 0 760 190" xmlns="http://www.w3.org/2000/svg" font-family="sans-serif">
+      <text x="380" y="24" text-anchor="middle" font-size="14" font-weight="700" fill="#164e63">Cùng một đoạn [0,5 ; 2,5] — symmetric bỏ phí nửa thang đo âm</text>
+      <text x="20" y="58" font-size="13" font-weight="700" fill="#b45309">Symmetric (255 mức, −2,5…+2,5)</text>
+      <rect x="20" y="66" width="330" height="26" rx="6" fill="#fef3c7" stroke="#b45309"/>
+      <rect x="20" y="66" width="165" height="26" rx="6" fill="#fde68a"/>
+      <text x="185" y="84" text-anchor="middle" font-size="12" fill="#92400e">nửa âm: không ai dùng tới</text>
+      <rect x="185" y="66" width="165" height="26" fill="#a5f3fc" opacity="0.55"/>
+      <text x="267" y="84" text-anchor="middle" font-size="12" fill="#164e63">dữ liệu chỉ ở đây</text>
+      <text x="20" y="122" font-size="13" font-weight="700" fill="#047857">Asymmetric (256 mức, 0,5…2,5)</text>
+      <rect x="20" y="130" width="330" height="26" rx="6" fill="#a5f3fc" stroke="#0e7490"/>
+      <text x="185" y="148" text-anchor="middle" font-size="12" fill="#164e63">cả 256 mức đều phục vụ dữ liệu</text>
+      <text x="380" y="182" text-anchor="middle" font-size="13" fill="#6b7280">Kết quả: symmetric scale 0,01969, sai số 0,00945, dùng ~103/255 mức · asymmetric scale 0,00784, sai số 0,00392, dùng hết 256 mức — tốt hơn 2,4×</text>
+    </svg>
+  </div>
+
+  <h3>Số đo thật trên tensor [−1,2; −0,3; 0; 0,3; 0,6]</h3>
+  <table class="mini">
+    <tr><th>Phiên bản</th><th>Scale</th><th>Zero-point</th><th>Sai số lớn nhất</th><th>Ghi chú</th></tr>
+    <tr><td>INT8 asymmetric</td><td class="num">0,00706</td><td class="num">170</td><td class="num">0,00353</td><td>Khớp kỳ vọng đề bài; sai số = đúng scale/2 (điểm làm tròn nửa mức, half-to-even)</td></tr>
+    <tr><td>INT4 asymmetric</td><td class="num">0,12</td><td class="num">10</td><td class="num">0,06000</td><td>Gấp INT8 đúng 17,0× = tỉ lệ scale 255/15</td></tr>
+  </table>
+  <p class="caption" style="text-align:center">Edge case đã guard: tensor rỗng và bits ngoài [2,16] bị chặn bằng ValueError; tensor hằng số và tensor toàn 0 không chia cho 0 (xem mục Trainer review — guard bản gốc có lỗi tinh vi, đã sửa).</p>
+
+  <div class="demo">
+    <h3>🧮 Thử ngay: tự tay lượng tử hóa</h3>
+    <p style="margin-top:0">Cùng công thức trong <code>quantize_dequantize</code>, áp lên tensor [−1,2; −0,3; 0; 0,3; 0,6]. Đổi số bit và kiểu thang đo để xem sai số nhảy như thế nào:</p>
+    <div class="seg">
+      <button class="qbtn active" data-bits="8" data-sym="0">INT8 asymmetric</button>
+      <button class="qbtn" data-bits="4" data-sym="0">INT4 asymmetric</button>
+      <button class="qbtn" data-bits="8" data-sym="1">INT8 symmetric</button>
+      <button class="qbtn" data-bits="4" data-sym="1">INT4 symmetric</button>
+    </div>
+    <div class="big-out" id="quantOut"></div>
+    <p class="caption">Kiểm chứng: INT8 asymmetric cho scale 0,00706, z = 170, sai số lớn nhất 0,00353 — khớp đúng output của lab. Sai số lớn nhất của lượng tử hóa đều không bao giờ vượt scale/2.</p>
+  </div>
+</section>
+
+<!-- ================= BÀI 2 ================= -->
+<section id="bai2">
+  <h2><span class="num">💥</span>Bài 2 — Outlier: một kẻ phá hoại làm hỏng thước đo của tất cả</h2>
+  <p class="lead">Ma trận 4×1000, channel 0 bị nhân 50. Lượng tử hóa per-tensor (một thang đo chung cho cả ma trận) buộc thang đo phải bao phủ cả outlier — các channel bình thường bị dồn vào vài mức, thông tin gần như mất hết. Per-channel (mỗi hàng một thang đo riêng) cứu được các channel bình thường.</p>
+  <table class="mini">
+    <tr><th></th><th>INT8 per-tensor</th><th>INT8 per-channel</th><th>INT4 per-tensor</th><th>INT4 per-channel</th></tr>
+    <tr><td>Channel 0 (outlier)</td><td class="num">0,1645</td><td class="num">0,1645</td><td class="num">48,6712</td><td class="num">48,6712</td></tr>
+    <tr><td>Channel 1–3 (trung bình)</td><td class="num">0,1670</td><td class="num">0,0001</td><td class="num">0,9605</td><td class="num">0,0170</td></tr>
+  </table>
+  <p>Per-channel tốt hơn per-tensor <b>2844×</b> ở INT8 trên các channel thường. Ở INT4, per-channel vẫn tốt hơn 56× nhưng MSE tuyệt đối 0,017 (gấp INT8 170×) — per-channel cũng bắt đầu đuối, cần thêm per-group/GPTQ. Lưu ý: channel outlier tự nó không được cứu bởi per-channel (MSE y nguyên 0,1645 / 48,6712) — per-channel cứu <i>hàng xóm</i> của outlier, không cứu chính outlier.</p>
+  <div class="analogy"><b>🏫 Ví dụ — Chụp ảnh lớp học:</b> per-tensor như lấy nét theo một bạn đứng sát đèn pha (quá sáng) — cả lớp còn lại tối đen. Per-channel như mỗi bạn có một đèn riêng, độ sáng vừa phải. Nhưng bản thân bạn đứng dưới đèn pha thì vẫn chói — muốn cứu cả bạn đó phải chia nhỏ hơn nữa (per-group).</div>
+
+  <div class="demo">
+    <h3>🎛️ Thử ngay: kéo độ lớn của outlier</h3>
+    <p style="margin-top:0">Mô phỏng trong trình duyệt (dữ liệu ngẫu nhiên seed cố định, cùng logic <code>quantize_dequantize</code>): kéo hệ số nhân của channel 0 và xem MSE của các channel bình thường ở per-tensor vọt lên ra sao, trong khi per-channel đứng yên:</p>
+    <label>Hệ số outlier: <b id="outLab">×50</b></label>
+    <input type="range" id="outSlider" min="1" max="100" value="50" step="1">
+    <div class="big-out" id="outOut"></div>
+    <p class="caption">Số liệu thật ở ×50 xem bảng trên (MSE 0,1670 → 0,0001 ở INT8). Demo này dùng dữ liệu mô phỏng nên số tuyệt đối khác, nhưng hình dạng đường cong — per-tensor tăng theo outlier, per-channel phẳng — là đúng bản chất.</p>
+  </div>
+</section>
+
+<!-- ================= BÀI 3+4 ================= -->
+<section id="bai34">
+  <h2><span class="num">🤖</span>Bài 3 + 4 — Lượng tử hóa MLP thật và quyết định bằng số đo</h2>
+  <p class="lead">MLP 3 lớp (2→32→32→2), <b>1.218 tham số</b>, train 200 epoch trên dữ liệu tổng hợp (vòng tròn r² &gt; 1), accuracy FP32 = 0,995. Weight-only: chỉ lượng tử hóa trọng số, activation vẫn FP32, trên cùng model đã train, cùng seed, cùng tập test. Regression set 8 input — kể cả điểm biên quyết định (0,7; 0,7) trong vòng tròn và (0,71; 0,71) ngoài vòng tròn.</p>
+  <table class="mini">
+    <tr><th>Phiên bản</th><th>Accuracy</th><th>Bộ nhớ</th><th>Trễ b1</th><th>Trễ b256</th><th>Regression</th></tr>
+    <tr><td>FP32</td><td class="num">0,995</td><td class="num">4,8 KB</td><td class="num">0,033 ms</td><td class="num">0,106 ms</td><td class="num">100%</td></tr>
+    <tr class="hl"><td>INT8</td><td class="num">0,995</td><td class="num">1,2 KB</td><td class="num">0,033 ms</td><td class="num">0,105 ms</td><td class="num">100%</td></tr>
+    <tr><td>INT4</td><td class="num">0,983</td><td class="num">0,6 KB</td><td class="num">0,033 ms</td><td class="num">0,106 ms</td><td class="num">50%</td></tr>
+    <tr><td>INT4 per-channel (asymmetric, đã sửa ablation)</td><td class="num">0,990</td><td class="num">0,6 KB</td><td class="num">0,033 ms</td><td class="num">0,076 ms</td><td class="num">75%</td></tr>
+  </table>
+  <p class="caption" style="text-align:center">Bảng theo README đã cập nhật sau review. Lần chạy kiểm chứng của tôi tái tạo đúng accuracy/regression của cả 4 bản; độ trễ b256 đo được 0,104–0,106 ms cho mọi bản — chênh lệch giữa các lần chạy là nhiễu, không phải tín hiệu (xem ghi chú độ trễ bên dưới).</p>
+
+  <h3>Hai thước đo regression — và bài học "đồng ý với FP32" ≠ "đúng"</h3>
+  <p>Sau khi sửa nhãn regression (xem mục Trainer), hàm chấm thêm <b>độ chính xác so với nhãn thật</b>: cả 4 phiên bản đều chỉ đạt <b>75% (6/8)</b> — chính FP32 cũng sai 2 điểm biên. Nghĩa là INT8 "đồng ý 100% với FP32" thực chất là copy y nguyên cả lỗi biên của FP32. Hai thước đo khác nhau, phải báo cả hai: <i>agreement</i> đo độ trung thành với bản gốc, <i>truth accuracy</i> đo độ đúng với thực tế.</p>
+
+  <h3>Ghi chú trung thực về độ trễ (đừng đọc bảng thành "INT4 chậm hơn")</h3>
+  <p>Ban đầu đo bằng trung bình 200 lần cho số nhảy loạn (INT4 0,378 ms — nhiễu, không phải tín hiệu). Đo lại bằng <b>trung vị 1000 lần chạy riêng lẻ</b> (warmup trước, <code>time.perf_counter()</code>): cả 4 phiên bản gần như GIỐNG HỆT nhau, đúng như Câu 3 của đề bài — bản "giả lập" (dequantize về FP32 rồi tính bằng FP32) <b>không thể nhanh hơn thật</b>; muốn nhanh thật cần kernel INT8/INT4 thật. Năng lượng là ước lượng (không phải số đo điện): batch 1 memory-bound, energy/token tỉ lệ với byte trọng số phải đọc → INT8/FP32 = 0,25×, INT4/FP32 = 0,125×.</p>
+
+  <div class="ok"><b>✅ Quyết định (suy từ số đo, ngược dự định ban đầu):</b> (1) Chatbot cần giữ chất lượng → <b>INT8 weight-only</b>: accuracy bằng FP32, regression 8/8, bộ nhớ giảm 4×. (2) Máy yếu offline → <b>INT4 CHƯA được release</b>: cả hai bản INT4 đều lật lung tung gần biên quyết định (regression 50% và 75% sau khi sửa ablation, vẫn dưới gate 8/8). Dùng INT8, hoặc cải thiện INT4 bằng per-group/GPTQ rồi đo lại. Dự định ban đầu là "chọn INT4 per-channel cho máy yếu" — số đo thắng, ghi thật.</div>
+</section>
+
+
+
+
+<!-- ================= TRAINER ================= -->
+<section id="trainer">
+  <h2><span class="num">🧑‍🏫</span>Trainer review: 3 lỗi thật, đã sửa hết (commit be92433 → 21cee66)</h2>
+  <p class="lead">Sau chuỗi ngày sạch (Day 15–18 gần như không lỗi code), Day 22 là lần đầu trainer bắt được lỗi thật — 3 chỗ sửa, đều là lỗi tinh vi mà output bề ngoài vẫn "trông đúng". Không lỗi nào làm đổi kết luận cuối (INT4 vẫn chưa release), nhưng lỗi 3 làm số đo per-channel sai hẳn một bậc: từ regression 38% (tưởng per-channel gần như vô dụng ở INT4) thành 75% (per-channel giúp nhiều, chỉ là chưa đủ qua gate).</p>
+
+  <div class="card">
+    <h3 style="margin-top:0">Lỗi 1 — Guard tensor hằng số: giá trị đúng, tham số trả về sai</h3>
+    <div class="before-after">
+      <div class="col before"><h4>❌ Trước (quant_lab.py bản gốc)</h4><p>Tensor hằng số (max == min) thì đặt <code>scale = 1.0</code>, <code>z = round(−min)</code> rồi trả thẳng <code>x.clone()</code>. <code>x_hat</code> đúng, nhưng cặp <code>(scale, z)</code> trả về <b>không nhất quán</b>: áp lại công thức với chính cặp đó cho hằng số 3,7 thì <code>z = −4</code>, <code>x_q = 0</code> → <code>x_hat = 4,0</code> — sai 0,3 mà im lặng. Ai dùng cặp tham số này để lượng tử hóa tensor khác sẽ dính sai số âm thầm.</p></div>
+      <div class="col after"><h4>✅ Sau (commit 21cee66)</h4><p>Chọn <code>scale/z</code> sao cho giá trị hằng số nằm đúng ở một đầu mức của thang đo (dương: <code>scale = max/(2<sup>b</sup>−1), z = 0</code>; âm: <code>z = 2<sup>b</sup>−1</code>; bằng 0: <code>scale = 1, z = 0</code>), rồi đi qua nhánh tính chung — <code>x_hat</code> vẫn khôi phục đúng và bộ ba <code>(x_hat, scale, z)</code> nhất quán. Thêm kiểm tra round-trip: áp lại <code>(scale, z)</code> cho 3,7 phải ra đúng 3,7.</p></div>
+    </div>
+    <p style="margin-bottom:0"><b>Bài học (AGENTS.md #8):</b> hàm trả về (giá trị + tham số mô tả nó) thì phải test áp lại tham số lên input gốc, nhất là input suy biến (hằng số, số không nguyên). Guard không được trả cặp tham số mà áp lại không tái tạo được giá trị.</p>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0">Lỗi 2 — Nhãn regression sai, mà nhãn đó còn "chết" không ai dùng</h3>
+    <div class="before-after">
+      <div class="col before"><h4>❌ Trước</h4><p><code>REGRESSION_Y</code> ghi điểm <code>[0,5; 0,86]</code> là nhãn 1, nhưng 0,5² + 0,86² = 0,9896 &lt; 1 → theo đúng luật sinh dữ liệu (r² &gt; 1) nhãn phải là 0. Tệ hơn, <code>regression_agreement()</code> chỉ so dự đoán với model FP32 nên <code>REGRESSION_Y</code> không được dùng ở đâu — nhãn sai nằm im thành "điểm neo sai" cho người đến sau.</p></div>
+      <div class="col after"><h4>✅ Sau</h4><p>Sửa nhãn về 0, và hàm chấm thêm <b>độ chính xác so với nhãn thật</b>: cả 4 phiên bản đều 75% (6/8) — chính FP32 cũng sai 2 điểm biên. Nhờ đó mới thấy rõ: "đồng ý 100% với FP32" của INT8 thực chất là copy cả lỗi biên của FP32. Hai thước đo, báo cả hai.</p></div>
+    </div>
+    <p style="margin-bottom:0"><b>Bài học (AGENTS.md #9):</b> tham chiếu không dùng đến vẫn phải đúng — hoặc dùng thật (assert/kiểm tra/chấm bằng nó), hoặc xóa hẳn.</p>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0">Lỗi 3 — Ablation đổi 2 biến cùng lúc (tái phạm pattern Day 13)</h3>
+    <div class="before-after">
+      <div class="col before"><h4>❌ Trước</h4><p>Bản "INT4 per-channel" thêm <code>symmetric=True</code> chỉ riêng cho bản này. So với bản "INT4" per-tensor thì đổi HAI biến cùng lúc (độ hạt + đối xứng), vi phạm đúng quy tắc docstring đầu file ("chỉ đổi số bit và độ hạt"). Số đo cũ: acc 0,988, regression 38% — tưởng per-channel gần như không cứu được INT4.</p></div>
+      <div class="col after"><h4>✅ Sau</h4><p>Bỏ <code>symmetric=True</code>, chỉ đổi độ hạt. Đo lại sạch: acc <b>0,990</b>, regression <b>75%</b> — per-channel thật ra giúp nhiều, chỉ là vẫn chưa qua gate 8/8. Kết luận "INT4 chưa release" không đổi, nhưng lý do thì khác hẳn: không phải per-channel vô dụng, mà là chưa đủ.</p></div>
+    </div>
+    <p style="margin-bottom:0"><b>Bài học (AGENTS.md #10):</b> thêm variant phải diff từng đối số với baseline, kể cả có mặc định. Trước khi chạy ablation: in/diff 2 lời gọi cạnh nhau, đếm số đối số khác nhau = 1. (Day 13 từng vấp đúng kiểu này với <code>bias=False</code>.) Ngoài ra commit sửa còn dọn hằng số chết <code>LATENCY_RUNS</code> không ai dùng.</p>
+  </div>
+  <div class="ok"><b>✅ Tổng kết review:</b> 3 lỗi, 0 lỗi làm đổi kết luận cuối — nhưng lỗi 3 suýt làm hiểu sai hoàn toàn vai trò của per-channel. Đây là minh chứng cho checklist 7 điểm: cả 3 lỗi đều nằm ngoài checklist cũ (round-trip tham số, tham chiếu chết, diff lời gọi ablation) — checklist đã tăng lên 12 điểm sau review này.</div>
+</section>
+
+<!-- ================= SOURCE ================= -->
+<section id="source">
+  <h2><span class="num">📜</span>Toàn bộ source code (bản đã sửa theo Trainer review)</h2>
+  <p class="lead">File <code>quant_lab.py</code> sau commit sửa <code>21cee66</code> — gồm cả comment <code>[TRAINER]</code> và 3 chỗ sửa. Bấm nút để copy:</p>
+  <button class="btn" onclick="copySrc('srcBlock')">📋 Copy quant_lab.py</button>
+  <pre id="srcBlock"><code><span class="cm">#!/usr/bin/env python3</span>
+<span class="cm"># -*- coding: utf-8 -*-</span>
+<span class="str">&quot;&quot;&quot;Lab Quantization Day 22 (tuan 4 - Green LLM): quantize that,
+do that, dung tin con so tren model card.
+
+Chay tren CPU, PyTorch, khong can GPU, khong can tai model lon.
+
+Bai 1: affine quantization (symmetric + asymmetric), tinh
+    scale, zero-point, sai so lam tron. Edge case: tensor
+    hang so (max == min) -&gt; scale 0 -&gt; phai guard, khong chia
+    cho 0.
+Bai 2: outlier pha thang do per-tensor nhu the nao, per-
+    channel cuu duoc bao nhieu (INT8 + mo rong INT4).
+Bai 3: weight-only quantize MLP that o INT8/INT4, do accuracy,
+    bo nho, do tre batch 1 va 256 (perf_counter), uoc luong
+    nang luong theo ti le byte doc.
+Bai 4: bang benchmark + quyet dinh + regression set 8 input.
+
+Quy tac: chi doi SO BIT (va do hat khi so sanh per-tensor vs
+per-channel), moi thu khac giu nguyen: cung seed, cung model
+da train, cung tap test. Do tre cua ban &quot;gia lap&quot; (dequantize
+ve FP32 roi tinh FP32) duoc bao THAT, khong gia vo nhanh hon.
+
+Cach chay (venv Day 15):
+    ~/workspace/venvs/day15/bin/python quant_lab.py
+&quot;&quot;&quot;</span>
+
+<span class="kw">import</span> copy
+<span class="kw">import</span> time
+
+<span class="kw">import</span> torch
+<span class="kw">import</span> torch.nn <span class="kw">as</span> nn
+
+WARMUP_RUNS = <span class="num2">20</span>
+
+
+<span class="kw">def</span> quantize_dequantize(x, bits=<span class="num2">8</span>, symmetric=<span class="kw">False</span>):
+    <span class="str">&quot;&quot;&quot;Luong tu affine roi giai ma nguoc (fake quantize).
+
+    Cong thuc buoi sang:
+        s = (max - min) / (2^b - 1) (asymmetric)
+        s = max(|min|, |max|) / (2^(b-1) - 1) (symmetric)
+        x_q = clamp(round(x / s) + z, lo, hi)
+        x_hat = s * (x_q - z)
+
+    Args:
+        x: tensor bat ky shape, kieu float.
+        bits: so bit, phai trong [2, 16].
+        symmetric: True -&gt; muc doi xung, z = 0; False -&gt;
+            muc 0..2^b-1, z = round(-min / s).
+
+    Returns:
+        (x_hat, scale, zero_point): x_hat cung shape voi x,
+        scale la float, zero_point la int.
+
+    Raises:
+        ValueError: tensor rong, bits ngoai [2, 16].
+    &quot;&quot;&quot;</span>
+    <span class="kw">if</span> x.numel() == <span class="num2">0</span>:
+        <span class="kw">raise</span> ValueError(<span class="str">&quot;tensor khong duoc rong.&quot;</span>)
+    <span class="kw">if</span> <span class="kw">not</span> <span class="num2">2</span> &lt;= bits &lt;= <span class="num2">16</span>:
+        <span class="kw">raise</span> ValueError(<span class="str">&quot;bits phai trong [2, 16].&quot;</span>)
+    xmin = float(x.min())
+    xmax = float(x.max())
+    <span class="kw">if</span> symmetric:
+        max_level = <span class="num2">2</span> ** (bits - <span class="num2">1</span>) - <span class="num2">1</span>
+        <span class="cm"># Guard: tensor hang so 0 -&gt; max_abs = 0, tranh chia 0.</span>
+        <span class="cm"># Scale 1.0 thi moi gia tri 0 van map ve 0 dung.</span>
+        scale = max(abs(xmin), abs(xmax)) / max_level
+        <span class="kw">if</span> scale == <span class="num2">0.0</span>:
+            scale = <span class="num2">1.0</span>
+        zero_point = <span class="num2">0</span>
+        lo, hi = -max_level, max_level
+    <span class="kw">else</span>:
+        <span class="cm"># [TRAINER] Ban goc dat scale=1.0, z=round(-min) roi tra</span>
+        <span class="cm"># thang x.clone(): x_hat dung, nhung cap (scale, z) tra</span>
+        <span class="cm"># ve KHONG tu nhat quan - ap lai cong thuc voi chinh</span>
+        <span class="cm"># scale/z do cho gia tri khong nguyen (vd 3.7: z=-4,</span>
+        <span class="cm"># x_q=0 -&gt; x_hat=4.0) thi sai. Ai dung scale/z nay de</span>
+        <span class="cm"># quantize tensor khac se dinh sai so am tham. Ban sua:</span>
+        <span class="cm"># chon scale/z sao cho gia tri hang so nam dung o mot</span>
+        <span class="cm"># dau muc cua thang do, roi di qua nhanh tinh chung -</span>
+        <span class="cm"># x_hat van khoi phuc dung va bo ba (x_hat, scale, z)</span>
+        <span class="cm"># nhat quan voi nhau.</span>
+        <span class="kw">if</span> xmax == xmin:
+            <span class="kw">if</span> xmax == <span class="num2">0.0</span>:
+                scale, zero_point = <span class="num2">1.0</span>, <span class="num2">0</span>
+            <span class="kw">elif</span> xmax &gt; <span class="num2">0</span>:
+                scale = xmax / (<span class="num2">2</span> ** bits - <span class="num2">1</span>)
+                zero_point = <span class="num2">0</span>
+            <span class="kw">else</span>:
+                scale = -xmin / (<span class="num2">2</span> ** bits - <span class="num2">1</span>)
+                zero_point = <span class="num2">2</span> ** bits - <span class="num2">1</span>
+            lo, hi = <span class="num2">0</span>, <span class="num2">2</span> ** bits - <span class="num2">1</span>
+        <span class="kw">else</span>:
+            scale = (xmax - xmin) / (<span class="num2">2</span> ** bits - <span class="num2">1</span>)
+            zero_point = int(round(-xmin / scale))
+            lo, hi = <span class="num2">0</span>, <span class="num2">2</span> ** bits - <span class="num2">1</span>
+    x_q = torch.clamp(torch.round(x / scale) + zero_point,
+                      lo, hi)
+    x_hat = scale * (x_q - zero_point)
+    <span class="kw">return</span> x_hat, scale, zero_point
+
+
+<span class="kw">def</span> quantize_per_channel(w, bits=<span class="num2">8</span>, symmetric=<span class="kw">False</span>):
+    <span class="str">&quot;&quot;&quot;Luong tu rieng tung hang (channel) cua ma tran 2D.
+
+    Moi hang co scale/zero-point rieng. Tra ve ma tran cung
+    shape da giai ma nguoc.
+    &quot;&quot;&quot;</span>
+    rows = []
+    <span class="kw">for</span> i <span class="kw">in</span> range(w.shape[<span class="num2">0</span>]):
+        row_hat, _, _ = quantize_dequantize(w[i], bits=bits,
+                                            symmetric=symmetric)
+        rows.append(row_hat)
+    <span class="kw">return</span> torch.stack(rows)
+
+
+<span class="kw">def</span> mse(a, b):
+    <span class="str">&quot;&quot;&quot;Sai so binh phuong trung binh giua 2 tensor.&quot;&quot;&quot;</span>
+    <span class="kw">return</span> float(((a - b) ** <span class="num2">2</span>).mean())
+
+
+<span class="kw">def</span> bai1():
+    <span class="str">&quot;&quot;&quot;Bai 1: affine quantization + so sanh INT8/INT4, lech 1 phia.&quot;&quot;&quot;</span>
+    print(<span class="str">&quot;=&quot;</span> * <span class="num2">72</span>)
+    print(<span class="str">&quot;BAI 1 - Affine quantization&quot;</span>)
+    print(<span class="str">&quot;=&quot;</span> * <span class="num2">72</span>)
+    x = torch.tensor([-<span class="num2">1.2</span>, -<span class="num2">0.3</span>, <span class="num2">0.0</span>, <span class="num2">0.3</span>, <span class="num2">0.6</span>])
+    x_hat, s, z = quantize_dequantize(x, bits=<span class="num2">8</span>, symmetric=<span class="kw">False</span>)
+    print(f&quot;INT8 asymmetric: scale ~{s:.5f} (ky vong 0.00706) &quot;
+          f&quot;| zero-point: {z}&quot;)
+    print(f&quot;x_hat: {[round(v, <span class="num2">5</span>) <span class="kw">for</span> v <span class="kw">in</span> x_hat.tolist()]}&quot;)
+    err8 = float((x_hat - x).abs().max())
+    print(f&quot;sai so lon nhat INT8: {err8:.5f} (&lt;= scale/2 = &quot;
+          f&quot;{s / <span class="num2">2</span>:.5f}, bang dung o diem lam tron nua muc).&quot;)
+    x_hat4, s4, _ = quantize_dequantize(x, bits=<span class="num2">4</span>, symmetric=<span class="kw">False</span>)
+    err4 = float((x_hat4 - x).abs().max())
+    print(f&quot;sai so lon nhat INT4: {err4:.5f} (gap INT8 &quot;
+          f&quot;{err4 / err8:.1f}x, ky vong ~17x = ti le scale).&quot;)
+    <span class="cm"># (b) Tensor lech han 1 phia: [0.5, 2.5].</span>
+    y = torch.linspace(<span class="num2">0.5</span>, <span class="num2">2.5</span>, <span class="num2">21</span>)
+    y_sym, s_sym, _ = quantize_dequantize(y, bits=<span class="num2">8</span>,
+                                          symmetric=<span class="kw">True</span>)
+    y_asym, s_asym, _ = quantize_dequantize(y, bits=<span class="num2">8</span>,
+                                            symmetric=<span class="kw">False</span>)
+    err_sym = float((y_sym - y).abs().max())
+    err_asym = float((y_asym - y).abs().max())
+    <span class="cm"># Muc thang do that su dung: (max-min)/scale tren tong muc.</span>
+    used_sym = int(round((<span class="num2">2.5</span> - <span class="num2">0.5</span>) / s_sym)) + <span class="num2">1</span>
+    used_asym = int(round((<span class="num2">2.5</span> - <span class="num2">0.5</span>) / s_asym)) + <span class="num2">1</span>
+    print(f&quot;\nTensor [0.5, 2.5], INT8:&quot;)
+    print(f&quot;  symmetric: scale={s_sym:.5f}, sai so max=&quot;
+          f&quot;{err_sym:.5f}, dung ~{used_sym}/255 muc (40%).&quot;)
+    print(f&quot;  asymmetric: scale={s_asym:.5f}, sai so max=&quot;
+          f&quot;{err_asym:.5f}, dung het {used_asym}/256 muc.&quot;)
+    print(f&quot;  Ket luan: asymmetric tot hon {err_sym / err_asym:.1f}x &quot;
+          f&quot;vi dung tron thang do; symmetric bo phi nua muc am &quot;
+          f&quot;ma du lieu khong bao gio dung toi.&quot;)
+    <span class="cm"># Edge case: tensor hang so va tensor 0, ke ca so khong</span>
+    <span class="cm"># nguyen (3.7) - kiem tra ca tinh nhat quan round-trip:</span>
+    <span class="cm"># ap lai (scale, z) tra ve phai khoi phuc dung gia tri.</span>
+    const, s_c, z_c = quantize_dequantize(
+        torch.full((<span class="num2">5</span>,), <span class="num2">3.0</span>), bits=<span class="num2">8</span>)
+    const37, s37, z37 = quantize_dequantize(
+        torch.full((<span class="num2">5</span>,), <span class="num2">3.7</span>), bits=<span class="num2">8</span>)
+    q37 = torch.clamp(torch.round(torch.full((<span class="num2">5</span>,), <span class="num2">3.7</span>) / s37)
+                      + z37, <span class="num2">0</span>, <span class="num2">255</span>)
+    hat37 = s37 * (q37 - z37)
+    zeros, s_z, z_z = quantize_dequantize(torch.zeros(<span class="num2">5</span>), bits=<span class="num2">8</span>,
+                                          symmetric=<span class="kw">True</span>)
+    print(f&quot;Edge case hang so 3.0: khoi phuc dung = &quot;
+          f&quot;{bool(torch.allclose(const, torch.full((<span class="num2">5</span>,), <span class="num2">3.0</span>)))} &quot;
+          f&quot;(scale={s_c:.5f}, z={z_c}, khong chia cho 0).&quot;)
+    print(f&quot;Edge case hang so 3.7: khoi phuc dung = &quot;
+          f&quot;{bool(torch.allclose(const37, torch.full((<span class="num2">5</span>,), <span class="num2">3.7</span>)))} &quot;
+          f&quot;va ap lai (scale={s37:.5f}, z={z37}) cho &quot;
+          f&quot;{bool(torch.allclose(hat37, torch.full((<span class="num2">5</span>,), <span class="num2">3.7</span>)))} &quot;
+          f&quot;(bo ba nhat quan, ban cu cho 4.0).&quot;)
+    print(f&quot;Edge case toan 0 (symmetric): khoi phuc dung = &quot;
+          f&quot;{bool(torch.allclose(zeros, torch.zeros(<span class="num2">5</span>)))} &quot;
+          f&quot;(scale={s_z}, z={z_z}).&quot;)
+    <span class="kw">try</span>:
+        quantize_dequantize(x, bits=<span class="num2">1</span>)
+        print(<span class="str">&quot;CANH BAO: bits=1 khong bi chan!&quot;</span>)
+    <span class="kw">except</span> ValueError <span class="kw">as</span> exc:
+        print(f&quot;Edge case bits=1: chan dung ({exc}).&quot;)
+
+
+<span class="kw">def</span> bai2():
+    <span class="str">&quot;&quot;&quot;Bai 2: outlier pha thang do per-tensor, per-channel cuu.&quot;&quot;&quot;</span>
+    print(<span class="str">&quot;\n&quot;</span> + <span class="str">&quot;=&quot;</span> * <span class="num2">72</span>)
+    print(<span class="str">&quot;BAI 2 - Outlier va per-channel&quot;</span>)
+    print(<span class="str">&quot;=&quot;</span> * <span class="num2">72</span>)
+    torch.manual_seed(<span class="num2">0</span>)
+    w = torch.randn(<span class="num2">4</span>, <span class="num2">1000</span>)
+    w[<span class="num2">0</span>] *= <span class="num2">50.0</span>
+    <span class="kw">for</span> bits <span class="kw">in</span> (<span class="num2">8</span>, <span class="num2">4</span>):
+        print(f&quot;--- INT{bits} ---&quot;)
+        w_tensor, _, _ = quantize_dequantize(w, bits=bits)
+        w_channel = quantize_per_channel(w, bits=bits)
+        print(f&quot;{<span class="str">&#x27;channel&#x27;</span>:&gt;8} | {<span class="str">&#x27;MSE per-tensor&#x27;</span>:&gt;14} | &quot;
+              f&quot;{<span class="str">&#x27;MSE per-channel&#x27;</span>:&gt;15}&quot;)
+        <span class="kw">for</span> i <span class="kw">in</span> range(<span class="num2">4</span>):
+            print(f&quot;{i:&gt;8} | {mse(w_tensor[i], w[i]):&gt;14.4f} | &quot;
+                  f&quot;{mse(w_channel[i], w[i]):&gt;15.4f}&quot;)
+        mse_normal_tensor = sum(mse(w_tensor[i], w[i])
+                                <span class="kw">for</span> i <span class="kw">in</span> range(<span class="num2">1</span>, <span class="num2">4</span>)) / <span class="num2">3</span>
+        mse_normal_channel = sum(mse(w_channel[i], w[i])
+                                 <span class="kw">for</span> i <span class="kw">in</span> range(<span class="num2">1</span>, <span class="num2">4</span>)) / <span class="num2">3</span>
+        print(f&quot;MSE trung binh 3 channel thuong: per-tensor &quot;
+              f&quot;{mse_normal_tensor:.4f} vs per-channel &quot;
+              f&quot;{mse_normal_channel:.4f} (per-channel tot hon &quot;
+              f&quot;{mse_normal_tensor / mse_normal_channel:.1f}x).&quot;)
+    print(<span class="str">&quot;Ket luan: outlier (channel 0, x50) lam hai NHAT cac &quot;</span>
+          <span class="str">&quot;channel BINH THUONG o per-tensor - chung bi don vao &quot;</span>
+          <span class="str">&quot;vai muc, MSE tang vot; per-channel cho moi channel &quot;</span>
+          <span class="str">&quot;thang do rieng nen sai so tro lai muc binh thuong. &quot;</span>
+          <span class="str">&quot;O INT4, ngay ca per-channel cung bat dau duoi &quot;</span>
+          <span class="str">&quot;(xem bang).&quot;</span>)
+
+
+<span class="kw">def</span> train_mlp():
+    <span class="str">&quot;&quot;&quot;Train MLP nho tren du lieu tong hop (code de bai).&quot;&quot;&quot;</span>
+    torch.manual_seed(<span class="num2">0</span>)
+    x = torch.randn(<span class="num2">2000</span>, <span class="num2">2</span>)
+    y = ((x[:, <span class="num2">0</span>] ** <span class="num2">2</span> + x[:, <span class="num2">1</span>] ** <span class="num2">2</span>) &gt; <span class="num2">1.0</span>).long()
+    xtr, xte, ytr, yte = x[:<span class="num2">1600</span>], x[<span class="num2">1600</span>:], y[:<span class="num2">1600</span>], y[<span class="num2">1600</span>:]
+    mlp = nn.Sequential(nn.Linear(<span class="num2">2</span>, <span class="num2">32</span>), nn.ReLU(),
+                        nn.Linear(<span class="num2">32</span>, <span class="num2">32</span>), nn.ReLU(),
+                        nn.Linear(<span class="num2">32</span>, <span class="num2">2</span>))
+    opt = torch.optim.AdamW(mlp.parameters(), lr=<span class="num2">0.01</span>)
+    <span class="kw">for</span> _ <span class="kw">in</span> range(<span class="num2">200</span>):
+        opt.zero_grad()
+        loss = nn.CrossEntropyLoss()(mlp(xtr), ytr)
+        loss.backward()
+        opt.step()
+    <span class="kw">return</span> mlp, xte, yte
+
+
+@torch.no_grad()
+<span class="kw">def</span> accuracy(model, x, y):
+    <span class="str">&quot;&quot;&quot;Ti le du doan dung tren tap test.&quot;&quot;&quot;</span>
+    model.eval()
+    <span class="kw">return</span> (model(x).argmax(<span class="num2">1</span>) == y).float().mean().item()
+
+
+<span class="kw">def</span> quantize_model_weights(model, bits, per_channel=<span class="kw">False</span>,
+                           symmetric=<span class="kw">False</span>):
+    <span class="str">&quot;&quot;&quot;Weight-only quantize: chi trong so Linear, activation
+    van FP32. Lam tren ban copy, khong pha model goc.&quot;&quot;&quot;</span>
+    new_model = copy.deepcopy(model)
+    <span class="kw">for</span> layer <span class="kw">in</span> new_model:
+        <span class="kw">if</span> isinstance(layer, nn.Linear):
+            <span class="kw">if</span> per_channel:
+                w_hat = quantize_per_channel(layer.weight.data,
+                                             bits=bits,
+                                             symmetric=symmetric)
+            <span class="kw">else</span>:
+                w_hat, _, _ = quantize_dequantize(
+                    layer.weight.data, bits=bits,
+                    symmetric=symmetric)
+            layer.weight.data = w_hat
+    <span class="kw">return</span> new_model
+
+
+<span class="kw">def</span> latency_ms(model, x, runs=<span class="num2">1000</span>):
+    <span class="str">&quot;&quot;&quot;Do tre TRUNG VI (ms/lan) tren nhieu lan chay rieng le.
+
+    Trung vi thay vi trung binh: do tre o micro-giay de bi
+    nhieu boi nhiet do CPU/tien trinh nen, trung binh de bi
+    keo lech boi vai lan cham dot bien. Co warmup truoc.
+    &quot;&quot;&quot;</span>
+    <span class="kw">import</span> statistics
+    <span class="kw">with</span> torch.no_grad():
+        model.eval()
+        <span class="kw">for</span> _ <span class="kw">in</span> range(WARMUP_RUNS):
+            model(x)
+        times = []
+        <span class="kw">for</span> _ <span class="kw">in</span> range(runs):
+            t0 = time.perf_counter()
+            model(x)
+            times.append(time.perf_counter() - t0)
+    <span class="kw">return</span> statistics.median(times) * <span class="num2">1000.0</span>
+
+
+<span class="cm"># Regression set: 8 input dai dien, ke ca bien quyet dinh</span>
+<span class="cm"># (r^2 gan 1) va xa tam. Moi phien ban quantize sau nay phai</span>
+<span class="cm"># cho cung du doan voi ban FP32 tren ca 8 input nay.</span>
+REGRESSION_X = torch.tensor([
+    [<span class="num2">0.0</span>, <span class="num2">0.0</span>], [<span class="num2">1.0</span>, <span class="num2">0.0</span>], [<span class="num2">0.0</span>, <span class="num2">1.0</span>], [<span class="num2">0.7</span>, <span class="num2">0.7</span>],
+    [<span class="num2">0.71</span>, <span class="num2">0.71</span>], [<span class="num2">2.0</span>, <span class="num2">2.0</span>], [-<span class="num2">0.7</span>, -<span class="num2">0.7</span>], [<span class="num2">0.5</span>, <span class="num2">0.86</span>],
+])
+<span class="cm"># [TRAINER] Nhan cua [0.5, 0.86] o ban goc ghi 1, nhung</span>
+<span class="cm"># 0.5^2 + 0.86^2 = 0.25 + 0.7396 = 0.9896 &lt; 1 -&gt; theo dung</span>
+<span class="cm"># luat sinh du lieu (r^2 &gt; 1) nhan phai la 0. Luu y them:</span>
+<span class="cm"># regression_agreement() truoc day chi so du doan voi model</span>
+<span class="cm"># FP32 nen REGRESSION_Y chua duoc dung o dau - nhan sai nam</span>
+<span class="cm"># im o day se thanh &quot;diem neo sai&quot; ngay khi co ai cham</span>
+<span class="cm"># accuracy tren regression set bang nhan nay. Nay sua nhan</span>
+<span class="cm"># va dung that: ham cham them do chinh xac so voi nhan that.</span>
+REGRESSION_Y = torch.tensor([<span class="num2">0</span>, <span class="num2">0</span>, <span class="num2">0</span>, <span class="num2">0</span>, <span class="num2">1</span>, <span class="num2">1</span>, <span class="num2">0</span>, <span class="num2">0</span>])
+
+
+@torch.no_grad()
+<span class="kw">def</span> regression_agreement(model, ref_model):
+    <span class="str">&quot;&quot;&quot;Ti le input regression ma model dong y voi ban goc, kem
+    do chinh xac so voi nhan that (REGRESSION_Y).
+
+    Tra ve (agreement, truth_acc, preds). Agreement do &quot;khong
+    doi hanh vi&quot; so voi FP32; truth_acc do dung/sai that -
+    hai thu khac nhau khi chinh FP32 cung sai o diem bien.
+    &quot;&quot;&quot;</span>
+    model.eval()
+    ref_model.eval()
+    pred = model(REGRESSION_X).argmax(<span class="num2">1</span>)
+    ref = ref_model(REGRESSION_X).argmax(<span class="num2">1</span>)
+    agree = (pred == ref).float().mean().item()
+    truth_acc = (pred == REGRESSION_Y).float().mean().item()
+    <span class="kw">return</span> agree, truth_acc, pred.tolist()
+
+
+<span class="kw">def</span> bai3_bai4():
+    <span class="str">&quot;&quot;&quot;Bai 3 + 4: weight-only MLP, benchmark, quyet dinh.&quot;&quot;&quot;</span>
+    print(<span class="str">&quot;\n&quot;</span> + <span class="str">&quot;=&quot;</span> * <span class="num2">72</span>)
+    print(<span class="str">&quot;BAI 3 - Weight-only quantize MLP that&quot;</span>)
+    print(<span class="str">&quot;=&quot;</span> * <span class="num2">72</span>)
+    mlp, xte, yte = train_mlp()
+    acc_fp = accuracy(mlp, xte, yte)
+    print(f&quot;Accuracy FP32: {acc_fp:.3f}&quot;)
+    n_params = sum(p.numel() <span class="kw">for</span> p <span class="kw">in</span> mlp.parameters())
+    print(f&quot;So tham so: {n_params:,}&quot;)
+    <span class="kw">for</span> name, bpp <span class="kw">in</span> [(<span class="str">&quot;FP32&quot;</span>, <span class="num2">4</span>), (<span class="str">&quot;INT8&quot;</span>, <span class="num2">1</span>), (<span class="str">&quot;INT4&quot;</span>, <span class="num2">0.5</span>)]:
+        print(f&quot;{name}: ~{n_params * bpp / <span class="num2">1024</span>:.1f} KB trong so.&quot;)
+    x1 = torch.randn(<span class="num2">1</span>, <span class="num2">2</span>)
+    x256 = torch.randn(<span class="num2">256</span>, <span class="num2">2</span>)
+    variants = {
+        <span class="str">&quot;FP32&quot;</span>: mlp,
+        <span class="str">&quot;INT8&quot;</span>: quantize_model_weights(mlp, <span class="num2">8</span>),
+        <span class="str">&quot;INT4&quot;</span>: quantize_model_weights(mlp, <span class="num2">4</span>),
+        <span class="cm"># [TRAINER] Ban goc them symmetric=True chi rieng cho</span>
+        <span class="cm"># ban nay: so voi &quot;INT4&quot; per-tensor thi doi HAI bien</span>
+        <span class="cm"># cung luc (do hat + doi xung), dung cai bay ablation</span>
+        <span class="cm"># ma docstring dau file cam (&quot;chi doi SO BIT va do</span>
+        <span class="cm"># hat&quot;). So do lai sach: per-channel asymmetric cho</span>
+        <span class="cm"># acc 0.990, regression 75% (ban goc: 0.988, 38%) -</span>
+        <span class="cm"># per-channel THAT RA giup nhieu, chi la van chua qua</span>
+        <span class="cm"># gate 8/8. Bo symmetric de chi con 1 bien thay doi.</span>
+        <span class="str">&quot;INT4 per-channel&quot;</span>: quantize_model_weights(
+            mlp, <span class="num2">4</span>, per_channel=<span class="kw">True</span>),
+    }
+    print(<span class="str">&quot;\n&quot;</span> + <span class="str">&quot;=&quot;</span> * <span class="num2">72</span>)
+    print(<span class="str">&quot;BAI 4 - Bang benchmark (so do that tren CPU nay)&quot;</span>)
+    print(<span class="str">&quot;=&quot;</span> * <span class="num2">72</span>)
+    print(f&quot;{<span class="str">&#x27;Phien ban&#x27;</span>:&lt;16} | {<span class="str">&#x27;Acc&#x27;</span>:&gt;6} | {<span class="str">&#x27;Bo nho&#x27;</span>:&gt;7} | &quot;
+          f&quot;{<span class="str">&#x27;Tre b1&#x27;</span>:&gt;8} | {<span class="str">&#x27;Tre b256&#x27;</span>:&gt;9} | {<span class="str">&#x27;Regr&#x27;</span>:&gt;5}&quot;)
+    rows = {}
+    <span class="kw">for</span> name, model <span class="kw">in</span> variants.items():
+        acc = accuracy(model, xte, yte)
+        lat1 = latency_ms(model, x1)
+        lat256 = latency_ms(model, x256)
+        agree, truth_acc, _ = regression_agreement(model, mlp)
+        bpp = {<span class="str">&quot;FP32&quot;</span>: <span class="num2">4</span>, <span class="str">&quot;INT8&quot;</span>: <span class="num2">1</span>, <span class="str">&quot;INT4&quot;</span>: <span class="num2">0.5</span>,
+               <span class="str">&quot;INT4 per-channel&quot;</span>: <span class="num2">0.5</span>}[name]
+        mem = n_params * bpp / <span class="num2">1024</span>
+        rows[name] = (acc, mem, lat1, lat256, agree, truth_acc)
+        print(f&quot;{name:&lt;16} | {acc:&gt;6.3f} | {mem:&gt;6.1f}KB | &quot;
+              f&quot;{lat1:&gt;7.3f}ms | {lat256:&gt;8.3f}ms | &quot;
+              f&quot;{agree:&gt;4.0%}&quot;)
+    print(<span class="str">&quot;\nDo tre do duoc (trung vi 1000 lan) deu o muc micro-&quot;</span>
+          <span class="str">&quot;giay va chenh nhau trong pham vi nhieu cua may nho &quot;</span>
+          <span class="str">&quot;nay - ban &#x27;gia lap&#x27; (dequantize ve FP32 roi tinh &quot;</span>
+          <span class="str">&quot;FP32) KHONG nhanh hon that, dung nhu Cau 3 cua de &quot;</span>
+          <span class="str">&quot;bai: muon nhanh that can kernel INT8/INT4 that. &quot;</span>
+          <span class="str">&quot;Khong duoc doc bang do tre nay thanh &#x27;INT4 cham &quot;</span>
+          <span class="str">&quot;hon&#x27; hay &#x27;INT8 nhanh hon&#x27; - do la nhieu do, khong &quot;</span>
+          <span class="str">&quot;phai tin hieu.&quot;</span>)
+    print(<span class="str">&quot;Nang luong (uoc luong, khong phai so do dien): &quot;</span>
+          <span class="str">&quot;batch 1 memory-bound, energy/token ti le voi byte &quot;</span>
+          <span class="str">&quot;trong so phai doc moi lan decode -&gt; INT8/FP32 = &quot;</span>
+          <span class="str">&quot;0.25x, INT4/FP32 = 0.125x.&quot;</span>)
+    <span class="cm"># Quyet dinh suy tu SO DO, khong viet san truoc.</span>
+    acc_fp = rows[<span class="str">&quot;FP32&quot;</span>][<span class="num2">0</span>]
+    acc8, regr8 = rows[<span class="str">&quot;INT8&quot;</span>][<span class="num2">0</span>], rows[<span class="str">&quot;INT8&quot;</span>][<span class="num2">4</span>]
+    acc4pc, regr4pc = rows[<span class="str">&quot;INT4 per-channel&quot;</span>][<span class="num2">0</span>], \
+        rows[<span class="str">&quot;INT4 per-channel&quot;</span>][<span class="num2">4</span>]
+    print(<span class="str">&quot;\nQUYET DINH (suy tu so do tren):&quot;</span>)
+    print(f&quot;(1) Chatbot can giu chat luong: chon INT8 &quot;
+          f&quot;weight-only - accuracy {acc8:.3f} bang FP32 &quot;
+          f&quot;({acc_fp:.3f}), regression {regr8:.0%}, bo nho &quot;
+          f&quot;giam 4x, nang luong doc giam 4x.&quot;)
+    <span class="kw">if</span> regr4pc &gt;= <span class="num2">1.0</span> <span class="kw">and</span> acc_fp - acc4pc &lt;= <span class="num2">0.01</span>:
+        print(<span class="str">&quot;(2) May yeu offline: INT4 per-channel DAT gate &quot;</span>
+              <span class="str">&quot;regression, duoc phep dung voi bo nho giam 8x.&quot;</span>)
+    <span class="kw">else</span>:
+        print(f&quot;(2) May yeu offline: INT4 per-channel KHONG &quot;
+              f&quot;dat gate (accuracy {acc4pc:.3f}, regression &quot;
+              f&quot;chi {regr4pc:.0%} &lt; 100% - ca hai ban INT4 deu &quot;
+              f&quot;lat lung tung gan bien quyet dinh). Ket luan: &quot;
+              f&quot;tren bang chung nay, INT4 CHUA duoc release &quot;
+              f&quot;ngay ca cho may yeu; dung INT8, hoac cai thien &quot;
+              f&quot;INT4 bang per-group/GPTQ roi do lai.&quot;)
+    print(<span class="str">&quot;(3) Regression set (8 input, ke ca bien r^2 gan 1): &quot;</span>
+          <span class="str">&quot;(0,0), (1,0), (0,1), (0.7,0.7), (0.71,0.71), (2,2), &quot;</span>
+          <span class="str">&quot;(-0.7,-0.7), (0.5,0.86) - nhan that theo r^2 &gt; 1. &quot;</span>
+          <span class="str">&quot;Moi phien ban quantize sau nay phai dong y 8/8 voi &quot;</span>
+          <span class="str">&quot;ban FP32 truoc khi release.&quot;</span>)
+    print(f&quot;\nRegression agreement: &quot; +
+          <span class="str">&quot;, &quot;</span>.join(f&quot;{n} {r[<span class="num2">4</span>]:.0%}&quot; <span class="kw">for</span> n, r <span class="kw">in</span> rows.items())
+          + <span class="str">&quot;.&quot;</span>)
+    print(<span class="str">&quot;Do chinh xac so voi nhan that (regression set): &quot;</span> +
+          <span class="str">&quot;, &quot;</span>.join(f&quot;{n} {r[<span class="num2">5</span>]:.0%}&quot; <span class="kw">for</span> n, r <span class="kw">in</span> rows.items())
+          + <span class="str">&quot; - FP32 cung co the sai o diem bien, nen hai &quot;</span>
+          <span class="str">&quot;con so nay khac nhau la binh thuong.&quot;</span>)
+
+
+<span class="kw">def</span> main():
+    <span class="str">&quot;&quot;&quot;Chay lab day du: Bai 1 -&gt; 4.&quot;&quot;&quot;</span>
+    t0 = time.perf_counter()
+    print(f&quot;torch: {torch.__version__} (CPU)&quot;)
+    bai1()
+    bai2()
+    bai3_bai4()
+    print(f&quot;\nToan bo lab chay trong {time.perf_counter() - t0:.1f}s &quot;
+          f&quot;tren CPU.&quot;)
+
+
+<span class="kw">if</span> __name__ == <span class="str">&quot;__main__&quot;</span>:
+    main()
+</code></pre>
+</section>
+<script>
+function copySrc(id){
+  var t=document.getElementById(id).innerText;
+  navigator.clipboard.writeText(t).then(function(){alert("Đã copy "+t.length+" ký tự!");});
+}
+</script>
+
+<script>
+function fmt5(v){return (Math.round(v*100000)/100000).toFixed(5);}
+function quantizeJS(x,bits,sym){
+  var lo,hi,z,s;
+  var xmin=Math.min.apply(null,x),xmax=Math.max.apply(null,x);
+  if(sym){
+    var ml=Math.pow(2,bits-1)-1;
+    s=Math.max(Math.abs(xmin),Math.abs(xmax))/ml; if(s===0)s=1.0; z=0; lo=-ml; hi=ml;
+  } else {
+    if(xmax===xmin){
+      if(xmax===0){s=1.0;z=0;}
+      else if(xmax>0){s=xmax/(Math.pow(2,bits)-1);z=0;}
+      else{s=-xmin/(Math.pow(2,bits)-1);z=Math.pow(2,bits)-1;}
+      lo=0;hi=Math.pow(2,bits)-1;
+    } else {
+      s=(xmax-xmin)/(Math.pow(2,bits)-1); z=Math.round(-xmin/s); lo=0; hi=Math.pow(2,bits)-1;
+    }
+  }
+  var xq=x.map(function(v){return Math.min(hi,Math.max(lo,Math.round(v/s)+z));});
+  var xh=xq.map(function(q){return s*(q-z);});
+  var err=Math.max.apply(null,xh.map(function(v,i){return Math.abs(v-x[i]);}));
+  return {s:s,z:z,xq:xq,xh:xh,err:err};
+}
+var XT=[-1.2,-0.3,0.0,0.3,0.6];
+function showQuant(bits,sym){
+  var r=quantizeJS(XT,bits,sym);
+  var rows=XT.map(function(v,i){
+    return "x="+v.toFixed(1)+"  ->  x_q="+r.xq[i]+"  ->  x_hat="+fmt5(r.xh[i])+"  (lẹch "+fmt5(Math.abs(r.xh[i]-v))+")";
+  }).join("<br>");
+  document.getElementById("quantOut").innerHTML=
+    (sym?"Symmetric":"Asymmetric")+" INT"+bits+": scale = "+fmt5(r.s)+", zero-point = "+r.z+"<br>"+rows+
+    "<br>Sai so lon nhat = "+fmt5(r.err)+"  (gioi han scale/2 = "+fmt5(r.s/2)+")";
+  document.querySelectorAll(".qbtn").forEach(function(b){
+    b.classList.toggle("active",+b.getAttribute("data-bits")===bits && +b.getAttribute("data-sym")===sym);
+  });
+}
+document.querySelectorAll(".qbtn").forEach(function(b){
+  b.addEventListener("click",function(){showQuant(+b.getAttribute("data-bits"),+b.getAttribute("data-sym"));});
+});
+showQuant(8,0);
+
+/* ---- Outlier simulation (seeded RNG, same quantize logic) ---- */
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;var t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+function randn(rng){var u=0,v=0;while(u===0)u=rng();while(v===0)v=rng();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);}
+function mseArr(a,b){var s=0;for(var i=0;i<a.length;i++)s+=(a[i]-b[i])*(a[i]-b[i]);return s/a.length;}
+function simulateOutlier(mult){
+  var rng=mulberry32(0), W=[];
+  for(var c=0;c<4;c++){var row=[];for(var j=0;j<200;j++)row.push(randn(rng));W.push(row);}
+  W[0]=W[0].map(function(v){return v*mult;});
+  var flat=[];W.forEach(function(r){flat=flat.concat(r);});
+  var rt=quantizeJS(flat,8,0);
+  var idx=0, mseT=[], mseC=[];
+  W.forEach(function(row){
+    var hatT=rt.xh.slice(idx,idx+row.length); idx+=row.length;
+    var rc=quantizeJS(row,8,0);
+    mseT.push(mseArr(hatT,row)); mseC.push(mseArr(rc.xh,row));
+  });
+  var avgT=(mseT[1]+mseT[2]+mseT[3])/3, avgC=(mseC[1]+mseC[2]+mseC[3])/3;
+  return {avgT:avgT, avgC:avgC};
+}
+function showOutlier(){
+  var m=+document.getElementById("outSlider").value;
+  document.getElementById("outLab").textContent="×"+m;
+  var r=simulateOutlier(m);
+  document.getElementById("outOut").innerHTML=
+    "Outlier ×"+m+": MSE channel thuong — per-tensor "+r.avgT.toFixed(4)+" vs per-channel "+r.avgC.toFixed(4)+
+    " (per-channel tot hon "+(r.avgC>0?(r.avgT/r.avgC).toFixed(0):"∞")+"×)<br>"+
+    "Per-tensor tang theo outlier; per-channel gan nhu phang — dung ban chat cua bang so that.";
+}
+document.getElementById("outSlider").addEventListener("input",showOutlier);
+showOutlier();
+</script>
+</div>
+
+<footer>
+  Day 22 — Quantization · Tài liệu giải thích tiếng Việt cho khóa LLM-beginner · Số liệu chạy thật trên CPU (bản code đã sửa theo Trainer review, commit 21cee66).
+</footer>
+</body>
+</html>
