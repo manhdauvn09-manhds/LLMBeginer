@@ -31,7 +31,6 @@ import time
 import torch
 import torch.nn as nn
 
-LATENCY_RUNS = 200
 WARMUP_RUNS = 20
 
 
@@ -73,15 +72,30 @@ def quantize_dequantize(x, bits=8, symmetric=False):
         zero_point = 0
         lo, hi = -max_level, max_level
     else:
-        # Guard: tensor hang so (max == min) -> range 0.
-        # Dat scale 1.0, z = round(-min) -> x_hat = x dung.
+        # [TRAINER] Ban goc dat scale=1.0, z=round(-min) roi tra
+        # thang x.clone(): x_hat dung, nhung cap (scale, z) tra
+        # ve KHONG tu nhat quan - ap lai cong thuc voi chinh
+        # scale/z do cho gia tri khong nguyen (vd 3.7: z=-4,
+        # x_q=0 -> x_hat=4.0) thi sai. Ai dung scale/z nay de
+        # quantize tensor khac se dinh sai so am tham. Ban sua:
+        # chon scale/z sao cho gia tri hang so nam dung o mot
+        # dau muc cua thang do, roi di qua nhanh tinh chung -
+        # x_hat van khoi phuc dung va bo ba (x_hat, scale, z)
+        # nhat quan voi nhau.
         if xmax == xmin:
-            scale = 1.0
+            if xmax == 0.0:
+                scale, zero_point = 1.0, 0
+            elif xmax > 0:
+                scale = xmax / (2 ** bits - 1)
+                zero_point = 0
+            else:
+                scale = -xmin / (2 ** bits - 1)
+                zero_point = 2 ** bits - 1
+            lo, hi = 0, 2 ** bits - 1
+        else:
+            scale = (xmax - xmin) / (2 ** bits - 1)
             zero_point = int(round(-xmin / scale))
-            return x.clone(), scale, zero_point
-        scale = (xmax - xmin) / (2 ** bits - 1)
-        zero_point = int(round(-xmin / scale))
-        lo, hi = 0, 2 ** bits - 1
+            lo, hi = 0, 2 ** bits - 1
     x_q = torch.clamp(torch.round(x / scale) + zero_point,
                       lo, hi)
     x_hat = scale * (x_q - zero_point)
@@ -143,14 +157,26 @@ def bai1():
     print(f"  Ket luan: asymmetric tot hon {err_sym / err_asym:.1f}x "
           f"vi dung tron thang do; symmetric bo phi nua muc am "
           f"ma du lieu khong bao gio dung toi.")
-    # Edge case: tensor hang so va tensor 0.
+    # Edge case: tensor hang so va tensor 0, ke ca so khong
+    # nguyen (3.7) - kiem tra ca tinh nhat quan round-trip:
+    # ap lai (scale, z) tra ve phai khoi phuc dung gia tri.
     const, s_c, z_c = quantize_dequantize(
         torch.full((5,), 3.0), bits=8)
+    const37, s37, z37 = quantize_dequantize(
+        torch.full((5,), 3.7), bits=8)
+    q37 = torch.clamp(torch.round(torch.full((5,), 3.7) / s37)
+                      + z37, 0, 255)
+    hat37 = s37 * (q37 - z37)
     zeros, s_z, z_z = quantize_dequantize(torch.zeros(5), bits=8,
                                           symmetric=True)
     print(f"Edge case hang so 3.0: khoi phuc dung = "
           f"{bool(torch.allclose(const, torch.full((5,), 3.0)))} "
-          f"(scale={s_c}, z={z_c}, khong chia cho 0).")
+          f"(scale={s_c:.5f}, z={z_c}, khong chia cho 0).")
+    print(f"Edge case hang so 3.7: khoi phuc dung = "
+          f"{bool(torch.allclose(const37, torch.full((5,), 3.7)))} "
+          f"va ap lai (scale={s37:.5f}, z={z37}) cho "
+          f"{bool(torch.allclose(hat37, torch.full((5,), 3.7)))} "
+          f"(bo ba nhat quan, ban cu cho 4.0).")
     print(f"Edge case toan 0 (symmetric): khoi phuc dung = "
           f"{bool(torch.allclose(zeros, torch.zeros(5)))} "
           f"(scale={s_z}, z={z_z}).")
@@ -265,17 +291,33 @@ REGRESSION_X = torch.tensor([
     [0.0, 0.0], [1.0, 0.0], [0.0, 1.0], [0.7, 0.7],
     [0.71, 0.71], [2.0, 2.0], [-0.7, -0.7], [0.5, 0.86],
 ])
-REGRESSION_Y = torch.tensor([0, 0, 0, 0, 1, 1, 0, 1])
+# [TRAINER] Nhan cua [0.5, 0.86] o ban goc ghi 1, nhung
+# 0.5^2 + 0.86^2 = 0.25 + 0.7396 = 0.9896 < 1 -> theo dung
+# luat sinh du lieu (r^2 > 1) nhan phai la 0. Luu y them:
+# regression_agreement() truoc day chi so du doan voi model
+# FP32 nen REGRESSION_Y chua duoc dung o dau - nhan sai nam
+# im o day se thanh "diem neo sai" ngay khi co ai cham
+# accuracy tren regression set bang nhan nay. Nay sua nhan
+# va dung that: ham cham them do chinh xac so voi nhan that.
+REGRESSION_Y = torch.tensor([0, 0, 0, 0, 1, 1, 0, 0])
 
 
 @torch.no_grad()
 def regression_agreement(model, ref_model):
-    """Ti le input regression ma model dong y voi ban goc."""
+    """Ti le input regression ma model dong y voi ban goc, kem
+    do chinh xac so voi nhan that (REGRESSION_Y).
+
+    Tra ve (agreement, truth_acc, preds). Agreement do "khong
+    doi hanh vi" so voi FP32; truth_acc do dung/sai that -
+    hai thu khac nhau khi chinh FP32 cung sai o diem bien.
+    """
     model.eval()
     ref_model.eval()
     pred = model(REGRESSION_X).argmax(1)
     ref = ref_model(REGRESSION_X).argmax(1)
-    return (pred == ref).float().mean().item(), pred.tolist()
+    agree = (pred == ref).float().mean().item()
+    truth_acc = (pred == REGRESSION_Y).float().mean().item()
+    return agree, truth_acc, pred.tolist()
 
 
 def bai3_bai4():
@@ -296,8 +338,16 @@ def bai3_bai4():
         "FP32": mlp,
         "INT8": quantize_model_weights(mlp, 8),
         "INT4": quantize_model_weights(mlp, 4),
+        # [TRAINER] Ban goc them symmetric=True chi rieng cho
+        # ban nay: so voi "INT4" per-tensor thi doi HAI bien
+        # cung luc (do hat + doi xung), dung cai bay ablation
+        # ma docstring dau file cam ("chi doi SO BIT va do
+        # hat"). So do lai sach: per-channel asymmetric cho
+        # acc 0.990, regression 75% (ban goc: 0.988, 38%) -
+        # per-channel THAT RA giup nhieu, chi la van chua qua
+        # gate 8/8. Bo symmetric de chi con 1 bien thay doi.
         "INT4 per-channel": quantize_model_weights(
-            mlp, 4, per_channel=True, symmetric=True),
+            mlp, 4, per_channel=True),
     }
     print("\n" + "=" * 72)
     print("BAI 4 - Bang benchmark (so do that tren CPU nay)")
@@ -309,11 +359,11 @@ def bai3_bai4():
         acc = accuracy(model, xte, yte)
         lat1 = latency_ms(model, x1)
         lat256 = latency_ms(model, x256)
-        agree, _ = regression_agreement(model, mlp)
+        agree, truth_acc, _ = regression_agreement(model, mlp)
         bpp = {"FP32": 4, "INT8": 1, "INT4": 0.5,
                "INT4 per-channel": 0.5}[name]
         mem = n_params * bpp / 1024
-        rows[name] = (acc, mem, lat1, lat256, agree)
+        rows[name] = (acc, mem, lat1, lat256, agree, truth_acc)
         print(f"{name:<16} | {acc:>6.3f} | {mem:>6.1f}KB | "
               f"{lat1:>7.3f}ms | {lat256:>8.3f}ms | "
               f"{agree:>4.0%}")
@@ -358,6 +408,10 @@ def bai3_bai4():
     print(f"\nRegression agreement: " +
           ", ".join(f"{n} {r[4]:.0%}" for n, r in rows.items())
           + ".")
+    print("Do chinh xac so voi nhan that (regression set): " +
+          ", ".join(f"{n} {r[5]:.0%}" for n, r in rows.items())
+          + " - FP32 cung co the sai o diem bien, nen hai "
+          "con so nay khac nhau la binh thuong.")
 
 
 def main():

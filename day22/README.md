@@ -47,10 +47,16 @@ MLP 1.218 tham so, train 200 epoch tren du lieu tong hop
 
 | Phien ban | Accuracy | Bo nho | Tre b1 | Tre b256 | Regression 8/8 |
 |---|---|---|---|---|---|
-| FP32 | 0,995 | 4,8 KB | 0,034 ms | 0,072 ms | 100% |
-| INT8 | 0,995 | 1,2 KB | 0,033 ms | 0,071 ms | 100% |
-| INT4 | 0,983 | 0,6 KB | 0,034 ms | 0,071 ms | 50% |
-| INT4 per-channel | 0,988 | 0,6 KB | 0,033 ms | 0,072 ms | 38% |
+| FP32 | 0,995 | 4,8 KB | 0,033 ms | 0,106 ms | 100% |
+| INT8 | 0,995 | 1,2 KB | 0,033 ms | 0,105 ms | 100% |
+| INT4 | 0,983 | 0,6 KB | 0,033 ms | 0,106 ms | 50% |
+| INT4 per-channel (asymmetric) | 0,990 | 0,6 KB | 0,033 ms | 0,076 ms | 75% |
+
+Do chinh xac so voi nhan that tren regression set: ca 4 phien
+ban deu 75% (6/8) - chinh FP32 cung sai 2 diem bien, nen
+"dong y voi FP32" (100% cua INT8) co nghia la INT8 copy y
+nguyen ca loi bien cua FP32. Hai thuoc do khac nhau, phai
+bao ca hai.
 
 Ghi chu trung thuc ve do tre: ban dau do bang trung binh
 200 lan cho ra so nhay loan (INT4 0.378ms - nhieu do, khong
@@ -70,7 +76,7 @@ memory-bound, energy/token ti le voi byte trong so phai doc
    accuracy bang FP32, regression 8/8, bo nho giam 4x.
 2. May yeu offline: **INT4 CHUA duoc release** - ca hai ban
    INT4 deu lat lung tung gan bien quyet dinh (regression
-   50% va 38%, du per-channel accuracy cao hon per-tensor).
+   50% va 75% sau khi sua ablation, van duoi gate 8/8).
    Dung INT8, hoac cai thien INT4 bang per-group/GPTQ roi
    do lai. Quyet dinh nay nguoc voi du dinh ban dau ("chon
    INT4 per-channel cho may yeu") - so do thang, ghi that.
@@ -79,10 +85,36 @@ memory-bound, energy/token ti le voi byte trong so phai doc
    (0.71,0.71), (2,2), (-0.7,-0.7), (0.5,0.86). Moi phien ban
    sau nay phai dong y 8/8 voi FP32 truoc khi release.
 
+## Trainer review (commit be92433, file quant_lab_review.py) — 3 loi, da sua
+
+1. **(scale, z) khong nhat quan o tensor hang so** — Truoc:
+   guard tra `x.clone()` voi scale=1.0, z=round(-min); x_hat
+   dung nhung ap lai cap (scale, z) cho 3.7 ra 4.0. Sau:
+   chon scale/z de hang so nam dung dau muc thang do, di qua
+   nhanh tinh chung; kiem tra round-trip 3.7 dung ca hai
+   chieu. Bai hoc: tham so tra ve phai tai tao duoc gia tri.
+2. **Nhan regression sai + nhan chet khong dung** — Truoc:
+   `[0.5, 0.86]` ghi nhan 1 trong khi r^2 = 0.9896 < 1 (nhan
+   dung 0), va `REGRESSION_Y` khong duoc dung o dau. Sau:
+   sua nhan ve 0, ham cham them do chinh xac so voi nhan
+   that (ca 4 ban deu 75% - FP32 cung sai 2 diem bien).
+3. **Ablation 2 bien** — Truoc: ban "INT4 per-channel" them
+   ca `symmetric=True` so voi ban per-tensor (doi do hat +
+   doi xung cung luc). Sau: bo symmetric, chi doi do hat;
+   do lai sach: acc 0.990 (ban cu 0.988), regression 75%
+   (ban cu 38%) - per-channel that ra giup nhieu, chi la van
+   chua qua gate 8/8. Bai hoc: diff loi goi tung doi so khi
+   them variant (tai pham pattern Day 13).
+
 ## Checklist tu soat (7 diem AGENTS.md)
 
 - Edge case: tensor rong, bits ngoai [2,16], tensor hang so
-  (chia cho 0) deu co guard o dau ham.
+  (chia cho 0) deu co guard o dau ham. [TRAINER] Guard hang so
+  ban dau tra (scale=1.0, z=round(-min)) + x.clone(): x_hat
+  dung nhung cap (scale, z) KHONG nhat quan - ap lai cho
+  3.7 ra 4.0. Nay chon scale/z de hang so nam dung dau muc
+  thang do va di qua nhanh tinh chung; kiem tra round-trip
+  3.7: khoi phuc dung va ap lai (scale, z) cung dung.
 - Docstring viet sau khi doc lai code (kieu tra ve, Args).
 - Khong tao tensor moi trong forward (lab dung toan tensor
   co san; quantize lam viec tren x truyen vao, khong dinh
