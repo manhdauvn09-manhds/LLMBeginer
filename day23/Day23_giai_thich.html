@@ -1,0 +1,1775 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 23 — Distillation: mô hình nhỏ học từ mô hình lớn, đo thật từng con số</title>
+<style>
+  :root{
+    --bg:#ecfdf5; --card:#ffffff; --ink:#23272f; --muted:#6b7280;
+    --accent:#047857; --accent-dark:#065f46; --accent-soft:#d1fae5;
+    --blue:#2563eb; --blue-soft:#dbeafe;
+    --amber:#b45309; --amber-soft:#fef3c7;
+    --green:#047857; --green-soft:#d1fae5;
+    --red:#b91c1c; --red-soft:#fee2e2;
+    --violet:#6d28d9; --violet-soft:#ede9fe;
+    --line:#a7f3d0; --code-bg:#1e2230;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    line-height:1.75;font-size:16.5px}
+  .wrap{max-width:960px;margin:0 auto;padding:0 20px}
+  header.hero{background:linear-gradient(135deg,#064e3b 0%,#047857 55%,#34d399 100%);
+    color:#fff;padding:64px 0 48px;margin-bottom:8px}
+  header.hero h1{margin:0 0 12px;font-size:2.1rem;line-height:1.3}
+  header.hero p{margin:6px 0;opacity:.92;max-width:720px}
+  .tag{display:inline-block;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.35);
+    border-radius:999px;padding:3px 14px;font-size:.85rem;margin-bottom:14px}
+  nav.sticky{position:sticky;top:0;z-index:50;background:rgba(236,253,245,.96);
+    backdrop-filter:blur(6px);border-bottom:1px solid var(--line)}
+  nav.sticky .wrap{display:flex;gap:4px;overflow-x:auto;padding:10px 20px;white-space:nowrap}
+  nav.sticky a{color:var(--muted);text-decoration:none;font-size:.88rem;padding:6px 10px;border-radius:8px}
+  nav.sticky a:hover{background:var(--accent-soft);color:var(--accent-dark)}
+  section{padding:34px 0;border-bottom:1px solid var(--line)}
+  h2{font-size:1.55rem;margin:0 0 6px;color:#064e3b}
+  h2 .num{display:inline-block;background:var(--accent);color:#fff;font-size:.95rem;
+    width:34px;height:34px;line-height:34px;text-align:center;border-radius:10px;margin-right:10px;vertical-align:middle}
+  h3{font-size:1.15rem;margin:26px 0 8px}
+  .lead{color:#4b5563;font-size:1.05rem}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:20px 22px;margin:16px 0;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin:18px 0}
+  .concept{background:var(--card);border:1px solid var(--line);border-top:4px solid var(--accent);
+    border-radius:12px;padding:16px 18px}
+  .concept h4{margin:0 0 6px;font-size:1.02rem}
+  .concept p{margin:0;font-size:.93rem;color:#4b5563}
+  .concept.blue{border-top-color:var(--blue)} .concept.amber{border-top-color:var(--amber)}
+  .concept.green{border-top-color:var(--green)} .concept.red{border-top-color:var(--red)}
+  .concept.violet{border-top-color:var(--violet)}
+  pre{background:var(--code-bg);color:#e8eaf2;border-radius:12px;padding:18px 20px;
+    overflow-x:auto;font-size:.86rem;line-height:1.6;margin:14px 0;max-height:560px;overflow-y:auto}
+  code{font-family:"SF Mono",Consolas,"Courier New",monospace}
+  p code, li code, td code{background:var(--accent-soft);padding:1px 7px;border-radius:6px;font-size:.88em;color:#064e3b}
+  pre code{background:none;padding:0;color:inherit}
+  .diagram{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px 10px;margin:18px 0;text-align:center;overflow-x:auto}
+  .diagram svg{max-width:100%;height:auto}
+  .caption{font-size:.9rem;color:var(--muted);margin-top:10px;font-style:italic}
+  .analogy{background:#ecfdf5;border:1px solid #6ee7b7;border-left:6px solid var(--accent);
+    border-radius:10px;padding:16px 20px;margin:16px 0}
+  .analogy b{color:#064e3b}
+  .warn{background:#fffbeb;border:1px solid #fcd34d;border-left:6px solid var(--amber);
+    border-radius:10px;padding:16px 20px;margin:16px 0}
+  .warn b{color:#92400e}
+  .ok{background:#ecfdf5;border:1px solid #6ee7b7;border-left:6px solid var(--green);
+    border-radius:10px;padding:16px 20px;margin:16px 0}
+  .bad{background:#fef2f2;border:1px solid #fecaca;border-left:6px solid var(--red);
+    border-radius:10px;padding:16px 20px;margin:16px 0}
+  table.mini{border-collapse:collapse;margin:14px auto;font-size:.9rem;min-width:70%}
+  table.mini th, table.mini td{border:1px solid var(--line);padding:8px 14px;text-align:left}
+  table.mini th{background:var(--accent-soft)}
+  table.mini td.num{font-family:monospace;text-align:center;white-space:nowrap}
+  table.mini tr.hl td{background:#d1fae5;font-weight:700}
+  .demo{background:#fff;border:2px solid var(--accent);border-radius:16px;padding:24px;margin:18px 0}
+  .demo h3{margin-top:0}
+  input[type=range]{width:100%;margin:8px 0}
+  .seg{display:flex;gap:8px;margin:10px 0;flex-wrap:wrap}
+  .seg button{border:2px solid var(--line);background:#fff;border-radius:10px;
+    padding:8px 18px;font-size:1rem;cursor:pointer}
+  .seg button.active{border-color:var(--accent);background:var(--accent-soft);font-weight:700}
+  .big-out{background:var(--code-bg);color:#e8eaf2;border-radius:12px;padding:18px 20px;
+    font-family:monospace;font-size:.92rem;margin-top:12px;line-height:1.9;word-break:break-word}
+  .btn{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:10px 22px;
+    font-size:1rem;cursor:pointer;margin:10px 8px 0 0}
+  .btn:hover{background:#064e3b}
+  .formula{text-align:center;font-size:1.15rem;background:#ecfdf5;border-radius:10px;
+    padding:18px;margin:14px 0;font-family:Georgia,serif}
+  .formula small{display:block;font-family:inherit;font-size:.85rem;color:var(--muted);margin-top:6px}
+  footer{padding:36px 0 60px;color:var(--muted);font-size:.9rem;text-align:center}
+  ul.tight li{margin-bottom:6px}
+  .bar-wrap{background:#f3f4f6;border-radius:8px;height:26px;margin:6px 0;position:relative;border:1px solid var(--line)}
+  .bar-fill{height:100%;border-radius:8px}
+  .bar-lab{font-family:monospace;font-size:.82rem;color:#374151;margin-top:2px}
+  .before-after{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:14px 0}
+  .before-after .col{border-radius:12px;padding:16px 18px}
+  .before-after .before{background:#fef2f2;border:1px solid #fecaca}
+  .before-after .after{background:#ecfdf5;border:1px solid #6ee7b7}
+  .before-after h4{margin:0 0 6px}
+  .before-after p{margin:0;font-size:.93rem}
+  @media(max-width:600px){header.hero h1{font-size:1.6rem}body{font-size:15.5px}.before-after{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="tag">📄 Phân tích: day23/distill_lab.py (bản đã sửa theo Trainer review, commit 5e4f659) — chạy thật trên CPU, torch 2.14.1+cpu</span>
+    <h1>Day 23 — Distillation:<br>mô hình nhỏ học từ mô hình lớn, đo thật từng con số</h1>
+    <p>Buổi sáng học lý thuyết: soft target, dark knowledge, temperature T và loss có hệ số T². Buổi tối tự tay làm: cho một student nhỏ học từ teacher lớn trên dữ liệu 3 lớp cố tình thiết kế để lớp 0 gần lớp 1, xa lớp 2 — rồi đo xem distillation thực sự đổi được gì, và đổi với giá nào.</p>
+    <p style="font-size:.9rem;opacity:.8">Toàn bộ lab ~17 giây trên CPU, không GPU, không tải mô hình lớn. Số liệu trong bài là kết quả chạy thật của file <code>distill_lab.py</code> trong cùng thư mục này.</p>
+  </div>
+</header>
+
+<nav class="sticky"><div class="wrap">
+  <a href="#tong-quan">Tóm tắt</a><a href="#bai1">Bài 1 · Temperature</a><a href="#bai2">Bài 2 · Loss</a><a href="#bai3">Bài 3 · Thí nghiệm</a><a href="#trainer">Trainer review</a><a href="#checklist">Tự soát</a><a href="#source">Source code</a>
+</div></nav>
+
+<div class="wrap">
+
+<section id="tong-quan">
+  <h2><span class="num">🍿</span>Tóm tắt 30 giây cho người ngoại đạo</h2>
+  <p class="lead">Nhãn cứng chỉ nói “đáp án là A”. Mô hình lớn còn nói thêm: “B cũng gần đúng, C thì hoàn toàn sai”. Phần “cũng gần đúng” đó gọi là <b>dark knowledge</b> — và distillation là cách chuyển nó sang mô hình nhỏ, để mô hình nhỏ học cả <i>cách phân vân</i>, không chỉ học thuộc đáp án.</p>
+  <div class="analogy"><b>Ví dụ đời thường:</b> cô giáo giỏi không chỉ khoanh đáp án đúng cho học trò. Cô còn nói: “Câu B sai ở một chữ thôi, còn câu C thì lạc đề hẳn.” Học trò nghe được câu đó sẽ hiểu bài sâu hơn học trò chỉ chép đáp án. Teacher trong lab này cũng vậy — nó “nói thêm” bằng phân phối xác suất.</div>
+  <div class="grid">
+    <div class="concept green"><h4>Teacher: 0.843</h4><p>MLP(128), 17.283 tham số, train đủ 900 mẫu. Lớp 2 đạt 1.000, lớp 0/1 chỉ 0.789 / 0.758 vì hai cụm chồng lấn nhau.</p></div>
+    <div class="concept blue"><h4>Student B: 0.857</h4><p>MLP(32), 1.251 tham số, chỉ thấy 300 mẫu. Distillation T = 4, α = 0.3. Vượt cả teacher — nhưng chỉ hơn hard-label 0.004 ở seed 0.</p></div>
+    <div class="concept amber"><h4>Giá phải trả: sao chép cả lỗi</h4><p>Trên 47 mẫu teacher sai, student B sao chép đúng chỗ sai của teacher 80.9%, cao hơn student hard-label (78.7%).</p></div>
+    <div class="concept violet"><h4>Green LLM: ít hơn 92.8% tham số</h4><p>Nhưng chỉ nhanh hơn khoảng 2.8–3.5 lần, không phải 13.8 lần như tỉ lệ tham số gợi ý. Overhead mỗi lần chạy mới là phần chi phối ở mô hình nhỏ.</p></div>
+  </div>
+  <div class="diagram">
+    <svg viewBox="0 0 720 250" xmlns="http://www.w3.org/2000/svg" font-family="sans-serif">
+      <text x="20" y="28" fill="#047857" font-size="17" font-weight="700">Teacher → Student: học cả đáp án lẫn mức độ phân vân</text>
+      <rect x="30" y="55" width="200" height="110" rx="12" fill="#ecfdf5" stroke="#a7f3d0"/>
+      <text x="130" y="90" fill="#23272f" font-size="16" font-weight="700" text-anchor="middle">TEACHER (lớn)</text>
+      <text x="130" y="115" fill="#6b7280" font-size="14" text-anchor="middle">17.283 tham số · 0.843</text>
+      <text x="130" y="140" fill="#047857" font-size="14" text-anchor="middle">phân phối xác suất đầy đủ</text>
+      <rect x="490" y="55" width="200" height="110" rx="12" fill="#ecfdf5" stroke="#047857"/>
+      <text x="590" y="90" fill="#23272f" font-size="16" font-weight="700" text-anchor="middle">STUDENT (nhỏ)</text>
+      <text x="590" y="115" fill="#6b7280" font-size="14" text-anchor="middle">1.251 tham số · 0.857</text>
+      <text x="590" y="140" fill="#047857" font-size="14" text-anchor="middle">học theo teacher, chạy mọi nơi</text>
+      <path d="M 235 110 H 485" stroke="#047857" stroke-width="3" marker-end="url(#arr23)"/>
+      <defs><marker id="arr23" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L9,3 L0,6 Z" fill="#047857"/></marker></defs>
+      <text x="360" y="95" fill="#047857" font-size="14" text-anchor="middle">soft targets</text>
+      <text x="360" y="200" fill="#6b7280" font-size="14" text-anchor="middle">Ví dụ một mẫu lớp 0 → teacher nói: lớp 0: 0.93 · lớp 1: 0.07 · lớp 2: ~0</text>
+      <text x="360" y="222" fill="#6b7280" font-size="14" text-anchor="middle">Nhãn cứng chỉ nói: lớp 0. Soft target nói thêm: lớp 1 gần lớp 0 hơn lớp 2 rất nhiều.</text>
+    </svg>
+    <p class="caption">Dữ liệu: lớp 0 tại (0, 0), lớp 1 tại (1.2, 0.3) — gần nhau, lớp 2 tại (0, 4.0) — xa hẳn. Nhiễu 0.6 khiến lớp 0 và 1 chồng lấn, lớp 2 gần như tách biệt.</p>
+  </div>
+</section>
+
+<section id="bai1">
+  <h2><span class="num">🌡️</span>Bài 1 — Temperature: vặn “độ mềm” để lộ dark knowledge</h2>
+  <p>Teacher cho ra <b>logits</b> — điểm số thô cho mỗi lớp, chưa phải xác suất. Soft target là softmax của logits sau khi chia cho temperature T:</p>
+  <div class="formula">p<sub>i</sub> = e<sup>z<sub>i</sub> / T</sup> / Σ<sub>j</sub> e<sup>z<sub>j</sub> / T</sup><small>T = 1 là softmax thường. T càng lớn, phân phối càng mềm.</small></div>
+  <p>Mẫu đầu tiên của tập test thuộc lớp 0, logits là [6.83, 4.28, −12.65]. Chênh lệch giữa lớp 0 và lớp 1 chỉ 2.55 điểm, nhưng chênh lệch với lớp 2 tới 19.48 điểm — đó chính là thông tin “0 gần 1, xa 2”. Vấn đề là ở T = 1, softmax biến chênh lệch đó thành xác suất lớp 2 gần như bằng 0 (3×10<sup>−9</sup>), chôn vùi luôn.</p>
+  <table class="mini">
+    <tr><th>T</th><th>Lớp 0</th><th>Lớp 1</th><th>Lớp 2</th><th>p1 / p2</th></tr>
+    <tr><td class="num">1</td><td class="num">0.9275</td><td class="num">0.0725</td><td class="num">0.0000</td><td class="num">22.496.088</td></tr>
+    <tr><td class="num">2</td><td class="num">0.7815</td><td class="num">0.2184</td><td class="num">0.0000</td><td class="num">4.743</td></tr>
+    <tr class="hl"><td class="num">5</td><td class="num">0.6170</td><td class="num">0.3705</td><td class="num">0.0125</td><td class="num">29.5</td></tr>
+    <tr><td class="num">10</td><td class="num">0.5215</td><td class="num">0.4041</td><td class="num">0.0744</td><td class="num">5.4</td></tr>
+  </table>
+  <p>Một mẫu thì chưa đủ để kết luận. Trung bình trên toàn bộ 114 mẫu lớp 0 của tập test cho cùng hình dạng: T = 1 là [0.7629, 0.2301, 0.0070], T = 5 là [0.6183, 0.3577, 0.0240], T = 10 là [0.5383, 0.3787, 0.0830]. Quan hệ lộ rõ nhất ở <b>T = 5</b>; ở T = 10 phân phối tiến về đều (mỗi lớp 0.33) nên tương phản mờ dần, dù thứ tự 0 &gt; 1 &gt; 2 vẫn giữ nguyên.</p>
+  <div class="demo">
+    <h3>🎛️ Demo 1 — Kéo temperature, xem dark knowledge lộ ra rồi mờ đi</h3>
+    <p>Logits thật của mẫu trên, độ chính xác đầy đủ. Kéo thanh trượt và xem ba thanh xác suất thay đổi.</p>
+    <label>Temperature T: <b id="tLab">4.0</b></label>
+    <input type="range" id="tSlider" min="1" max="10" value="4" step="0.5">
+    <div id="tBars"></div>
+    <div class="big-out" id="tOut"></div>
+    <p class="caption">Ở T = 1, lớp 2 chỉ còn 3×10<sup>−9</sup> — máy tính gần như không “thấy” nó nữa. Ở T = 5, lớp 1 lên 0.37 và lớp 2 lên 0.013: đủ rõ để student học được quan hệ. Ở T = 10, ba thanh xích lại gần nhau, thông tin mờ đi. Lưu ý: demo tính bằng float64 của trình duyệt nên tỉ lệ p1/p2 ở T = 1 có thể lệch chút so với float32 của PyTorch (cùng cỡ 2.25×10<sup>7</sup>), các xác suất 4 chữ số thập phân thì khớp.</p>
+  </div>
+  <div class="warn"><b>Đừng chỉ nhìn một mẫu.</b> Trong 5 mẫu test đầu tiên đã có 1 mẫu teacher dự đoán sai (logits lớp 1 cao hơn lớp 0 dù nhãn thật là 0). Soft target ở đó cũng “mềm” theo hướng sai — đó là lý do Bài 3 phải đo tỉ lệ sao chép lỗi, không chỉ đo accuracy.</div>
+</section>
+
+<section id="bai2">
+  <h2><span class="num">🧮</span>Bài 2 — Viết đúng loss distillation: ba chi tiết dễ sai âm thầm</h2>
+  <p>Student học từ hai nguồn cùng lúc: nhãn thật và teacher. Công thức tổng hợp:</p>
+  <div class="formula">L = α · CE(y, student) + (1 − α) · T² · KL(teacher<sub>T</sub> ‖ student<sub>T</sub>)<small>α = 0.3 trong lab này: student bám teacher nhiều hơn bám nhãn thật.</small></div>
+  <p>Ba chi tiết quyết định đúng/sai, và cả ba đều “sai mà code vẫn chạy bình thường” nếu không để ý:</p>
+  <ul class="tight">
+    <li><b>Detach teacher.</b> Teacher logits phải <code>.detach()</code> — không cho gradient chạy ngược vào teacher. Quên điều này thì teacher cũng bị cập nhật trong lúc train student, thí nghiệm mất kiểm soát. Lab kiểm tra thật: sau <code>backward()</code>, grad của teacher phải là <code>None</code>.</li>
+    <li><b>Đúng chiều và đúng dạng của KL.</b> <code>F.kl_div</code> cần đầu vào thứ nhất là <i>log-prob</i> của student (<code>log_softmax</code>) và thứ hai là <i>prob</i> của teacher (<code>softmax</code>), theo chiều KL(teacher ‖ student). Đảo chiều thì student được phép “bỏ qua” những gì teacher biết — không còn là chuyển giao tri thức nữa.</li>
+    <li><b>Hệ số T² không phải trang trí.</b> Chia logits cho T làm gradient của phần KL nhỏ đi khoảng T² lần. Không nhân bù lại, phần học từ teacher bị phần nhãn cứng lấn át, student gần như chỉ học hard-label.</li>
+  </ul>
+  <p>Trên cùng một batch giả (seed 123, 8 mẫu, α = 0.3), số liệu thật cho thấy hệ số T² làm gì:</p>
+  <table class="mini">
+    <tr><th>T</th><th>Loss tổng</th><th>CE</th><th>KL gốc</th><th>T² × KL</th></tr>
+    <tr><td class="num">1.0</td><td class="num">0.6530</td><td class="num">1.2987</td><td class="num">0.3762</td><td class="num">0.3762</td></tr>
+    <tr class="hl"><td class="num">4.0</td><td class="num">0.7329</td><td class="num">1.2987</td><td class="num">0.0306</td><td class="num">0.4904</td></tr>
+  </table>
+  <p>KL gốc giảm hơn 12 lần khi T tăng từ 1 lên 4 — vì hai phân phối mềm đều “giống nhau hơn” ở nhiệt độ cao. Nhưng loss tổng lại <i>tăng</i> (0.6530 → 0.7329) vì đã nhân T². Đó là chủ đích của hệ số này, không phải lỗi. Ai chỉ nhìn loss tổng mà tưởng “T càng cao càng tệ” là đọc sai con số.</p>
+  <div class="demo">
+    <h3>🎛️ Demo 2 — Máy tính loss distillation trên đúng batch giả của Bài 2</h3>
+    <p>Kéo T và α. CE không đổi theo T (nó không dùng temperature), KL gốc giảm dần, còn T² × KL — và loss tổng — mới là thứ student thực sự tối ưu.</p>
+    <label>Temperature T: <b id="lossTLab">4.0</b></label>
+    <input type="range" id="lossTSlider" min="1" max="10" value="4" step="0.5">
+    <label>Alpha α (trọng số nhãn thật): <b id="alphaLab">0.3</b></label>
+    <input type="range" id="alphaSlider" min="0" max="1" value="0.3" step="0.1">
+    <div class="big-out" id="lossOut"></div>
+    <p class="caption">Kiểm chứng: ở T = 1, α = 0.3 máy tính này phải ra loss 0.6530; ở T = 4, α = 0.3 phải ra 0.7329 — khớp đúng bảng trên và output của Python.</p>
+  </div>
+  <div class="ok"><b>Guard cũng là một phần của bài.</b> Hàm <code>distill_loss</code> chặn rõ ràng 8 loại đầu vào sai bằng <code>ValueError</code>: T ≤ 0, α ngoài [0, 1], shape teacher khác student, batch rỗng, nhãn ngoài [0, 2] — cộng 3 loại Trainer review bổ sung: nhãn không phải dtype long, logits chứa NaN/Inf, T/α không phải số thực (xem mục Trainer review). Mỗi guard đều có test chạy thật trong Bài 2, kết quả được gom lại và <code>assert</code> tất cả phải chặn đúng — không còn chuyện guard hỏng mà script vẫn kết thúc bình thường.</div>
+</section>
+
+<section id="bai3">
+  <h2><span class="num">⚖️</span>Bài 3 — Thí nghiệm có kiểm soát: distillation giúp được bao nhiêu?</h2>
+  <p>Quy tắc viết trước khi chạy, và code tuân thủ đúng: <b>thứ duy nhất thay đổi là cách tính loss</b>. Cùng 300 mẫu train đầu, cùng kiến trúc student MLP(32), cùng seed 0, cùng 100 epoch. Teacher đã train trên đủ 900 mẫu — đây là tình huống distillation có ý nghĩa nhất: dữ liệu có nhãn ít, nhưng teacher thì “biết nhiều”.</p>
+  <ul class="tight">
+    <li><b>A — hard-only:</b> chỉ CE với nhãn thật.</li>
+    <li><b>B — distill T = 4, α = 0.3:</b> loss ở Bài 2.</li>
+    <li><b>C — distill T = 2, α = 0.3:</b> đổi <i>một</i> thứ duy nhất so với B là T.</li>
+  </ul>
+  <table class="mini">
+    <tr><th>Cấu hình</th><th>Test acc</th><th>Đồng ý với teacher</th><th>Lớp 0</th><th>Lớp 1</th><th>Lớp 2</th><th>Sao chép chỗ teacher sai</th></tr>
+    <tr><td>Teacher (900 mẫu)</td><td class="num">0.843</td><td class="num">—</td><td class="num">0.789</td><td class="num">0.758</td><td class="num">1.000</td><td class="num">—</td></tr>
+    <tr><td>A hard-only</td><td class="num">0.853</td><td class="num">0.943</td><td class="num">0.798</td><td class="num">0.779</td><td class="num">1.000</td><td class="num">0.787</td></tr>
+    <tr class="hl"><td>B distill T = 4, α = 0.3</td><td class="num">0.857</td><td class="num">0.953</td><td class="num">0.833</td><td class="num">0.747</td><td class="num">1.000</td><td class="num">0.809</td></tr>
+    <tr><td>C distill T = 2, α = 0.3</td><td class="num">0.857</td><td class="num">0.953</td><td class="num">0.825</td><td class="num">0.758</td><td class="num">1.000</td><td class="num">0.809</td></tr>
+  </table>
+  <p>Đọc bảng này cần kiềm chế: tập test chỉ có 300 mẫu, nên <b>1% accuracy = 3 mẫu</b>. Ở seed 0, B hơn A đúng 1 mẫu (0.857 so với 0.853). Đọc riêng con số đó thành “distillation thắng lớn” là tự lừa mình. Vì vậy lab lặp lại cả ba cấu hình ở seed 1–4:</p>
+  <table class="mini">
+    <tr><th>Cấu hình</th><th>Seed 0</th><th>Seed 1</th><th>Seed 2</th><th>Seed 3</th><th>Seed 4</th><th>Trung bình 5 seed</th></tr>
+    <tr><td>A hard-only</td><td class="num">0.853</td><td class="num">0.843</td><td class="num">0.850</td><td class="num">0.853</td><td class="num">0.840</td><td class="num">0.848</td></tr>
+    <tr class="hl"><td>B distill T = 4</td><td class="num">0.857</td><td class="num">0.860</td><td class="num">0.863</td><td class="num">0.857</td><td class="num">0.860</td><td class="num">0.859</td></tr>
+    <tr><td>C distill T = 2</td><td class="num">0.857</td><td class="num">0.857</td><td class="num">0.850</td><td class="num">0.857</td><td class="num">0.853</td><td class="num">0.855</td></tr>
+  </table>
+  <p>B hơn A ở <i>cả 5 seed</i>, trung bình +0.011 (khoảng 3 mẫu). Nhỏ, nhưng ổn định — đó mới là kết luận đáng tin, không phải con số ở một seed duy nhất. T = 4 nhỉnh hơn T = 2 trung bình 0.004, cũng trong vùng nhiễu. Nhìn theo từng lớp, distillation chủ yếu cải thiện lớp 0 (+0.035) và đánh đổi bằng lớp 1 (−0.032): nó giúp student phân biệt tốt hơn đúng cặp lớp chồng lấn nhau, nhưng không phải miễn phí.</p>
+  <div class="demo">
+    <h3>🔀 Demo 3 — So sánh A / B / C và teacher</h3>
+    <div class="seg" id="cfgSeg">
+      <button data-cfg="teacher">Teacher</button>
+      <button data-cfg="A">A · hard-only</button>
+      <button data-cfg="B" class="active">B · distill T = 4</button>
+      <button data-cfg="C">C · distill T = 2</button>
+    </div>
+    <div class="big-out" id="cfgOut"></div>
+  </div>
+  <h3>Green LLM: student có đáng thay teacher không?</h3>
+  <table class="mini">
+    <tr><th></th><th>Tham số</th><th>Thời gian / lần chạy (trung vị, 300 mẫu)</th></tr>
+    <tr><td>Teacher</td><td class="num">17.283</td><td class="num">0.298 ms</td></tr>
+    <tr class="hl"><td>Student B</td><td class="num">1.251</td><td class="num">0.099 ms</td></tr>
+  </table>
+  <p>Tỉ lệ tham số chỉ còn 0.072 (giảm 92.8%), tốc độ nhanh hơn 3.01 lần trong lần chạy kiểm chứng sau khi sửa (0.298 ms / 0.099 ms). Nhưng số mili-giây tuyệt đối phụ thuộc tải máy: các lần chạy độc lập khác cho 2.80, 2.99 và 3.41 lần. Dù lấy 2.8 hay 3.5, kết luận không đổi: <b>ít tham số không đồng nghĩa tốc độ tăng tỉ lệ thuận</b>. Tỉ lệ tham số gợi ý 13.8 lần, thực tế chỉ ~3 lần — overhead của mỗi lần gọi mô hình (khởi động phép tính, đọc bộ nhớ, đồng bộ) mới là phần chi phối khi mô hình đã rất nhỏ. Ai quảng cáo “nhỏ hơn 14 lần thì nhanh hơn 14 lần” là chưa đo.</p>
+  <div class="warn"><b>Cái giá thứ hai: kế thừa lỗi.</b> Teacher sai 47/300 mẫu test. Student B lặp lại đúng đáp án sai của teacher ở 38 mẫu trong số đó (80.9%), student A là 37 mẫu (78.7%). Chênh lệch chỉ 1 mẫu, nhưng hướng thì đúng như cảnh báo buổi sáng: student bám teacher càng chặt, càng khó tự sửa lỗi của teacher. Đánh giá student trên dữ liệu do chính teacher sinh ra sẽ che giấu đúng điểm này — luôn giữ tập test thật, độc lập.</div>
+  <div class="ok"><b>Kết luận 2 câu (số liệu tự tính trong code, không ghi tay):</b> Distillation giúp ít nhưng ổn định — B hơn A trung bình 0.011 qua 5 seed, chủ yếu nhờ cải thiện lớp 0. Đổi 0.011 accuracy lấy 92.8% ít tham số và ~3 lần tốc độ là đáng ở workload này, vì student đã vượt cả teacher — với điều kiện nhớ rằng student cũng kế thừa lỗi của teacher.</div>
+</section>
+
+<section id="checklist">
+  <h2><span class="num">✅</span>Tự soát trước khi nộp — checklist 15 điểm</h2>
+  <p>Áp dụng checklist trong <code>AGENTS.md</code> (nay 15 điểm sau review Day 23), đối chiếu từng điểm với code thật đã sửa:</p>
+  <ul class="tight">
+    <li><b>Edge case:</b> 8 guard trong <code>distill_loss</code>, mỗi guard có test chặn đúng trong Bài 2, gom kết quả rồi assert tất cả.</li>
+    <li><b>Docstring đúng code:</b> viết sau khi đọc lại code — kiểu trả về, Args, Raises khớp với hàm thật.</li>
+    <li><b>Device:</b> không tạo tensor mới trong <code>forward</code>; dữ liệu tạo một lần, dùng chung.</li>
+    <li><b>File I/O:</b> lab không đọc file nào — không dính giả định về hình dạng file.</li>
+    <li><b>Thời gian:</b> <code>time.perf_counter()</code>, trung vị 1000 lần sau warmup 50 (bài học Day 22: trung bình bị nhiễu kéo lệch).</li>
+    <li><b>Ablation 1 biến:</b> A→B chỉ đổi cách tính loss, B→C chỉ đổi T; diff từng đối số của lời gọi, tham số đếm bằng cùng một hàm <code>count_params</code>.</li>
+    <li><b>Cleanup trong finally:</b> không có resource cần đóng (không file, không tracker).</li>
+    <li><b>Tham số trả về tự nhất quán:</b> Bài 2 tái tạo lại loss từ CE/KL gốc, đúng ở cả T = 1 và T = 4.</li>
+    <li><b>Không tham chiếu chết:</b> mọi hàm phụ đều được gọi thật; giá trị trả về của <code>_expect_value_error</code> nay được gom và assert, không còn bỏ qua.</li>
+    <li><b>Diff lời gọi khi ablation:</b> kể cả đối số có mặc định (α = 0.3) cũng được đối chiếu, không chỉ đối số đổi.</li>
+    <li><b>Audit bảng tra cứu + kiểm tra đối xứng + kiểm tra kiểu:</b> lab không mở rộng bảng tra cứu nào; kiểm tra detach cả hai phía (teacher None <i>và</i> student có grad); kiểm tra kiểu T/α bằng <code>isinstance</code> trước khi gọi <code>math.isfinite</code>.</li>
+    <li><b>Guard cả dtype, hữu hạn và kiểu (AGENTS #12):</b> nhãn float, logits NaN/Inf và T dạng chuỗi đều bị chặn bằng <code>ValueError</code> ngay đầu hàm, cùng một loại exception cho mọi lỗi đầu vào.</li>
+    <li><b>Tự kiểm tra fail bằng assert (AGENTS #13):</b> loss hữu hạn, tái tạo công thức, detach hai phía và toàn bộ guard đều assert ngay tại chỗ — không chỉ in True/False.</li>
+    <li><b>Tập con rỗng trả NaN có chủ đích (AGENTS #14):</b> lớp vắng mặt trong test và teacher đúng hết đều trả NaN kèm điều kiện count == 0 rõ ràng, không để <code>mean()</code> của tập rỗng sinh NaN lặng lẽ.</li>
+    <li><b>Thêm guard thì sửa luôn docstring (AGENTS #15):</b> commit sửa 5e4f659 cập nhật Args/Raises/Returns của <code>distill_loss</code> và hai helper cùng một edit với guard — docstring không còn nói dối về code.</li>
+  </ul>
+</section>
+
+
+<!-- ================= TRAINER ================= -->
+<section id="trainer">
+  <h2><span class="num">🧑‍🏫</span>Trainer review: 8 comment, đã sửa hết (f1d0333 → 5e4f659)</h2>
+  <p class="lead">Trainer review về lúc 19:23 JST 02/11/2026 dưới dạng file riêng <code>distill_lab_review.py</code> — 8 comment <code>[TRAINER]</code>, gom thành 3 nhóm. Cả 3 nhóm đều thuộc loại lỗi “code chạy bình thường, kết quả lặng lẽ tệ”. Đã áp dụng đủ cả 8 sửa vào <code>distill_lab.py</code> ở commit 5e4f659, giữ nguyên comment <code>[TRAINER]</code> trong code. Không lỗi nào làm đổi accuracy: teacher 0,843, A 0,853, B/C 0,857 — trước và sau review đều vậy.</p>
+
+  <div class="card">
+    <h3 style="margin-top:0">Nhóm 1 — 3 guard mới trong <code>distill_loss</code>: dtype, hữu hạn, kiểu tham số</h3>
+    <div class="before-after">
+      <div class="col before"><h4>❌ Trước (bản gốc d48bfe9)</h4><p>Nhãn float (0,0/1,0/2,0) lọt qua cả guard shape lẫn guard range, rồi chết bằng <code>RuntimeError</code> khó hiểu sâu trong <code>F.cross_entropy</code>. Logits chứa NaN/Inf không bị chặn, loss trả ra NaN một cách lặng lẽ. <code>T = "4"</code> ném <code>TypeError</code> từ <code>math.isfinite</code>, không nhất quán với các guard còn lại (đều là <code>ValueError</code>).</p></div>
+      <div class="col after"><h4>✅ Sau (commit 5e4f659)</h4><p>Thêm 3 guard <code>ValueError</code> ngay đầu hàm: <code>y_true</code> phải có dtype long, cả hai logits phải hữu hạn, T và α phải là số thực (<code>isinstance</code>). Kèm 3 case test mới trong Bài 2: nhãn float, logits NaN, T dạng chuỗi — cả 3 đều chặn đúng.</p></div>
+    </div>
+    <p style="margin-bottom:0"><b>Bài học (AGENTS.md #12):</b> guard phải kiểm tra cả dtype, tính hữu hạn và kiểu tham số, không chỉ shape/range — và giữ một loại exception cho mọi lỗi đầu vào sai.</p>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0">Nhóm 2 — Tự kiểm tra phải FAIL bằng assert, không chỉ IN True/False</h3>
+    <div class="before-after">
+      <div class="col before"><h4>❌ Trước</h4><p>Hai kiểm tra ở Bài 2 (loss hữu hạn, tái tạo đúng công thức) chỉ <i>in</i> True/False; kiểm tra detach cũng chỉ in. Giá trị trả về của <code>_expect_value_error</code> bị bỏ qua hoàn toàn. Guard nào hỏng, script vẫn kết thúc bình thường (exit 0) — tự kiểm tra thành “trang trí”.</p></div>
+      <div class="col after"><h4>✅ Sau</h4><p><code>assert</code> loss hữu hạn và tái tạo đúng công thức; <code>assert</code> detach cả hai phía (teacher grad là None <i>và</i> student grad có giá trị); gom 8 kết quả guard vào một danh sách rồi <code>assert all()</code> ở cuối, kèm dòng in xác nhận “tất cả guard đều chặn đúng (đã assert)”.</p></div>
+    </div>
+    <p style="margin-bottom:0"><b>Bài học (AGENTS.md #13):</b> tự kiểm tra mà không fail được thì không phải kiểm tra. In kết quả thì được, nhưng phải assert ngay tại chỗ và assert tổng ở cuối.</p>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0">Nhóm 3 — Tập con rỗng: trả NaN CÓ CHỦ ĐÍCH, không NaN lặng lẽ</h3>
+    <div class="before-after">
+      <div class="col before"><h4>❌ Trước</h4><p><code>per_class_accuracy</code>: lớp vắng mặt trong test thì <code>mean()</code> của tập rỗng tự sinh NaN lặng lẽ — đọc bảng không biết là “không có mẫu” hay “độ chưa”. <code>copy_wrong_rate</code> tương tự khi teacher đúng hết (0 mẫu sai): tỉ lệ sao chép khi đó không định nghĩa, nhưng code vẫn trả NaN lặng lẽ.</p></div>
+      <div class="col after"><h4>✅ Sau</h4><p>Kiểm tra <code>count == 0</code> trước: lớp vắng mặt thì thêm NaN có chủ đích và <code>continue</code>; teacher đúng hết thì trả <code>(NaN, 0)</code> để nơi gọi biết n = 0 mà diễn giải. Trong dữ liệu thật hiện tại hai trường hợp này không xảy ra (mỗi lớp đều có mẫu test, teacher sai 47 mẫu) — đây là guard cho trường hợp biên, không đổi số liệu.</p></div>
+    </div>
+    <p style="margin-bottom:0"><b>Bài học (AGENTS.md #14):</b> tập con rỗng phải trả NaN có chủ đích kèm điều kiện rõ ràng, để người đọc không nhầm “không có mẫu” với “độ chưa”.</p>
+  </div>
+
+  <p><b>Điểm tự soát thêm (không phải comment của Trainer):</b> khi áp dụng review, bản review còn sót docstring chưa cập nhật 3 guard mới. Commit sửa 5e4f659 đã sửa luôn Args/Raises/Returns của <code>distill_loss</code> và Returns của hai helper cho khớp (AGENTS.md #15: thêm guard thì sửa luôn docstring, cùng một edit).</p>
+  <div class="ok"><b>✅ Tổng kết review:</b> 8 comment, 3 nhóm, 0 lỗi làm đổi kết luận cuối — nhưng nhóm 2 suýt làm toàn bộ tự kiểm tra của Bài 2 thành vô nghĩa. Checklist AGENTS.md tăng từ 12 lên 15 điểm sau review này (điểm 12–15).</div>
+</section>
+
+<section id="source">
+  <h2><span class="num">📜</span>Toàn bộ source code — <code>distill_lab.py</code> (bản đã sửa theo Trainer review)</h2>
+  <p>File <code>distill_lab.py</code> sau commit sửa <code>5e4f659</code> — gồm cả comment <code>[TRAINER]</code> và 8 chỗ sửa, cộng docstring đã sửa cho khớp. File này chạy thật đã sinh ra mọi con số trong bài này. Bấm “Copy source” để lấy nguyên văn; phần tô màu bên dưới là cùng một nội dung.</p>
+  <button class="btn" onclick="copySource()">📋 Copy source</button>
+  <textarea id="srcPlain" style="display:none">#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""Lab Distillation Day 23 (tuan 4 - Green LLM): student nho hoc
+tu teacher lon qua soft target.
+
+Chay tren CPU, PyTorch, khong can GPU, khong can tai model
+lon. Du lieu la bai toan phan loai 3 lop tong hop, co tinh
+thiet ke de co dark knowledge: lop 0 gan lop 1, xa lop 2.
+
+Bai 1: soft target o T = 1, 2, 5, 10 cho 1 mau lop 0, xem
+    temperature nao lo ro quan he "0 gan 1, xa 2".
+Bai 2: tu viet distill_loss, kiem tra huu han, detach
+    teacher, phan tach CE / KL goc / T^2 * KL.
+Bai 3: thi nghiem co kiem soat - cung 300 mau, cung student
+    MLP(32), cung seed, cung 100 epoch; chi doi cach tinh
+    loss: A hard-only, B distill T=4 alpha=0.3, C distill
+    T=2 alpha=0.3 (doi 1 bien T so voi B). Do them params
+    va toc do (trung vi, perf_counter) theo tinh than
+    Green LLM.
+
+Quy tac thi nghiem (viet truoc khi chay Bai 3):
+    Thu duy nhat thay doi la cach tinh loss (hard-label
+    hay distillation); du lieu, kien truc student, seed
+    va so epoch giu nguyen.
+
+Cach chay (venv Day 15):
+    ~/workspace/venvs/day15/bin/python distill_lab.py
+"""
+
+import math
+import statistics
+import time
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+# Seed duy nhat cho ca du lieu lan khoi tao teacher. Moi lan
+# train_student() dat lai seed nay truoc khi tao student, nen
+# 3 cau hinh A/B/C khoi tao giong het nhau.
+DATA_SEED = 0
+N_PER_CLASS = 400
+N_TRAIN = 900
+N_STUDENT = 300
+TEACHER_EPOCHS = 150
+STUDENT_EPOCHS = 100
+
+
+def build_data(seed=DATA_SEED):
+    """Tao du lieu 3 cum va chia train/test theo de bai.
+
+    Thu tu goi ham sinh so ngau nhien phai giu nguyen nhu
+    de bai: tao cum theo thu tu lop 0, 1, 2 roi moi xao
+    tron. Doi thu tu la doi luon bo du lieu, ket qua
+    khong con so sanh duoc voi lan chay truoc.
+
+    Args:
+        seed: seed cho torch.manual_seed truoc khi sinh.
+
+    Returns:
+        (X_train, y_train, X_test, y_test): X la tensor
+        (N, 2), y la tensor (N,) kieu long, gia tri 0..2.
+    """
+    torch.manual_seed(seed)
+    # 3 cum: lop 0 tai (0, 0), lop 1 tai (1.2, 0.3) - gan
+    # lop 0, lop 2 tai (0, 4.0) - xa ca hai lop kia. Nhieu
+    # do lech chuan 0.6 nen lop 0 va 1 chong lap nhau
+    # dang ke, lop 2 gan nhu tach biet.
+    centers = torch.tensor([[0.0, 0.0], [1.2, 0.3],
+                            [0.0, 4.0]])
+    xs, ys = [], []
+    for c in range(3):
+        xs.append(centers[c] + 0.6 * torch.randn(N_PER_CLASS, 2))
+        ys.append(torch.full((N_PER_CLASS,), c))
+    x_all = torch.cat(xs)
+    y_all = torch.cat(ys)
+    perm = torch.randperm(len(x_all))
+    x_all, y_all = x_all[perm], y_all[perm]
+    return (x_all[:N_TRAIN], y_all[:N_TRAIN],
+            x_all[N_TRAIN:], y_all[N_TRAIN:])
+
+
+class MLP(nn.Module):
+    """MLP 2 lop an, dung chung cho teacher va student.
+
+    Kien truc giong het de bai, chi khac hidden: teacher
+    hidden=128, student hidden=32. Khong tao tensor moi
+    trong forward, nen khong dinh bug device.
+    """
+
+    def __init__(self, hidden):
+        """Khoi tao 3 lop Linear: 2 -&gt; hidden -&gt; hidden -&gt; 3."""
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(2, hidden), nn.ReLU(),
+            nn.Linear(hidden, hidden), nn.ReLU(),
+            nn.Linear(hidden, 3))
+
+    def forward(self, x):
+        """Tra ve logits (chua qua softmax) cho moi mau."""
+        return self.net(x)
+
+
+def count_params(model):
+    """Dem tong so tham so (ke ca bias) cua model.
+
+    Dung chung 1 ham cho teacher va student de 2 con so
+    dem theo cung 1 cach, khong cong thieu/cong thua.
+    """
+    return sum(p.numel() for p in model.parameters())
+
+
+def train_teacher(model, x_train, y_train, epochs=TEACHER_EPOCHS):
+    """Train teacher tren du 900 mau bang CE nhan cung.
+
+    Args:
+        model: MLP(128) vua khoi tao.
+        x_train: tensor (900, 2).
+        y_train: tensor (900,) nhan 0..2.
+        epochs: so epoch, mac dinh 150 theo de bai.
+
+    Returns:
+        Model teacher da train xong (chua chuyen eval).
+    """
+    opt = torch.optim.Adam(model.parameters(), lr=0.01)
+    for _ in range(epochs):
+        opt.zero_grad()
+        loss = F.cross_entropy(model(x_train), y_train)
+        loss.backward()
+        opt.step()
+    return model
+
+
+def accuracy(model, x_test, y_test):
+    """Do chinh xac cua model tren tap test.
+
+    Returns:
+        Ti le du doan dung, float trong [0, 1].
+    """
+    model.eval()
+    with torch.no_grad():
+        pred = model(x_test).argmax(1)
+    return float((pred == y_test).float().mean())
+
+
+def distill_loss(student_logits, teacher_logits, y_true,
+                 T=4.0, alpha=0.3):
+    """Loss distillation tong hop cua Hinton.
+
+    Cong thuc:
+        L = alpha * CE + (1 - alpha) * T^2 * KL(
+            teacher_T || student_T)
+    Trong do CE la cross-entropy voi nhan that, KL tinh
+    tren phan phoi mem o temperature T. He so T^2 bu lai
+    gradient cua phan KL bi thu nho khoang T^2 lan khi
+    chia logits cho T; quen T^2 thi phan hoc tu teacher
+    bi phan CE lan at.
+
+    Vi du so: cung 1 batch gia, T=1 cho KL goc 0.3762,
+    T=4 cho KL goc 0.0306 (nho hon 12x) nhung T^2*KL
+    lai la 0.4904 - loss tong co the TANG theo T, do la
+    chu dich cua he so T^2, khong phai loi.
+
+    Args:
+        student_logits: tensor (N, 3), logits student.
+        teacher_logits: tensor (N, 3), logits teacher.
+        y_true: tensor (N,) dtype long, nhan that 0..2.
+        T: temperature, so thuc, phai &gt; 0 va huu han.
+        alpha: so thuc, trong so cho CE, trong [0, 1].
+
+    Returns:
+        Tensor vo huong: loss tong hop.
+
+    Raises:
+        ValueError: batch rong, shape 2 tensor khong
+            khop nhau, y_true khong phai dtype long,
+            logits chua NaN/Inf, nhan ngoai [0, 2],
+            T/alpha khong phai so thuc, T &lt;= 0 hoac
+            khong huu han, alpha ngoai [0, 1], 2 logits
+            khac device nhau.
+    """
+    # Guard ngay dau ham, truoc moi phep tinh (checklist
+    # 1): loi vao sai phai bao ro, khong de crash kho
+    # hieu o sau trong F.cross_entropy / F.kl_div.
+    if student_logits.dim() != 2 or teacher_logits.dim() != 2:
+        raise ValueError("logits phai la tensor 2 chieu "
+                         "(N, so_lop).")
+    if student_logits.shape != teacher_logits.shape:
+        raise ValueError("student va teacher logits phai "
+                         "cung shape, nhan duoc "
+                         f"{tuple(student_logits.shape)} va "
+                         f"{tuple(teacher_logits.shape)}.")
+    if student_logits.numel() == 0:
+        raise ValueError("batch khong duoc rong.")
+    if student_logits.device != teacher_logits.device:
+        raise ValueError("student va teacher logits phai "
+                         "cung device.")
+    # [TRAINER] y_true phai la Long: truoc day nhan float
+    # (0.0/1.0/2.0) lot qua ca guard shape lan range, roi
+    # chet RuntimeError kho hieu trong F.cross_entropy -
+    # trai dung triet ly guard cua ham nay (loi vao sai
+    # phai bao ro ngay tu dau).
+    if y_true.dtype != torch.long:
+        raise ValueError("y_true phai co dtype long "
+                         "(nhan nguyen 0..n_class-1).")
+    # [TRAINER] Logits phai huu han: truoc day logits
+    # NaN/Inf khong bi chan, loss tra ra NaN mot cach
+    # lang le - dung loai loi "code chay binh thuong,
+    # ket qua lang le te" ma Bai 2 tu canh bao.
+    if not bool(torch.isfinite(student_logits).all()) \
+            or not bool(torch.isfinite(teacher_logits).all()):
+        raise ValueError("logits phai huu han "
+                         "(khong chua NaN/Inf).")
+    # [TRAINER] T/alpha phai la so thuc: truoc day T="4"
+    # nem TypeError tu math.isfinite, khong nhat quan
+    # voi cac guard con lai (deu la ValueError).
+    if not isinstance(T, (int, float)) \
+            or not isinstance(alpha, (int, float)):
+        raise ValueError("T va alpha phai la so thuc.")
+    if y_true.shape != (student_logits.shape[0],):
+        raise ValueError("y_true phai co shape "
+                         f"({student_logits.shape[0]},).")
+    n_class = student_logits.shape[1]
+    if int(y_true.min()) &lt; 0 or int(y_true.max()) &gt;= n_class:
+        raise ValueError(f"nhan phai trong [0, {n_class - 1}].")
+    if not math.isfinite(T) or T &lt;= 0:
+        raise ValueError("T phai &gt; 0 va huu han.")
+    if not 0.0 &lt;= alpha &lt;= 1.0:
+        raise ValueError("alpha phai trong [0, 1].")
+    # 1. CE voi nhan that.
+    ce_loss = F.cross_entropy(student_logits, y_true)
+    # 2. Soft target teacher: detach BAT BUOC. Khong detach
+    # thi gradient chay nguoc vao teacher, teacher cung bi
+    # cap nhat trong luc train student - thi nghiem mat
+    # kiem soat va ton bo nho vo ich (bay so 1 cua de bai).
+    soft_teacher = F.softmax(teacher_logits.detach() / T, dim=1)
+    # 3. Soft student dang log-prob: F.kl_div doi dau vao
+    # thu nhat la log-prob, thu hai la prob. Dao 2 dau
+    # vao hoac dua ca 2 deu la prob deu cho loss sai ma
+    # code van chay "binh thuong" (bay so 2 cua de bai).
+    log_student = F.log_softmax(student_logits / T, dim=1)
+    # 4. KL(teacher || student): phat nang khi student gan
+    # xac suat thap cho dieu teacher tin la dung, ep
+    # student bao phu het nhung gi teacher biet. Chieu
+    # nguoc lai cho phep student bo qua mode cua teacher.
+    kl_loss = F.kl_div(log_student, soft_teacher,
+                       reduction="batchmean")
+    # 5. Tong hop, nhan T^2 cho phan KL.
+    return alpha * ce_loss + (1.0 - alpha) * (T ** 2) * kl_loss
+
+
+def _expect_value_error(fn, mo_ta):
+    """Chay fn, doi no nem ValueError, in ket qua kiem tra.
+
+    Ham phu nay duoc dung that trong bai2(): moi guard
+    cua distill_loss deu phai chan dung truong hop sai
+    cua no, khong chi nam im trong code.
+    """
+    try:
+        fn()
+    except ValueError as exc:
+        print(f"  guard {mo_ta}: chan dung ({exc})")
+        return True
+    print(f"  CANH BAO: guard {mo_ta} KHONG chan!")
+    return False
+
+
+def bai1(teacher, x_test, y_test):
+    """Bai 1: nhin dark knowledge qua temperature.
+
+    Lay mau dau tien cua test (thuoc lop 0, logits
+    [6.83, 4.28, -12.65]) va in softmax o T = 1, 2, 5,
+    10. Them bang trung binh tren toan bo 114 mau lop 0
+    cua test de ket luan khong dua vao 1 mau duy nhat.
+    """
+    print("=" * 72)
+    print("BAI 1 - Soft target va temperature")
+    print("=" * 72)
+    teacher.eval()
+    with torch.no_grad():
+        logits_all = teacher(x_test)
+    # Mau dau tien: de bai dung X_test[:5] va in p[0];
+    # kiem tra nhan that cua no la 0 roi moi phan tich.
+    first_label = int(y_test[0])
+    print(f"Mau dau tien cua test: nhan that = {first_label}, "
+          f"logits = {[round(v, 2) for v in logits_all[0].tolist()]}")
+    print("Soft target cua mau nay:")
+    for temp in [1, 2, 5, 10]:
+        probs = F.softmax(logits_all[0] / temp, dim=0)
+        p0, p1, p2 = probs.tolist()
+        # Ti le p1/p2 noi len quan he "1 gan, 2 xa": o T=1
+        # ti le nay ~2.2e7 vi p2 ~3e-09 gan nhu bang 0.
+        ratio = p1 / p2 if p2 &gt; 0 else float("inf")
+        print(f"  T={temp:&gt;2}: [{p0:.4f}, {p1:.4f}, {p2:.4f}] "
+              f"| p1/p2 = {ratio:.1f}")
+    # Trung binh tren tat ca mau lop 0 cua test.
+    mask0 = y_test == 0
+    print(f"\nTrung binh tren {int(mask0.sum())} mau lop 0 "
+          "cua test (p0, p1, p2):")
+    for temp in [1, 2, 5, 10]:
+        mean_p = F.softmax(logits_all[mask0] / temp,
+                           dim=1).mean(0)
+        print(f"  T={temp:&gt;2}: "
+              f"[{mean_p[0]:.4f}, {mean_p[1]:.4f}, "
+              f"{mean_p[2]:.4f}]")
+    print("Nhan xet: o mau nay, T=1 lop thang chiem gan het, "
+          "lop 2 gan nhu 0 - dark knowledge bi chon vui. O "
+          "T=2-5 xac suat lop 1 noi len ro, quan he 0 gan 1, "
+          "xa 2 lo ro nhat o T=5. O T=10 phan phoi tien ve "
+          "deu (0.52/0.40/0.07 o mau nay), tuong phan mo dan.")
+
+
+def bai2():
+    """Bai 2: kiem tra distill_loss tren batch gia.
+
+    Kiem tra 3 thu: loss huu han, teacher detach that
+    (gradient khong chay vao teacher), va cong thuc
+    tong hop dung (loss = alpha*CE + (1-alpha)*T^2*KL).
+    """
+    print("\n" + "=" * 72)
+    print("BAI 2 - Kiem tra distill_loss")
+    print("=" * 72)
+    torch.manual_seed(123)
+    student_logits = torch.randn(8, 3, requires_grad=True)
+    teacher_logits = torch.randn(8, 3, requires_grad=True)
+    y_true = torch.randint(0, 3, (8,))
+    for temp in [1.0, 4.0]:
+        loss = distill_loss(student_logits, teacher_logits,
+                            y_true, T=temp, alpha=0.3)
+        # Phan tach lai de thay KL goc giam khi T tang,
+        # trong khi loss tong co the tang vi nhan T^2.
+        with torch.no_grad():
+            ce_part = F.cross_entropy(student_logits, y_true)
+            kl_raw = F.kl_div(
+                F.log_softmax(student_logits / temp, dim=1),
+                F.softmax(teacher_logits / temp, dim=1),
+                reduction="batchmean")
+            rebuilt = 0.3 * ce_part + 0.7 * (temp ** 2) * kl_raw
+        print(f"T={temp}: loss={loss.item():.4f} "
+              f"(huu han: {bool(torch.isfinite(loss))}) | "
+              f"CE={float(ce_part):.4f} | KL goc="
+              f"{float(kl_raw):.4f} | T^2*KL="
+              f"{float((temp ** 2) * kl_raw):.4f} | "
+              f"tai tao dung: "
+              f"{bool(torch.allclose(loss.detach(), rebuilt))}")
+        # [TRAINER] Truoc day 2 kiem tra nay chi IN
+        # True/False: neu mot ngay loss thanh NaN hay
+        # cong thuc lech, script van chay "thanh cong".
+        # Assert de lan chay FAIL ngay tai cho.
+        assert bool(torch.isfinite(loss)), \
+            "loss phai huu han"
+        assert bool(torch.allclose(loss.detach(), rebuilt)), \
+            "loss phai bang alpha*CE + (1-alpha)*T^2*KL"
+    # Detach: cho loss chay backward, teacher phai co
+    # grad None vi logits da detach ben trong ham.
+    student_logits.grad = None
+    teacher_logits.grad = None
+    loss = distill_loss(student_logits, teacher_logits,
+                        y_true, T=4.0, alpha=0.3)
+    loss.backward()
+    print(f"Detach teacher: grad teacher la None = "
+          f"{teacher_logits.grad is None} | grad student "
+          f"co gia tri = {student_logits.grad is not None}")
+    # [TRAINER] Tuong tu: chi in thi detach hong van di
+    # qua. Assert ca 2 phia (teacher None VA student co).
+    assert teacher_logits.grad is None, \
+        "teacher khong duoc nhan gradient"
+    assert student_logits.grad is not None, \
+        "student phai nhan gradient"
+    # Guard: moi truong hop sai phai bi chan ro rang.
+    print("Kiem tra guard (loi vao sai):")
+    good = torch.randn(4, 3)
+    # [TRAINER] Truoc day gia tri tra ve cua
+    # _expect_value_error bi BO QUA: guard nao hong,
+    # script van ket thuc binh thuong (exit 0). Nay gom
+    # ket qua lai va assert tong o cuoi, kem 3 guard moi
+    # cua ban review (dtype y, logits NaN, T dang chuoi).
+    guard_results = [
+        _expect_value_error(
+            lambda: distill_loss(good, good, y_true[:4], T=0.0),
+            "T=0"),
+        _expect_value_error(
+            lambda: distill_loss(good, good, y_true[:4],
+                                 alpha=1.5),
+            "alpha=1.5"),
+        _expect_value_error(
+            lambda: distill_loss(good, torch.randn(4, 2),
+                                 y_true[:4]),
+            "shape teacher khac student"),
+        _expect_value_error(
+            lambda: distill_loss(torch.empty(0, 3),
+                                 torch.empty(0, 3),
+                                 torch.empty(0, dtype=torch.long)),
+            "batch rong"),
+        _expect_value_error(
+            lambda: distill_loss(good, good,
+                                 torch.tensor([0, 1, 2, 3])),
+            "nhan 3 ngoai [0, 2]"),
+        _expect_value_error(
+            lambda: distill_loss(good, good,
+                                 y_true[:4].float()),
+            "y_true dtype float"),
+        _expect_value_error(
+            lambda: distill_loss(
+                torch.tensor([[float("nan"), 0.0, 0.0]]),
+                torch.zeros(1, 3), torch.tensor([0])),
+            "logits chua NaN"),
+        _expect_value_error(
+            lambda: distill_loss(good, good, y_true[:4],
+                                 T="4"),
+            "T la chuoi, khong phai so"),
+    ]
+    assert all(guard_results), \
+        "Co guard khong chan dung truong hop sai!"
+    print("  Tat ca guard deu chan dung (da assert).")
+
+
+def train_student(mode, teacher, x_train, y_train, x_test,
+                  y_test, T=4.0, alpha=0.3,
+                  epochs=STUDENT_EPOCHS, seed=DATA_SEED):
+    """Train 1 student theo dung 1 cau hinh, tra ve ket qua.
+
+    Dat lai seed truoc khi tao student nen moi cau hinh
+    khoi tao giong het nhau. Teacher logits tinh 1 lan
+    trong no_grad truoc vong lap, dung chung cho moi
+    epoch - vua nhanh, vua dam bao teacher khong doi.
+
+    Args:
+        mode: "hard" (chi CE) hoac "distill" (ham Bai 2).
+        teacher: model teacher da train, o che do eval.
+        x_train/y_train: tap train day du (900 mau);
+            ham tu lay 300 mau dau lam tap cua student.
+        x_test/y_test: tap test de danh gia.
+        T/alpha: chi co y nghia khi mode="distill".
+        epochs: so epoch, mac dinh 100 theo de bai.
+        seed: seed khoi tao student.
+
+    Returns:
+        (student, acc, agree): student da train, chinh
+        xac tren test, ti le dong y voi teacher tren test.
+    """
+    torch.manual_seed(seed)
+    student = MLP(32)
+    opt = torch.optim.Adam(student.parameters(), lr=0.01)
+    xs, ys = x_train[:N_STUDENT], y_train[:N_STUDENT]
+    with torch.no_grad():
+        teacher_logits = teacher(xs)
+    for _ in range(epochs):
+        opt.zero_grad()
+        s_logits = student(xs)
+        if mode == "hard":
+            loss = F.cross_entropy(s_logits, ys)
+        elif mode == "distill":
+            loss = distill_loss(s_logits, teacher_logits, ys,
+                                T=T, alpha=alpha)
+        else:
+            raise ValueError("mode phai la 'hard' hoac "
+                             "'distill'.")
+        loss.backward()
+        opt.step()
+    student.eval()
+    with torch.no_grad():
+        pred = student(x_test).argmax(1)
+        teacher_pred = teacher(x_test).argmax(1)
+    acc = float((pred == y_test).float().mean())
+    agree = float((pred == teacher_pred).float().mean())
+    return student, acc, agree
+
+
+def per_class_accuracy(model, x_test, y_test):
+    """Chinh xac tung lop, de thay lop nao la chien truong.
+
+    Lop 2 xa nen de dat gan 1.0; lop 0/1 chong lap nhau
+    nen moi la noi distillation co the doi duoc gi.
+
+    Returns:
+        List 3 float: chinh xac lop 0, 1, 2; NaN cho
+        lop vang mat trong test (khong co mau).
+    """
+    model.eval()
+    with torch.no_grad():
+        pred = model(x_test).argmax(1)
+    result = []
+    for c in range(3):
+        mask = y_test == c
+        # [TRAINER] Lop vang mat trong test: truoc day
+        # mean() cua tap rong tu sinh NaN lang le, doc
+        # bang ket qua khong biet la "khong co mau" hay
+        # "do chua". Nay tra NaN CO CHU DICH kem dieu
+        # kien ro rang; muon biet lop nao thieu thi dem
+        # int(mask.sum()).
+        if int(mask.sum()) == 0:
+            result.append(float("nan"))
+            continue
+        result.append(float((pred[mask] == y_test[mask]).
+                            float().mean()))
+    return result
+
+
+def copy_wrong_rate(student, teacher, x_test, y_test):
+    """Ti le student sao chep dung cho teacher SAI.
+
+    Chi tinh tren cac mau test ma teacher du doan sai.
+    Ti le cao nghia la student dang sao chep
+    ca loi cua teacher, dung nhu canh bao buoi sang.
+
+    Returns:
+        (ti_le, so_mau_teacher_sai); ti_le la NaN khi
+        teacher dung het (0 mau sai, khong dinh nghia).
+    """
+    student.eval()
+    teacher.eval()
+    with torch.no_grad():
+        s_pred = student(x_test).argmax(1)
+        t_pred = teacher(x_test).argmax(1)
+    wrong = t_pred != y_test
+    # [TRAINER] Teacher dung het (0 mau sai): ti le sao
+    # chep KHONG dinh nghia. Truoc day mean() cua tap
+    # rong tra NaN lang le; nay tra (NaN, 0) ro rang de
+    # noi goi ham tu nhan biet n=0 ma dien giai.
+    if int(wrong.sum()) == 0:
+        return float("nan"), 0
+    rate = float((s_pred[wrong] == t_pred[wrong]).
+                 float().mean())
+    return rate, int(wrong.sum())
+
+
+def bench(model, x, warmup=50, repeats=1000):
+    """Do toc do suy luan: trung vi ms / 1 lan chay.
+
+    Dung time.perf_counter() (dong ho don dieu, phan giai
+    cao) va lay TRUNG VI sau warmup, khong lay trung
+    binh: trung binh 200 lan o Day 22 bi nhieu keo lech
+    toi 0.378 ms. Khong co resource can dong trong
+    finally o day (khong mo file, khong tracker).
+
+    Args:
+        model: model can do, se chuyen ve eval.
+        x: batch dau vao, o day la toan bo 300 mau test.
+        warmup: so lan chay khoi dong bo qua.
+        repeats: so lan chay lay trung vi.
+
+    Returns:
+        Trung vi thoi gian, don vi mili-giay / lan.
+    """
+    model.eval()
+    times = []
+    with torch.no_grad():
+        for _ in range(warmup):
+            _ = model(x)
+        for _ in range(repeats):
+            start = time.perf_counter()
+            _ = model(x)
+            times.append(time.perf_counter() - start)
+    return statistics.median(times) * 1000.0
+
+
+def bai3(teacher, x_train, y_train, x_test, y_test):
+    """Bai 3: thi nghiem co kiem soat A/B/C + Green LLM.
+
+    Diff loi goi (checklist 10): A vs B chi khac mode
+    (hard -&gt; distill), moi doi so khac giong het; B vs C
+    chi khac T (4.0 -&gt; 2.0), alpha/seed/epoch giong het.
+    """
+    print("\n" + "=" * 72)
+    print("BAI 3 - Hard-label vs distillation (co kiem soat)")
+    print("=" * 72)
+    print("Thu duy nhat thay doi la cach tinh loss "
+          "(hard-label hay distillation); du lieu, kien "
+          "truc student, seed va so epoch giu nguyen.")
+    configs = [
+        ("A hard-only", {"mode": "hard"}),
+        ("B distill T=4 a=0.3", {"mode": "distill"}),
+        ("C distill T=2 a=0.3",
+         {"mode": "distill", "T": 2.0}),
+    ]
+    results = {}
+    details = {}
+    for name, kwargs in configs:
+        student, acc, agree = train_student(
+            teacher=teacher, x_train=x_train, y_train=y_train,
+            x_test=x_test, y_test=y_test, **kwargs)
+        results[name] = (student, acc, agree)
+        per_class = per_class_accuracy(student, x_test, y_test)
+        copy_rate, n_wrong = copy_wrong_rate(
+            student, teacher, x_test, y_test)
+        details[name] = (per_class, copy_rate)
+        print(f"{name}: test acc={acc:.3f} | dong y voi "
+              f"teacher={agree:.3f} | tung lop="
+              f"{[round(v, 3) for v in per_class]} | sao "
+              f"chep cho teacher sai={copy_rate:.3f} "
+              f"({n_wrong} mau)")
+    # Kiem tra them: lap lai A/B/C o seed 1..4. Day KHONG
+    # phai bang chinh (bang chinh dung seed 0 theo de
+    # bai); no chi cho biet chenh lech o seed 0 co on
+    # dinh khong, vi test chi co 300 mau (1% = 3 mau).
+    # Trung binh 5 seed (seed 0 + seed 1..4) duoc tinh
+    # that tu cac lan chay nay, khong ghi tay.
+    print("\nKiem tra them - seed 1..4 (trung binh):")
+    mean5 = {}
+    for name, kwargs in configs:
+        accs = [results[name][1]]
+        for seed in [1, 2, 3, 4]:
+            _, acc, _ = train_student(
+                teacher=teacher, x_train=x_train,
+                y_train=y_train, x_test=x_test, y_test=y_test,
+                seed=seed, **kwargs)
+            accs.append(acc)
+        mean5[name] = sum(accs) / len(accs)
+        print(f"  {name}: {[round(v, 3) for v in accs[1:]]} "
+              f"| trung binh 5 seed={mean5[name]:.3f}")
+    # Green LLM: cung ham dem params, cung ham bench.
+    teacher_params = count_params(teacher)
+    student_b = results["B distill T=4 a=0.3"][0]
+    student_params = count_params(student_b)
+    teacher_ms = bench(teacher, x_test)
+    student_ms = bench(student_b, x_test)
+    print(f"\nTeacher: {teacher_params} params, "
+          f"{teacher_ms:.3f} ms/lan (trung vi, 300 mau).")
+    print(f"Student B: {student_params} params, "
+          f"{student_ms:.3f} ms/lan (trung vi, 300 mau).")
+    print(f"Ti le params student/teacher = "
+          f"{student_params / teacher_params:.3f} "
+          f"(giam {100 * (1 - student_params / teacher_params):.1f}%).")
+    print(f"Toc do nhanh hon = {teacher_ms / student_ms:.2f}x.")
+    teacher_acc = accuracy(teacher, x_test, y_test)
+    print(f"\nBANG KET QUA: teacher acc={teacher_acc:.3f} | "
+          f"A={results['A hard-only'][1]:.3f} | "
+          f"B={results['B distill T=4 a=0.3'][1]:.3f} | "
+          f"C={results['C distill T=2 a=0.3'][1]:.3f} | "
+          f"params {student_params}/{teacher_params} | "
+          f"toc do {teacher_ms / student_ms:.2f}x.")
+    # Ket luan viet bang so vua do, khong ghi tay: chenh
+    # lech trung binh 5 seed, cai thien lop 0 / giam lop
+    # 1, ti le sao chep loi, ti le params, toc do.
+    diff_mean = mean5["B distill T=4 a=0.3"] - mean5["A hard-only"]
+    gain0 = (details["B distill T=4 a=0.3"][0][0] -
+             details["A hard-only"][0][0])
+    drop1 = (details["A hard-only"][0][1] -
+             details["B distill T=4 a=0.3"][0][1])
+    copy_diff = (details["B distill T=4 a=0.3"][1] -
+                 details["A hard-only"][1])
+    speedup = teacher_ms / student_ms
+    param_ratio = teacher_params / student_params
+    print(f"Ket luan: distillation giup it nhung on dinh - "
+          f"B hon A trung binh {diff_mean:.3f} qua 5 seed "
+          f"(~{diff_mean * 300:.0f} mau test), chu yeu nho "
+          f"cai thien lop 0 (+{gain0:.3f}), doi lai lop 1 "
+          f"giam {drop1:.3f} va sao chep loi teacher nhieu "
+          f"hon {copy_diff:.3f}. Voi workload nay, doi "
+          f"{diff_mean:.3f} accuracy lay "
+          f"{100 * (1 - student_params / teacher_params):.1f}% "
+          f"it params va {speedup:.2f}x toc do la dang, vi "
+          f"student da vuot ca teacher; nhung {speedup:.2f}x "
+          f"chu khong phai {param_ratio:.1f}x cho thay "
+          f"params it khong dong nghia toc do tang ty le - "
+          f"overhead moi lan chay moi la phan chi phoi o "
+          f"model nho the nay.")
+
+
+def main():
+    """Chay ca lab: du lieu, teacher, Bai 1, Bai 2, Bai 3."""
+    x_train, y_train, x_test, y_test = build_data()
+    print(f"train: {tuple(x_train.shape)} | "
+          f"test: {tuple(x_test.shape)}")
+    teacher = train_teacher(MLP(128), x_train, y_train)
+    teacher.eval()
+    teacher_acc = accuracy(teacher, x_test, y_test)
+    print(f"teacher test acc: {teacher_acc:.3f} | params: "
+          f"{count_params(teacher)}")
+    bai1(teacher, x_test, y_test)
+    bai2()
+    bai3(teacher, x_train, y_train, x_test, y_test)
+
+
+if __name__ == "__main__":
+    main()
+</textarea>
+  <div class="highlight-wrap"><div class="highlight" style="background: #272822"><pre style="line-height: 125%;"><span></span><span style="color: #959077">#!/usr/bin/env python3</span>
+<span style="color: #959077"># -*- coding: utf-8 -*-</span>
+<span style="color: #E6DB74">"""Lab Distillation Day 23 (tuan 4 - Green LLM): student nho hoc</span>
+<span style="color: #E6DB74">tu teacher lon qua soft target.</span>
+
+<span style="color: #E6DB74">Chay tren CPU, PyTorch, khong can GPU, khong can tai model</span>
+<span style="color: #E6DB74">lon. Du lieu la bai toan phan loai 3 lop tong hop, co tinh</span>
+<span style="color: #E6DB74">thiet ke de co dark knowledge: lop 0 gan lop 1, xa lop 2.</span>
+
+<span style="color: #E6DB74">Bai 1: soft target o T = 1, 2, 5, 10 cho 1 mau lop 0, xem</span>
+<span style="color: #E6DB74">    temperature nao lo ro quan he "0 gan 1, xa 2".</span>
+<span style="color: #E6DB74">Bai 2: tu viet distill_loss, kiem tra huu han, detach</span>
+<span style="color: #E6DB74">    teacher, phan tach CE / KL goc / T^2 * KL.</span>
+<span style="color: #E6DB74">Bai 3: thi nghiem co kiem soat - cung 300 mau, cung student</span>
+<span style="color: #E6DB74">    MLP(32), cung seed, cung 100 epoch; chi doi cach tinh</span>
+<span style="color: #E6DB74">    loss: A hard-only, B distill T=4 alpha=0.3, C distill</span>
+<span style="color: #E6DB74">    T=2 alpha=0.3 (doi 1 bien T so voi B). Do them params</span>
+<span style="color: #E6DB74">    va toc do (trung vi, perf_counter) theo tinh than</span>
+<span style="color: #E6DB74">    Green LLM.</span>
+
+<span style="color: #E6DB74">Quy tac thi nghiem (viet truoc khi chay Bai 3):</span>
+<span style="color: #E6DB74">    Thu duy nhat thay doi la cach tinh loss (hard-label</span>
+<span style="color: #E6DB74">    hay distillation); du lieu, kien truc student, seed</span>
+<span style="color: #E6DB74">    va so epoch giu nguyen.</span>
+
+<span style="color: #E6DB74">Cach chay (venv Day 15):</span>
+<span style="color: #E6DB74">    ~/workspace/venvs/day15/bin/python distill_lab.py</span>
+<span style="color: #E6DB74">"""</span>
+
+<span style="color: #FF4689">import</span><span style="color: #F8F8F2"> math</span>
+<span style="color: #FF4689">import</span><span style="color: #F8F8F2"> statistics</span>
+<span style="color: #FF4689">import</span><span style="color: #F8F8F2"> time</span>
+
+<span style="color: #FF4689">import</span><span style="color: #F8F8F2"> torch</span>
+<span style="color: #FF4689">import</span><span style="color: #F8F8F2"> torch.nn </span><span style="color: #66D9EF">as</span><span style="color: #F8F8F2"> nn</span>
+<span style="color: #FF4689">import</span><span style="color: #F8F8F2"> torch.nn.functional </span><span style="color: #66D9EF">as</span><span style="color: #F8F8F2"> F</span>
+
+<span style="color: #959077"># Seed duy nhat cho ca du lieu lan khoi tao teacher. Moi lan</span>
+<span style="color: #959077"># train_student() dat lai seed nay truoc khi tao student, nen</span>
+<span style="color: #959077"># 3 cau hinh A/B/C khoi tao giong het nhau.</span>
+<span style="color: #F8F8F2">DATA_SEED</span> <span style="color: #FF4689">=</span> <span style="color: #AE81FF">0</span>
+<span style="color: #F8F8F2">N_PER_CLASS</span> <span style="color: #FF4689">=</span> <span style="color: #AE81FF">400</span>
+<span style="color: #F8F8F2">N_TRAIN</span> <span style="color: #FF4689">=</span> <span style="color: #AE81FF">900</span>
+<span style="color: #F8F8F2">N_STUDENT</span> <span style="color: #FF4689">=</span> <span style="color: #AE81FF">300</span>
+<span style="color: #F8F8F2">TEACHER_EPOCHS</span> <span style="color: #FF4689">=</span> <span style="color: #AE81FF">150</span>
+<span style="color: #F8F8F2">STUDENT_EPOCHS</span> <span style="color: #FF4689">=</span> <span style="color: #AE81FF">100</span>
+
+
+<span style="color: #66D9EF">def</span><span style="color: #F8F8F2"> </span><span style="color: #A6E22E">build_data</span><span style="color: #F8F8F2">(seed</span><span style="color: #FF4689">=</span><span style="color: #F8F8F2">DATA_SEED):</span>
+<span style="color: #F8F8F2">    </span><span style="color: #E6DB74">"""Tao du lieu 3 cum va chia train/test theo de bai.</span>
+
+<span style="color: #E6DB74">    Thu tu goi ham sinh so ngau nhien phai giu nguyen nhu</span>
+<span style="color: #E6DB74">    de bai: tao cum theo thu tu lop 0, 1, 2 roi moi xao</span>
+<span style="color: #E6DB74">    tron. Doi thu tu la doi luon bo du lieu, ket qua</span>
+<span style="color: #E6DB74">    khong con so sanh duoc voi lan chay truoc.</span>
+
+<span style="color: #E6DB74">    Args:</span>
+<span style="color: #E6DB74">        seed: seed cho torch.manual_seed truoc khi sinh.</span>
+
+<span style="color: #E6DB74">    Returns:</span>
+<span style="color: #E6DB74">        (X_train, y_train, X_test, y_test): X la tensor</span>
+<span style="color: #E6DB74">        (N, 2), y la tensor (N,) kieu long, gia tri 0..2.</span>
+<span style="color: #E6DB74">    """</span>
+    <span style="color: #F8F8F2">torch</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">manual_seed(seed)</span>
+    <span style="color: #959077"># 3 cum: lop 0 tai (0, 0), lop 1 tai (1.2, 0.3) - gan</span>
+    <span style="color: #959077"># lop 0, lop 2 tai (0, 4.0) - xa ca hai lop kia. Nhieu</span>
+    <span style="color: #959077"># do lech chuan 0.6 nen lop 0 va 1 chong lap nhau</span>
+    <span style="color: #959077"># dang ke, lop 2 gan nhu tach biet.</span>
+    <span style="color: #F8F8F2">centers</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">torch</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">tensor([[</span><span style="color: #AE81FF">0.0</span><span style="color: #F8F8F2">,</span> <span style="color: #AE81FF">0.0</span><span style="color: #F8F8F2">],</span> <span style="color: #F8F8F2">[</span><span style="color: #AE81FF">1.2</span><span style="color: #F8F8F2">,</span> <span style="color: #AE81FF">0.3</span><span style="color: #F8F8F2">],</span>
+                            <span style="color: #F8F8F2">[</span><span style="color: #AE81FF">0.0</span><span style="color: #F8F8F2">,</span> <span style="color: #AE81FF">4.0</span><span style="color: #F8F8F2">]])</span>
+    <span style="color: #F8F8F2">xs,</span> <span style="color: #F8F8F2">ys</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">[],</span> <span style="color: #F8F8F2">[]</span>
+    <span style="color: #66D9EF">for</span> <span style="color: #F8F8F2">c</span> <span style="color: #FF4689">in</span> <span style="color: #A6E22E">range</span><span style="color: #F8F8F2">(</span><span style="color: #AE81FF">3</span><span style="color: #F8F8F2">):</span>
+        <span style="color: #F8F8F2">xs</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">append(centers[c]</span> <span style="color: #FF4689">+</span> <span style="color: #AE81FF">0.6</span> <span style="color: #FF4689">*</span> <span style="color: #F8F8F2">torch</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">randn(N_PER_CLASS,</span> <span style="color: #AE81FF">2</span><span style="color: #F8F8F2">))</span>
+        <span style="color: #F8F8F2">ys</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">append(torch</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">full((N_PER_CLASS,),</span> <span style="color: #F8F8F2">c))</span>
+    <span style="color: #F8F8F2">x_all</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">torch</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">cat(xs)</span>
+    <span style="color: #F8F8F2">y_all</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">torch</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">cat(ys)</span>
+    <span style="color: #F8F8F2">perm</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">torch</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">randperm(</span><span style="color: #A6E22E">len</span><span style="color: #F8F8F2">(x_all))</span>
+    <span style="color: #F8F8F2">x_all,</span> <span style="color: #F8F8F2">y_all</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">x_all[perm],</span> <span style="color: #F8F8F2">y_all[perm]</span>
+    <span style="color: #66D9EF">return</span> <span style="color: #F8F8F2">(x_all[:N_TRAIN],</span> <span style="color: #F8F8F2">y_all[:N_TRAIN],</span>
+            <span style="color: #F8F8F2">x_all[N_TRAIN:],</span> <span style="color: #F8F8F2">y_all[N_TRAIN:])</span>
+
+
+<span style="color: #66D9EF">class</span><span style="color: #F8F8F2"> </span><span style="color: #A6E22E">MLP</span><span style="color: #F8F8F2">(nn</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">Module):</span>
+<span style="color: #F8F8F2">    </span><span style="color: #E6DB74">"""MLP 2 lop an, dung chung cho teacher va student.</span>
+
+<span style="color: #E6DB74">    Kien truc giong het de bai, chi khac hidden: teacher</span>
+<span style="color: #E6DB74">    hidden=128, student hidden=32. Khong tao tensor moi</span>
+<span style="color: #E6DB74">    trong forward, nen khong dinh bug device.</span>
+<span style="color: #E6DB74">    """</span>
+
+    <span style="color: #66D9EF">def</span><span style="color: #F8F8F2"> </span><span style="color: #A6E22E">__init__</span><span style="color: #F8F8F2">(</span><span style="color: #A6E22E">self</span><span style="color: #F8F8F2">,</span> <span style="color: #F8F8F2">hidden):</span>
+<span style="color: #F8F8F2">        </span><span style="color: #E6DB74">"""Khoi tao 3 lop Linear: 2 -&gt; hidden -&gt; hidden -&gt; 3."""</span>
+        <span style="color: #A6E22E">super</span><span style="color: #F8F8F2">()</span><span style="color: #FF4689">.</span><span style="color: #A6E22E">__init__</span><span style="color: #F8F8F2">()</span>
+        <span style="color: #A6E22E">self</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">net</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">nn</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">Sequential(</span>
+            <span style="color: #F8F8F2">nn</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">Linear(</span><span style="color: #AE81FF">2</span><span style="color: #F8F8F2">,</span> <span style="color: #F8F8F2">hidden),</span> <span style="color: #F8F8F2">nn</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">ReLU(),</span>
+            <span style="color: #F8F8F2">nn</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">Linear(hidden,</span> <span style="color: #F8F8F2">hidden),</span> <span style="color: #F8F8F2">nn</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">ReLU(),</span>
+            <span style="color: #F8F8F2">nn</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">Linear(hidden,</span> <span style="color: #AE81FF">3</span><span style="color: #F8F8F2">))</span>
+
+    <span style="color: #66D9EF">def</span><span style="color: #F8F8F2"> </span><span style="color: #A6E22E">forward</span><span style="color: #F8F8F2">(</span><span style="color: #A6E22E">self</span><span style="color: #F8F8F2">,</span> <span style="color: #F8F8F2">x):</span>
+<span style="color: #F8F8F2">        </span><span style="color: #E6DB74">"""Tra ve logits (chua qua softmax) cho moi mau."""</span>
+        <span style="color: #66D9EF">return</span> <span style="color: #A6E22E">self</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">net(x)</span>
+
+
+<span style="color: #66D9EF">def</span><span style="color: #F8F8F2"> </span><span style="color: #A6E22E">count_params</span><span style="color: #F8F8F2">(model):</span>
+<span style="color: #F8F8F2">    </span><span style="color: #E6DB74">"""Dem tong so tham so (ke ca bias) cua model.</span>
+
+<span style="color: #E6DB74">    Dung chung 1 ham cho teacher va student de 2 con so</span>
+<span style="color: #E6DB74">    dem theo cung 1 cach, khong cong thieu/cong thua.</span>
+<span style="color: #E6DB74">    """</span>
+    <span style="color: #66D9EF">return</span> <span style="color: #A6E22E">sum</span><span style="color: #F8F8F2">(p</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">numel()</span> <span style="color: #66D9EF">for</span> <span style="color: #F8F8F2">p</span> <span style="color: #FF4689">in</span> <span style="color: #F8F8F2">model</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">parameters())</span>
+
+
+<span style="color: #66D9EF">def</span><span style="color: #F8F8F2"> </span><span style="color: #A6E22E">train_teacher</span><span style="color: #F8F8F2">(model,</span> <span style="color: #F8F8F2">x_train,</span> <span style="color: #F8F8F2">y_train,</span> <span style="color: #F8F8F2">epochs</span><span style="color: #FF4689">=</span><span style="color: #F8F8F2">TEACHER_EPOCHS):</span>
+<span style="color: #F8F8F2">    </span><span style="color: #E6DB74">"""Train teacher tren du 900 mau bang CE nhan cung.</span>
+
+<span style="color: #E6DB74">    Args:</span>
+<span style="color: #E6DB74">        model: MLP(128) vua khoi tao.</span>
+<span style="color: #E6DB74">        x_train: tensor (900, 2).</span>
+<span style="color: #E6DB74">        y_train: tensor (900,) nhan 0..2.</span>
+<span style="color: #E6DB74">        epochs: so epoch, mac dinh 150 theo de bai.</span>
+
+<span style="color: #E6DB74">    Returns:</span>
+<span style="color: #E6DB74">        Model teacher da train xong (chua chuyen eval).</span>
+<span style="color: #E6DB74">    """</span>
+    <span style="color: #F8F8F2">opt</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">torch</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">optim</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">Adam(model</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">parameters(),</span> <span style="color: #F8F8F2">lr</span><span style="color: #FF4689">=</span><span style="color: #AE81FF">0.01</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #66D9EF">for</span> <span style="color: #F8F8F2">_</span> <span style="color: #FF4689">in</span> <span style="color: #A6E22E">range</span><span style="color: #F8F8F2">(epochs):</span>
+        <span style="color: #F8F8F2">opt</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">zero_grad()</span>
+        <span style="color: #F8F8F2">loss</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">F</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">cross_entropy(model(x_train),</span> <span style="color: #F8F8F2">y_train)</span>
+        <span style="color: #F8F8F2">loss</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">backward()</span>
+        <span style="color: #F8F8F2">opt</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">step()</span>
+    <span style="color: #66D9EF">return</span> <span style="color: #F8F8F2">model</span>
+
+
+<span style="color: #66D9EF">def</span><span style="color: #F8F8F2"> </span><span style="color: #A6E22E">accuracy</span><span style="color: #F8F8F2">(model,</span> <span style="color: #F8F8F2">x_test,</span> <span style="color: #F8F8F2">y_test):</span>
+<span style="color: #F8F8F2">    </span><span style="color: #E6DB74">"""Do chinh xac cua model tren tap test.</span>
+
+<span style="color: #E6DB74">    Returns:</span>
+<span style="color: #E6DB74">        Ti le du doan dung, float trong [0, 1].</span>
+<span style="color: #E6DB74">    """</span>
+    <span style="color: #F8F8F2">model</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">eval()</span>
+    <span style="color: #66D9EF">with</span> <span style="color: #F8F8F2">torch</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">no_grad():</span>
+        <span style="color: #F8F8F2">pred</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">model(x_test)</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">argmax(</span><span style="color: #AE81FF">1</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #66D9EF">return</span> <span style="color: #A6E22E">float</span><span style="color: #F8F8F2">((pred</span> <span style="color: #FF4689">==</span> <span style="color: #F8F8F2">y_test)</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">float()</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">mean())</span>
+
+
+<span style="color: #66D9EF">def</span><span style="color: #F8F8F2"> </span><span style="color: #A6E22E">distill_loss</span><span style="color: #F8F8F2">(student_logits,</span> <span style="color: #F8F8F2">teacher_logits,</span> <span style="color: #F8F8F2">y_true,</span>
+                 <span style="color: #F8F8F2">T</span><span style="color: #FF4689">=</span><span style="color: #AE81FF">4.0</span><span style="color: #F8F8F2">,</span> <span style="color: #F8F8F2">alpha</span><span style="color: #FF4689">=</span><span style="color: #AE81FF">0.3</span><span style="color: #F8F8F2">):</span>
+<span style="color: #F8F8F2">    </span><span style="color: #E6DB74">"""Loss distillation tong hop cua Hinton.</span>
+
+<span style="color: #E6DB74">    Cong thuc:</span>
+<span style="color: #E6DB74">        L = alpha * CE + (1 - alpha) * T^2 * KL(</span>
+<span style="color: #E6DB74">            teacher_T || student_T)</span>
+<span style="color: #E6DB74">    Trong do CE la cross-entropy voi nhan that, KL tinh</span>
+<span style="color: #E6DB74">    tren phan phoi mem o temperature T. He so T^2 bu lai</span>
+<span style="color: #E6DB74">    gradient cua phan KL bi thu nho khoang T^2 lan khi</span>
+<span style="color: #E6DB74">    chia logits cho T; quen T^2 thi phan hoc tu teacher</span>
+<span style="color: #E6DB74">    bi phan CE lan at.</span>
+
+<span style="color: #E6DB74">    Vi du so: cung 1 batch gia, T=1 cho KL goc 0.3762,</span>
+<span style="color: #E6DB74">    T=4 cho KL goc 0.0306 (nho hon 12x) nhung T^2*KL</span>
+<span style="color: #E6DB74">    lai la 0.4904 - loss tong co the TANG theo T, do la</span>
+<span style="color: #E6DB74">    chu dich cua he so T^2, khong phai loi.</span>
+
+<span style="color: #E6DB74">    Args:</span>
+<span style="color: #E6DB74">        student_logits: tensor (N, 3), logits student.</span>
+<span style="color: #E6DB74">        teacher_logits: tensor (N, 3), logits teacher.</span>
+<span style="color: #E6DB74">        y_true: tensor (N,) dtype long, nhan that 0..2.</span>
+<span style="color: #E6DB74">        T: temperature, so thuc, phai &gt; 0 va huu han.</span>
+<span style="color: #E6DB74">        alpha: so thuc, trong so cho CE, trong [0, 1].</span>
+
+<span style="color: #E6DB74">    Returns:</span>
+<span style="color: #E6DB74">        Tensor vo huong: loss tong hop.</span>
+
+<span style="color: #E6DB74">    Raises:</span>
+<span style="color: #E6DB74">        ValueError: batch rong, shape 2 tensor khong</span>
+<span style="color: #E6DB74">            khop nhau, y_true khong phai dtype long,</span>
+<span style="color: #E6DB74">            logits chua NaN/Inf, nhan ngoai [0, 2],</span>
+<span style="color: #E6DB74">            T/alpha khong phai so thuc, T &lt;= 0 hoac</span>
+<span style="color: #E6DB74">            khong huu han, alpha ngoai [0, 1], 2 logits</span>
+<span style="color: #E6DB74">            khac device nhau.</span>
+<span style="color: #E6DB74">    """</span>
+    <span style="color: #959077"># Guard ngay dau ham, truoc moi phep tinh (checklist</span>
+    <span style="color: #959077"># 1): loi vao sai phai bao ro, khong de crash kho</span>
+    <span style="color: #959077"># hieu o sau trong F.cross_entropy / F.kl_div.</span>
+    <span style="color: #66D9EF">if</span> <span style="color: #F8F8F2">student_logits</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">dim()</span> <span style="color: #FF4689">!=</span> <span style="color: #AE81FF">2</span> <span style="color: #FF4689">or</span> <span style="color: #F8F8F2">teacher_logits</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">dim()</span> <span style="color: #FF4689">!=</span> <span style="color: #AE81FF">2</span><span style="color: #F8F8F2">:</span>
+        <span style="color: #66D9EF">raise</span> <span style="color: #A6E22E">ValueError</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">"logits phai la tensor 2 chieu "</span>
+                         <span style="color: #E6DB74">"(N, so_lop)."</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #66D9EF">if</span> <span style="color: #F8F8F2">student_logits</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">shape</span> <span style="color: #FF4689">!=</span> <span style="color: #F8F8F2">teacher_logits</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">shape:</span>
+        <span style="color: #66D9EF">raise</span> <span style="color: #A6E22E">ValueError</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">"student va teacher logits phai "</span>
+                         <span style="color: #E6DB74">"cung shape, nhan duoc "</span>
+                         <span style="color: #E6DB74">f"{</span><span style="color: #A6E22E">tuple</span><span style="color: #F8F8F2">(student_logits</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">shape)</span><span style="color: #E6DB74">} va "</span>
+                         <span style="color: #E6DB74">f"{</span><span style="color: #A6E22E">tuple</span><span style="color: #F8F8F2">(teacher_logits</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">shape)</span><span style="color: #E6DB74">}."</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #66D9EF">if</span> <span style="color: #F8F8F2">student_logits</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">numel()</span> <span style="color: #FF4689">==</span> <span style="color: #AE81FF">0</span><span style="color: #F8F8F2">:</span>
+        <span style="color: #66D9EF">raise</span> <span style="color: #A6E22E">ValueError</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">"batch khong duoc rong."</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #66D9EF">if</span> <span style="color: #F8F8F2">student_logits</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">device</span> <span style="color: #FF4689">!=</span> <span style="color: #F8F8F2">teacher_logits</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">device:</span>
+        <span style="color: #66D9EF">raise</span> <span style="color: #A6E22E">ValueError</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">"student va teacher logits phai "</span>
+                         <span style="color: #E6DB74">"cung device."</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #959077"># [TRAINER] y_true phai la Long: truoc day nhan float</span>
+    <span style="color: #959077"># (0.0/1.0/2.0) lot qua ca guard shape lan range, roi</span>
+    <span style="color: #959077"># chet RuntimeError kho hieu trong F.cross_entropy -</span>
+    <span style="color: #959077"># trai dung triet ly guard cua ham nay (loi vao sai</span>
+    <span style="color: #959077"># phai bao ro ngay tu dau).</span>
+    <span style="color: #66D9EF">if</span> <span style="color: #F8F8F2">y_true</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">dtype</span> <span style="color: #FF4689">!=</span> <span style="color: #F8F8F2">torch</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">long:</span>
+        <span style="color: #66D9EF">raise</span> <span style="color: #A6E22E">ValueError</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">"y_true phai co dtype long "</span>
+                         <span style="color: #E6DB74">"(nhan nguyen 0..n_class-1)."</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #959077"># [TRAINER] Logits phai huu han: truoc day logits</span>
+    <span style="color: #959077"># NaN/Inf khong bi chan, loss tra ra NaN mot cach</span>
+    <span style="color: #959077"># lang le - dung loai loi "code chay binh thuong,</span>
+    <span style="color: #959077"># ket qua lang le te" ma Bai 2 tu canh bao.</span>
+    <span style="color: #66D9EF">if</span> <span style="color: #FF4689">not</span> <span style="color: #A6E22E">bool</span><span style="color: #F8F8F2">(torch</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">isfinite(student_logits)</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">all())</span> \
+            <span style="color: #FF4689">or</span> <span style="color: #FF4689">not</span> <span style="color: #A6E22E">bool</span><span style="color: #F8F8F2">(torch</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">isfinite(teacher_logits)</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">all()):</span>
+        <span style="color: #66D9EF">raise</span> <span style="color: #A6E22E">ValueError</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">"logits phai huu han "</span>
+                         <span style="color: #E6DB74">"(khong chua NaN/Inf)."</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #959077"># [TRAINER] T/alpha phai la so thuc: truoc day T="4"</span>
+    <span style="color: #959077"># nem TypeError tu math.isfinite, khong nhat quan</span>
+    <span style="color: #959077"># voi cac guard con lai (deu la ValueError).</span>
+    <span style="color: #66D9EF">if</span> <span style="color: #FF4689">not</span> <span style="color: #A6E22E">isinstance</span><span style="color: #F8F8F2">(T,</span> <span style="color: #F8F8F2">(</span><span style="color: #A6E22E">int</span><span style="color: #F8F8F2">,</span> <span style="color: #A6E22E">float</span><span style="color: #F8F8F2">))</span> \
+            <span style="color: #FF4689">or</span> <span style="color: #FF4689">not</span> <span style="color: #A6E22E">isinstance</span><span style="color: #F8F8F2">(alpha,</span> <span style="color: #F8F8F2">(</span><span style="color: #A6E22E">int</span><span style="color: #F8F8F2">,</span> <span style="color: #A6E22E">float</span><span style="color: #F8F8F2">)):</span>
+        <span style="color: #66D9EF">raise</span> <span style="color: #A6E22E">ValueError</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">"T va alpha phai la so thuc."</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #66D9EF">if</span> <span style="color: #F8F8F2">y_true</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">shape</span> <span style="color: #FF4689">!=</span> <span style="color: #F8F8F2">(student_logits</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">shape[</span><span style="color: #AE81FF">0</span><span style="color: #F8F8F2">],):</span>
+        <span style="color: #66D9EF">raise</span> <span style="color: #A6E22E">ValueError</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">"y_true phai co shape "</span>
+                         <span style="color: #E6DB74">f"({</span><span style="color: #F8F8F2">student_logits</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">shape[</span><span style="color: #AE81FF">0</span><span style="color: #F8F8F2">]</span><span style="color: #E6DB74">},)."</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #F8F8F2">n_class</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">student_logits</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">shape[</span><span style="color: #AE81FF">1</span><span style="color: #F8F8F2">]</span>
+    <span style="color: #66D9EF">if</span> <span style="color: #A6E22E">int</span><span style="color: #F8F8F2">(y_true</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">min())</span> <span style="color: #FF4689">&lt;</span> <span style="color: #AE81FF">0</span> <span style="color: #FF4689">or</span> <span style="color: #A6E22E">int</span><span style="color: #F8F8F2">(y_true</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">max())</span> <span style="color: #FF4689">&gt;=</span> <span style="color: #F8F8F2">n_class:</span>
+        <span style="color: #66D9EF">raise</span> <span style="color: #A6E22E">ValueError</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">f"nhan phai trong [0, {</span><span style="color: #F8F8F2">n_class </span><span style="color: #FF4689">-</span><span style="color: #F8F8F2"> </span><span style="color: #AE81FF">1</span><span style="color: #E6DB74">}]."</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #66D9EF">if</span> <span style="color: #FF4689">not</span> <span style="color: #F8F8F2">math</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">isfinite(T)</span> <span style="color: #FF4689">or</span> <span style="color: #F8F8F2">T</span> <span style="color: #FF4689">&lt;=</span> <span style="color: #AE81FF">0</span><span style="color: #F8F8F2">:</span>
+        <span style="color: #66D9EF">raise</span> <span style="color: #A6E22E">ValueError</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">"T phai &gt; 0 va huu han."</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #66D9EF">if</span> <span style="color: #FF4689">not</span> <span style="color: #AE81FF">0.0</span> <span style="color: #FF4689">&lt;=</span> <span style="color: #F8F8F2">alpha</span> <span style="color: #FF4689">&lt;=</span> <span style="color: #AE81FF">1.0</span><span style="color: #F8F8F2">:</span>
+        <span style="color: #66D9EF">raise</span> <span style="color: #A6E22E">ValueError</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">"alpha phai trong [0, 1]."</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #959077"># 1. CE voi nhan that.</span>
+    <span style="color: #F8F8F2">ce_loss</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">F</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">cross_entropy(student_logits,</span> <span style="color: #F8F8F2">y_true)</span>
+    <span style="color: #959077"># 2. Soft target teacher: detach BAT BUOC. Khong detach</span>
+    <span style="color: #959077"># thi gradient chay nguoc vao teacher, teacher cung bi</span>
+    <span style="color: #959077"># cap nhat trong luc train student - thi nghiem mat</span>
+    <span style="color: #959077"># kiem soat va ton bo nho vo ich (bay so 1 cua de bai).</span>
+    <span style="color: #F8F8F2">soft_teacher</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">F</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">softmax(teacher_logits</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">detach()</span> <span style="color: #FF4689">/</span> <span style="color: #F8F8F2">T,</span> <span style="color: #F8F8F2">dim</span><span style="color: #FF4689">=</span><span style="color: #AE81FF">1</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #959077"># 3. Soft student dang log-prob: F.kl_div doi dau vao</span>
+    <span style="color: #959077"># thu nhat la log-prob, thu hai la prob. Dao 2 dau</span>
+    <span style="color: #959077"># vao hoac dua ca 2 deu la prob deu cho loss sai ma</span>
+    <span style="color: #959077"># code van chay "binh thuong" (bay so 2 cua de bai).</span>
+    <span style="color: #F8F8F2">log_student</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">F</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">log_softmax(student_logits</span> <span style="color: #FF4689">/</span> <span style="color: #F8F8F2">T,</span> <span style="color: #F8F8F2">dim</span><span style="color: #FF4689">=</span><span style="color: #AE81FF">1</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #959077"># 4. KL(teacher || student): phat nang khi student gan</span>
+    <span style="color: #959077"># xac suat thap cho dieu teacher tin la dung, ep</span>
+    <span style="color: #959077"># student bao phu het nhung gi teacher biet. Chieu</span>
+    <span style="color: #959077"># nguoc lai cho phep student bo qua mode cua teacher.</span>
+    <span style="color: #F8F8F2">kl_loss</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">F</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">kl_div(log_student,</span> <span style="color: #F8F8F2">soft_teacher,</span>
+                       <span style="color: #F8F8F2">reduction</span><span style="color: #FF4689">=</span><span style="color: #E6DB74">"batchmean"</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #959077"># 5. Tong hop, nhan T^2 cho phan KL.</span>
+    <span style="color: #66D9EF">return</span> <span style="color: #F8F8F2">alpha</span> <span style="color: #FF4689">*</span> <span style="color: #F8F8F2">ce_loss</span> <span style="color: #FF4689">+</span> <span style="color: #F8F8F2">(</span><span style="color: #AE81FF">1.0</span> <span style="color: #FF4689">-</span> <span style="color: #F8F8F2">alpha)</span> <span style="color: #FF4689">*</span> <span style="color: #F8F8F2">(T</span> <span style="color: #FF4689">**</span> <span style="color: #AE81FF">2</span><span style="color: #F8F8F2">)</span> <span style="color: #FF4689">*</span> <span style="color: #F8F8F2">kl_loss</span>
+
+
+<span style="color: #66D9EF">def</span><span style="color: #F8F8F2"> </span><span style="color: #A6E22E">_expect_value_error</span><span style="color: #F8F8F2">(fn,</span> <span style="color: #F8F8F2">mo_ta):</span>
+<span style="color: #F8F8F2">    </span><span style="color: #E6DB74">"""Chay fn, doi no nem ValueError, in ket qua kiem tra.</span>
+
+<span style="color: #E6DB74">    Ham phu nay duoc dung that trong bai2(): moi guard</span>
+<span style="color: #E6DB74">    cua distill_loss deu phai chan dung truong hop sai</span>
+<span style="color: #E6DB74">    cua no, khong chi nam im trong code.</span>
+<span style="color: #E6DB74">    """</span>
+    <span style="color: #66D9EF">try</span><span style="color: #F8F8F2">:</span>
+        <span style="color: #F8F8F2">fn()</span>
+    <span style="color: #66D9EF">except</span> <span style="color: #A6E22E">ValueError</span> <span style="color: #66D9EF">as</span> <span style="color: #F8F8F2">exc:</span>
+        <span style="color: #A6E22E">print</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">f"  guard {</span><span style="color: #F8F8F2">mo_ta</span><span style="color: #E6DB74">}: chan dung ({</span><span style="color: #F8F8F2">exc</span><span style="color: #E6DB74">})"</span><span style="color: #F8F8F2">)</span>
+        <span style="color: #66D9EF">return</span> <span style="color: #66D9EF">True</span>
+    <span style="color: #A6E22E">print</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">f"  CANH BAO: guard {</span><span style="color: #F8F8F2">mo_ta</span><span style="color: #E6DB74">} KHONG chan!"</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #66D9EF">return</span> <span style="color: #66D9EF">False</span>
+
+
+<span style="color: #66D9EF">def</span><span style="color: #F8F8F2"> </span><span style="color: #A6E22E">bai1</span><span style="color: #F8F8F2">(teacher,</span> <span style="color: #F8F8F2">x_test,</span> <span style="color: #F8F8F2">y_test):</span>
+<span style="color: #F8F8F2">    </span><span style="color: #E6DB74">"""Bai 1: nhin dark knowledge qua temperature.</span>
+
+<span style="color: #E6DB74">    Lay mau dau tien cua test (thuoc lop 0, logits</span>
+<span style="color: #E6DB74">    [6.83, 4.28, -12.65]) va in softmax o T = 1, 2, 5,</span>
+<span style="color: #E6DB74">    10. Them bang trung binh tren toan bo 114 mau lop 0</span>
+<span style="color: #E6DB74">    cua test de ket luan khong dua vao 1 mau duy nhat.</span>
+<span style="color: #E6DB74">    """</span>
+    <span style="color: #A6E22E">print</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">"="</span> <span style="color: #FF4689">*</span> <span style="color: #AE81FF">72</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #A6E22E">print</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">"BAI 1 - Soft target va temperature"</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #A6E22E">print</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">"="</span> <span style="color: #FF4689">*</span> <span style="color: #AE81FF">72</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #F8F8F2">teacher</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">eval()</span>
+    <span style="color: #66D9EF">with</span> <span style="color: #F8F8F2">torch</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">no_grad():</span>
+        <span style="color: #F8F8F2">logits_all</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">teacher(x_test)</span>
+    <span style="color: #959077"># Mau dau tien: de bai dung X_test[:5] va in p[0];</span>
+    <span style="color: #959077"># kiem tra nhan that cua no la 0 roi moi phan tich.</span>
+    <span style="color: #F8F8F2">first_label</span> <span style="color: #FF4689">=</span> <span style="color: #A6E22E">int</span><span style="color: #F8F8F2">(y_test[</span><span style="color: #AE81FF">0</span><span style="color: #F8F8F2">])</span>
+    <span style="color: #A6E22E">print</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">f"Mau dau tien cua test: nhan that = {</span><span style="color: #F8F8F2">first_label</span><span style="color: #E6DB74">}, "</span>
+          <span style="color: #E6DB74">f"logits = {</span><span style="color: #F8F8F2">[</span><span style="color: #A6E22E">round</span><span style="color: #F8F8F2">(v, </span><span style="color: #AE81FF">2</span><span style="color: #F8F8F2">) </span><span style="color: #66D9EF">for</span><span style="color: #F8F8F2"> v </span><span style="color: #FF4689">in</span><span style="color: #F8F8F2"> logits_all[</span><span style="color: #AE81FF">0</span><span style="color: #F8F8F2">]</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">tolist()]</span><span style="color: #E6DB74">}"</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #A6E22E">print</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">"Soft target cua mau nay:"</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #66D9EF">for</span> <span style="color: #F8F8F2">temp</span> <span style="color: #FF4689">in</span> <span style="color: #F8F8F2">[</span><span style="color: #AE81FF">1</span><span style="color: #F8F8F2">,</span> <span style="color: #AE81FF">2</span><span style="color: #F8F8F2">,</span> <span style="color: #AE81FF">5</span><span style="color: #F8F8F2">,</span> <span style="color: #AE81FF">10</span><span style="color: #F8F8F2">]:</span>
+        <span style="color: #F8F8F2">probs</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">F</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">softmax(logits_all[</span><span style="color: #AE81FF">0</span><span style="color: #F8F8F2">]</span> <span style="color: #FF4689">/</span> <span style="color: #F8F8F2">temp,</span> <span style="color: #F8F8F2">dim</span><span style="color: #FF4689">=</span><span style="color: #AE81FF">0</span><span style="color: #F8F8F2">)</span>
+        <span style="color: #F8F8F2">p0,</span> <span style="color: #F8F8F2">p1,</span> <span style="color: #F8F8F2">p2</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">probs</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">tolist()</span>
+        <span style="color: #959077"># Ti le p1/p2 noi len quan he "1 gan, 2 xa": o T=1</span>
+        <span style="color: #959077"># ti le nay ~2.2e7 vi p2 ~3e-09 gan nhu bang 0.</span>
+        <span style="color: #F8F8F2">ratio</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">p1</span> <span style="color: #FF4689">/</span> <span style="color: #F8F8F2">p2</span> <span style="color: #66D9EF">if</span> <span style="color: #F8F8F2">p2</span> <span style="color: #FF4689">&gt;</span> <span style="color: #AE81FF">0</span> <span style="color: #66D9EF">else</span> <span style="color: #A6E22E">float</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">"inf"</span><span style="color: #F8F8F2">)</span>
+        <span style="color: #A6E22E">print</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">f"  T={</span><span style="color: #F8F8F2">temp</span><span style="color: #E6DB74">:&gt;2}: [{</span><span style="color: #F8F8F2">p0</span><span style="color: #E6DB74">:.4f}, {</span><span style="color: #F8F8F2">p1</span><span style="color: #E6DB74">:.4f}, {</span><span style="color: #F8F8F2">p2</span><span style="color: #E6DB74">:.4f}] "</span>
+              <span style="color: #E6DB74">f"| p1/p2 = {</span><span style="color: #F8F8F2">ratio</span><span style="color: #E6DB74">:.1f}"</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #959077"># Trung binh tren tat ca mau lop 0 cua test.</span>
+    <span style="color: #F8F8F2">mask0</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">y_test</span> <span style="color: #FF4689">==</span> <span style="color: #AE81FF">0</span>
+    <span style="color: #A6E22E">print</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">f"</span><span style="color: #AE81FF">\n</span><span style="color: #E6DB74">Trung binh tren {</span><span style="color: #A6E22E">int</span><span style="color: #F8F8F2">(mask0</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">sum())</span><span style="color: #E6DB74">} mau lop 0 "</span>
+          <span style="color: #E6DB74">"cua test (p0, p1, p2):"</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #66D9EF">for</span> <span style="color: #F8F8F2">temp</span> <span style="color: #FF4689">in</span> <span style="color: #F8F8F2">[</span><span style="color: #AE81FF">1</span><span style="color: #F8F8F2">,</span> <span style="color: #AE81FF">2</span><span style="color: #F8F8F2">,</span> <span style="color: #AE81FF">5</span><span style="color: #F8F8F2">,</span> <span style="color: #AE81FF">10</span><span style="color: #F8F8F2">]:</span>
+        <span style="color: #F8F8F2">mean_p</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">F</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">softmax(logits_all[mask0]</span> <span style="color: #FF4689">/</span> <span style="color: #F8F8F2">temp,</span>
+                           <span style="color: #F8F8F2">dim</span><span style="color: #FF4689">=</span><span style="color: #AE81FF">1</span><span style="color: #F8F8F2">)</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">mean(</span><span style="color: #AE81FF">0</span><span style="color: #F8F8F2">)</span>
+        <span style="color: #A6E22E">print</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">f"  T={</span><span style="color: #F8F8F2">temp</span><span style="color: #E6DB74">:&gt;2}: "</span>
+              <span style="color: #E6DB74">f"[{</span><span style="color: #F8F8F2">mean_p[</span><span style="color: #AE81FF">0</span><span style="color: #F8F8F2">]</span><span style="color: #E6DB74">:.4f}, {</span><span style="color: #F8F8F2">mean_p[</span><span style="color: #AE81FF">1</span><span style="color: #F8F8F2">]</span><span style="color: #E6DB74">:.4f}, "</span>
+              <span style="color: #E6DB74">f"{</span><span style="color: #F8F8F2">mean_p[</span><span style="color: #AE81FF">2</span><span style="color: #F8F8F2">]</span><span style="color: #E6DB74">:.4f}]"</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #A6E22E">print</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">"Nhan xet: o mau nay, T=1 lop thang chiem gan het, "</span>
+          <span style="color: #E6DB74">"lop 2 gan nhu 0 - dark knowledge bi chon vui. O "</span>
+          <span style="color: #E6DB74">"T=2-5 xac suat lop 1 noi len ro, quan he 0 gan 1, "</span>
+          <span style="color: #E6DB74">"xa 2 lo ro nhat o T=5. O T=10 phan phoi tien ve "</span>
+          <span style="color: #E6DB74">"deu (0.52/0.40/0.07 o mau nay), tuong phan mo dan."</span><span style="color: #F8F8F2">)</span>
+
+
+<span style="color: #66D9EF">def</span><span style="color: #F8F8F2"> </span><span style="color: #A6E22E">bai2</span><span style="color: #F8F8F2">():</span>
+<span style="color: #F8F8F2">    </span><span style="color: #E6DB74">"""Bai 2: kiem tra distill_loss tren batch gia.</span>
+
+<span style="color: #E6DB74">    Kiem tra 3 thu: loss huu han, teacher detach that</span>
+<span style="color: #E6DB74">    (gradient khong chay vao teacher), va cong thuc</span>
+<span style="color: #E6DB74">    tong hop dung (loss = alpha*CE + (1-alpha)*T^2*KL).</span>
+<span style="color: #E6DB74">    """</span>
+    <span style="color: #A6E22E">print</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">"</span><span style="color: #AE81FF">\n</span><span style="color: #E6DB74">"</span> <span style="color: #FF4689">+</span> <span style="color: #E6DB74">"="</span> <span style="color: #FF4689">*</span> <span style="color: #AE81FF">72</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #A6E22E">print</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">"BAI 2 - Kiem tra distill_loss"</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #A6E22E">print</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">"="</span> <span style="color: #FF4689">*</span> <span style="color: #AE81FF">72</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #F8F8F2">torch</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">manual_seed(</span><span style="color: #AE81FF">123</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #F8F8F2">student_logits</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">torch</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">randn(</span><span style="color: #AE81FF">8</span><span style="color: #F8F8F2">,</span> <span style="color: #AE81FF">3</span><span style="color: #F8F8F2">,</span> <span style="color: #F8F8F2">requires_grad</span><span style="color: #FF4689">=</span><span style="color: #66D9EF">True</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #F8F8F2">teacher_logits</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">torch</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">randn(</span><span style="color: #AE81FF">8</span><span style="color: #F8F8F2">,</span> <span style="color: #AE81FF">3</span><span style="color: #F8F8F2">,</span> <span style="color: #F8F8F2">requires_grad</span><span style="color: #FF4689">=</span><span style="color: #66D9EF">True</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #F8F8F2">y_true</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">torch</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">randint(</span><span style="color: #AE81FF">0</span><span style="color: #F8F8F2">,</span> <span style="color: #AE81FF">3</span><span style="color: #F8F8F2">,</span> <span style="color: #F8F8F2">(</span><span style="color: #AE81FF">8</span><span style="color: #F8F8F2">,))</span>
+    <span style="color: #66D9EF">for</span> <span style="color: #F8F8F2">temp</span> <span style="color: #FF4689">in</span> <span style="color: #F8F8F2">[</span><span style="color: #AE81FF">1.0</span><span style="color: #F8F8F2">,</span> <span style="color: #AE81FF">4.0</span><span style="color: #F8F8F2">]:</span>
+        <span style="color: #F8F8F2">loss</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">distill_loss(student_logits,</span> <span style="color: #F8F8F2">teacher_logits,</span>
+                            <span style="color: #F8F8F2">y_true,</span> <span style="color: #F8F8F2">T</span><span style="color: #FF4689">=</span><span style="color: #F8F8F2">temp,</span> <span style="color: #F8F8F2">alpha</span><span style="color: #FF4689">=</span><span style="color: #AE81FF">0.3</span><span style="color: #F8F8F2">)</span>
+        <span style="color: #959077"># Phan tach lai de thay KL goc giam khi T tang,</span>
+        <span style="color: #959077"># trong khi loss tong co the tang vi nhan T^2.</span>
+        <span style="color: #66D9EF">with</span> <span style="color: #F8F8F2">torch</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">no_grad():</span>
+            <span style="color: #F8F8F2">ce_part</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">F</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">cross_entropy(student_logits,</span> <span style="color: #F8F8F2">y_true)</span>
+            <span style="color: #F8F8F2">kl_raw</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">F</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">kl_div(</span>
+                <span style="color: #F8F8F2">F</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">log_softmax(student_logits</span> <span style="color: #FF4689">/</span> <span style="color: #F8F8F2">temp,</span> <span style="color: #F8F8F2">dim</span><span style="color: #FF4689">=</span><span style="color: #AE81FF">1</span><span style="color: #F8F8F2">),</span>
+                <span style="color: #F8F8F2">F</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">softmax(teacher_logits</span> <span style="color: #FF4689">/</span> <span style="color: #F8F8F2">temp,</span> <span style="color: #F8F8F2">dim</span><span style="color: #FF4689">=</span><span style="color: #AE81FF">1</span><span style="color: #F8F8F2">),</span>
+                <span style="color: #F8F8F2">reduction</span><span style="color: #FF4689">=</span><span style="color: #E6DB74">"batchmean"</span><span style="color: #F8F8F2">)</span>
+            <span style="color: #F8F8F2">rebuilt</span> <span style="color: #FF4689">=</span> <span style="color: #AE81FF">0.3</span> <span style="color: #FF4689">*</span> <span style="color: #F8F8F2">ce_part</span> <span style="color: #FF4689">+</span> <span style="color: #AE81FF">0.7</span> <span style="color: #FF4689">*</span> <span style="color: #F8F8F2">(temp</span> <span style="color: #FF4689">**</span> <span style="color: #AE81FF">2</span><span style="color: #F8F8F2">)</span> <span style="color: #FF4689">*</span> <span style="color: #F8F8F2">kl_raw</span>
+        <span style="color: #A6E22E">print</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">f"T={</span><span style="color: #F8F8F2">temp</span><span style="color: #E6DB74">}: loss={</span><span style="color: #F8F8F2">loss</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">item()</span><span style="color: #E6DB74">:.4f} "</span>
+              <span style="color: #E6DB74">f"(huu han: {</span><span style="color: #A6E22E">bool</span><span style="color: #F8F8F2">(torch</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">isfinite(loss))</span><span style="color: #E6DB74">}) | "</span>
+              <span style="color: #E6DB74">f"CE={</span><span style="color: #A6E22E">float</span><span style="color: #F8F8F2">(ce_part)</span><span style="color: #E6DB74">:.4f} | KL goc="</span>
+              <span style="color: #E6DB74">f"{</span><span style="color: #A6E22E">float</span><span style="color: #F8F8F2">(kl_raw)</span><span style="color: #E6DB74">:.4f} | T^2*KL="</span>
+              <span style="color: #E6DB74">f"{</span><span style="color: #A6E22E">float</span><span style="color: #F8F8F2">((temp </span><span style="color: #FF4689">**</span><span style="color: #F8F8F2"> </span><span style="color: #AE81FF">2</span><span style="color: #F8F8F2">) </span><span style="color: #FF4689">*</span><span style="color: #F8F8F2"> kl_raw)</span><span style="color: #E6DB74">:.4f} | "</span>
+              <span style="color: #E6DB74">f"tai tao dung: "</span>
+              <span style="color: #E6DB74">f"{</span><span style="color: #A6E22E">bool</span><span style="color: #F8F8F2">(torch</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">allclose(loss</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">detach(), rebuilt))</span><span style="color: #E6DB74">}"</span><span style="color: #F8F8F2">)</span>
+        <span style="color: #959077"># [TRAINER] Truoc day 2 kiem tra nay chi IN</span>
+        <span style="color: #959077"># True/False: neu mot ngay loss thanh NaN hay</span>
+        <span style="color: #959077"># cong thuc lech, script van chay "thanh cong".</span>
+        <span style="color: #959077"># Assert de lan chay FAIL ngay tai cho.</span>
+        <span style="color: #66D9EF">assert</span> <span style="color: #A6E22E">bool</span><span style="color: #F8F8F2">(torch</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">isfinite(loss)),</span> \
+            <span style="color: #E6DB74">"loss phai huu han"</span>
+        <span style="color: #66D9EF">assert</span> <span style="color: #A6E22E">bool</span><span style="color: #F8F8F2">(torch</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">allclose(loss</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">detach(),</span> <span style="color: #F8F8F2">rebuilt)),</span> \
+            <span style="color: #E6DB74">"loss phai bang alpha*CE + (1-alpha)*T^2*KL"</span>
+    <span style="color: #959077"># Detach: cho loss chay backward, teacher phai co</span>
+    <span style="color: #959077"># grad None vi logits da detach ben trong ham.</span>
+    <span style="color: #F8F8F2">student_logits</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">grad</span> <span style="color: #FF4689">=</span> <span style="color: #66D9EF">None</span>
+    <span style="color: #F8F8F2">teacher_logits</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">grad</span> <span style="color: #FF4689">=</span> <span style="color: #66D9EF">None</span>
+    <span style="color: #F8F8F2">loss</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">distill_loss(student_logits,</span> <span style="color: #F8F8F2">teacher_logits,</span>
+                        <span style="color: #F8F8F2">y_true,</span> <span style="color: #F8F8F2">T</span><span style="color: #FF4689">=</span><span style="color: #AE81FF">4.0</span><span style="color: #F8F8F2">,</span> <span style="color: #F8F8F2">alpha</span><span style="color: #FF4689">=</span><span style="color: #AE81FF">0.3</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #F8F8F2">loss</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">backward()</span>
+    <span style="color: #A6E22E">print</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">f"Detach teacher: grad teacher la None = "</span>
+          <span style="color: #E6DB74">f"{</span><span style="color: #F8F8F2">teacher_logits</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">grad </span><span style="color: #FF4689">is</span><span style="color: #F8F8F2"> </span><span style="color: #66D9EF">None</span><span style="color: #E6DB74">} | grad student "</span>
+          <span style="color: #E6DB74">f"co gia tri = {</span><span style="color: #F8F8F2">student_logits</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">grad </span><span style="color: #FF4689">is</span><span style="color: #F8F8F2"> </span><span style="color: #FF4689">not</span><span style="color: #F8F8F2"> </span><span style="color: #66D9EF">None</span><span style="color: #E6DB74">}"</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #959077"># [TRAINER] Tuong tu: chi in thi detach hong van di</span>
+    <span style="color: #959077"># qua. Assert ca 2 phia (teacher None VA student co).</span>
+    <span style="color: #66D9EF">assert</span> <span style="color: #F8F8F2">teacher_logits</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">grad</span> <span style="color: #FF4689">is</span> <span style="color: #66D9EF">None</span><span style="color: #F8F8F2">,</span> \
+        <span style="color: #E6DB74">"teacher khong duoc nhan gradient"</span>
+    <span style="color: #66D9EF">assert</span> <span style="color: #F8F8F2">student_logits</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">grad</span> <span style="color: #FF4689">is</span> <span style="color: #FF4689">not</span> <span style="color: #66D9EF">None</span><span style="color: #F8F8F2">,</span> \
+        <span style="color: #E6DB74">"student phai nhan gradient"</span>
+    <span style="color: #959077"># Guard: moi truong hop sai phai bi chan ro rang.</span>
+    <span style="color: #A6E22E">print</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">"Kiem tra guard (loi vao sai):"</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #F8F8F2">good</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">torch</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">randn(</span><span style="color: #AE81FF">4</span><span style="color: #F8F8F2">,</span> <span style="color: #AE81FF">3</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #959077"># [TRAINER] Truoc day gia tri tra ve cua</span>
+    <span style="color: #959077"># _expect_value_error bi BO QUA: guard nao hong,</span>
+    <span style="color: #959077"># script van ket thuc binh thuong (exit 0). Nay gom</span>
+    <span style="color: #959077"># ket qua lai va assert tong o cuoi, kem 3 guard moi</span>
+    <span style="color: #959077"># cua ban review (dtype y, logits NaN, T dang chuoi).</span>
+    <span style="color: #F8F8F2">guard_results</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">[</span>
+        <span style="color: #F8F8F2">_expect_value_error(</span>
+            <span style="color: #66D9EF">lambda</span><span style="color: #F8F8F2">:</span> <span style="color: #F8F8F2">distill_loss(good,</span> <span style="color: #F8F8F2">good,</span> <span style="color: #F8F8F2">y_true[:</span><span style="color: #AE81FF">4</span><span style="color: #F8F8F2">],</span> <span style="color: #F8F8F2">T</span><span style="color: #FF4689">=</span><span style="color: #AE81FF">0.0</span><span style="color: #F8F8F2">),</span>
+            <span style="color: #E6DB74">"T=0"</span><span style="color: #F8F8F2">),</span>
+        <span style="color: #F8F8F2">_expect_value_error(</span>
+            <span style="color: #66D9EF">lambda</span><span style="color: #F8F8F2">:</span> <span style="color: #F8F8F2">distill_loss(good,</span> <span style="color: #F8F8F2">good,</span> <span style="color: #F8F8F2">y_true[:</span><span style="color: #AE81FF">4</span><span style="color: #F8F8F2">],</span>
+                                 <span style="color: #F8F8F2">alpha</span><span style="color: #FF4689">=</span><span style="color: #AE81FF">1.5</span><span style="color: #F8F8F2">),</span>
+            <span style="color: #E6DB74">"alpha=1.5"</span><span style="color: #F8F8F2">),</span>
+        <span style="color: #F8F8F2">_expect_value_error(</span>
+            <span style="color: #66D9EF">lambda</span><span style="color: #F8F8F2">:</span> <span style="color: #F8F8F2">distill_loss(good,</span> <span style="color: #F8F8F2">torch</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">randn(</span><span style="color: #AE81FF">4</span><span style="color: #F8F8F2">,</span> <span style="color: #AE81FF">2</span><span style="color: #F8F8F2">),</span>
+                                 <span style="color: #F8F8F2">y_true[:</span><span style="color: #AE81FF">4</span><span style="color: #F8F8F2">]),</span>
+            <span style="color: #E6DB74">"shape teacher khac student"</span><span style="color: #F8F8F2">),</span>
+        <span style="color: #F8F8F2">_expect_value_error(</span>
+            <span style="color: #66D9EF">lambda</span><span style="color: #F8F8F2">:</span> <span style="color: #F8F8F2">distill_loss(torch</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">empty(</span><span style="color: #AE81FF">0</span><span style="color: #F8F8F2">,</span> <span style="color: #AE81FF">3</span><span style="color: #F8F8F2">),</span>
+                                 <span style="color: #F8F8F2">torch</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">empty(</span><span style="color: #AE81FF">0</span><span style="color: #F8F8F2">,</span> <span style="color: #AE81FF">3</span><span style="color: #F8F8F2">),</span>
+                                 <span style="color: #F8F8F2">torch</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">empty(</span><span style="color: #AE81FF">0</span><span style="color: #F8F8F2">,</span> <span style="color: #F8F8F2">dtype</span><span style="color: #FF4689">=</span><span style="color: #F8F8F2">torch</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">long)),</span>
+            <span style="color: #E6DB74">"batch rong"</span><span style="color: #F8F8F2">),</span>
+        <span style="color: #F8F8F2">_expect_value_error(</span>
+            <span style="color: #66D9EF">lambda</span><span style="color: #F8F8F2">:</span> <span style="color: #F8F8F2">distill_loss(good,</span> <span style="color: #F8F8F2">good,</span>
+                                 <span style="color: #F8F8F2">torch</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">tensor([</span><span style="color: #AE81FF">0</span><span style="color: #F8F8F2">,</span> <span style="color: #AE81FF">1</span><span style="color: #F8F8F2">,</span> <span style="color: #AE81FF">2</span><span style="color: #F8F8F2">,</span> <span style="color: #AE81FF">3</span><span style="color: #F8F8F2">])),</span>
+            <span style="color: #E6DB74">"nhan 3 ngoai [0, 2]"</span><span style="color: #F8F8F2">),</span>
+        <span style="color: #F8F8F2">_expect_value_error(</span>
+            <span style="color: #66D9EF">lambda</span><span style="color: #F8F8F2">:</span> <span style="color: #F8F8F2">distill_loss(good,</span> <span style="color: #F8F8F2">good,</span>
+                                 <span style="color: #F8F8F2">y_true[:</span><span style="color: #AE81FF">4</span><span style="color: #F8F8F2">]</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">float()),</span>
+            <span style="color: #E6DB74">"y_true dtype float"</span><span style="color: #F8F8F2">),</span>
+        <span style="color: #F8F8F2">_expect_value_error(</span>
+            <span style="color: #66D9EF">lambda</span><span style="color: #F8F8F2">:</span> <span style="color: #F8F8F2">distill_loss(</span>
+                <span style="color: #F8F8F2">torch</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">tensor([[</span><span style="color: #A6E22E">float</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">"nan"</span><span style="color: #F8F8F2">),</span> <span style="color: #AE81FF">0.0</span><span style="color: #F8F8F2">,</span> <span style="color: #AE81FF">0.0</span><span style="color: #F8F8F2">]]),</span>
+                <span style="color: #F8F8F2">torch</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">zeros(</span><span style="color: #AE81FF">1</span><span style="color: #F8F8F2">,</span> <span style="color: #AE81FF">3</span><span style="color: #F8F8F2">),</span> <span style="color: #F8F8F2">torch</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">tensor([</span><span style="color: #AE81FF">0</span><span style="color: #F8F8F2">])),</span>
+            <span style="color: #E6DB74">"logits chua NaN"</span><span style="color: #F8F8F2">),</span>
+        <span style="color: #F8F8F2">_expect_value_error(</span>
+            <span style="color: #66D9EF">lambda</span><span style="color: #F8F8F2">:</span> <span style="color: #F8F8F2">distill_loss(good,</span> <span style="color: #F8F8F2">good,</span> <span style="color: #F8F8F2">y_true[:</span><span style="color: #AE81FF">4</span><span style="color: #F8F8F2">],</span>
+                                 <span style="color: #F8F8F2">T</span><span style="color: #FF4689">=</span><span style="color: #E6DB74">"4"</span><span style="color: #F8F8F2">),</span>
+            <span style="color: #E6DB74">"T la chuoi, khong phai so"</span><span style="color: #F8F8F2">),</span>
+    <span style="color: #F8F8F2">]</span>
+    <span style="color: #66D9EF">assert</span> <span style="color: #A6E22E">all</span><span style="color: #F8F8F2">(guard_results),</span> \
+        <span style="color: #E6DB74">"Co guard khong chan dung truong hop sai!"</span>
+    <span style="color: #A6E22E">print</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">"  Tat ca guard deu chan dung (da assert)."</span><span style="color: #F8F8F2">)</span>
+
+
+<span style="color: #66D9EF">def</span><span style="color: #F8F8F2"> </span><span style="color: #A6E22E">train_student</span><span style="color: #F8F8F2">(mode,</span> <span style="color: #F8F8F2">teacher,</span> <span style="color: #F8F8F2">x_train,</span> <span style="color: #F8F8F2">y_train,</span> <span style="color: #F8F8F2">x_test,</span>
+                  <span style="color: #F8F8F2">y_test,</span> <span style="color: #F8F8F2">T</span><span style="color: #FF4689">=</span><span style="color: #AE81FF">4.0</span><span style="color: #F8F8F2">,</span> <span style="color: #F8F8F2">alpha</span><span style="color: #FF4689">=</span><span style="color: #AE81FF">0.3</span><span style="color: #F8F8F2">,</span>
+                  <span style="color: #F8F8F2">epochs</span><span style="color: #FF4689">=</span><span style="color: #F8F8F2">STUDENT_EPOCHS,</span> <span style="color: #F8F8F2">seed</span><span style="color: #FF4689">=</span><span style="color: #F8F8F2">DATA_SEED):</span>
+<span style="color: #F8F8F2">    </span><span style="color: #E6DB74">"""Train 1 student theo dung 1 cau hinh, tra ve ket qua.</span>
+
+<span style="color: #E6DB74">    Dat lai seed truoc khi tao student nen moi cau hinh</span>
+<span style="color: #E6DB74">    khoi tao giong het nhau. Teacher logits tinh 1 lan</span>
+<span style="color: #E6DB74">    trong no_grad truoc vong lap, dung chung cho moi</span>
+<span style="color: #E6DB74">    epoch - vua nhanh, vua dam bao teacher khong doi.</span>
+
+<span style="color: #E6DB74">    Args:</span>
+<span style="color: #E6DB74">        mode: "hard" (chi CE) hoac "distill" (ham Bai 2).</span>
+<span style="color: #E6DB74">        teacher: model teacher da train, o che do eval.</span>
+<span style="color: #E6DB74">        x_train/y_train: tap train day du (900 mau);</span>
+<span style="color: #E6DB74">            ham tu lay 300 mau dau lam tap cua student.</span>
+<span style="color: #E6DB74">        x_test/y_test: tap test de danh gia.</span>
+<span style="color: #E6DB74">        T/alpha: chi co y nghia khi mode="distill".</span>
+<span style="color: #E6DB74">        epochs: so epoch, mac dinh 100 theo de bai.</span>
+<span style="color: #E6DB74">        seed: seed khoi tao student.</span>
+
+<span style="color: #E6DB74">    Returns:</span>
+<span style="color: #E6DB74">        (student, acc, agree): student da train, chinh</span>
+<span style="color: #E6DB74">        xac tren test, ti le dong y voi teacher tren test.</span>
+<span style="color: #E6DB74">    """</span>
+    <span style="color: #F8F8F2">torch</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">manual_seed(seed)</span>
+    <span style="color: #F8F8F2">student</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">MLP(</span><span style="color: #AE81FF">32</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #F8F8F2">opt</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">torch</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">optim</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">Adam(student</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">parameters(),</span> <span style="color: #F8F8F2">lr</span><span style="color: #FF4689">=</span><span style="color: #AE81FF">0.01</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #F8F8F2">xs,</span> <span style="color: #F8F8F2">ys</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">x_train[:N_STUDENT],</span> <span style="color: #F8F8F2">y_train[:N_STUDENT]</span>
+    <span style="color: #66D9EF">with</span> <span style="color: #F8F8F2">torch</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">no_grad():</span>
+        <span style="color: #F8F8F2">teacher_logits</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">teacher(xs)</span>
+    <span style="color: #66D9EF">for</span> <span style="color: #F8F8F2">_</span> <span style="color: #FF4689">in</span> <span style="color: #A6E22E">range</span><span style="color: #F8F8F2">(epochs):</span>
+        <span style="color: #F8F8F2">opt</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">zero_grad()</span>
+        <span style="color: #F8F8F2">s_logits</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">student(xs)</span>
+        <span style="color: #66D9EF">if</span> <span style="color: #F8F8F2">mode</span> <span style="color: #FF4689">==</span> <span style="color: #E6DB74">"hard"</span><span style="color: #F8F8F2">:</span>
+            <span style="color: #F8F8F2">loss</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">F</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">cross_entropy(s_logits,</span> <span style="color: #F8F8F2">ys)</span>
+        <span style="color: #66D9EF">elif</span> <span style="color: #F8F8F2">mode</span> <span style="color: #FF4689">==</span> <span style="color: #E6DB74">"distill"</span><span style="color: #F8F8F2">:</span>
+            <span style="color: #F8F8F2">loss</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">distill_loss(s_logits,</span> <span style="color: #F8F8F2">teacher_logits,</span> <span style="color: #F8F8F2">ys,</span>
+                                <span style="color: #F8F8F2">T</span><span style="color: #FF4689">=</span><span style="color: #F8F8F2">T,</span> <span style="color: #F8F8F2">alpha</span><span style="color: #FF4689">=</span><span style="color: #F8F8F2">alpha)</span>
+        <span style="color: #66D9EF">else</span><span style="color: #F8F8F2">:</span>
+            <span style="color: #66D9EF">raise</span> <span style="color: #A6E22E">ValueError</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">"mode phai la 'hard' hoac "</span>
+                             <span style="color: #E6DB74">"'distill'."</span><span style="color: #F8F8F2">)</span>
+        <span style="color: #F8F8F2">loss</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">backward()</span>
+        <span style="color: #F8F8F2">opt</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">step()</span>
+    <span style="color: #F8F8F2">student</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">eval()</span>
+    <span style="color: #66D9EF">with</span> <span style="color: #F8F8F2">torch</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">no_grad():</span>
+        <span style="color: #F8F8F2">pred</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">student(x_test)</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">argmax(</span><span style="color: #AE81FF">1</span><span style="color: #F8F8F2">)</span>
+        <span style="color: #F8F8F2">teacher_pred</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">teacher(x_test)</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">argmax(</span><span style="color: #AE81FF">1</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #F8F8F2">acc</span> <span style="color: #FF4689">=</span> <span style="color: #A6E22E">float</span><span style="color: #F8F8F2">((pred</span> <span style="color: #FF4689">==</span> <span style="color: #F8F8F2">y_test)</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">float()</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">mean())</span>
+    <span style="color: #F8F8F2">agree</span> <span style="color: #FF4689">=</span> <span style="color: #A6E22E">float</span><span style="color: #F8F8F2">((pred</span> <span style="color: #FF4689">==</span> <span style="color: #F8F8F2">teacher_pred)</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">float()</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">mean())</span>
+    <span style="color: #66D9EF">return</span> <span style="color: #F8F8F2">student,</span> <span style="color: #F8F8F2">acc,</span> <span style="color: #F8F8F2">agree</span>
+
+
+<span style="color: #66D9EF">def</span><span style="color: #F8F8F2"> </span><span style="color: #A6E22E">per_class_accuracy</span><span style="color: #F8F8F2">(model,</span> <span style="color: #F8F8F2">x_test,</span> <span style="color: #F8F8F2">y_test):</span>
+<span style="color: #F8F8F2">    </span><span style="color: #E6DB74">"""Chinh xac tung lop, de thay lop nao la chien truong.</span>
+
+<span style="color: #E6DB74">    Lop 2 xa nen de dat gan 1.0; lop 0/1 chong lap nhau</span>
+<span style="color: #E6DB74">    nen moi la noi distillation co the doi duoc gi.</span>
+
+<span style="color: #E6DB74">    Returns:</span>
+<span style="color: #E6DB74">        List 3 float: chinh xac lop 0, 1, 2; NaN cho</span>
+<span style="color: #E6DB74">        lop vang mat trong test (khong co mau).</span>
+<span style="color: #E6DB74">    """</span>
+    <span style="color: #F8F8F2">model</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">eval()</span>
+    <span style="color: #66D9EF">with</span> <span style="color: #F8F8F2">torch</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">no_grad():</span>
+        <span style="color: #F8F8F2">pred</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">model(x_test)</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">argmax(</span><span style="color: #AE81FF">1</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #F8F8F2">result</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">[]</span>
+    <span style="color: #66D9EF">for</span> <span style="color: #F8F8F2">c</span> <span style="color: #FF4689">in</span> <span style="color: #A6E22E">range</span><span style="color: #F8F8F2">(</span><span style="color: #AE81FF">3</span><span style="color: #F8F8F2">):</span>
+        <span style="color: #F8F8F2">mask</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">y_test</span> <span style="color: #FF4689">==</span> <span style="color: #F8F8F2">c</span>
+        <span style="color: #959077"># [TRAINER] Lop vang mat trong test: truoc day</span>
+        <span style="color: #959077"># mean() cua tap rong tu sinh NaN lang le, doc</span>
+        <span style="color: #959077"># bang ket qua khong biet la "khong co mau" hay</span>
+        <span style="color: #959077"># "do chua". Nay tra NaN CO CHU DICH kem dieu</span>
+        <span style="color: #959077"># kien ro rang; muon biet lop nao thieu thi dem</span>
+        <span style="color: #959077"># int(mask.sum()).</span>
+        <span style="color: #66D9EF">if</span> <span style="color: #A6E22E">int</span><span style="color: #F8F8F2">(mask</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">sum())</span> <span style="color: #FF4689">==</span> <span style="color: #AE81FF">0</span><span style="color: #F8F8F2">:</span>
+            <span style="color: #F8F8F2">result</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">append(</span><span style="color: #A6E22E">float</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">"nan"</span><span style="color: #F8F8F2">))</span>
+            <span style="color: #66D9EF">continue</span>
+        <span style="color: #F8F8F2">result</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">append(</span><span style="color: #A6E22E">float</span><span style="color: #F8F8F2">((pred[mask]</span> <span style="color: #FF4689">==</span> <span style="color: #F8F8F2">y_test[mask])</span><span style="color: #FF4689">.</span>
+                            <span style="color: #A6E22E">float</span><span style="color: #F8F8F2">()</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">mean()))</span>
+    <span style="color: #66D9EF">return</span> <span style="color: #F8F8F2">result</span>
+
+
+<span style="color: #66D9EF">def</span><span style="color: #F8F8F2"> </span><span style="color: #A6E22E">copy_wrong_rate</span><span style="color: #F8F8F2">(student,</span> <span style="color: #F8F8F2">teacher,</span> <span style="color: #F8F8F2">x_test,</span> <span style="color: #F8F8F2">y_test):</span>
+<span style="color: #F8F8F2">    </span><span style="color: #E6DB74">"""Ti le student sao chep dung cho teacher SAI.</span>
+
+<span style="color: #E6DB74">    Chi tinh tren cac mau test ma teacher du doan sai.</span>
+<span style="color: #E6DB74">    Ti le cao nghia la student dang sao chep</span>
+<span style="color: #E6DB74">    ca loi cua teacher, dung nhu canh bao buoi sang.</span>
+
+<span style="color: #E6DB74">    Returns:</span>
+<span style="color: #E6DB74">        (ti_le, so_mau_teacher_sai); ti_le la NaN khi</span>
+<span style="color: #E6DB74">        teacher dung het (0 mau sai, khong dinh nghia).</span>
+<span style="color: #E6DB74">    """</span>
+    <span style="color: #F8F8F2">student</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">eval()</span>
+    <span style="color: #F8F8F2">teacher</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">eval()</span>
+    <span style="color: #66D9EF">with</span> <span style="color: #F8F8F2">torch</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">no_grad():</span>
+        <span style="color: #F8F8F2">s_pred</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">student(x_test)</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">argmax(</span><span style="color: #AE81FF">1</span><span style="color: #F8F8F2">)</span>
+        <span style="color: #F8F8F2">t_pred</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">teacher(x_test)</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">argmax(</span><span style="color: #AE81FF">1</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #F8F8F2">wrong</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">t_pred</span> <span style="color: #FF4689">!=</span> <span style="color: #F8F8F2">y_test</span>
+    <span style="color: #959077"># [TRAINER] Teacher dung het (0 mau sai): ti le sao</span>
+    <span style="color: #959077"># chep KHONG dinh nghia. Truoc day mean() cua tap</span>
+    <span style="color: #959077"># rong tra NaN lang le; nay tra (NaN, 0) ro rang de</span>
+    <span style="color: #959077"># noi goi ham tu nhan biet n=0 ma dien giai.</span>
+    <span style="color: #66D9EF">if</span> <span style="color: #A6E22E">int</span><span style="color: #F8F8F2">(wrong</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">sum())</span> <span style="color: #FF4689">==</span> <span style="color: #AE81FF">0</span><span style="color: #F8F8F2">:</span>
+        <span style="color: #66D9EF">return</span> <span style="color: #A6E22E">float</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">"nan"</span><span style="color: #F8F8F2">),</span> <span style="color: #AE81FF">0</span>
+    <span style="color: #F8F8F2">rate</span> <span style="color: #FF4689">=</span> <span style="color: #A6E22E">float</span><span style="color: #F8F8F2">((s_pred[wrong]</span> <span style="color: #FF4689">==</span> <span style="color: #F8F8F2">t_pred[wrong])</span><span style="color: #FF4689">.</span>
+                 <span style="color: #A6E22E">float</span><span style="color: #F8F8F2">()</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">mean())</span>
+    <span style="color: #66D9EF">return</span> <span style="color: #F8F8F2">rate,</span> <span style="color: #A6E22E">int</span><span style="color: #F8F8F2">(wrong</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">sum())</span>
+
+
+<span style="color: #66D9EF">def</span><span style="color: #F8F8F2"> </span><span style="color: #A6E22E">bench</span><span style="color: #F8F8F2">(model,</span> <span style="color: #F8F8F2">x,</span> <span style="color: #F8F8F2">warmup</span><span style="color: #FF4689">=</span><span style="color: #AE81FF">50</span><span style="color: #F8F8F2">,</span> <span style="color: #F8F8F2">repeats</span><span style="color: #FF4689">=</span><span style="color: #AE81FF">1000</span><span style="color: #F8F8F2">):</span>
+<span style="color: #F8F8F2">    </span><span style="color: #E6DB74">"""Do toc do suy luan: trung vi ms / 1 lan chay.</span>
+
+<span style="color: #E6DB74">    Dung time.perf_counter() (dong ho don dieu, phan giai</span>
+<span style="color: #E6DB74">    cao) va lay TRUNG VI sau warmup, khong lay trung</span>
+<span style="color: #E6DB74">    binh: trung binh 200 lan o Day 22 bi nhieu keo lech</span>
+<span style="color: #E6DB74">    toi 0.378 ms. Khong co resource can dong trong</span>
+<span style="color: #E6DB74">    finally o day (khong mo file, khong tracker).</span>
+
+<span style="color: #E6DB74">    Args:</span>
+<span style="color: #E6DB74">        model: model can do, se chuyen ve eval.</span>
+<span style="color: #E6DB74">        x: batch dau vao, o day la toan bo 300 mau test.</span>
+<span style="color: #E6DB74">        warmup: so lan chay khoi dong bo qua.</span>
+<span style="color: #E6DB74">        repeats: so lan chay lay trung vi.</span>
+
+<span style="color: #E6DB74">    Returns:</span>
+<span style="color: #E6DB74">        Trung vi thoi gian, don vi mili-giay / lan.</span>
+<span style="color: #E6DB74">    """</span>
+    <span style="color: #F8F8F2">model</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">eval()</span>
+    <span style="color: #F8F8F2">times</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">[]</span>
+    <span style="color: #66D9EF">with</span> <span style="color: #F8F8F2">torch</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">no_grad():</span>
+        <span style="color: #66D9EF">for</span> <span style="color: #F8F8F2">_</span> <span style="color: #FF4689">in</span> <span style="color: #A6E22E">range</span><span style="color: #F8F8F2">(warmup):</span>
+            <span style="color: #F8F8F2">_</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">model(x)</span>
+        <span style="color: #66D9EF">for</span> <span style="color: #F8F8F2">_</span> <span style="color: #FF4689">in</span> <span style="color: #A6E22E">range</span><span style="color: #F8F8F2">(repeats):</span>
+            <span style="color: #F8F8F2">start</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">time</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">perf_counter()</span>
+            <span style="color: #F8F8F2">_</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">model(x)</span>
+            <span style="color: #F8F8F2">times</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">append(time</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">perf_counter()</span> <span style="color: #FF4689">-</span> <span style="color: #F8F8F2">start)</span>
+    <span style="color: #66D9EF">return</span> <span style="color: #F8F8F2">statistics</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">median(times)</span> <span style="color: #FF4689">*</span> <span style="color: #AE81FF">1000.0</span>
+
+
+<span style="color: #66D9EF">def</span><span style="color: #F8F8F2"> </span><span style="color: #A6E22E">bai3</span><span style="color: #F8F8F2">(teacher,</span> <span style="color: #F8F8F2">x_train,</span> <span style="color: #F8F8F2">y_train,</span> <span style="color: #F8F8F2">x_test,</span> <span style="color: #F8F8F2">y_test):</span>
+<span style="color: #F8F8F2">    </span><span style="color: #E6DB74">"""Bai 3: thi nghiem co kiem soat A/B/C + Green LLM.</span>
+
+<span style="color: #E6DB74">    Diff loi goi (checklist 10): A vs B chi khac mode</span>
+<span style="color: #E6DB74">    (hard -&gt; distill), moi doi so khac giong het; B vs C</span>
+<span style="color: #E6DB74">    chi khac T (4.0 -&gt; 2.0), alpha/seed/epoch giong het.</span>
+<span style="color: #E6DB74">    """</span>
+    <span style="color: #A6E22E">print</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">"</span><span style="color: #AE81FF">\n</span><span style="color: #E6DB74">"</span> <span style="color: #FF4689">+</span> <span style="color: #E6DB74">"="</span> <span style="color: #FF4689">*</span> <span style="color: #AE81FF">72</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #A6E22E">print</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">"BAI 3 - Hard-label vs distillation (co kiem soat)"</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #A6E22E">print</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">"="</span> <span style="color: #FF4689">*</span> <span style="color: #AE81FF">72</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #A6E22E">print</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">"Thu duy nhat thay doi la cach tinh loss "</span>
+          <span style="color: #E6DB74">"(hard-label hay distillation); du lieu, kien "</span>
+          <span style="color: #E6DB74">"truc student, seed va so epoch giu nguyen."</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #F8F8F2">configs</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">[</span>
+        <span style="color: #F8F8F2">(</span><span style="color: #E6DB74">"A hard-only"</span><span style="color: #F8F8F2">,</span> <span style="color: #F8F8F2">{</span><span style="color: #E6DB74">"mode"</span><span style="color: #F8F8F2">:</span> <span style="color: #E6DB74">"hard"</span><span style="color: #F8F8F2">}),</span>
+        <span style="color: #F8F8F2">(</span><span style="color: #E6DB74">"B distill T=4 a=0.3"</span><span style="color: #F8F8F2">,</span> <span style="color: #F8F8F2">{</span><span style="color: #E6DB74">"mode"</span><span style="color: #F8F8F2">:</span> <span style="color: #E6DB74">"distill"</span><span style="color: #F8F8F2">}),</span>
+        <span style="color: #F8F8F2">(</span><span style="color: #E6DB74">"C distill T=2 a=0.3"</span><span style="color: #F8F8F2">,</span>
+         <span style="color: #F8F8F2">{</span><span style="color: #E6DB74">"mode"</span><span style="color: #F8F8F2">:</span> <span style="color: #E6DB74">"distill"</span><span style="color: #F8F8F2">,</span> <span style="color: #E6DB74">"T"</span><span style="color: #F8F8F2">:</span> <span style="color: #AE81FF">2.0</span><span style="color: #F8F8F2">}),</span>
+    <span style="color: #F8F8F2">]</span>
+    <span style="color: #F8F8F2">results</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">{}</span>
+    <span style="color: #F8F8F2">details</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">{}</span>
+    <span style="color: #66D9EF">for</span> <span style="color: #F8F8F2">name,</span> <span style="color: #F8F8F2">kwargs</span> <span style="color: #FF4689">in</span> <span style="color: #F8F8F2">configs:</span>
+        <span style="color: #F8F8F2">student,</span> <span style="color: #F8F8F2">acc,</span> <span style="color: #F8F8F2">agree</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">train_student(</span>
+            <span style="color: #F8F8F2">teacher</span><span style="color: #FF4689">=</span><span style="color: #F8F8F2">teacher,</span> <span style="color: #F8F8F2">x_train</span><span style="color: #FF4689">=</span><span style="color: #F8F8F2">x_train,</span> <span style="color: #F8F8F2">y_train</span><span style="color: #FF4689">=</span><span style="color: #F8F8F2">y_train,</span>
+            <span style="color: #F8F8F2">x_test</span><span style="color: #FF4689">=</span><span style="color: #F8F8F2">x_test,</span> <span style="color: #F8F8F2">y_test</span><span style="color: #FF4689">=</span><span style="color: #F8F8F2">y_test,</span> <span style="color: #FF4689">**</span><span style="color: #F8F8F2">kwargs)</span>
+        <span style="color: #F8F8F2">results[name]</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">(student,</span> <span style="color: #F8F8F2">acc,</span> <span style="color: #F8F8F2">agree)</span>
+        <span style="color: #F8F8F2">per_class</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">per_class_accuracy(student,</span> <span style="color: #F8F8F2">x_test,</span> <span style="color: #F8F8F2">y_test)</span>
+        <span style="color: #F8F8F2">copy_rate,</span> <span style="color: #F8F8F2">n_wrong</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">copy_wrong_rate(</span>
+            <span style="color: #F8F8F2">student,</span> <span style="color: #F8F8F2">teacher,</span> <span style="color: #F8F8F2">x_test,</span> <span style="color: #F8F8F2">y_test)</span>
+        <span style="color: #F8F8F2">details[name]</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">(per_class,</span> <span style="color: #F8F8F2">copy_rate)</span>
+        <span style="color: #A6E22E">print</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">f"{</span><span style="color: #F8F8F2">name</span><span style="color: #E6DB74">}: test acc={</span><span style="color: #F8F8F2">acc</span><span style="color: #E6DB74">:.3f} | dong y voi "</span>
+              <span style="color: #E6DB74">f"teacher={</span><span style="color: #F8F8F2">agree</span><span style="color: #E6DB74">:.3f} | tung lop="</span>
+              <span style="color: #E6DB74">f"{</span><span style="color: #F8F8F2">[</span><span style="color: #A6E22E">round</span><span style="color: #F8F8F2">(v, </span><span style="color: #AE81FF">3</span><span style="color: #F8F8F2">) </span><span style="color: #66D9EF">for</span><span style="color: #F8F8F2"> v </span><span style="color: #FF4689">in</span><span style="color: #F8F8F2"> per_class]</span><span style="color: #E6DB74">} | sao "</span>
+              <span style="color: #E6DB74">f"chep cho teacher sai={</span><span style="color: #F8F8F2">copy_rate</span><span style="color: #E6DB74">:.3f} "</span>
+              <span style="color: #E6DB74">f"({</span><span style="color: #F8F8F2">n_wrong</span><span style="color: #E6DB74">} mau)"</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #959077"># Kiem tra them: lap lai A/B/C o seed 1..4. Day KHONG</span>
+    <span style="color: #959077"># phai bang chinh (bang chinh dung seed 0 theo de</span>
+    <span style="color: #959077"># bai); no chi cho biet chenh lech o seed 0 co on</span>
+    <span style="color: #959077"># dinh khong, vi test chi co 300 mau (1% = 3 mau).</span>
+    <span style="color: #959077"># Trung binh 5 seed (seed 0 + seed 1..4) duoc tinh</span>
+    <span style="color: #959077"># that tu cac lan chay nay, khong ghi tay.</span>
+    <span style="color: #A6E22E">print</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">"</span><span style="color: #AE81FF">\n</span><span style="color: #E6DB74">Kiem tra them - seed 1..4 (trung binh):"</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #F8F8F2">mean5</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">{}</span>
+    <span style="color: #66D9EF">for</span> <span style="color: #F8F8F2">name,</span> <span style="color: #F8F8F2">kwargs</span> <span style="color: #FF4689">in</span> <span style="color: #F8F8F2">configs:</span>
+        <span style="color: #F8F8F2">accs</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">[results[name][</span><span style="color: #AE81FF">1</span><span style="color: #F8F8F2">]]</span>
+        <span style="color: #66D9EF">for</span> <span style="color: #F8F8F2">seed</span> <span style="color: #FF4689">in</span> <span style="color: #F8F8F2">[</span><span style="color: #AE81FF">1</span><span style="color: #F8F8F2">,</span> <span style="color: #AE81FF">2</span><span style="color: #F8F8F2">,</span> <span style="color: #AE81FF">3</span><span style="color: #F8F8F2">,</span> <span style="color: #AE81FF">4</span><span style="color: #F8F8F2">]:</span>
+            <span style="color: #F8F8F2">_,</span> <span style="color: #F8F8F2">acc,</span> <span style="color: #F8F8F2">_</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">train_student(</span>
+                <span style="color: #F8F8F2">teacher</span><span style="color: #FF4689">=</span><span style="color: #F8F8F2">teacher,</span> <span style="color: #F8F8F2">x_train</span><span style="color: #FF4689">=</span><span style="color: #F8F8F2">x_train,</span>
+                <span style="color: #F8F8F2">y_train</span><span style="color: #FF4689">=</span><span style="color: #F8F8F2">y_train,</span> <span style="color: #F8F8F2">x_test</span><span style="color: #FF4689">=</span><span style="color: #F8F8F2">x_test,</span> <span style="color: #F8F8F2">y_test</span><span style="color: #FF4689">=</span><span style="color: #F8F8F2">y_test,</span>
+                <span style="color: #F8F8F2">seed</span><span style="color: #FF4689">=</span><span style="color: #F8F8F2">seed,</span> <span style="color: #FF4689">**</span><span style="color: #F8F8F2">kwargs)</span>
+            <span style="color: #F8F8F2">accs</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">append(acc)</span>
+        <span style="color: #F8F8F2">mean5[name]</span> <span style="color: #FF4689">=</span> <span style="color: #A6E22E">sum</span><span style="color: #F8F8F2">(accs)</span> <span style="color: #FF4689">/</span> <span style="color: #A6E22E">len</span><span style="color: #F8F8F2">(accs)</span>
+        <span style="color: #A6E22E">print</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">f"  {</span><span style="color: #F8F8F2">name</span><span style="color: #E6DB74">}: {</span><span style="color: #F8F8F2">[</span><span style="color: #A6E22E">round</span><span style="color: #F8F8F2">(v, </span><span style="color: #AE81FF">3</span><span style="color: #F8F8F2">) </span><span style="color: #66D9EF">for</span><span style="color: #F8F8F2"> v </span><span style="color: #FF4689">in</span><span style="color: #F8F8F2"> accs[</span><span style="color: #AE81FF">1</span><span style="color: #F8F8F2">:]]</span><span style="color: #E6DB74">} "</span>
+              <span style="color: #E6DB74">f"| trung binh 5 seed={</span><span style="color: #F8F8F2">mean5[name]</span><span style="color: #E6DB74">:.3f}"</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #959077"># Green LLM: cung ham dem params, cung ham bench.</span>
+    <span style="color: #F8F8F2">teacher_params</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">count_params(teacher)</span>
+    <span style="color: #F8F8F2">student_b</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">results[</span><span style="color: #E6DB74">"B distill T=4 a=0.3"</span><span style="color: #F8F8F2">][</span><span style="color: #AE81FF">0</span><span style="color: #F8F8F2">]</span>
+    <span style="color: #F8F8F2">student_params</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">count_params(student_b)</span>
+    <span style="color: #F8F8F2">teacher_ms</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">bench(teacher,</span> <span style="color: #F8F8F2">x_test)</span>
+    <span style="color: #F8F8F2">student_ms</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">bench(student_b,</span> <span style="color: #F8F8F2">x_test)</span>
+    <span style="color: #A6E22E">print</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">f"</span><span style="color: #AE81FF">\n</span><span style="color: #E6DB74">Teacher: {</span><span style="color: #F8F8F2">teacher_params</span><span style="color: #E6DB74">} params, "</span>
+          <span style="color: #E6DB74">f"{</span><span style="color: #F8F8F2">teacher_ms</span><span style="color: #E6DB74">:.3f} ms/lan (trung vi, 300 mau)."</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #A6E22E">print</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">f"Student B: {</span><span style="color: #F8F8F2">student_params</span><span style="color: #E6DB74">} params, "</span>
+          <span style="color: #E6DB74">f"{</span><span style="color: #F8F8F2">student_ms</span><span style="color: #E6DB74">:.3f} ms/lan (trung vi, 300 mau)."</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #A6E22E">print</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">f"Ti le params student/teacher = "</span>
+          <span style="color: #E6DB74">f"{</span><span style="color: #F8F8F2">student_params </span><span style="color: #FF4689">/</span><span style="color: #F8F8F2"> teacher_params</span><span style="color: #E6DB74">:.3f} "</span>
+          <span style="color: #E6DB74">f"(giam {</span><span style="color: #AE81FF">100</span><span style="color: #F8F8F2"> </span><span style="color: #FF4689">*</span><span style="color: #F8F8F2"> (</span><span style="color: #AE81FF">1</span><span style="color: #F8F8F2"> </span><span style="color: #FF4689">-</span><span style="color: #F8F8F2"> student_params </span><span style="color: #FF4689">/</span><span style="color: #F8F8F2"> teacher_params)</span><span style="color: #E6DB74">:.1f}%)."</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #A6E22E">print</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">f"Toc do nhanh hon = {</span><span style="color: #F8F8F2">teacher_ms </span><span style="color: #FF4689">/</span><span style="color: #F8F8F2"> student_ms</span><span style="color: #E6DB74">:.2f}x."</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #F8F8F2">teacher_acc</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">accuracy(teacher,</span> <span style="color: #F8F8F2">x_test,</span> <span style="color: #F8F8F2">y_test)</span>
+    <span style="color: #A6E22E">print</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">f"</span><span style="color: #AE81FF">\n</span><span style="color: #E6DB74">BANG KET QUA: teacher acc={</span><span style="color: #F8F8F2">teacher_acc</span><span style="color: #E6DB74">:.3f} | "</span>
+          <span style="color: #E6DB74">f"A={</span><span style="color: #F8F8F2">results[</span><span style="color: #E6DB74">'A hard-only'</span><span style="color: #F8F8F2">][</span><span style="color: #AE81FF">1</span><span style="color: #F8F8F2">]</span><span style="color: #E6DB74">:.3f} | "</span>
+          <span style="color: #E6DB74">f"B={</span><span style="color: #F8F8F2">results[</span><span style="color: #E6DB74">'B distill T=4 a=0.3'</span><span style="color: #F8F8F2">][</span><span style="color: #AE81FF">1</span><span style="color: #F8F8F2">]</span><span style="color: #E6DB74">:.3f} | "</span>
+          <span style="color: #E6DB74">f"C={</span><span style="color: #F8F8F2">results[</span><span style="color: #E6DB74">'C distill T=2 a=0.3'</span><span style="color: #F8F8F2">][</span><span style="color: #AE81FF">1</span><span style="color: #F8F8F2">]</span><span style="color: #E6DB74">:.3f} | "</span>
+          <span style="color: #E6DB74">f"params {</span><span style="color: #F8F8F2">student_params</span><span style="color: #E6DB74">}/{</span><span style="color: #F8F8F2">teacher_params</span><span style="color: #E6DB74">} | "</span>
+          <span style="color: #E6DB74">f"toc do {</span><span style="color: #F8F8F2">teacher_ms </span><span style="color: #FF4689">/</span><span style="color: #F8F8F2"> student_ms</span><span style="color: #E6DB74">:.2f}x."</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #959077"># Ket luan viet bang so vua do, khong ghi tay: chenh</span>
+    <span style="color: #959077"># lech trung binh 5 seed, cai thien lop 0 / giam lop</span>
+    <span style="color: #959077"># 1, ti le sao chep loi, ti le params, toc do.</span>
+    <span style="color: #F8F8F2">diff_mean</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">mean5[</span><span style="color: #E6DB74">"B distill T=4 a=0.3"</span><span style="color: #F8F8F2">]</span> <span style="color: #FF4689">-</span> <span style="color: #F8F8F2">mean5[</span><span style="color: #E6DB74">"A hard-only"</span><span style="color: #F8F8F2">]</span>
+    <span style="color: #F8F8F2">gain0</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">(details[</span><span style="color: #E6DB74">"B distill T=4 a=0.3"</span><span style="color: #F8F8F2">][</span><span style="color: #AE81FF">0</span><span style="color: #F8F8F2">][</span><span style="color: #AE81FF">0</span><span style="color: #F8F8F2">]</span> <span style="color: #FF4689">-</span>
+             <span style="color: #F8F8F2">details[</span><span style="color: #E6DB74">"A hard-only"</span><span style="color: #F8F8F2">][</span><span style="color: #AE81FF">0</span><span style="color: #F8F8F2">][</span><span style="color: #AE81FF">0</span><span style="color: #F8F8F2">])</span>
+    <span style="color: #F8F8F2">drop1</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">(details[</span><span style="color: #E6DB74">"A hard-only"</span><span style="color: #F8F8F2">][</span><span style="color: #AE81FF">0</span><span style="color: #F8F8F2">][</span><span style="color: #AE81FF">1</span><span style="color: #F8F8F2">]</span> <span style="color: #FF4689">-</span>
+             <span style="color: #F8F8F2">details[</span><span style="color: #E6DB74">"B distill T=4 a=0.3"</span><span style="color: #F8F8F2">][</span><span style="color: #AE81FF">0</span><span style="color: #F8F8F2">][</span><span style="color: #AE81FF">1</span><span style="color: #F8F8F2">])</span>
+    <span style="color: #F8F8F2">copy_diff</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">(details[</span><span style="color: #E6DB74">"B distill T=4 a=0.3"</span><span style="color: #F8F8F2">][</span><span style="color: #AE81FF">1</span><span style="color: #F8F8F2">]</span> <span style="color: #FF4689">-</span>
+                 <span style="color: #F8F8F2">details[</span><span style="color: #E6DB74">"A hard-only"</span><span style="color: #F8F8F2">][</span><span style="color: #AE81FF">1</span><span style="color: #F8F8F2">])</span>
+    <span style="color: #F8F8F2">speedup</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">teacher_ms</span> <span style="color: #FF4689">/</span> <span style="color: #F8F8F2">student_ms</span>
+    <span style="color: #F8F8F2">param_ratio</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">teacher_params</span> <span style="color: #FF4689">/</span> <span style="color: #F8F8F2">student_params</span>
+    <span style="color: #A6E22E">print</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">f"Ket luan: distillation giup it nhung on dinh - "</span>
+          <span style="color: #E6DB74">f"B hon A trung binh {</span><span style="color: #F8F8F2">diff_mean</span><span style="color: #E6DB74">:.3f} qua 5 seed "</span>
+          <span style="color: #E6DB74">f"(~{</span><span style="color: #F8F8F2">diff_mean </span><span style="color: #FF4689">*</span><span style="color: #F8F8F2"> </span><span style="color: #AE81FF">300</span><span style="color: #E6DB74">:.0f} mau test), chu yeu nho "</span>
+          <span style="color: #E6DB74">f"cai thien lop 0 (+{</span><span style="color: #F8F8F2">gain0</span><span style="color: #E6DB74">:.3f}), doi lai lop 1 "</span>
+          <span style="color: #E6DB74">f"giam {</span><span style="color: #F8F8F2">drop1</span><span style="color: #E6DB74">:.3f} va sao chep loi teacher nhieu "</span>
+          <span style="color: #E6DB74">f"hon {</span><span style="color: #F8F8F2">copy_diff</span><span style="color: #E6DB74">:.3f}. Voi workload nay, doi "</span>
+          <span style="color: #E6DB74">f"{</span><span style="color: #F8F8F2">diff_mean</span><span style="color: #E6DB74">:.3f} accuracy lay "</span>
+          <span style="color: #E6DB74">f"{</span><span style="color: #AE81FF">100</span><span style="color: #F8F8F2"> </span><span style="color: #FF4689">*</span><span style="color: #F8F8F2"> (</span><span style="color: #AE81FF">1</span><span style="color: #F8F8F2"> </span><span style="color: #FF4689">-</span><span style="color: #F8F8F2"> student_params </span><span style="color: #FF4689">/</span><span style="color: #F8F8F2"> teacher_params)</span><span style="color: #E6DB74">:.1f}% "</span>
+          <span style="color: #E6DB74">f"it params va {</span><span style="color: #F8F8F2">speedup</span><span style="color: #E6DB74">:.2f}x toc do la dang, vi "</span>
+          <span style="color: #E6DB74">f"student da vuot ca teacher; nhung {</span><span style="color: #F8F8F2">speedup</span><span style="color: #E6DB74">:.2f}x "</span>
+          <span style="color: #E6DB74">f"chu khong phai {</span><span style="color: #F8F8F2">param_ratio</span><span style="color: #E6DB74">:.1f}x cho thay "</span>
+          <span style="color: #E6DB74">f"params it khong dong nghia toc do tang ty le - "</span>
+          <span style="color: #E6DB74">f"overhead moi lan chay moi la phan chi phoi o "</span>
+          <span style="color: #E6DB74">f"model nho the nay."</span><span style="color: #F8F8F2">)</span>
+
+
+<span style="color: #66D9EF">def</span><span style="color: #F8F8F2"> </span><span style="color: #A6E22E">main</span><span style="color: #F8F8F2">():</span>
+<span style="color: #F8F8F2">    </span><span style="color: #E6DB74">"""Chay ca lab: du lieu, teacher, Bai 1, Bai 2, Bai 3."""</span>
+    <span style="color: #F8F8F2">x_train,</span> <span style="color: #F8F8F2">y_train,</span> <span style="color: #F8F8F2">x_test,</span> <span style="color: #F8F8F2">y_test</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">build_data()</span>
+    <span style="color: #A6E22E">print</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">f"train: {</span><span style="color: #A6E22E">tuple</span><span style="color: #F8F8F2">(x_train</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">shape)</span><span style="color: #E6DB74">} | "</span>
+          <span style="color: #E6DB74">f"test: {</span><span style="color: #A6E22E">tuple</span><span style="color: #F8F8F2">(x_test</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">shape)</span><span style="color: #E6DB74">}"</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #F8F8F2">teacher</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">train_teacher(MLP(</span><span style="color: #AE81FF">128</span><span style="color: #F8F8F2">),</span> <span style="color: #F8F8F2">x_train,</span> <span style="color: #F8F8F2">y_train)</span>
+    <span style="color: #F8F8F2">teacher</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">eval()</span>
+    <span style="color: #F8F8F2">teacher_acc</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">accuracy(teacher,</span> <span style="color: #F8F8F2">x_test,</span> <span style="color: #F8F8F2">y_test)</span>
+    <span style="color: #A6E22E">print</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">f"teacher test acc: {</span><span style="color: #F8F8F2">teacher_acc</span><span style="color: #E6DB74">:.3f} | params: "</span>
+          <span style="color: #E6DB74">f"{</span><span style="color: #F8F8F2">count_params(teacher)</span><span style="color: #E6DB74">}"</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #F8F8F2">bai1(teacher,</span> <span style="color: #F8F8F2">x_test,</span> <span style="color: #F8F8F2">y_test)</span>
+    <span style="color: #F8F8F2">bai2()</span>
+    <span style="color: #F8F8F2">bai3(teacher,</span> <span style="color: #F8F8F2">x_train,</span> <span style="color: #F8F8F2">y_train,</span> <span style="color: #F8F8F2">x_test,</span> <span style="color: #F8F8F2">y_test)</span>
+
+
+<span style="color: #66D9EF">if</span> <span style="color: #F8F8F2">__name__</span> <span style="color: #FF4689">==</span> <span style="color: #E6DB74">"__main__"</span><span style="color: #F8F8F2">:</span>
+    <span style="color: #F8F8F2">main()</span>
+</pre></div></div>
+  <p class="caption">Cách chạy: <code>~/workspace/venvs/day15/bin/python distill_lab.py</code> trong thư mục <code>day23/</code>. Bài học buổi sáng: <a href="Day23_lesson.html">Day23_lesson.html</a> · Quiz: <a href="Day23_quiz.html">Day23_quiz.html</a> · Bài thực hành gốc: <a href="Day23_practice.html">Day23_practice.html</a>.</p>
+</section>
+
+</div>
+
+<footer>Khóa “Trở thành AI Engineer (LLM)” — Ngày 23 · Buổi tối. Lab Distillation: giải thích trước, số liệu chạy thật sau, không tin khẩu hiệu.</footer>
+
+<script>
+// ---- Demo 1: temperature ----
+var LOGITS = [6.825801372528076, 4.276187419891357, -12.652665138244629];
+function softmax(z, T) {
+  var m = Math.max.apply(null, z.map(function(v){ return v / T; }));
+  var ex = z.map(function(v){ return Math.exp(v / T - m); });
+  var s = ex.reduce(function(a, b){ return a + b; }, 0);
+  return ex.map(function(v){ return v / s; });
+}
+function fmt(x, d) { return x.toFixed(d === undefined ? 4 : d); }
+function renderTemp() {
+  var T = parseFloat(document.getElementById('tSlider').value);
+  document.getElementById('tLab').textContent = T.toFixed(1);
+  var p = softmax(LOGITS, T);
+  var colors = ['#047857', '#2563eb', '#b91c1c'];
+  var names = ['Lớp 0 (đáp án đúng)', 'Lớp 1 (gần lớp 0)', 'Lớp 2 (xa hẳn)'];
+  var html = '';
+  for (var i = 0; i < 3; i++) {
+    html += '<div class="bar-lab">' + names[i] + ': ' + fmt(p[i]) + '</div>'
+      + '<div class="bar-wrap"><div class="bar-fill" style="width:' + (p[i] * 100).toFixed(1) + '%;background:' + colors[i] + '"></div></div>';
+  }
+  document.getElementById('tBars').innerHTML = html;
+  var ratio = p[2] > 0 ? (p[1] / p[2]) : Infinity;
+  document.getElementById('tOut').textContent =
+    'T=' + T.toFixed(1) + ': [' + p.map(function(v){ return fmt(v); }).join(', ') + ']'
+    + ' | p1/p2 = ' + (isFinite(ratio) ? ratio.toFixed(1) : '∞')
+    + ' | Tổng = ' + fmt(p[0] + p[1] + p[2], 6) + ' (phải bằng 1)';
+}
+document.getElementById('tSlider').addEventListener('input', renderTemp);
+renderTemp();
+
+// ---- Demo 2: loss calculator on the exact Bai 2 batch ----
+var S = [[0.3373701870441437, -0.1777772158384323, -0.3035275936126709], [-0.5880118608474731, 0.3486051857471466, 0.6603409647941589], [-0.21963761746883392, -0.3791698217391968, -0.16056378185749054], [-0.4014880061149597, 0.6957241296768188, -1.8060526847839355], [1.8959673643112183, -0.17504090070724487, 1.368908166885376], [-1.603270173072815, -0.7848533391952515, -1.4095724821090698], [-0.4076268672943115, 0.7953261137008667, 0.9985424876213074], [0.22124935686588287, 1.831893801689148, -0.3378387987613678]];
+var TT = [[0.9624210000038147, 0.2492084950208664, -0.48450207710266113], [-2.092914342880249, -0.819909930229187, -0.42103812098503113], [-0.9619980454444885, 1.2824753522872925, 0.5146290063858032], [0.99376380443573, -0.2587334215641022, -1.0825512409210205], [-0.04438198357820511, 1.623557448387146, -2.322870969772339], [1.0878305435180664, 0.6715549826622009, 0.6932953000068665], [-0.9487248659133911, -0.07650723308324814, -0.15264037251472473], [0.11674118787050247, 0.4402604401111603, -1.4465465545654297]];
+var Y = [0, 0, 0, 2, 2, 0, 1, 1];
+function logSoftmaxRow(row, T) {
+  var scaled = row.map(function(v){ return v / T; });
+  var m = Math.max.apply(null, scaled);
+  var s = scaled.reduce(function(a, v){ return a + Math.exp(v - m); }, 0);
+  return scaled.map(function(v){ return v - m - Math.log(s); });
+}
+function softmaxRow(row, T) {
+  var scaled = row.map(function(v){ return v / T; });
+  var m = Math.max.apply(null, scaled);
+  var ex = scaled.map(function(v){ return Math.exp(v - m); });
+  var s = ex.reduce(function(a, b){ return a + b; }, 0);
+  return ex.map(function(v){ return v / s; });
+}
+function renderLoss() {
+  var T = parseFloat(document.getElementById('lossTSlider').value);
+  var alpha = parseFloat(document.getElementById('alphaSlider').value);
+  document.getElementById('lossTLab').textContent = T.toFixed(1);
+  document.getElementById('alphaLab').textContent = alpha.toFixed(1);
+  var ce = 0, kl = 0;
+  for (var i = 0; i < S.length; i++) {
+    var ls = logSoftmaxRow(S[i], 1);
+    ce += -ls[Y[i]];
+    var logS = logSoftmaxRow(S[i], T);
+    var pT = softmaxRow(TT[i], T);
+    for (var j = 0; j < 3; j++) { kl += pT[j] * (Math.log(pT[j]) - logS[j]); }
+  }
+  ce /= S.length; kl /= S.length;
+  var total = alpha * ce + (1 - alpha) * T * T * kl;
+  document.getElementById('lossOut').textContent =
+    'T=' + T.toFixed(1) + ', alpha=' + alpha.toFixed(1)
+    + ' | CE=' + fmt(ce) + ' | KL gốc=' + fmt(kl)
+    + ' | T²×KL=' + fmt(T * T * kl)
+    + ' | Loss tổng=' + fmt(total);
+}
+document.getElementById('lossTSlider').addEventListener('input', renderLoss);
+document.getElementById('alphaSlider').addEventListener('input', renderLoss);
+renderLoss();
+
+// ---- Demo 3: config explorer ----
+var CFGS = {
+  teacher: 'Teacher · MLP(128), 17.283 tham số, train đủ 900 mẫu\nTest acc = 0.843 | Lớp 0 = 0.789 | Lớp 1 = 0.758 | Lớp 2 = 1.000\nThời gian = 0.298 ms/lần (trung vị, 300 mẫu)',
+  A: 'A · hard-only — chỉ CE với nhãn thật\nTest acc = 0.853 | Đồng ý với teacher = 0.943\nLớp 0 = 0.798 | Lớp 1 = 0.779 | Lớp 2 = 1.000\nSao chép chỗ teacher sai = 0.787 (37/47 mẫu) | Trung bình 5 seed = 0.848',
+  B: 'B · distill T = 4, α = 0.3 — loss Bài 2\nTest acc = 0.857 | Đồng ý với teacher = 0.953\nLớp 0 = 0.833 | Lớp 1 = 0.747 | Lớp 2 = 1.000\nSao chép chỗ teacher sai = 0.809 (38/47 mẫu) | Trung bình 5 seed = 0.859\n1.251 tham số | 0.099 ms/lần | Nhanh hơn teacher 3.01×',
+  C: 'C · distill T = 2, α = 0.3 — chỉ đổi T so với B\nTest acc = 0.857 | Đồng ý với teacher = 0.953\nLớp 0 = 0.825 | Lớp 1 = 0.758 | Lớp 2 = 1.000\nSao chép chỗ teacher sai = 0.809 (38/47 mẫu) | Trung bình 5 seed = 0.855'
+};
+var segBtns = document.querySelectorAll('#cfgSeg button');
+function showCfg(key) {
+  document.getElementById('cfgOut').textContent = CFGS[key];
+  segBtns.forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-cfg') === key); });
+}
+segBtns.forEach(function(b){ b.addEventListener('click', function(){ showCfg(b.getAttribute('data-cfg')); }); });
+showCfg('B');
+
+function copySource() {
+  var t = document.getElementById('srcPlain').value;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(t).then(function(){ alert('Đã copy source!'); });
+  } else {
+    var ta = document.getElementById('srcPlain');
+    ta.style.display = 'block'; ta.select(); document.execCommand('copy'); ta.style.display = 'none';
+    alert('Đã copy source!');
+  }
+}
+</script>
+</body>
+</html>
