@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ngày 23 — Buổi tối: Lab Distillation | Khóa LLM 30 ngày</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:#0f172a;color:#e2e8f0;line-height:1.65;padding:16px}
+main{max-width:820px;margin:0 auto}h1{font-size:1.5rem;line-height:1.3;color:#f8fafc}h2{font-size:1.2rem;color:#7dd3fc;border-bottom:1px solid #334155;padding-bottom:6px}h3{color:#fde68a}
+.card{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:16px;margin:16px 0}
+.warn{background:#451a03;border-color:#92400e}.green{background:#052e16;border-color:#166534}
+code{background:#0f172a;padding:2px 6px;border-radius:6px;font-size:.92em;color:#fcd34d}
+pre{background:#020617;border:1px solid #334155;border-radius:10px;padding:14px;overflow-x:auto;font-size:.85rem;line-height:1.5}
+pre code{background:none;padding:0;color:#e2e8f0}.tag{display:inline-block;background:#0ea5e9;color:#fff;border-radius:999px;padding:2px 10px;font-size:.8rem;margin-right:6px}
+button{background:#0ea5e9;color:#fff;border:none;border-radius:8px;padding:8px 14px;cursor:pointer;font-size:.95rem}
+.ans{display:none;background:#052e16;border:1px solid #166534;border-radius:10px;padding:12px;margin-top:10px}
+ul{padding-left:20px}li{margin:6px 0}.muted{color:#94a3b8;font-size:.9rem}
+a{color:#7dd3fc}
+</style>
+</head>
+<body>
+<main>
+<p class="muted">NGÀY 23 · BUỔI TỐI — TUẦN 4: GREEN LLM (KHÔNG CÓ VIDEO)</p>
+<h1>🛠️ Lab: Distill thật — mô hình nhỏ học từ mô hình lớn</h1>
+<p>Buổi sáng bạn đã học: soft target và dark knowledge, temperature T, loss distillation với hệ số T², logit distillation vs sequence-level distillation, và rủi ro khi distill từ dữ liệu tổng hợp. Tối nay bạn tự tay làm: cho một student nhỏ học từ teacher lớn, rồi đo xem distillation thực sự đổi được gì — và đổi với giá nào.</p>
+<p><span class="tag">⏱ ~60–90 phút</span><span class="tag">🐍 Python + PyTorch, CPU</span><span class="tag">🎯 Kết quả: bảng so sánh hard-label vs distillation</span></p>
+
+<div class="card">
+<h2>🎯 Mục tiêu buổi tối</h2>
+<ul>
+<li>Tính được soft target ở nhiều temperature và giải thích bằng số vì sao T = 1 chôn vùi dark knowledge.</li>
+<li>Tự viết đúng loss distillation: <code>L = α·CE + (1−α)·T²·KL(teacher<sub>T</sub> ‖ student<sub>T</sub>)</code>.</li>
+<li>Chạy một thí nghiệm có kiểm soát: cùng dữ liệu, cùng kiến trúc student, cùng seed — <b>thứ duy nhất thay đổi là cách train</b> (hard-label hay distillation, rồi T và α).</li>
+<li>Đo đủ 3 mặt: độ chính xác, tốc độ suy luận và kích thước — để trả lời "student này có đáng thay teacher không?" theo tinh thần Green LLM.</li>
+</ul>
+</div>
+
+<div class="card">
+<h2>Chuẩn bị (5 phút)</h2>
+<p>Tạo file <code>distill_lab.py</code>. Chỉ cần PyTorch, không cần GPU, không cần tải mô hình lớn. Dữ liệu là bài toán phân loại 3 lớp tổng hợp, cố tình thiết kế để có dark knowledge: <b>lớp 0 gần lớp 1, và xa lớp 2</b> — teacher "phân vân" giữa 0 và 1 mới là thông tin quý.</p>
+<pre><code>import time
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+torch.manual_seed(0)
+
+# 3 cụm: lớp 0 tại (0,0), lớp 1 tại (1.2, 0.3), lớp 2 tại (0, 4.0)
+centers = torch.tensor([[0.0, 0.0], [1.2, 0.3], [0.0, 4.0]])
+n_per_class = 400
+xs, ys = [], []
+for c in range(3):
+    xs.append(centers[c] + 0.6 * torch.randn(n_per_class, 2))
+    ys.append(torch.full((n_per_class,), c))
+X = torch.cat(xs); y = torch.cat(ys)
+perm = torch.randperm(len(X))
+X, y = X[perm], y[perm]
+X_train, y_train = X[:900], y[:900]
+X_test, y_test = X[900:], y[900:]
+print("train:", X_train.shape, "| test:", X_test.shape)
+
+class MLP(nn.Module):
+    def __init__(self, hidden):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(2, hidden), nn.ReLU(),
+            nn.Linear(hidden, hidden), nn.ReLU(),
+            nn.Linear(hidden, 3))
+    def forward(self, x):
+        return self.net(x)</code></pre>
+<p>Teacher (đã viết sẵn cho bạn, chỉ việc chạy) và student nhỏ hơn:</p>
+<pre><code>def train_teacher(model, epochs=150):
+    opt = torch.optim.Adam(model.parameters(), lr=0.01)
+    for ep in range(epochs):
+        opt.zero_grad()
+        loss = F.cross_entropy(model(X_train), y_train)
+        loss.backward(); opt.step()
+    return model
+
+teacher = train_teacher(MLP(128))
+teacher.eval()
+with torch.no_grad():
+    acc = (teacher(X_test).argmax(1) == y_test).float().mean().item()
+print(f"teacher test acc: {acc:.3f} | params: {sum(p.numel() for p in teacher.parameters())}")</code></pre>
+</div>
+
+<div class="card">
+<h2>Bài 1 — Nhìn dark knowledge bằng temperature (15 phút)</h2>
+<p>Lấy logits teacher cho một mẫu thuộc lớp 0, tính softmax ở T = 1, 2, 5, 10. Đừng chỉ in số — viết 1 câu nhận xét: ở T nào thì quan hệ "0 gần 1, xa 2" lộ rõ nhất, và ở T nào thì thông tin đó bắt đầu mờ đi vì phân phối tiến về đều?</p>
+<pre><code>with torch.no_grad():
+    logits = teacher(X_test[:5])  # 5 mẫu đầu của test
+for T in [1, 2, 5, 10]:
+    p = F.softmax(logits / T, dim=1)
+    print(f"T={T}: {p[0].tolist()}")</code></pre>
+<p><b>Kỳ vọng:</b> ở T = 1, lớp thắng chiếm gần hết; ở T = 2–5, xác suất lớp thứ hai nổi lên rõ — đó chính là phần mà nhãn cứng không bao giờ nói cho bạn.</p>
+</div>
+
+<div class="card">
+<h2>Bài 2 — Viết loss distillation (phần chính, tự làm — 25 phút)</h2>
+<p>Trước khi code, viết ra câu này vào đầu file (theo quy tắc thí nghiệm của khóa học):</p>
+<div class="card green"><b>Thứ duy nhất thay đổi là cách tính loss (hard-label hay distillation); dữ liệu, kiến trúc student, seed và số epoch giữ nguyên.</b></div>
+<p>Yêu cầu: tự viết hàm dưới đây, đừng xem gợi ý ở cuối bài trước khi thử.</p>
+<pre><code>def distill_loss(student_logits, teacher_logits, y_true, T=4.0, alpha=0.3):
+    """Trả về loss distillation tổng hợp. TODO: bạn viết phần thân hàm."""
+    # Gợi ý từng bước:
+    # 1. CE với nhãn thật: F.cross_entropy(student_logits, y_true)
+    # 2. Soft target teacher: softmax(teacher_logits / T) — teacher PHẢI detach,
+    #    không cho gradient chạy ngược vào teacher.
+    # 3. Soft student: log_softmax(student_logits / T) (KL cần log-prob ở đầu vào thứ hai).
+    # 4. KL = F.kl_div(log_student_T, soft_teacher_T, reduction="batchmean")
+    # 5. Trả về: alpha * CE + (1 - alpha) * (T ** 2) * KL
+    raise NotImplementedError("Bạn viết hàm này")</code></pre>
+<p>Kiểm tra ngay với một batch giả — loss phải là số hữu hạn. Lưu ý: loss tổng có thể tăng theo T vì đã nhân hệ số T² — đó là chủ đích của hệ số này, không phải lỗi; phần KL gốc (trước khi nhân T²) mới là phần giảm dần khi T tăng:</p>
+<pre><code>s = torch.randn(8, 3, requires_grad=True)
+t = torch.randn(8, 3)
+yy = torch.randint(0, 3, (8,))
+for T in [1.0, 4.0]:
+    loss = distill_loss(s, t, yy, T=T, alpha=0.3)
+    print(f"T={T}: loss={loss.item():.4f}")</code></pre>
+</div>
+
+<div class="card">
+<h2>Bài 3 — Thí nghiệm có kiểm soát: hard-label vs distillation (30 phút)</h2>
+<p>Student chỉ được thấy <b>300 mẫu train</b> (teacher thì đã train trên đủ 900 mẫu) — đây là tình huống distillation có ý nghĩa nhất: dữ liệu có nhãn ít, nhưng teacher thì "biết nhiều". Chạy 3 cấu hình, <b>mọi thứ khác giữ nguyên</b> (cùng 300 mẫu, cùng kiến trúc student 32 unit, cùng seed, cùng 100 epoch):</p>
+<ul>
+<li><b>A — hard-only:</b> chỉ CE với nhãn thật.</li>
+<li><b>B — distill T = 4, α = 0,3:</b> loss ở Bài 2.</li>
+<li><b>C — tự chọn:</b> đổi MỘT thứ duy nhất so với B (T = 2 hoặc T = 10, hoặc α = 0,7) rồi ghi lại kết quả thay đổi ra sao.</li>
+</ul>
+<pre><code>def train_student(mode, T=4.0, alpha=0.3, epochs=100, seed=0):
+    torch.manual_seed(seed)
+    student = MLP(32)
+    opt = torch.optim.Adam(student.parameters(), lr=0.01)
+    Xs, ys = X_train[:300], y_train[:300]
+    with torch.no_grad():
+        t_logits = teacher(Xs)
+    for ep in range(epochs):
+        opt.zero_grad()
+        s_logits = student(Xs)
+        if mode == "hard":
+            loss = F.cross_entropy(s_logits, ys)
+        else:
+            loss = distill_loss(s_logits, t_logits, ys, T=T, alpha=alpha)
+        loss.backward(); opt.step()
+    student.eval()
+    with torch.no_grad():
+        pred = student(X_test).argmax(1)
+        acc = (pred == y_test).float().mean().item()
+        agree = (pred == teacher(X_test).argmax(1)).float().mean().item()
+    return student, acc, agree
+
+for name, kw in [("A hard-only", {"mode": "hard"}),
+                 ("B distill T=4 a=0.3", {"mode": "distill"}),
+                 ("C tu chon", {"mode": "distill", "T": 2.0})]:
+    _, acc, agree = train_student(**kw)
+    print(f"{name}: test acc={acc:.3f} | dong y voi teacher={agree:.3f}")</code></pre>
+<p>Đo thêm mặt Green LLM — student có đáng thay teacher không?</p>
+<pre><code>def bench(model, x, n=200):
+    model.eval()
+    with torch.no_grad():
+        t0 = time.perf_counter()
+        for _ in range(n):
+            _ = model(x)
+        dt = (time.perf_counter() - t0) / n
+    return dt * 1000  # ms / lần chạy trên 300 mẫu test
+
+print(f"teacher: {sum(p.numel() for p in teacher.parameters())} params, "
+      f"{bench(teacher, X_test):.2f} ms/lan")
+sB, _, _ = train_student(mode="distill")
+print(f"student: {sum(p.numel() for p in sB.parameters())} params, "
+      f"{bench(sB, X_test):.2f} ms/lan")</code></pre>
+<p><b>Bảng kết quả của bạn (điền sau khi chạy):</b> teacher acc / student A acc / student B acc / student C acc / tỉ lệ params student ÷ teacher / tốc độ nhanh hơn bao nhiêu lần. Kết luận bằng 2 câu: distillation giúp hay không trong thí nghiệm này, và với workload của bạn thì đánh đổi accuracy lấy tốc độ/kích thước có đáng không?</p>
+<p class="muted">Lưu ý trung thực: với dữ liệu tổng hợp đơn giản này, khoảng cách hard-only vs distillation có thể không lớn. Điều cần học không phải "distillation luôn thắng", mà là cách đo cho ra con số thay vì tin khẩu hiệu — và nhận ra khi nào student chỉ đang sao chép teacher, kể cả chỗ teacher sai (xem "Bẫy thường gặp" số 3).</p>
+</div>
+
+<div class="card">
+<h2>✅ Tự kiểm tra nhanh (3 câu, không chấm điểm)</h2>
+<p><b>1.</b> Vì sao loss distillation phải nhân thêm T², và điều gì xảy ra nếu quên nó?</p>
+<button onclick="document.getElementById('a1').style.display='block'">Hiện đáp án</button>
+<div class="ans" id="a1">Chia logits cho T làm gradient của phần KL nhỏ đi khoảng T² lần. Không nhân lại T² thì phần học từ teacher bị phần CE với nhãn cứng lấn át — student gần như chỉ học hard-label, mất tác dụng của distillation.</div>
+<p><b>2.</b> KL(teacher ‖ student) và KL(student ‖ teacher) khác nhau ra sao? Vì sao distillation dùng chiều thứ nhất?</p>
+<button onclick="document.getElementById('a2').style.display='block'">Hiện đáp án</button>
+<div class="ans" id="a2">KL không đối xứng. KL(teacher ‖ student) phạt nặng khi student gán xác suất thấp cho điều teacher tin là đúng — ép student "bao phủ" hết những gì teacher biết. Chiều ngược lại cho phép student bỏ qua những mode của teacher mà nó không thích, nên không phù hợp để chuyển giao tri thức.</div>
+<p><b>3.</b> Teacher chỉ là API đóng (chỉ trả text, không cho logits) thì dùng loại distillation nào, và mất gì so với logit distillation?</p>
+<button onclick="document.getElementById('a3').style.display='block'">Hiện đáp án</button>
+<div class="ans" id="a3">Chỉ dùng được sequence-level distillation: lấy chuỗi teacher sinh ra làm dữ liệu train như dữ liệu thật. Mất thông tin phân vân từng token — student chỉ thấy chuỗi thắng duy nhất, nên trần chất lượng thấp hơn logit distillation.</div>
+</div>
+
+<div class="card warn">
+<h2>⚠️ Bẫy thường gặp</h2>
+<ul>
+<li><b>Quên detach teacher:</b> để gradient chạy ngược vào teacher thì teacher cũng bị cập nhật trong lúc train student — thí nghiệm mất kiểm soát, và tốn bộ nhớ vô ích. Luôn tính teacher logits trong <code>torch.no_grad()</code> hoặc <code>.detach()</code>.</li>
+<li><b>KL sai chiều / sai dạng đầu vào:</b> <code>F.kl_div</code> cần đầu vào thứ nhất là log-prob (<code>log_softmax</code> của student) và thứ hai là prob (<code>softmax</code> của teacher). Đảo hai đầu vào, hoặc đưa cả hai đều là prob, đều cho loss sai mà code vẫn chạy "bình thường" — chỉ có kết quả là lặng lẽ tệ đi.</li>
+<li><b>So sánh không công bằng:</b> đổi seed, đổi số epoch hay đổi tập dữ liệu giữa student A và B thì không còn biết cải thiện (nếu có) đến từ distillation hay từ may mắn. Giữ mọi thứ bằng nhau, chỉ đổi cách tính loss — và đánh giá trên test, không phải trên train.</li>
+</ul>
+</div>
+
+<div class="card">
+<h2>✅ Checklist nộp bài</h2>
+<ul>
+<li>☐ File <code>distill_lab.py</code> chạy được từ đầu đến cuối trên CPU.</li>
+<li>☐ Bảng kết quả: teacher acc, student A/B/C acc, tỉ lệ params, tốc độ — kèm 2 câu kết luận.</li>
+<li>☐ Câu "thứ duy nhất thay đổi là ___" đã viết trước khi chạy Bài 3.</li>
+<li>☐ <b>Paste code/kết quả vào chat để được nhận xét chi tiết.</b></li>
+</ul>
+<p class="muted">Gợi ý thêm nếu còn thời gian: thử α = 0,7 (bám nhãn thật nhiều hơn) và xem student B thay đổi ra sao; hoặc thêm nhiễu vào 10% nhãn train rồi kiểm tra xem student distill có "học thuộc" lỗi của teacher/nhãn nhanh hơn student hard-only không — đó là rủi ro kế thừa lỗi của buổi sáng, đo bằng số chứ không chỉ đọc.</p>
+<p>Bài học buổi sáng: <a href="Day23_lesson.html">Day23_lesson.html</a> · Quiz: <a href="Day23_quiz.html">Day23_quiz.html</a></p>
+</div>
+</main>
+</body>
+</html>
