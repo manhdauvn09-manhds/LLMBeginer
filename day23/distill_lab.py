@@ -164,16 +164,18 @@ def distill_loss(student_logits, teacher_logits, y_true,
     Args:
         student_logits: tensor (N, 3), logits student.
         teacher_logits: tensor (N, 3), logits teacher.
-        y_true: tensor (N,) nhan that, gia tri 0..2.
-        T: temperature, phai > 0 va huu han.
-        alpha: trong so cho CE, phai trong [0, 1].
+        y_true: tensor (N,) dtype long, nhan that 0..2.
+        T: temperature, so thuc, phai > 0 va huu han.
+        alpha: so thuc, trong so cho CE, trong [0, 1].
 
     Returns:
         Tensor vo huong: loss tong hop.
 
     Raises:
         ValueError: batch rong, shape 2 tensor khong
-            khop nhau, nhan ngoai [0, 2], T <= 0 hoac
+            khop nhau, y_true khong phai dtype long,
+            logits chua NaN/Inf, nhan ngoai [0, 2],
+            T/alpha khong phai so thuc, T <= 0 hoac
             khong huu han, alpha ngoai [0, 1], 2 logits
             khac device nhau.
     """
@@ -193,6 +195,28 @@ def distill_loss(student_logits, teacher_logits, y_true,
     if student_logits.device != teacher_logits.device:
         raise ValueError("student va teacher logits phai "
                          "cung device.")
+    # [TRAINER] y_true phai la Long: truoc day nhan float
+    # (0.0/1.0/2.0) lot qua ca guard shape lan range, roi
+    # chet RuntimeError kho hieu trong F.cross_entropy -
+    # trai dung triet ly guard cua ham nay (loi vao sai
+    # phai bao ro ngay tu dau).
+    if y_true.dtype != torch.long:
+        raise ValueError("y_true phai co dtype long "
+                         "(nhan nguyen 0..n_class-1).")
+    # [TRAINER] Logits phai huu han: truoc day logits
+    # NaN/Inf khong bi chan, loss tra ra NaN mot cach
+    # lang le - dung loai loi "code chay binh thuong,
+    # ket qua lang le te" ma Bai 2 tu canh bao.
+    if not bool(torch.isfinite(student_logits).all()) \
+            or not bool(torch.isfinite(teacher_logits).all()):
+        raise ValueError("logits phai huu han "
+                         "(khong chua NaN/Inf).")
+    # [TRAINER] T/alpha phai la so thuc: truoc day T="4"
+    # nem TypeError tu math.isfinite, khong nhat quan
+    # voi cac guard con lai (deu la ValueError).
+    if not isinstance(T, (int, float)) \
+            or not isinstance(alpha, (int, float)):
+        raise ValueError("T va alpha phai la so thuc.")
     if y_true.shape != (student_logits.shape[0],):
         raise ValueError("y_true phai co shape "
                          f"({student_logits.shape[0]},).")
@@ -319,6 +343,14 @@ def bai2():
               f"{float((temp ** 2) * kl_raw):.4f} | "
               f"tai tao dung: "
               f"{bool(torch.allclose(loss.detach(), rebuilt))}")
+        # [TRAINER] Truoc day 2 kiem tra nay chi IN
+        # True/False: neu mot ngay loss thanh NaN hay
+        # cong thuc lech, script van chay "thanh cong".
+        # Assert de lan chay FAIL ngay tai cho.
+        assert bool(torch.isfinite(loss)), \
+            "loss phai huu han"
+        assert bool(torch.allclose(loss.detach(), rebuilt)), \
+            "loss phai bang alpha*CE + (1-alpha)*T^2*KL"
     # Detach: cho loss chay backward, teacher phai co
     # grad None vi logits da detach ben trong ham.
     student_logits.grad = None
@@ -329,29 +361,58 @@ def bai2():
     print(f"Detach teacher: grad teacher la None = "
           f"{teacher_logits.grad is None} | grad student "
           f"co gia tri = {student_logits.grad is not None}")
+    # [TRAINER] Tuong tu: chi in thi detach hong van di
+    # qua. Assert ca 2 phia (teacher None VA student co).
+    assert teacher_logits.grad is None, \
+        "teacher khong duoc nhan gradient"
+    assert student_logits.grad is not None, \
+        "student phai nhan gradient"
     # Guard: moi truong hop sai phai bi chan ro rang.
     print("Kiem tra guard (loi vao sai):")
     good = torch.randn(4, 3)
-    _expect_value_error(
-        lambda: distill_loss(good, good, y_true[:4], T=0.0),
-        "T=0")
-    _expect_value_error(
-        lambda: distill_loss(good, good, y_true[:4],
-                             alpha=1.5),
-        "alpha=1.5")
-    _expect_value_error(
-        lambda: distill_loss(good, torch.randn(4, 2),
-                             y_true[:4]),
-        "shape teacher khac student")
-    _expect_value_error(
-        lambda: distill_loss(torch.empty(0, 3),
-                             torch.empty(0, 3),
-                             torch.empty(0, dtype=torch.long)),
-        "batch rong")
-    _expect_value_error(
-        lambda: distill_loss(good, good,
-                             torch.tensor([0, 1, 2, 3])),
-        "nhan 3 ngoai [0, 2]")
+    # [TRAINER] Truoc day gia tri tra ve cua
+    # _expect_value_error bi BO QUA: guard nao hong,
+    # script van ket thuc binh thuong (exit 0). Nay gom
+    # ket qua lai va assert tong o cuoi, kem 3 guard moi
+    # cua ban review (dtype y, logits NaN, T dang chuoi).
+    guard_results = [
+        _expect_value_error(
+            lambda: distill_loss(good, good, y_true[:4], T=0.0),
+            "T=0"),
+        _expect_value_error(
+            lambda: distill_loss(good, good, y_true[:4],
+                                 alpha=1.5),
+            "alpha=1.5"),
+        _expect_value_error(
+            lambda: distill_loss(good, torch.randn(4, 2),
+                                 y_true[:4]),
+            "shape teacher khac student"),
+        _expect_value_error(
+            lambda: distill_loss(torch.empty(0, 3),
+                                 torch.empty(0, 3),
+                                 torch.empty(0, dtype=torch.long)),
+            "batch rong"),
+        _expect_value_error(
+            lambda: distill_loss(good, good,
+                                 torch.tensor([0, 1, 2, 3])),
+            "nhan 3 ngoai [0, 2]"),
+        _expect_value_error(
+            lambda: distill_loss(good, good,
+                                 y_true[:4].float()),
+            "y_true dtype float"),
+        _expect_value_error(
+            lambda: distill_loss(
+                torch.tensor([[float("nan"), 0.0, 0.0]]),
+                torch.zeros(1, 3), torch.tensor([0])),
+            "logits chua NaN"),
+        _expect_value_error(
+            lambda: distill_loss(good, good, y_true[:4],
+                                 T="4"),
+            "T la chuoi, khong phai so"),
+    ]
+    assert all(guard_results), \
+        "Co guard khong chan dung truong hop sai!"
+    print("  Tat ca guard deu chan dung (da assert).")
 
 
 def train_student(mode, teacher, x_train, y_train, x_test,
@@ -413,7 +474,8 @@ def per_class_accuracy(model, x_test, y_test):
     nen moi la noi distillation co the doi duoc gi.
 
     Returns:
-        List 3 float: chinh xac lop 0, 1, 2.
+        List 3 float: chinh xac lop 0, 1, 2; NaN cho
+        lop vang mat trong test (khong co mau).
     """
     model.eval()
     with torch.no_grad():
@@ -421,6 +483,15 @@ def per_class_accuracy(model, x_test, y_test):
     result = []
     for c in range(3):
         mask = y_test == c
+        # [TRAINER] Lop vang mat trong test: truoc day
+        # mean() cua tap rong tu sinh NaN lang le, doc
+        # bang ket qua khong biet la "khong co mau" hay
+        # "do chua". Nay tra NaN CO CHU DICH kem dieu
+        # kien ro rang; muon biet lop nao thieu thi dem
+        # int(mask.sum()).
+        if int(mask.sum()) == 0:
+            result.append(float("nan"))
+            continue
         result.append(float((pred[mask] == y_test[mask]).
                             float().mean()))
     return result
@@ -434,7 +505,8 @@ def copy_wrong_rate(student, teacher, x_test, y_test):
     ca loi cua teacher, dung nhu canh bao buoi sang.
 
     Returns:
-        (ti_le, so_mau_teacher_sai).
+        (ti_le, so_mau_teacher_sai); ti_le la NaN khi
+        teacher dung het (0 mau sai, khong dinh nghia).
     """
     student.eval()
     teacher.eval()
@@ -442,6 +514,12 @@ def copy_wrong_rate(student, teacher, x_test, y_test):
         s_pred = student(x_test).argmax(1)
         t_pred = teacher(x_test).argmax(1)
     wrong = t_pred != y_test
+    # [TRAINER] Teacher dung het (0 mau sai): ti le sao
+    # chep KHONG dinh nghia. Truoc day mean() cua tap
+    # rong tra NaN lang le; nay tra (NaN, 0) ro rang de
+    # noi goi ham tu nhan biet n=0 ma dien giai.
+    if int(wrong.sum()) == 0:
+        return float("nan"), 0
     rate = float((s_pred[wrong] == t_pred[wrong]).
                  float().mean())
     return rate, int(wrong.sum())
