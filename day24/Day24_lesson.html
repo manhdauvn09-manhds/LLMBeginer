@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ngày 24 — Pruning: cắt tỉa chỉ có nghĩa khi chạy nhanh thật | Khóa LLM 30 ngày</title>
+<style>
+:root{--bg:#0a0f1e; --card:#101830; --line:#22305a; --gold:#f5c542; --green:#4ade80;
+ --red:#f87171; --violet:#a78bfa; --cyan:#67e8f9; --text:#e8edf7; --muted:#93a0bd;}
+*{box-sizing:border-box;}
+body{margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.75; font-size:16.5px;}
+.wrap{max-width:820px; margin:0 auto; padding:18px 16px 60px;}
+.kicker{display:inline-block; font-size:13px; letter-spacing:1px; color:var(--gold); font-weight:700; margin-bottom:8px;}
+h1{font-size:30px; line-height:1.3; margin:6px 0 10px;}
+h2{font-size:22px; margin:34px 0 10px; color:var(--cyan);}
+h3{font-size:18px; margin:22px 0 8px; color:var(--gold);}
+.sub{color:var(--muted); font-size:16.5px;}
+.meta{display:flex; gap:8px; flex-wrap:wrap; margin:14px 0 6px;}
+.meta span{font-size:13.5px; background:var(--card); border:1px solid var(--line); border-radius:999px; padding:5px 14px;}
+.hero{width:100%; border-radius:14px; margin:16px 0;}
+.card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px; margin:16px 0;}
+.note{border-left:4px solid var(--green); background:#0f2233; border-radius:0 12px 12px 0; padding:12px 16px; margin:14px 0;}
+.warn{border-left:4px solid var(--red); background:#23141a; border-radius:0 12px 12px 0; padding:12px 16px; margin:14px 0;}
+.formula{background:#0a0f1e; border:1px dashed var(--violet); border-radius:10px; padding:12px 16px; margin:12px 0; font-size:17px; text-align:center;}
+table{width:100%; border-collapse:collapse; margin:12px 0; font-size:15px;}
+th,td{border:1px solid var(--line); padding:8px 10px; text-align:left;}
+th{background:#141d3a; color:var(--gold);}
+svg{max-width:100%; height:auto; display:block; margin:12px auto;}
+.btn{display:inline-block; background:var(--gold); color:#14100a; font-weight:700; border-radius:10px; padding:12px 22px; margin:10px 8px 0 0; text-decoration:none;}
+.btn.ghost{background:transparent; color:var(--gold); border:2px solid var(--gold);}
+ul.check li{margin:6px 0;}
+.footer{color:var(--muted); font-size:14px; margin-top:40px; border-top:1px solid var(--line); padding-top:14px;}
+code{background:#0a0f1e; border:1px solid var(--line); border-radius:6px; padding:1px 7px; font-size:15px;}
+pre{background:#0a0f1e; border:1px solid var(--line); border-radius:10px; padding:14px 16px; overflow-x:auto; font-size:14.5px; line-height:1.6;}
+pre code{border:none; padding:0;}
+</style>
+</head>
+<body>
+<div class="wrap">
+<span class="kicker">NGÀY 24 · BUỔI SÁNG — TUẦN 4: GREEN LLM</span>
+<h1>Pruning: cắt tỉa chỉ có nghĩa khi chạy nhanh thật</h1>
+<p class="sub">Một mô hình 7 tỉ tham số, cắt bỏ một nửa mà vẫn trả lời gần như cũ — nghe như phép màu miễn phí. Nhưng nhiều bài báo khoe "90% sparsity" rồi đem chạy thì chẳng nhanh hơn chút nào. Bài này dạy bạn phân biệt: sparsity đẹp trên giấy với tốc độ thật trên phần cứng — và chỉ gọi một bản cắt tỉa là thành công khi nó đo được nhanh hơn, rẻ hơn.</p>
+<div class="meta"><span>⏱ ~25 phút đọc</span><span>🎯 Lý thuyết + quiz 5 câu</span><span>🌙 Tối nay: lab prune 10/30/50%, đo quality–sparsity thật</span></div>
+<img class="hero" src="img/day24_hero.webp" alt="Cây lớn được cắt tỉa gọn lại, ánh sáng xuyên qua tán lá">
+
+<h2>🎯 Mục tiêu buổi học</h2>
+<ul class="check">
+<li>Phân biệt ba kiểu sparsity: unstructured (lẻ tẻ), structured (cả kênh), N:M (2:4) — và biết kiểu nào phần cứng thật sự hưởng lợi.</li>
+<li>Hiểu magnitude pruning và quy trình chuẩn: prune → retrain → đo, lặp lại từng vòng nhỏ.</li>
+<li>Biết bẫy lớn nhất của pruning: số 0 nhiều chưa chắc chạy nhanh — phải đo latency và năng lượng trên máy triển khai.</li>
+</ul>
+
+<h2>1. Pruning là gì — và sparsity đo cái gì</h2>
+<p>Pruning (cắt tỉa) là bỏ đi những phần ít quan trọng của mô hình rồi giữ lại phần còn lại: đặt một số trọng số về 0 (gọi là <b>mask</b>), hoặc xóa hẳn cả một kênh, một attention head. Đại lượng trung tâm là <b>sparsity</b>:</p>
+<div class="formula">sparsity = số trọng số bằng 0 / tổng số trọng số</div>
+<p>Ví dụ: mô hình 7 tỉ tham số, prune 50% thì còn 3,5 tỉ trọng số khác 0. Nhưng đây mới chỉ là con số trên giấy. Một mô hình "50% số 0" có thể vẫn nặng đúng 28 GB trên đĩa nếu ta lưu cả các số 0, và vẫn chậm như cũ nếu phần cứng không biết bỏ qua chúng. Bài học này xoay quanh một câu hỏi duy nhất: <b>cắt xong, máy có chạy nhanh hơn không?</b></p>
+<div class="note">💡 Trực giác: mô hình huấn luyện xong thường thừa. Nhiều trọng số gần 0, nhiều kênh học trùng nhau. Pruning tận dụng độ thừa đó — nhưng "thừa" phải được chứng minh bằng đo đạc, không phải bằng cảm giác.</div>
+
+<h2>2. Ba kiểu sparsity — cùng một con số, ba số phận khác nhau</h2>
+<svg viewBox="0 0 860 300" xmlns="http://www.w3.org/2000/svg" font-family="sans-serif">
+<text x="110" y="24" fill="#f5c542" font-size="16" font-weight="bold" text-anchor="middle">Unstructured</text>
+<text x="430" y="24" fill="#f5c542" font-size="16" font-weight="bold" text-anchor="middle">Structured</text>
+<text x="750" y="24" fill="#f5c542" font-size="16" font-weight="bold" text-anchor="middle">N:M (2:4)</text>
+<g font-size="13" text-anchor="middle">
+<!-- unstructured grid -->
+<g fill="#67e8f9"><rect x="30" y="40" width="26" height="26"/><rect x="84" y="40" width="26" height="26"/><rect x="30" y="94" width="26" height="26"/><rect x="111" y="94" width="26" height="26"/><rect x="57" y="148" width="26" height="26"/><rect x="138" y="148" width="26" height="26"/><rect x="84" y="202" width="26" height="26"/><rect x="165" y="202" width="26" height="26"/></g>
+<g fill="none" stroke="#22305a"><rect x="30" y="40" width="26" height="26"/><rect x="57" y="40" width="26" height="26"/><rect x="84" y="40" width="26" height="26"/><rect x="111" y="40" width="26" height="26"/><rect x="138" y="40" width="26" height="26"/><rect x="165" y="40" width="26" height="26"/><rect x="30" y="67" width="26" height="26"/><rect x="57" y="67" width="26" height="26"/><rect x="84" y="67" width="26" height="26"/><rect x="111" y="67" width="26" height="26"/><rect x="138" y="67" width="26" height="26"/><rect x="165" y="67" width="26" height="26"/><rect x="30" y="94" width="26" height="26"/><rect x="57" y="94" width="26" height="26"/><rect x="84" y="94" width="26" height="26"/><rect x="111" y="94" width="26" height="26"/><rect x="138" y="94" width="26" height="26"/><rect x="165" y="94" width="26" height="26"/><rect x="30" y="121" width="26" height="26"/><rect x="57" y="121" width="26" height="26"/><rect x="84" y="121" width="26" height="26"/><rect x="111" y="121" width="26" height="26"/><rect x="138" y="121" width="26" height="26"/><rect x="165" y="121" width="26" height="26"/><rect x="30" y="148" width="26" height="26"/><rect x="57" y="148" width="26" height="26"/><rect x="84" y="148" width="26" height="26"/><rect x="111" y="148" width="26" height="26"/><rect x="138" y="148" width="26" height="26"/><rect x="165" y="148" width="26" height="26"/><rect x="30" y="175" width="26" height="26"/><rect x="57" y="175" width="26" height="26"/><rect x="84" y="175" width="26" height="26"/><rect x="111" y="175" width="26" height="26"/><rect x="138" y="175" width="26" height="26"/><rect x="165" y="175" width="26" height="26"/><rect x="30" y="202" width="26" height="26"/><rect x="57" y="202" width="26" height="26"/><rect x="84" y="202" width="26" height="26"/><rect x="111" y="202" width="26" height="26"/><rect x="138" y="202" width="26" height="26"/><rect x="165" y="202" width="26" height="26"/></g>
+<!-- structured: whole columns removed -->
+<g fill="#4ade80"><rect x="343" y="40" width="26" height="26"/><rect x="370" y="40" width="26" height="26"/><rect x="424" y="40" width="26" height="26"/><rect x="451" y="40" width="26" height="26"/><rect x="343" y="67" width="26" height="26"/><rect x="370" y="67" width="26" height="26"/><rect x="424" y="67" width="26" height="26"/><rect x="451" y="67" width="26" height="26"/><rect x="343" y="94" width="26" height="26"/><rect x="370" y="94" width="26" height="26"/><rect x="424" y="94" width="26" height="26"/><rect x="451" y="94" width="26" height="26"/><rect x="343" y="121" width="26" height="26"/><rect x="370" y="121" width="26" height="26"/><rect x="424" y="121" width="26" height="26"/><rect x="451" y="121" width="26" height="26"/><rect x="343" y="148" width="26" height="26"/><rect x="370" y="148" width="26" height="26"/><rect x="424" y="148" width="26" height="26"/><rect x="451" y="148" width="26" height="26"/><rect x="343" y="175" width="26" height="26"/><rect x="370" y="175" width="26" height="26"/><rect x="424" y="175" width="26" height="26"/><rect x="451" y="175" width="26" height="26"/><rect x="343" y="202" width="26" height="26"/><rect x="370" y="202" width="26" height="26"/><rect x="424" y="202" width="26" height="26"/><rect x="451" y="202" width="26" height="26"/></g>
+<g fill="none" stroke="#22305a"><rect x="343" y="40" width="26" height="26"/><rect x="370" y="40" width="26" height="26"/><rect x="397" y="40" width="26" height="26"/><rect x="424" y="40" width="26" height="26"/><rect x="451" y="40" width="26" height="26"/><rect x="478" y="40" width="26" height="26"/><rect x="343" y="67" width="26" height="26"/><rect x="370" y="67" width="26" height="26"/><rect x="397" y="67" width="26" height="26"/><rect x="424" y="67" width="26" height="26"/><rect x="451" y="67" width="26" height="26"/><rect x="478" y="67" width="26" height="26"/><rect x="343" y="94" width="26" height="26"/><rect x="370" y="94" width="26" height="26"/><rect x="397" y="94" width="26" height="26"/><rect x="424" y="94" width="26" height="26"/><rect x="451" y="94" width="26" height="26"/><rect x="478" y="94" width="26" height="26"/><rect x="343" y="121" width="26" height="26"/><rect x="370" y="121" width="26" height="26"/><rect x="397" y="121" width="26" height="26"/><rect x="424" y="121" width="26" height="26"/><rect x="451" y="121" width="26" height="26"/><rect x="478" y="121" width="26" height="26"/><rect x="343" y="148" width="26" height="26"/><rect x="370" y="148" width="26" height="26"/><rect x="397" y="148" width="26" height="26"/><rect x="424" y="148" width="26" height="26"/><rect x="451" y="148" width="26" height="26"/><rect x="478" y="148" width="26" height="26"/><rect x="343" y="175" width="26" height="26"/><rect x="370" y="175" width="26" height="26"/><rect x="397" y="175" width="26" height="26"/><rect x="424" y="175" width="26" height="26"/><rect x="451" y="175" width="26" height="26"/><rect x="478" y="175" width="26" height="26"/><rect x="343" y="202" width="26" height="26"/><rect x="370" y="202" width="26" height="26"/><rect x="397" y="202" width="26" height="26"/><rect x="424" y="202" width="26" height="26"/><rect x="451" y="202" width="26" height="26"/><rect x="478" y="202" width="26" height="26"/></g>
+<!-- 2:4 pattern -->
+<g fill="#a78bfa"><rect x="663" y="40" width="26" height="26"/><rect x="717" y="40" width="26" height="26"/><rect x="690" y="67" width="26" height="26"/><rect x="744" y="67" width="26" height="26"/><rect x="663" y="94" width="26" height="26"/><rect x="717" y="94" width="26" height="26"/><rect x="690" y="121" width="26" height="26"/><rect x="744" y="121" width="26" height="26"/><rect x="663" y="148" width="26" height="26"/><rect x="717" y="148" width="26" height="26"/><rect x="690" y="175" width="26" height="26"/><rect x="744" y="175" width="26" height="26"/><rect x="663" y="202" width="26" height="26"/><rect x="717" y="202" width="26" height="26"/></g>
+<g fill="none" stroke="#22305a"><rect x="663" y="40" width="26" height="26"/><rect x="690" y="40" width="26" height="26"/><rect x="717" y="40" width="26" height="26"/><rect x="744" y="40" width="26" height="26"/><rect x="663" y="67" width="26" height="26"/><rect x="690" y="67" width="26" height="26"/><rect x="717" y="67" width="26" height="26"/><rect x="744" y="67" width="26" height="26"/><rect x="663" y="94" width="26" height="26"/><rect x="690" y="94" width="26" height="26"/><rect x="717" y="94" width="26" height="26"/><rect x="744" y="94" width="26" height="26"/><rect x="663" y="121" width="26" height="26"/><rect x="690" y="121" width="26" height="26"/><rect x="717" y="121" width="26" height="26"/><rect x="744" y="121" width="26" height="26"/><rect x="663" y="148" width="26" height="26"/><rect x="690" y="148" width="26" height="26"/><rect x="717" y="148" width="26" height="26"/><rect x="744" y="148" width="26" height="26"/><rect x="663" y="175" width="26" height="26"/><rect x="690" y="175" width="26" height="26"/><rect x="717" y="175" width="26" height="26"/><rect x="744" y="175" width="26" height="26"/><rect x="663" y="202" width="26" height="26"/><rect x="690" y="202" width="26" height="26"/><rect x="717" y="202" width="26" height="26"/><rect x="744" y="202" width="26" height="26"/></g>
+<text x="110" y="262" fill="#93a0bd" font-size="14" text-anchor="middle">Bỏ từng trọng số lẻ tẻ</text>
+<text x="110" y="282" fill="#93a0bd" font-size="14" text-anchor="middle">Chất lượng giữ tốt nhất</text>
+<text x="430" y="262" fill="#93a0bd" font-size="14" text-anchor="middle">Xóa cả kênh / head</text>
+<text x="430" y="282" fill="#93a0bd" font-size="14" text-anchor="middle">Ma trận nhỏ thật → nhanh ngay</text>
+<text x="750" y="262" fill="#93a0bd" font-size="14" text-anchor="middle">Mỗi nhóm 4 có đúng 2 số 0</text>
+<text x="750" y="282" fill="#93a0bd" font-size="14" text-anchor="middle">Tensor core hỗ trợ → ~2x</text>
+</g>
+</svg>
+<table>
+<tr><th>Kiểu</th><th>Cắt cái gì</th><th>Ưu điểm</th><th>Cái giá</th></tr>
+<tr><td><b>Unstructured</b></td><td>Từng trọng số riêng lẻ, ở đâu cũng được</td><td>Giữ chất lượng tốt nhất ở cùng sparsity — vì được chọn đúng chỗ thừa nhất</td><td>Ma trận vẫn "đầy" với phần cứng: GPU thường không bỏ qua số 0 lẻ tẻ → không nhanh hơn</td></tr>
+<tr><td><b>Structured</b></td><td>Cả một kênh, filter, attention head</td><td>Ma trận thu nhỏ thật sự, chạy nhanh trên mọi phần cứng, không cần kernel đặc biệt</td><td>Thô hơn: xóa cả kênh có thể vứt đi thông tin hữu ích → chất lượng rơi nhanh hơn</td></tr>
+<tr><td><b>N:M (thường là 2:4)</b></td><td>Trong mỗi nhóm M phần tử liên tiếp, giữ N phần tử, bỏ M−N</td><td>Quy luật đều đặn nên phần cứng làm được: NVIDIA Ampere trở lên hỗ trợ sparse tensor core cho 2:4, tăng tốc lý thuyết ~2x</td><td>Sparsity cố định 50% với 2:4, và cần kernel/framework hỗ trợ thì mới thành tốc độ thật</td></tr>
+</table>
+<p>Một quy tắc nhớ nhanh: <b>kiểu cắt càng đều đặn, phần cứng càng dễ tăng tốc; kiểu cắt càng tự do, chất lượng càng dễ giữ.</b> Chọn kiểu nào là một đánh đổi, không có đáp án đúng cho mọi trường hợp.</p>
+
+<h2>3. Magnitude pruning — cách cắt đơn giản nhất, và giới hạn của nó</h2>
+<p>Tiêu chí phổ biến nhất là <b>độ lớn (magnitude)</b>: trọng số nào có trị tuyệt đối |w| nhỏ thì coi là ít quan trọng và cắt trước. Với ngưỡng τ, mask được tính:</p>
+<div class="formula">mask = 1 nếu |w| ≥ τ, ngược lại 0 &nbsp;&nbsp;·&nbsp;&nbsp; w' = w × mask</div>
+<p>Ví dụ: một lớp có các trọng số [0,02; −1,4; 0,005; 0,9]. Với ngưỡng 0,1, ta cắt 0,02 và 0,005, giữ −1,4 và 0,9. Đơn giản, không cần dữ liệu, chạy được ngay. Nhưng magnitude có hai điểm mù:</p>
+<ul>
+<li><b>Trọng số nhỏ chưa chắc không quan trọng.</b> Một trọng số nhỏ nhưng nhân với activation rất lớn thì đóng góp thực vẫn lớn. Ngược lại, trọng số lớn nhân với activation gần như luôn bằng 0 thì cũng vô dụng.</li>
+<li><b>Cắt một lần quá nhiều sẽ sốc mô hình.</b> Cắt 50% trong một lần rồi đo thì chất lượng thường rơi tự do. Cách làm chuẩn là cắt dần (iterative pruning): cắt 10%, retrain nhẹ, cắt tiếp lên 30%, retrain, rồi lên 50%.</li>
+</ul>
+<img class="hero" src="img/day24_steps.webp" alt="Ba bước lặp lại: cắt tỉa, huấn luyện lại, đo đạc">
+
+<h2>4. Quy trình chuẩn: prune → retrain → đo, lặp lại</h2>
+<svg viewBox="0 0 820 150" xmlns="http://www.w3.org/2000/svg" font-family="sans-serif">
+<g font-size="15" font-weight="bold" text-anchor="middle">
+<rect x="20" y="30" width="200" height="70" rx="12" fill="#101830" stroke="#f5c542"/>
+<text x="120" y="60" fill="#f5c542">1 · PRUNE</text>
+<text x="120" y="82" fill="#e8edf7" font-size="13" font-weight="normal">Cắt theo tiêu chí</text>
+<rect x="310" y="30" width="200" height="70" rx="12" fill="#101830" stroke="#67e8f9"/>
+<text x="410" y="60" fill="#67e8f9">2 · RETRAIN</text>
+<text x="410" y="82" fill="#e8edf7" font-size="13" font-weight="normal">Fine-tune nhẹ, LR nhỏ</text>
+<rect x="600" y="30" width="200" height="70" rx="12" fill="#101830" stroke="#4ade80"/>
+<text x="700" y="60" fill="#4ade80">3 · ĐO</text>
+<text x="700" y="82" fill="#e8edf7" font-size="13" font-weight="normal">Quality + latency + kWh</text>
+</g>
+<g fill="#93a0bd" font-size="22" text-anchor="middle">
+<text x="265" y="72">→</text><text x="555" y="72">→</text>
+</g>
+<path d="M700 115 L700 132 L120 132 L120 105" fill="none" stroke="#a78bfa" stroke-width="2" stroke-dasharray="6 4"/>
+<text x="410" y="146" fill="#a78bfa" font-size="13" text-anchor="middle">Chưa đạt mục tiêu → cắt thêm một vòng nhỏ, lặp lại</text>
+</svg>
+<p><b>Vì sao phải retrain?</b> Sau khi cắt, các trọng số còn lại vẫn mang giá trị cũ — chúng chưa từng "biết" đồng đội của mình đã bị xóa. Một vòng fine-tune ngắn với learning rate nhỏ cho phép chúng điều chỉnh để bù lại phần thông tin đã mất. Thực nghiệm kinh điển: cắt 50% không retrain có thể mất vài điểm chất lượng, nhưng sau retrain thường chỉ còn mất chưa tới 1 điểm — với điều kiện không cắt quá tay trong một lần.</p>
+<div class="warn">⚠️ Lỗi thường gặp: <b>cắt một phát 80% rồi đo và kết luận "pruning không hiệu quả".</b> Pruning là quá trình dần dần. Cắt sốc → mô hình gãy → retrain cũng khó cứu. Luôn cắt theo vòng nhỏ và đo sau mỗi vòng.</div>
+
+<h2>5. Cái bẫy: sparsity đẹp trên giấy, tốc độ đứng yên ngoài đời</h2>
+<p>Đây là phần quan trọng nhất của bài. Giả sử bạn khoe "mô hình 90% sparsity". Nhưng nếu:</p>
+<ul>
+<li>Bạn lưu mô hình ở định dạng dense thông thường → file vẫn nặng như cũ, vì các số 0 vẫn chiếm chỗ.</li>
+<li>Bạn chạy trên GPU với kernel dense → mỗi phép nhân ma trận vẫn duyệt toàn bộ ma trận, kể cả các số 0 → latency không đổi.</li>
+<li>Bạn dùng định dạng thưa (sparse) nhưng overhead lưu chỉ số vị trí của các số 0 lại lớn hơn phần tiết kiệm được → thậm chí chậm hơn.</li>
+</ul>
+<p>Nói cách khác, <b>sparsity chỉ thành tốc độ khi có cả ba thứ: định dạng lưu trữ thưa (hoặc ma trận nhỏ thật), kernel biết bỏ qua số 0, và phần cứng hỗ trợ.</b> Thiếu một trong ba, con số sparsity chỉ để trưng bày. Đó là lý do structured pruning và 2:4 được ưa chuộng trong triển khai thực tế: chúng cho tốc độ thật mà không đòi hỏi cả hệ sinh thái kernel thưa.</p>
+
+<h2>⚡ Góc tiết kiệm năng lượng</h2>
+<div class="card">
+<p><b>Đừng gọi một bản prune là "xanh" nếu nó không rẻ hơn khi chạy.</b> Bộ tiêu chí tối thiểu trước khi tuyên bố tối ưu:</p>
+<ul>
+<li><b>Latency thật</b> trên đúng phần cứng triển khai, đúng batch size triển khai (batch = 1 khi sinh token khác hẳn batch = 64 lúc benchmark).</li>
+<li><b>Năng lượng/token (kWh)</b> giảm — vì ít phép tính hơn chưa chắc ít năng lượng hơn nếu kernel thưa chạy kém hiệu quả.</li>
+<li><b>Chất lượng giữ được</b> trên đúng tập đánh giá của sản phẩm, không chỉ perplexity chung chung.</li>
+<li><b>Tính cả chi phí retrain.</b> Nếu retrain tốn nhiều điện hơn cả phần tiết kiệm được trong vòng đời triển khai, thì đó không phải tối ưu năng lượng — chỉ là dời chi phí từ chỗ này sang chỗ khác.</li>
+</ul>
+<p>Quy tắc vàng của tuần Green LLM, nhắc lại lần nữa: <b>nếu latency và kWh không giảm thì không gọi là tối ưu triển khai.</b></p>
+</div>
+
+<h2>📝 Tóm tắt</h2>
+<ul class="check">
+<li>Pruning = bỏ phần ít quan trọng; sparsity = tỉ lệ số 0. Con số này chưa nói gì về tốc độ.</li>
+<li>Unstructured giữ chất lượng tốt nhất nhưng khó tăng tốc; structured nhanh ngay trên mọi phần cứng; 2:4 là điểm cân bằng, được tensor core hỗ trợ (~2x).</li>
+<li>Magnitude (|w| nhỏ → cắt) đơn giản nhưng mù trước activation; cắt dần từng vòng nhỏ, retrain sau mỗi vòng.</li>
+<li>Quy trình chuẩn: prune → retrain (LR nhỏ) → đo quality + latency + kWh → lặp lại.</li>
+<li>Chỉ tuyên bố thành công khi đo được nhanh hơn và rẻ hơn trên phần cứng triển khai thật.</li>
+</ul>
+<p><b>Bài thực hành tối nay:</b> prune một MLP nhỏ ở 10/30/50%, vẽ đường quality–sparsity, đo kích thước và latency thật trước/sau recovery fine-tune, rồi kết luận kiểu pruning nào phần cứng của bạn hưởng lợi. Trước khi bắt tay vào code, hãy viết ra: <i>"thứ duy nhất thay đổi là tỉ lệ sparsity — còn lại: cùng mô hình, cùng dữ liệu, cùng số epoch retrain."</i></p>
+<p><a class="btn" href="Day24_quiz.html">📝 Làm quiz 5 câu →</a><a class="btn ghost" href="Day24_video.mp4">🎬 Xem video bài học</a></p>
+<p class="footer">Khóa "Trở thành AI Engineer (LLM)" — Ngày 24 · Tuần 4: Green LLM. Bài tiếp theo: Ngày 25 — FlashAttention.</p>
+</div>
+</body>
+</html>
