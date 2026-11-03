@@ -232,6 +232,16 @@ def train(model, x_train, y_train, epochs=BASE_EPOCHS,
         raise ValueError("y_train phai co dtype long.")
     if not bool(torch.isfinite(x_train).all()):
         raise ValueError("x_train phai huu han.")
+    # [TRAINER] x phai la float32: truoc day guard
+    # chi chat o dtype cua y (bai hoc Day 23), con
+    # x float64/long lot qua het roi chet
+    # RuntimeError "mat1 and mat2 must have the
+    # same dtype" o trong Linear - loi vao sai
+    # thi phai bao o guard, khong de crash o
+    # lop tinh toan.
+    if x_train.dtype != torch.float32:
+        raise ValueError("x_train phai co dtype "
+                         "float32.")
     if isinstance(epochs, bool) \
             or not isinstance(epochs, int) or epochs < 1:
         raise ValueError("epochs phai la so nguyen >= 1.")
@@ -261,7 +271,8 @@ def accuracy(model, x_test, y_test):
 
     Raises:
         ValueError: tap test rong, y khong phai
-            long, X chua NaN/Inf.
+            long, X sai dtype float32 hoac chua
+            NaN/Inf.
     """
     if x_test.shape[0] == 0:
         raise ValueError("tap test khong duoc rong.")
@@ -271,6 +282,12 @@ def accuracy(model, x_test, y_test):
         raise ValueError("y_test phai co dtype long.")
     if not bool(torch.isfinite(x_test).all()):
         raise ValueError("x_test phai huu han.")
+    # [TRAINER] Tuong tu train(): x_test sai dtype
+    # (float64/long) truoc day lot qua guard roi
+    # crash trong Linear khi do accuracy.
+    if x_test.dtype != torch.float32:
+        raise ValueError("x_test phai co dtype "
+                         "float32.")
     model.eval()
     pred = model(x_test).argmax(1)
     return float((pred == y_test).float().mean())
@@ -299,10 +316,16 @@ def latency_ms(model, x, batch=1, reps=500, warmup=50):
 
     Raises:
         ValueError: batch/reps/warmup sai kieu
-            hoac ngoai pham vi, x rong.
+            hoac ngoai pham vi, x rong hoac sai
+            dtype float32.
     """
     if x.shape[0] == 0:
         raise ValueError("x khong duoc rong.")
+    # [TRAINER] Ca ham do toc do cung phai chan
+    # dtype x: x long/float64 truoc day chi chet
+    # o lan chay warmup dau tien, mat cong do.
+    if x.dtype != torch.float32:
+        raise ValueError("x phai co dtype float32.")
     for ten, gia_tri, toi_thieu in (
             ("batch", batch, 1), ("reps", reps, 1),
             ("warmup", warmup, 0)):
@@ -603,6 +626,17 @@ def tu_kiem_tra():
             lambda: train(mo_hinh_moi(), x_nho, y_nho,
                           lr="0.01"),
             "lr dang chuoi"),
+        # [TRAINER] 2 test cho guard dtype x moi:
+        # truoc ban review, ca 2 deu nem RuntimeError
+        # thay vi ValueError.
+        _expect_value_error(
+            lambda: train(mo_hinh_moi(), x_nho.double(),
+                          y_nho, epochs=1),
+            "x_train float64"),
+        _expect_value_error(
+            lambda: accuracy(mo_hinh_moi(), x_nho.long(),
+                             y_nho),
+            "x_test dang long"),
         _expect_value_error(
             lambda: latency_ms(mo_hinh_moi(), x_nho,
                                batch=0),
@@ -747,19 +781,43 @@ def bai1(baseline, x_test, y_test):
     acc_50, lat_50, _ = ket_qua[0.5]
     roi = (acc_goc - acc_50) * 100
     doi_lat = (lat_50 - lat_goc) / lat_goc * 100
-    if lat_50 <= lat_goc * 1.1:
+    # [TRAINER] Truoc day nhanh <= 1.1x gom ca
+    # truong hop latency GIAM MANH vao nhan
+    # "gan nhu khong doi" - nhan xet khong phan
+    # biet giam / hoa / tang. Nay tach 3 nhanh
+    # theo dung so do (hom nay lat bang nhau
+    # nen van roi vao nhanh giua nhu cu).
+    if lat_50 < lat_goc * 0.9:
+        nhan_xet = f"giam {-doi_lat:.1f}%"
+    elif lat_50 <= lat_goc * 1.1:
         nhan_xet = "gan nhu khong doi"
     else:
         nhan_xet = (f"khong giam (do duoc cao hon "
                     f"{doi_lat:+.1f}%, nam trong bien "
                     f"dong tai may o muc 0.0x ms, "
                     f"khong ket luan pruning lam cham)")
+    # Giai thich cung phai re nhanh theo so do:
+    # cau "Latency khong giam" ghi cung se mau
+    # thuan voi nhanh "giam 31.7%" o lan chay
+    # ma tai may ha xuong giua 2 lan do. Muc
+    # giam o quy mo 0.0x ms la bien dong tai
+    # may, khong phai tac dung he thong.
+    if lat_50 < lat_goc * 0.9:
+        giai_thich = ("Muc giam nay nam trong bien "
+                      "dong tai may o muc 0.0x ms, "
+                      "khong phai tac dung he thong "
+                      "cua pruning: kernel dense van "
+                      "duyet toan bo ma tran, ke ca "
+                      "so 0.")
+    else:
+        giai_thich = ("Latency khong giam vi kernel "
+                      "dense van duyet toan bo ma "
+                      "tran, ke ca so 0 - sparsity "
+                      "chi la con so tren giay.")
     print(f"Ket luan: cat 50% khong retrain lam acc "
           f"roi {roi:.1f} diem, latency {nhan_xet} "
           f"({lat_goc:.3f} -> {lat_50:.3f} ms). "
-          f"Latency khong giam vi kernel dense van "
-          f"duyet toan bo ma tran, ke ca so 0 - "
-          f"sparsity chi la con so tren giay.")
+          f"{giai_thich}")
     return {"acc_goc": acc_goc, "lat_goc": lat_goc,
             "acc_50": acc_50, "lat_50": lat_50}
 
@@ -808,9 +866,18 @@ def bai2(baseline, x_train, y_train, x_test, y_test):
     print(f"  Iterative + retrain: acc={acc_2:.3f} "
           f"sparsity={sp_2:.3f}")
     chenh = (acc_2 - acc_1) * 100
+    # [TRAINER] Truoc day chuoi ket luan ghi cung
+    # "= 1 mau test": hom nay dung vi chenh dung
+    # 0.1 diem, nhung neu chenh = 0.0 thi cau chu
+    # thanh "0.0 diem = 1 mau" - sai ngay tren so
+    # cua minh. Nay tinh so mau that tu chenh va
+    # kich thuoc test.
+    so_mau_chenh = int(round(abs(acc_2 - acc_1)
+                             * x_test.shape[0]))
     if abs(chenh) < 0.2:
         hon = (f"gan nhu hoa nhau, chenh {chenh:.1f} "
-               f"diem = 1 mau test tren 1000 mau")
+               f"diem = {so_mau_chenh} mau test tren "
+               f"{x_test.shape[0]} mau")
     elif chenh > 0:
         hon = f"iterative cao hon {chenh:.1f} diem"
     else:
@@ -906,14 +973,36 @@ def bai3(baseline, x_train, y_train, x_test, y_test):
             return (f"batch={batch}: khong do duoc "
                     f"nhanh hon ({nhanh:.2f}x)")
         return f"batch={batch}: nhanh hon {nhanh:.2f}x"
+    # [TRAINER] LOI KET LUAN (muc chinh cua ban
+    # review nay): cau batch=1000 truoc day GHI
+    # CUNG "toc do moi hien ra ... gan ti le giam
+    # phep tinh" bat ke so do the nao. Lan chay
+    # 03/11 cho nhanh_1000 = 1.00x (0.297 ms ca 2
+    # ben, khong nhanh hon chut nao) trong khi ti
+    # le giam phep tinh la 5504/4160 = 1.32x - ket
+    # luan cu sai ngay tren so cua chinh no, dung
+    # benh ghi cung da bi neu o Day 23. Nay dung
+    # mo_ta_toc_do cho ca batch=1000 va chi noi
+    # toc do "hien ra" khi do duoc > 1.05x.
+    if nhanh_1000 <= 1.05:
+        cau_1000 = (
+            f"{mo_ta_toc_do(nhanh_1000, 1000)} - ke "
+            f"ca o batch lon nhat da do, toc do van "
+            f"khong hien ra, du phep tinh da giam "
+            f"con 4160/5504 (ti le 1.32x): overhead "
+            f"cua moi truong do nay con lon hon ca "
+            f"phan tinh toan o quy mo nay")
+    else:
+        cau_1000 = (
+            f"{mo_ta_toc_do(nhanh_1000, 1000)} - "
+            f"toc do chi hien ra khi batch du lon "
+            f"de tinh toan at duoc overhead")
     print(f"Ket luan: mo hinh nho giam {giam_param:.1f}% "
           f"tham so; {mo_ta_toc_do(nhanh_1, 1)}, "
           f"{mo_ta_toc_do(nhanh_64, 64)} - mo hinh "
           f"qua nho nen chi phi khoi dong kernel at "
           f"het phan tinh toan tiet kiem duoc. "
-          f"Chi o batch=1000 toc do moi hien ra "
-          f"({nhanh_1000:.2f}x, gan ti le giam "
-          f"phep tinh). Retrain giup acc hoi "
+          f"{cau_1000}. Retrain giup acc hoi "
           f"{(acc_hoc - acc_nho) * 100:.1f} diem.")
     return {"lat1_goc": lat1_goc, "lat1_nho": lat1_nho,
             "lat64_goc": lat64_goc,
@@ -955,12 +1044,31 @@ def main():
           f"{kq3['nhanh_1']:.2f}x / batch=64 "
           f"{kq3['nhanh_64']:.2f}x / batch=1000 "
           f"{kq3['nhanh_1000']:.2f}x.")
-    print("Ket luan chung: unstructured chi nhe tren "
-          "giay - ngay ca mo hinh nho that cung chi "
-          "nhanh that khi tinh toan at chi phi khoi "
-          "dong, nen phai do dung batch size trien "
-          "khai. Nang luong (kWh) khong do o lab nay, "
-          "nen khong tuyen bo tiet kiem dien.")
+    # [TRAINER] Ket luan chung truoc day cung ghi
+    # cung rang mo hinh nho "chi nhanh that khi
+    # tinh toan at chi phi khoi dong" - nghe nhu
+    # o batch=1000 no DA nhanh that, trong khi so
+    # do hom nay la 1.00x. Nay re nhanh theo dung
+    # nhanh_1000 vua do.
+    if kq3["nhanh_1000"] > 1.05:
+        print("Ket luan chung: unstructured chi nhe "
+              "tren giay - ngay ca mo hinh nho that "
+              "cung chi nhanh that khi tinh toan at "
+              "chi phi khoi dong, nen phai do dung "
+              "batch size trien khai. Nang luong "
+              "(kWh) khong do o lab nay, nen khong "
+              "tuyen bo tiet kiem dien.")
+    else:
+        print("Ket luan chung: unstructured chi nhe "
+              "tren giay; mo hinh nho that 48 neuron "
+              "o MOI batch da do (1, 64, 1000) deu "
+              "khong nhanh hon do duoc - quy mo nay "
+              "qua nho so voi overhead cua moi "
+              "truong do, nen muon thay toc do phai "
+              "do o mo hinh hoac batch lon hon nhieu, "
+              "dung suy ra tu ti le tham so. Nang "
+              "luong (kWh) khong do o lab nay, nen "
+              "khong tuyen bo tiet kiem dien.")
 
 
 if __name__ == "__main__":
