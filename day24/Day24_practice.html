@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ngày 24 — Buổi tối: Thực hành Pruning</title>
+<style>
+  :root{--bg:#0f172a;--card:#1e293b;--line:#334155;--text:#e2e8f0;--muted:#94a3b8;--accent:#38bdf8;--green:#4ade80;--amber:#fbbf24}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.7;padding:20px 14px 48px}
+  main{max-width:820px;margin:0 auto}
+  h1{font-size:1.5rem;line-height:1.35}
+  h2{color:var(--accent);margin-top:2rem;font-size:1.2rem}
+  h3{margin-top:1.4rem}
+  .tag{display:inline-block;background:#0ea5e933;border:1px solid var(--accent);color:var(--accent);border-radius:999px;padding:2px 12px;font-size:.85rem}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin:16px 0}
+  .muted{color:var(--muted)}
+  code{background:#0b1220;border:1px solid var(--line);border-radius:6px;padding:1px 6px;font-size:.92em;word-break:break-word}
+  pre{background:#0b1220;border:1px solid var(--line);border-radius:10px;padding:14px;overflow:auto;font-size:.85rem;line-height:1.55}
+  pre code{border:0;padding:0;background:none}
+  table{width:100%;border-collapse:collapse;font-size:.92rem}
+  th,td{border:1px solid var(--line);padding:8px;text-align:left}
+  th{color:var(--accent)}
+  button{background:var(--accent);color:#082f49;border:0;border-radius:8px;padding:8px 14px;font-weight:700;cursor:pointer}
+  .ans{display:none;background:#052e16;border:1px solid #166534;border-radius:10px;padding:12px;margin-top:10px}
+  .ans.show{display:block}
+  .warn{border-left:4px solid var(--amber);padding:10px 14px;background:#78350f33;margin:12px 0}
+  .ok{border-left:4px solid var(--green);padding:10px 14px;background:#14532d33;margin:12px 0}
+  ul{padding-left:20px}
+  li{margin:6px 0}
+</style>
+</head>
+<body>
+<main>
+<p><span class="tag">NGÀY 24 · BUỔI TỐI — TUẦN 4: GREEN LLM</span></p>
+<h1>🛠️ Thực hành: Pruning — cắt tỉa chỉ có nghĩa khi chạy nhanh thật</h1>
+<p class="muted">⏱ Ước lượng: 60–90 phút · Dụng cụ: Python + PyTorch (CPU là đủ) · Kiến thức nền cần nhớ, 1 dòng: sparsity cao chưa chắc nhanh hơn — chỉ tin con số latency và năng lượng đo trên đúng phần cứng, đúng batch size triển khai.</p>
+
+<h2>🎯 Mục tiêu buổi tối</h2>
+<ul>
+<li> Tự tay cắt tỉa một MLP nhỏ ở 3 mức 10% / 30% / 50% và đo đường cong quality–sparsity thật bằng số của chính bạn.</li>
+<li> Chứng minh bằng đo đạc: cắt một phát 50% (one-shot) tệ hơn cắt dần + retrain (iterative) như thế nào.</li>
+<li> So sánh unstructured (mask từng trọng số) với structured (xóa cả neuron) — và trả lời: bản nào <em>chạy nhanh thật</em>, bản nào chỉ <em>nhẹ trên giấy</em>.</li>
+</ul>
+
+<h2>🧪 Bài tập chính: Lab prune một MLP</h2>
+<div class="card">
+<h3>Thiết lập chung (đừng đổi giữa các lần đo)</h3>
+<p>Trước mỗi thí nghiệm, viết ra: <strong>“thứ duy nhất thay đổi là ___”</strong>. Ở lab này, thứ duy nhất thay đổi là <strong>tỉ lệ / kiểu pruning</strong> — còn lại giữ nguyên: cùng seed, cùng dữ liệu, cùng kiến trúc, cùng learning rate và số epoch retrain. Đổi 2 thứ cùng lúc thì kết quả không kết luận được gì.</p>
+<p>Bài toán: phân loại 2 lớp trên dữ liệu tổng hợp 20 chiều (dễ train nhanh trên CPU, đủ khó để pruning làm rơi accuracy nếu cắt quá tay). Mô hình: MLP 20 → 64 → 64 → 2.</p>
+</div>
+
+<h3>Bước 0 — Khung code có sẵn (chạy được)</h3>
+<p>Lưu file <code>prune_lab.py</code>, chạy <code>python prune_lab.py</code> để chắc khung chạy tốt trước khi làm các TODO. Các chỗ TODO sẽ báo lỗi rõ ràng nếu bạn chưa điền — đó là cố ý, để bạn tự làm phần chính.</p>
+<pre><code>import time, torch, torch.nn as nn
+from sklearn.datasets import make_classification
+from sklearn.model_selection import train_test_split
+
+torch.manual_seed(0)
+X, y = make_classification(n_samples=4000, n_features=20, n_informative=12,
+                           n_redundant=4, random_state=0)
+Xtr, Xte, ytr, yte = train_test_split(X, y, test_size=0.25, random_state=0)
+Xtr = torch.tensor(Xtr, dtype=torch.float32); ytr = torch.tensor(ytr)
+Xte = torch.tensor(Xte, dtype=torch.float32); yte = torch.tensor(yte)
+
+class MLP(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.fc1 = nn.Linear(20, 64); self.fc2 = nn.Linear(64, 64); self.fc3 = nn.Linear(64, 2)
+    def forward(self, x):
+        return self.fc3(torch.relu(self.fc2(torch.relu(self.fc1(x)))))
+
+def train(model, epochs=15, lr=0.01):
+    opt = torch.optim.Adam(model.parameters(), lr=lr)
+    for _ in range(epochs):
+        opt.zero_grad()
+        loss = nn.CrossEntropyLoss()(model(Xtr), ytr)
+        loss.backward(); opt.step()
+    return model
+
+@torch.no_grad()
+def accuracy(model):
+    return (model(Xte).argmax(1) == yte).float().mean().item()
+
+@torch.no_grad()
+def latency_ms(model, batch=1, reps=200):
+    x = Xte[:batch]
+    for _ in range(20): model(x)  # warmup
+    t0 = time.perf_counter()
+    for _ in range(reps): model(x)
+    return (time.perf_counter() - t0) / reps * 1000
+
+def sparsity(model):
+    total = sum(p.numel() for p in model.parameters() if p.dim() &gt; 1)
+    zero = sum((p == 0).sum().item() for p in model.parameters() if p.dim() &gt; 1)
+    return zero / total
+
+base = train(MLP())
+print(f"Baseline: acc={accuracy(base):.3f} latency(batch=1)={latency_ms(base):.3f} ms")</code></pre>
+
+<h3>Bước 1 — Magnitude pruning unstructured (TODO chính)</h3>
+<p>Viết hàm <code>prune_unstructured(model, ratio)</code>: gom mọi trọng số (chỉ ma trận weight, không cắt bias) vào một tensor, lấy ngưỡng là phân vị <code>ratio</code> của <code>|w|</code>, rồi đặt các trọng số dưới ngưỡng về 0. Gợi ý: dùng <code>torch.quantile</code> trên tensor đã flatten, rồi áp mask cho từng lớp.</p>
+<pre><code>def prune_unstructured(model, ratio):
+    # TODO: 1) gom weight các lớp Linear, tính ngưỡng = quantile(|w|, ratio)
+    #       2) với mỗi lớp, weight = weight * (|weight| &gt;= ngưỡng)
+    raise NotImplementedError("Bạn điền phần này")</code></pre>
+<p>Chạy 3 mức <code>ratio = 0.1, 0.3, 0.5</code> — mỗi mức xuất phát từ <em>cùng một baseline đã train</em> — và điền bảng kết quả:</p>
+<table>
+<tr><th>Sparsity</th><th>Accuracy (không retrain)</th><th>Latency batch=1</th><th>Nhận xét</th></tr>
+<tr><td>10%</td><td></td><td></td><td></td></tr>
+<tr><td>30%</td><td></td><td></td><td></td></tr>
+<tr><td>50%</td><td></td><td></td><td></td></tr>
+</table>
+<p><strong>Câu hỏi bắt buộc trả lời bằng số:</strong> ở mức 50%, latency có giảm không? Nếu không — vì sao? (Gợi ý: xem lại bài sáng — kernel dense vẫn duyệt toàn bộ ma trận, kể cả số 0.)</p>
+
+<h3>Bước 2 — One-shot vs iterative + retrain (TODO chính)</h3>
+<p>So sánh 2 cách đều tới 50% sparsity, cùng tổng số epoch retrain (ví dụ 15 epoch):</p>
+<ul>
+<li><strong>One-shot:</strong> cắt một phát 50%, rồi retrain 15 epoch với LR nhỏ (0.001).</li>
+<li><strong>Iterative:</strong> cắt 10% → retrain 5 epoch → cắt lên 30% → retrain 5 epoch → cắt lên 50% → retrain 5 epoch.</li>
+</ul>
+<p>Điền kết quả vào bảng, rồi kết luận: cách nào giữ accuracy cao hơn, chênh lệch bao nhiêu điểm? Đây chính là quy trình chuẩn “prune → retrain → đo, lặp lại” của bài sáng.</p>
+<table>
+<tr><th>Cách tới 50%</th><th>Accuracy sau retrain</th><th>Sparsity đo được</th></tr>
+<tr><td>One-shot + retrain</td><td></td><td></td></tr>
+<tr><td>Iterative + retrain</td><td></td><td></td></tr>
+</table>
+
+<h3>Bước 3 — Structured pruning: xóa cả neuron (TODO nâng cao)</h3>
+<p>Viết hàm cắt cả một neuron ẩn của <code>fc1</code>: tính điểm quan trọng của mỗi neuron bằng chuẩn L1 của hàng weight tương ứng, xóa 25% neuron thấp điểm nhất (đặt hàng đó về 0 <em>và</em> cắt cột tương ứng ở <code>fc2</code> — nếu chỉ cắt một phía, mô hình vẫn giữ kích thước cũ). Sau đó xây lại mô hình nhỏ thật sự (ví dụ 64 → 48 neuron) bằng cách copy weight còn lại sang một MLP mới, rồi đo latency.</p>
+<div class="ok"><strong>Kết quả kỳ vọng:</strong> unstructured 50% gần như không đổi latency, nhưng mô hình thu nhỏ thật sau structured pruning thì latency giảm rõ rệt — đó là điểm khác biệt giữa “sparsity trên giấy” và “tốc độ thật”.</div>
+<p>Đo thêm cả 2 batch size: batch=1 (giống sinh token) và batch=64 (giống benchmark) — và ghi nhận xem tỉ lệ tăng tốc có giống nhau không.</p>
+
+<h2>✅ 3 câu tự kiểm tra nhanh</h2>
+<div class="card">
+<p><strong>1. Vì sao mô hình 90% sparsity vẫn có thể chạy chậm như cũ?</strong></p>
+<button onclick="this.nextElementSibling.classList.toggle('show')">Hiện đáp án</button>
+<div class="ans">Vì lưu ở định dạng dense thì các số 0 vẫn chiếm chỗ, và kernel dense vẫn duyệt toàn bộ ma trận. Muốn nhanh thật cần cả ba: định dạng thưa (hoặc ma trận nhỏ thật), kernel biết bỏ qua số 0, và phần cứng hỗ trợ.</div>
+</div>
+<div class="card">
+<p><strong>2. Vì sao phải retrain sau khi cắt, thay vì đo ngay?</strong></p>
+<button onclick="this.nextElementSibling.classList.toggle('show')">Hiện đáp án</button>
+<div class="ans">Vì các trọng số còn lại chưa từng “biết” đồng đội của mình đã bị xóa. Một vòng fine-tune ngắn với LR nhỏ cho chúng điều chỉnh để bù lại phần thông tin đã mất — thường chỉ còn mất chưa tới 1 điểm chất lượng nếu không cắt quá tay trong một lần.</div>
+</div>
+<div class="card">
+<p><strong>3. Khi nào chọn structured, khi nào chọn 2:4 (N:M)?</strong></p>
+<button onclick="this.nextElementSibling.classList.toggle('show')">Hiện đáp án</button>
+<div class="ans">Structured: muốn nhanh ngay trên mọi phần cứng, không cần kernel đặc biệt — chấp nhận chất lượng rơi nhanh hơn vì cắt thô. 2:4: muốn ~2x trên Tensor Core (Ampere trở lên) với sparsity cố định 50%, và có framework/kernel hỗ trợ thì mới thành tốc độ thật.</div>
+</div>
+
+<h2>⚠️ Bẫy thường gặp</h2>
+<div class="warn"><strong>1. Cắt bias và cắt cả 2 phía không khớp.</strong> Chỉ cắt weight; khi làm structured, cắt hàng ở lớp trước mà quên cắt cột ở lớp sau thì mô hình lỗi kích thước hoặc vẫn nặng như cũ.</div>
+<div class="warn"><strong>2. Cắt một phát quá nhiều rồi kết luận “pruning vô dụng”.</strong> Cắt sốc 80% → mô hình gãy → retrain khó cứu. Luôn cắt theo vòng nhỏ và đo sau mỗi vòng.</div>
+<div class="warn"><strong>3. Đo latency sai điều kiện triển khai.</strong> Benchmark batch=64 không đại diện cho sinh token batch=1; đo trên GPU khác máy triển khai rồi tuyên bố “nhanh hơn” cũng không có giá trị. Đo đúng phần cứng, đúng batch size.</div>
+
+<h2>📋 Checklist nộp bài</h2>
+<ul>
+<li>☐ Bảng kết quả Bước 1 (10% / 30% / 50%, accuracy + latency batch=1)</li>
+<li>☐ Bảng so sánh one-shot vs iterative ở 50% + kết luận bằng số</li>
+<li>☐ Kết quả structured pruning + latency batch=1 và batch=64</li>
+<li>☐ Trả lời: ở mức 50% unstructured, latency có giảm không, vì sao?</li>
+</ul>
+<p><strong>Paste code/kết quả vào chat để được nhận xét chi tiết.</strong> Ghi rõ: “thứ duy nhất thay đổi là tỉ lệ/kiểu pruning” và các điều kiện còn lại bạn đã giữ nguyên những gì.</p>
+<p class="muted">Bài sáng liên quan: <a style="color:var(--accent)" href="Day24_lesson.html">Day24_lesson.html — Pruning: cắt tỉa chỉ có nghĩa khi chạy nhanh thật</a> · Quiz: Day24_quiz.html</p>
+</main>
+</body>
+</html>
