@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ngày 25 — FlashAttention: tối ưu luồng dữ liệu, không đổi định nghĩa attention | Khóa LLM 30 ngày</title>
+<style>
+:root{--bg:#0a0f1e; --card:#101830; --line:#22305a; --gold:#f5c542; --green:#4ade80;
+ --red:#f87171; --violet:#a78bfa; --cyan:#67e8f9; --text:#e8edf7; --muted:#93a0bd;}
+*{box-sizing:border-box;}
+body{margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.75; font-size:16.5px;}
+.wrap{max-width:820px; margin:0 auto; padding:18px 16px 60px;}
+.kicker{display:inline-block; font-size:13px; letter-spacing:1px; color:var(--gold); font-weight:700; margin-bottom:8px;}
+h1{font-size:30px; line-height:1.3; margin:6px 0 10px;}
+h2{font-size:22px; margin:34px 0 10px; color:var(--cyan);}
+h3{font-size:18px; margin:22px 0 8px; color:var(--gold);}
+.sub{color:var(--muted); font-size:16.5px;}
+.meta{display:flex; gap:8px; flex-wrap:wrap; margin:14px 0 6px;}
+.meta span{font-size:13.5px; background:var(--card); border:1px solid var(--line); border-radius:999px; padding:5px 14px;}
+.hero{width:100%; border-radius:14px; margin:16px 0;}
+.card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px; margin:16px 0;}
+.note{border-left:4px solid var(--green); background:#0f2233; border-radius:0 12px 12px 0; padding:12px 16px; margin:14px 0;}
+.warn{border-left:4px solid var(--red); background:#23141a; border-radius:0 12px 12px 0; padding:12px 16px; margin:14px 0;}
+.formula{background:#0a0f1e; border:1px dashed var(--violet); border-radius:10px; padding:12px 16px; margin:12px 0; font-size:17px; text-align:center;}
+table{width:100%; border-collapse:collapse; margin:12px 0; font-size:15px;}
+th,td{border:1px solid var(--line); padding:8px 10px; text-align:left;}
+th{background:#141d3a; color:var(--gold);}
+svg{max-width:100%; height:auto; display:block; margin:12px auto;}
+.btn{display:inline-block; background:var(--gold); color:#14100a; font-weight:700; border-radius:10px; padding:12px 22px; margin:10px 8px 0 0; text-decoration:none;}
+.btn.ghost{background:transparent; color:var(--gold); border:2px solid var(--gold);}
+code{background:#0a0f1e; border:1px solid var(--line); border-radius:6px; padding:1px 7px; font-size:15px;}
+.footer{color:var(--muted); font-size:14px; margin-top:40px; border-top:1px solid var(--line); padding-top:14px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+<span class="kicker">KHÓA TRỞ THÀNH AI ENGINEER (LLM) · NGÀY 25 / 30</span>
+<h1>FlashAttention: tối ưu luồng dữ liệu, không đổi định nghĩa attention</h1>
+<p class="sub">Cùng một công thức attention, cùng một đáp án — chỉ khác cách dữ liệu đi qua bộ nhớ. Và khác biệt đó quyết định mô hình chạy được với chuỗi dài hay không.</p>
+<div class="meta"><span>⏱ Ước lượng: 25–30 phút đọc + quiz</span><span>🎯 3 khái niệm chính</span><span>⚡ Tiết kiệm năng lượng</span></div>
+<img class="hero" src="img/media-generation-day25-hero-0-a00796b0-dba4-4dba-884b-35f32656b470.webp" alt="Chip xử lý với bộ nhớ nhanh gần nhân tính toán và bộ nhớ lớn ở xa">
+
+<h2>1 · Mục tiêu buổi học</h2>
+<ul>
+<li>Giải thích được vì sao attention chuẩn chậm và tốn bộ nhớ khi chuỗi dài — dù số phép tính không phải lúc nào cũng là thủ phạm chính.</li>
+<li>Hiểu 3 ý tưởng của FlashAttention: nhận biết bộ nhớ (IO-aware), chia khối (tiling) và softmax trực tuyến (online softmax).</li>
+<li>Biết khi nào dùng FlashAttention / SDPA trong PyTorch, và khi nào nó không giúp gì.</li>
+</ul>
+
+<h2>2 · Vấn đề thật: attention chuẩn “chết” ở bộ nhớ, không phải ở phép tính</h2>
+<p>Định nghĩa attention không đổi từ đầu khóa:</p>
+<div class="formula">Attention(Q, K, V) = softmax(QK<sup>T</sup> / √d) · V</div>
+<p>Với chuỗi dài N, ma trận điểm số QK<sup>T</sup> có kích thước N × N. Ví dụ: N = 8.192 thì ma trận này có khoảng 67 triệu phần tử cho <em>mỗi</em> head, <em>mỗi</em> lớp — và attention chuẩn phải ghi nó ra bộ nhớ, đọc lại để softmax, rồi đọc lại để nhân với V.</p>
+<p>Đây là bài toán <strong>memory-bound</strong> (bị chặn bởi băng thông bộ nhớ), không phải compute-bound. GPU tính rất nhanh, nhưng cứ phải chờ dữ liệu đi đi về về.</p>
+
+<h3>2.1 · HBM và SRAM: hai “tốc độ sống” khác nhau</h3>
+<svg viewBox="0 0 760 260" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="So sánh HBM và SRAM">
+<rect x="10" y="20" width="360" height="210" rx="14" fill="#101830" stroke="#22305a"/>
+<text x="190" y="55" text-anchor="middle" fill="#f5c542" font-size="19" font-weight="700">HBM — bộ nhớ lớn</text>
+<text x="190" y="90" text-anchor="middle" fill="#e8edf7" font-size="16">Dung lượng: hàng chục GB</text>
+<text x="190" y="120" text-anchor="middle" fill="#e8edf7" font-size="16">Băng thông: ~1–3 TB/s</text>
+<text x="190" y="150" text-anchor="middle" fill="#93a0bd" font-size="15">Chứa toàn bộ Q, K, V, ma trận N×N</text>
+<text x="190" y="185" text-anchor="middle" fill="#f87171" font-size="15">Chậm hơn, tốn năng lượng hơn</text>
+<rect x="390" y="20" width="360" height="210" rx="14" fill="#101830" stroke="#67e8f9"/>
+<text x="570" y="55" text-anchor="middle" fill="#67e8f9" font-size="19" font-weight="700">SRAM — bộ nhớ trên chip</text>
+<text x="570" y="90" text-anchor="middle" fill="#e8edf7" font-size="16">Dung lượng: chỉ ~tens MB</text>
+<text x="570" y="120" text-anchor="middle" fill="#e8edf7" font-size="16">Băng thông: ~19 TB/s trở lên</text>
+<text x="570" y="150" text-anchor="middle" fill="#93a0bd" font-size="15">Nằm ngay cạnh nhân tính toán</text>
+<text x="570" y="185" text-anchor="middle" fill="#4ade80" font-size="15">Rất nhanh, nhưng không chứa hết N×N</text>
+</svg>
+<p>Quy tắc vàng: <strong>đừng bao giờ materialize (hiện thực hóa) ma trận N×N trong HBM nếu có thể tránh</strong>. FlashAttention sinh ra từ đúng quy tắc này.</p>
+<div class="warn"><strong>Lỗi thường gặp:</strong> Nghĩ “attention chậm vì O(N²) phép tính” nên đi tìm cách xấp xỉ attention. FlashAttention chứng minh: giữ nguyên O(N²) phép tính nhưng giảm số lần đọc/ghi HBM thì đã nhanh hơn nhiều — và đáp án vẫn chính xác.</div>
+
+<h2>3 · Ba ý tưởng của FlashAttention</h2>
+<img class="hero" src="img/media-generation-day25-tiles-0-57d41ee7-312a-44d2-839a-47cc930abbb3.webp" alt="Ma trận lớn được chia thành các khối nhỏ chảy qua nhân xử lý">
+
+<h3>3.1 · Tiling: chia nhỏ để vừa SRAM</h3>
+<p>Thay vì tính cả ma trận N×N một lúc, FlashAttention chia Q thành các khối hàng, K và V thành các khối cột, mỗi khối vừa với SRAM. Tính xong một khối, cộng dồn vào kết quả, rồi mới nạp khối tiếp theo. Ma trận N×N đầy đủ <strong>không bao giờ tồn tại</strong> trong bộ nhớ.</p>
+<p>Kết quả: bộ nhớ phụ thêm cho attention giảm từ O(N²) xuống O(N) — chỉ còn đầu ra và vài thống kê chạy (running statistics).</p>
+
+<h3>3.2 · Online softmax: softmax từng khối mà vẫn đúng</h3>
+<p>Khó khăn: softmax cần biết giá trị lớn nhất và tổng của <em>cả hàng</em> mới chuẩn hóa được, nhưng ta chỉ có từng khối. Giải pháp là softmax trực tuyến: giữ hai thống kê chạy theo từng khối — giá trị lớn nhất m và tổng l — và mỗi khi khối mới đến thì <strong>hiệu chỉnh lại (rescale)</strong> kết quả cũ:</p>
+<div class="formula">m<sub>mới</sub> = max(m<sub>cũ</sub>, max khối mới) · và l được rescale theo e<sup>m<sub>cũ</sub> − m<sub>mới</sub></sup></div>
+<p>Nhờ phép hiệu chỉnh này, kết quả cuối cùng <strong>chính xác bằng</strong> softmax chuẩn (exact attention, không phải xấp xỉ), chỉ khác thứ tự tính toán. Đây là điểm phân biệt FlashAttention với các attention xấp xỉ (sparse, low-rank): nó không đổi toán học, chỉ đổi cách thực thi.</p>
+
+<h3>3.3 · Fused kernel: gộp mọi bước thành một lần chạy</h3>
+<p>Thay vì 3–4 kernel riêng (nhân QK<sup>T</sup>, softmax, nhân với V, mỗi lần đều đọc/ghi HBM), FlashAttention gộp tất cả thành <strong>một kernel duy nhất</strong> chạy trong SRAM. Số lần qua lại HBM giảm mạnh, tốc độ tăng, năng lượng giảm.</p>
+<p>Một hệ quả thực hành: trong lúc huấn luyện, FlashAttention còn <strong>không lưu</strong> ma trận attention để dùng cho backward — nó tính lại (recomputation) khi cần. Tốn thêm một ít phép tính, nhưng tiết kiệm rất nhiều bộ nhớ, và tính lại trong SRAM vẫn rẻ hơn đọc từ HBM.</p>
+
+<table>
+<tr><th></th><th>Attention chuẩn</th><th>FlashAttention</th></tr>
+<tr><td>Bộ nhớ phụ</td><td>O(N²)</td><td>O(N)</td></tr>
+<tr><td>Độ chính xác</td><td>Chuẩn</td><td>Chính xác như chuẩn (exact)</td></tr>
+<tr><td>Nút thắt</td><td>Đọc/ghi HBM nhiều lần</td><td>Giảm đọc/ghi HBM, tính trong SRAM</td></tr>
+<tr><td>Chuỗi dài</td><td>Dễ tràn bộ nhớ</td><td>Chạy được chuỗi dài hơn nhiều</td></tr>
+</table>
+
+<h2>4 · Dùng trong PyTorch: SDPA chọn backend cho bạn</h2>
+<p>Bạn hiếm khi cần gọi FlashAttention trực tiếp. <code>torch.nn.functional.scaled_dot_product_attention</code> (SDPA) tự chọn backend nhanh nhất mà phần cứng hỗ trợ: FlashAttention, memory-efficient attention, hoặc backend toán học (math) dự phòng.</p>
+<div class="card">
+<p style="margin:0 0 8px"><strong>Ví dụ — một dòng là đủ:</strong></p>
+<code>out = F.scaled_dot_product_attention(q, k, v, is_causal=True)</code>
+<p style="margin-top:10px">Muốn biết backend nào đang chạy, dùng <code>torch.backends.cuda.sdp_kernel</code> hoặc bật <code>torch.backends.cuda.flash_sdp_enabled()</code> để kiểm tra — đừng đoán.</p>
+</div>
+<div class="warn"><strong>Bẫy thường gặp:</strong> FlashAttention yêu cầu GPU và kiểu dữ liệu hỗ trợ (thường fp16/bf16, head_dim ≤ 256 tùy phiên bản). Trên GPU cũ hoặc dtype không hỗ trợ, SDPA tự rơi về backend math — kết quả vẫn đúng, nhưng bạn sẽ không có tốc độ của FlashAttention. Luôn kiểm tra backend thực tế trước khi kết luận “FlashAttention không nhanh”.</div>
+
+<h2>5 · Khi nào FlashAttention giúp nhiều nhất — và khi nào không</h2>
+<ul>
+<li><strong>Giúp nhiều nhất:</strong> chuỗi dài (N lớn), nhiều head, huấn luyện và suy luận với context dài. Đây là lý do các mô hình hiện nay mới “nuôi” được context 32k–128k token.</li>
+<li><strong>Giúp ít:</strong> chuỗi rất ngắn (ma trận N×N vốn đã nhỏ), hoặc bài toán bị chặn bởi phần khác (ví dụ MLP, đọc dữ liệu). Tối ưu sai chỗ thì đo không thấy cải thiện — giống bài học Day 24 về pruning.</li>
+<li><strong>Không đổi:</strong> chất lượng mô hình. Vì là exact attention, đổi sang FlashAttention không được dùng làm lý do giải thích cho việc điểm số lên hay xuống.</li>
+</ul>
+
+<h2>⚡ Góc tiết kiệm năng lượng</h2>
+<div class="card">
+<p>Di chuyển dữ liệu tốn năng lượng hơn tính toán. Mỗi lần đọc/ghi HBM là một lần tốn điện — và với N×N, số lần đó tăng theo bình phương độ dài chuỗi. FlashAttention cắt đúng chỗ tốn điện nhất: lưu lượng bộ nhớ.</p>
+<p><strong>Green checkpoint:</strong> Khi so sánh hai cách chạy attention, đừng chỉ so thời gian — hãy so <em>năng lượng/token</em> và <em>độ dài chuỗi tối đa chạy được trên cùng một GPU</em>. Một kernel cho phép chuỗi dài gấp đôi trên cùng phần cứng chính là một lần tiết kiệm phần cứng thật.</p>
+</div>
+
+<h2>6 · Tóm tắt</h2>
+<ul>
+<li>Attention chuẩn tốn bộ nhớ vì materialize ma trận N×N trong HBM và đọc/ghi nhiều lần.</li>
+<li>FlashAttention = IO-aware + tiling vừa SRAM + online softmax có rescale + kernel hợp nhất (fused).</li>
+<li>Kết quả chính xác như attention chuẩn (exact), bộ nhớ phụ O(N), chuỗi dài chạy được xa hơn.</li>
+<li>Trong PyTorch dùng SDPA và kiểm tra backend thực tế — đừng đoán backend.</li>
+</ul>
+<p><a class="btn" href="Day25_quiz.html">📝 Làm quiz Ngày 25 →</a><a class="btn ghost" href="Day25_video.mp4">🎬 Xem video bài học</a></p>
+<p class="footer">Khóa Trở thành AI Engineer (LLM) — Ngày 25. Đọc thêm: bài báo FlashAttention (Dao và cộng sự), tài liệu SDPA của PyTorch, “Attention Is All You Need”.</p>
+</div>
+</body>
+</html>
