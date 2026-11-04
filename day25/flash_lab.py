@@ -76,11 +76,22 @@ def _kiem_tra_qkv(q, k, v, causal):
     sai (dtype khac nhau, device khac nhau, NaN,
     shape khong khop) phai bao ro bang ValueError
     ngay tu dau, khong de crash kho hieu trong
-    phep matmul (checklist 12, 16).
+    phep matmul (checklist 12, 16). Dac biet:
+    k/v lech so key thi naive/chunked crash
+    RuntimeError, con SDPA tu cat bot k am tham
+    roi tra dap an sai ma khong bao loi - nen
+    guard nay bat buoc, khong phai phong thu thua.
 
     Returns:
         (n_q, n_k, d): so query, so key, chieu
         cua moi head.
+
+    Raises:
+        ValueError: q/k/v khong phai tensor, it
+            hon 2 chieu, lech shape batch/chieu d/
+            so key/dtype/device, khong phai so
+            thuc, rong, chua NaN/Inf, causal khong
+            phai bool.
     """
     for ten, x in (("q", q), ("k", k), ("v", v)):
         if not isinstance(x, torch.Tensor):
@@ -93,6 +104,13 @@ def _kiem_tra_qkv(q, k, v, causal):
         raise ValueError("q/k/v phai cung shape batch.")
     if q.size(-1) != k.size(-1):
         raise ValueError("q va k phai cung chieu d.")
+    # [TRAINER] Guard moi: k/v lech so key thi naive/chunked crash
+    # RuntimeError kho hieu trong matmul, con SDPA tu cat bot k
+    # am tham roi tra dap an sai ma khong bao loi (da kiem chung
+    # bang chay that: sdpa(k N=16, v N=8) trung khop 0.00 voi
+    # sdpa(k cat con 8, v N=8)).
+    if k.size(-2) != v.size(-2):
+        raise ValueError("k va v phai cung so key.")
     if q.dtype != k.dtype or q.dtype != v.dtype:
         raise ValueError("q/k/v phai cung dtype.")
     if not q.is_floating_point():
@@ -260,13 +278,59 @@ def scores_bytes(n, dtype=torch.float32):
     return n * n * moi_phan_tu
 
 
+def bo_nho_phu_chunked(n, block, d_v,
+                       dtype=torch.float32):
+    """Bo nho phu cua chunked_attention (ly thuyet).
+
+    Chunked khong tao ma tran N x N, nhung van
+    giu 3 buffer song cung luc: scores cua 1 khoi
+    (N x block), p = exp(scores - m) (N x block)
+    va acc tich luy (N x d_v). m/l chi N x 1 nen
+    khong dang ke; cac ban sao tam thoi cua
+    masked_fill/exp/where khong tinh vao day -
+    con so nay la dinh muc on dinh, khong phai
+    dinh tam thoi. Quyet dinh theo ghi chu cua
+    Trainer: con so "N x block" cu chi tinh 1
+    buffer scores, thieu p va acc.
+
+    Args:
+        n: do dai chuoi, so nguyen >= 1.
+        block: so key / khoi, so nguyen >= 1.
+        d_v: chieu cua v, so nguyen >= 1.
+
+    Returns:
+        So byte = (2 * n * block + n * d_v) *
+        element_size, so nguyen.
+
+    Raises:
+        ValueError: n/block/d_v khong phai so
+            nguyen >= 1, dtype khong phai so thuc.
+    """
+    for ten, gia_tri in (("n", n), ("block", block),
+                         ("d_v", d_v)):
+        if isinstance(gia_tri, bool) \
+                or not isinstance(gia_tri, int) \
+                or gia_tri < 1:
+            raise ValueError(
+                f"{ten} phai la so nguyen >= 1.")
+    if dtype not in (torch.float16, torch.bfloat16,
+                     torch.float32, torch.float64):
+        raise ValueError("dtype phai la so thuc.")
+    moi_phan_tu = torch.empty(0, dtype=dtype) \
+        .element_size()
+    return (2 * n * block + n * d_v) * moi_phan_tu
+
+
 def bench(fn, warmup=WARMUP, reps=REPS):
     """Do thoi gian forward: TRUNG VI ms / lan.
 
     Lay trung vi cua tung lan chay rieng le (sau
     warmup), duoi torch.no_grad() de khong xay
     do thi autograd. Dung time.perf_counter()
-    (checklist 5).
+    (checklist 5). Tren GPU, dong bo CUDA truoc
+    vong do va sau moi lan chay de do thoi gian
+    kernel chay xong, khong phai thoi gian day
+    lenh; tren CPU nhanh dong bo khong chay.
 
     Args:
         fn: ham khong doi so, tra tensor dau ra.
@@ -288,10 +352,18 @@ def bench(fn, warmup=WARMUP, reps=REPS):
     with torch.no_grad():
         for _ in range(warmup):
             fn()
+        # [TRAINER] Tren GPU, fn() chi day lenh vao hang doi roi
+        # tra ve ngay; khong synchronize thi perf_counter do
+        # thoi gian day lenh chu khong phai thoi gian kernel chay
+        # xong. Tren CPU nhanh nay khong chay, so do khong doi.
+        if torch.cuda.is_available():
+            torch.cuda.synchronize()
         thoi_gian = []
         for _ in range(reps):
             t0 = time.perf_counter()
             fn()
+            if torch.cuda.is_available():
+                torch.cuda.synchronize()
             thoi_gian.append(time.perf_counter() - t0)
     return float(statistics.median(thoi_gian) * 1000.0)
 
@@ -367,6 +439,11 @@ def tu_kiem_tra():
             lambda: chunked_attention(
                 q_nho, k_nho.double(), v_nho),
             "k sai dtype"),
+        # [TRAINER] Test cho guard k/v cung so key moi them.
+        _expect_value_error(
+            lambda: chunked_attention(
+                q_nho, k_nho, torch.randn(1, 1, 8, 16)),
+            "k/v lech so key"),
         _expect_value_error(
             lambda: chunked_attention(
                 q_nho, k_nho, v_nho, block=0),
@@ -487,6 +564,17 @@ def tu_kiem_tra():
     assert scores_bytes(4096) == 4096 * 4096 * 4
     assert scores_bytes(512, torch.float64) \
         == 512 * 512 * 8
+    # Bo nho phu chunked: 2*N*block + N*d_v phan
+    # tu (scores khoi + p + acc). N=4096, block
+    # 64, d_v 64, fp32: 3 MiB (khong phai 1 MiB).
+    assert bo_nho_phu_chunked(4096, 64, 64) \
+        == (2 * 4096 * 64 + 4096 * 64) * 4
+    assert bo_nho_phu_chunked(131072, 64, 64) \
+        == (2 * 131072 * 64 + 131072 * 64) * 4
+    assert _expect_value_error(
+        lambda: bo_nho_phu_chunked(0, 64, 64),
+        "bo_nho_phu_chunked n=0"), \
+        "guard bo_nho_phu_chunked khong chan!"
     print("Tu kiem tra: PASS (tat ca assert deu qua).")
 
 
@@ -496,7 +584,8 @@ def bai1(q, k, v):
     Cung 1 bo Q/K/V, causal=True, fp32. Doi block
     32/64/128 va so voi naive - dap an phai dung
     yen trong muc lam tron, chi thu tu tinh thay
-    doi.
+    doi. Sai so lon nhat tra ve tinh tren ca 3
+    cap so sanh (naive-chunked va SDPA-chunked).
     """
     print("\n" + "=" * 72)
     print("BAI 1 - Chunked vs naive vs SDPA (N=256)")
@@ -518,6 +607,20 @@ def bai1(q, k, v):
         sai_lon_nhat = max(sai_lon_nhat, sai)
         print(f"  block={blk}: naive vs chunked max "
               f"abs diff = {sai:.2e}")
+    # [TRAINER] Checklist de bai yeu cau sai so so voi ca naive
+    # va SDPA; truoc day moi in naive vs SDPA va naive vs
+    # chunked, thieu cap SDPA vs chunked - in them tu dung 2
+    # tensor da co san, khong doi cach tinh nao.
+    print(f"  SDPA vs chunked (block="
+          f"{BLOCK_MAC_DINH}): max abs diff = "
+          f"{_sai_so_lon_nhat(sdpa, cac_out[BLOCK_MAC_DINH]):.2e}")
+    # Lam them sau review: cap SDPA-chunked cung
+    # phai nam trong "sai so lon nhat" ma ket
+    # luan phan dinh - neu khong, ket luan chi
+    # xet cap naive-chunked du checklist doi ca 2.
+    sai_sdpa_chunked = _sai_so_lon_nhat(
+        sdpa, cac_out[BLOCK_MAC_DINH])
+    sai_lon_nhat = max(sai_lon_nhat, sai_sdpa_chunked)
     # Bat bien theo block: so tung cap block.
     chenh_block = max(
         _sai_so_lon_nhat(cac_out[32], cac_out[64]),
@@ -541,6 +644,7 @@ def bai1(q, k, v):
           f"hang - vi vay block anh huong toc do/bo "
           f"nho, khong duoc phep anh huong dap an.")
     return {"sai_lon_nhat": sai_lon_nhat,
+            "sai_sdpa_chunked": sai_sdpa_chunked,
             "chenh_block": chenh_block}
 
 
@@ -553,7 +657,9 @@ def bai2():
     no_grad. Bo nho la con so ly thuyet (fp32),
     khong phai bo nho do duoc - chunked khong
     bao gio tao ma tran N x N, nen bo nho phu
-    cua no theo cong thuc chi la N x block.
+    cua no theo cong thuc la 2*N*block + N*d_v
+    (scores khoi + p + acc, xem bo_nho_phu_
+    chunked()).
     """
     print("\n" + "=" * 72)
     print("BAI 2 - N = 512 -> 4096: bo nho va toc do")
@@ -612,11 +718,16 @@ def bai2():
     else:
         tang_naive = (f"thoi gian naive tang "
                       f"{ti_le_naive:.1f}x")
+    # Quyet dinh theo ghi chu cua Trainer: bo nho
+    # phu tinh du ca 3 buffer (scores khoi + p +
+    # acc), khong chi 1 buffer scores nhu ban cu.
+    aux_4096_mib = bo_nho_phu_chunked(
+        4096, BLOCK_MAC_DINH, D_HEAD) / (2 ** 20)
     print(f"Ket luan: N tang 8x thi ma tran N x N "
           f"tang {ti_le_mib:.0f}x (bo nho tang binh "
           f"phuong); {tang_naive}; {toc_do}. Bo nho "
-          f"phu cua chunked theo cong thuc chi "
-          f"N x block = {4096 * BLOCK_MAC_DINH * 4 / 2 ** 20:.1f} "
+          f"phu cua chunked theo cong thuc "
+          f"(2*N*block + N*d_v) = {aux_4096_mib:.1f} "
           f"MiB o N=4096, thay cho 64 MiB cua ma "
           f"tran day du.")
     return {"ti_le_mib": ti_le_mib,
@@ -664,6 +775,20 @@ def bai3(thiet_bi):
         ngan = ("chenh lech khong dang ke - ma tran "
                 "N x N von da nho, nut that khong "
                 "con o bo nho")
+    # [TRAINER] Nhanh else cu mac dinh ti le > 1.25: neu do duoc
+    # ti le < 0.8 (chunked NHANH hon) no van in "cham hon
+    # 0.50x" - ket luan nguoc han so do. Da chung minh bang
+    # bench gia lap ti le 0.50: code cu in sai cau nay. Tach
+    # rieng nhanh nhanh hon, giu nguyen nhanh cham hon o else.
+    elif ti_le_64 < 0.8:
+        ngan = (f"chunked nhanh hon naive o chuoi "
+                f"ngan trong lan do nay (chi ton "
+                f"{ti_le_64:.2f}x thoi gian) - o N "
+                f"rat nho tren CPU chenh lech nay "
+                f"thuong nam trong nhieu do va chi "
+                f"phi co dinh cua tung ham, khong doi "
+                f"ket luan chung: loi ich bo nho chi "
+                f"ro khi N lon")
     else:
         ngan = (f"chunked cham hon {ti_le_64:.2f}x - "
                 f"chi phi co dinh cua rescale va "
@@ -699,8 +824,9 @@ def bai3(thiet_bi):
                    "tren GPU khong chay duoc o day.")
     mib_32k = scores_bytes(32768) / (2 ** 20)
     mib_128k = scores_bytes(131072) / (2 ** 20)
-    aux_128k = 131072 * BLOCK_MAC_DINH * 4 \
-        / (2 ** 20)
+    # Cung quyet dinh nhu Bai 2: tinh du 3 buffer.
+    aux_128k = bo_nho_phu_chunked(
+        131072, BLOCK_MAC_DINH, D_HEAD) / (2 ** 20)
     print(f"  Backend: {backend}")
     print(f"  Du bao LY THUYET (1 head, fp32): "
           f"N=32768 thi ma tran diem = "
@@ -728,8 +854,9 @@ def main():
     kq2 = bai2()
     kq3 = bai3(thiet_bi)
     print("\nBANG KET QUA: N=256 sai so lon nhat "
-          f"{kq1['sai_lon_nhat']:.2e}, chenh giua "
-          f"cac block {kq1['chenh_block']:.2e} | "
+          f"{kq1['sai_lon_nhat']:.2e} (SDPA-chunked "
+          f"{kq1['sai_sdpa_chunked']:.2e}), chenh "
+          f"giua cac block {kq1['chenh_block']:.2e} | "
           f"N=4096 ma tran 64 MiB, chunked/naive "
           f"{kq2['ti_le_chunk_4096']:.2f}x | N=64 ti "
           f"le chunked/naive {kq3['ti_le_64']:.2f}x, "
