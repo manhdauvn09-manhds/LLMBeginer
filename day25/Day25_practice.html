@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ngày 25 — Buổi tối: Thực hành FlashAttention</title>
+<style>
+  :root{--bg:#0f172a;--card:#1e293b;--line:#334155;--text:#e2e8f0;--muted:#94a3b8;--accent:#38bdf8;--green:#4ade80;--amber:#fbbf24}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.7;padding:20px 14px 48px}
+  main{max-width:820px;margin:0 auto}
+  h1{font-size:1.5rem;line-height:1.35}
+  h2{color:var(--accent);margin-top:2rem;font-size:1.2rem}
+  h3{margin-top:1.4rem}
+  .tag{display:inline-block;background:#0ea5e933;border:1px solid var(--accent);color:var(--accent);border-radius:999px;padding:2px 12px;font-size:.85rem}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin:16px 0}
+  .muted{color:var(--muted)}
+  code{background:#0b1220;border:1px solid var(--line);border-radius:6px;padding:1px 6px;font-size:.92em;word-break:break-word}
+  pre{background:#0b1220;border:1px solid var(--line);border-radius:10px;padding:14px;overflow:auto;font-size:.85rem;line-height:1.55}
+  pre code{border:0;padding:0;background:none}
+  table{width:100%;border-collapse:collapse;font-size:.92rem}
+  th,td{border:1px solid var(--line);padding:8px;text-align:left}
+  th{color:var(--accent)}
+  button{background:var(--accent);color:#082f49;border:0;border-radius:8px;padding:8px 14px;font-weight:700;cursor:pointer}
+  .ans{display:none;background:#052e16;border:1px solid #166534;border-radius:10px;padding:12px;margin-top:10px}
+  .ans.show{display:block}
+  .warn{border-left:4px solid var(--amber);padding:10px 14px;background:#78350f33;margin:12px 0}
+  .ok{border-left:4px solid var(--green);padding:10px 14px;background:#14532d33;margin:12px 0}
+  ul{padding-left:20px}
+  li{margin:6px 0}
+  a{color:var(--accent)}
+</style>
+</head>
+<body>
+<main>
+<p><span class="tag">NGÀY 25 · BUỔI TỐI — TUẦN 4: GREEN LLM</span></p>
+<h1>🛠️ Thực hành: FlashAttention — cùng đáp án, khác cách đi qua bộ nhớ</h1>
+<p class="muted">⏱ Ước lượng: 60–90 phút · Dụng cụ: Python + PyTorch (CPU là đủ cho phần chính; có GPU thì đo thêm backend thật) · Kiến thức nền cần nhớ, 1 dòng: FlashAttention không đổi công thức attention — nó chỉ tránh materialize ma trận N×N bằng tiling + online softmax.</p>
+
+<h2>🎯 Mục tiêu buổi tối</h2>
+<ul>
+<li>Tự tay code attention theo khối (chunked attention) với online softmax và chứng minh bằng số: kết quả bằng đúng attention chuẩn, sai số chỉ ở mức làm tròn số.</li>
+<li>Đo được vì sao chuỗi dài “chết” ở bộ nhớ: ma trận N×N tăng theo bình phương N, trong khi bản theo khối chỉ cần O(N) bộ nhớ phụ.</li>
+<li>Biết kiểm tra trong PyTorch: SDPA đang chạy backend nào (flash / memory-efficient / math) — và không kết luận “FlashAttention không nhanh” khi chưa kiểm tra.</li>
+</ul>
+
+<h2>🧪 Bài tập chính: Code attention theo khối rồi đối chiếu với SDPA</h2>
+<div class="card">
+<h3>Thiết lập chung (đừng đổi giữa các lần đo)</h3>
+<p>Trước mỗi thí nghiệm, viết ra: <strong>“thứ duy nhất thay đổi là ___”</strong>. Ở lab này, thứ duy nhất thay đổi là <strong>cách thực thi attention</strong> (chuẩn / theo khối / SDPA) — còn lại giữ nguyên: cùng seed, cùng Q/K/V, cùng dtype, cùng causal hay không, cùng thiết bị. Đổi 2 thứ cùng lúc thì kết quả không kết luận được gì.</p>
+<p>Bài toán: một head attention duy nhất, Q/K/V ngẫu nhiên, <code>d = 64</code>. Bắt đầu với N nhỏ để kiểm chứng đúng/sai, rồi mới tăng N để đo.</p>
+</div>
+
+<h3>Bước 0 — Khung code có sẵn (chạy được)</h3>
+<p>Lưu file <code>flash_lab.py</code>, chạy <code>python flash_lab.py</code> để chắc khung chạy tốt trước khi làm các TODO. Các chỗ TODO sẽ báo lỗi rõ ràng nếu bạn chưa điền — đó là cố ý, để bạn tự làm phần chính.</p>
+<pre><code>import math, time, torch
+import torch.nn.functional as F
+
+torch.manual_seed(0)
+
+def make_qkv(n, d=64, causal=True):
+    q = torch.randn(1, 1, n, d)
+    k = torch.randn(1, 1, n, d)
+    v = torch.randn(1, 1, n, d)
+    return q, k, v
+
+def naive_attention(q, k, v, causal=True):
+    """Attention chuẩn: materialize ma trận N x N."""
+    d = q.size(-1)
+    scores = q @ k.transpose(-2, -1) / math.sqrt(d)
+    if causal:
+        n = q.size(-2)
+        mask = torch.triu(torch.ones(n, n, dtype=torch.bool), diagonal=1)
+        scores = scores.masked_fill(mask, float("-inf"))
+    return torch.softmax(scores, dim=-1) @ v
+
+def sdpa_attention(q, k, v, causal=True):
+    return F.scaled_dot_product_attention(q, k, v, is_causal=causal)
+
+def check_backend():
+    if torch.cuda.is_available():
+        print("CUDA:", torch.cuda.get_device_name(0))
+        print("flash_sdp_enabled:", torch.backends.cuda.flash_sdp_enabled())
+        print("mem_efficient_sdp_enabled:",
+              torch.backends.cuda.mem_efficient_sdp_enabled())
+        print("math_sdp_enabled:", torch.backends.cuda.math_sdp_enabled())
+    else:
+        print("Không có CUDA: SDPA trên CPU dùng backend math — "
+              "vẫn đúng đáp án, nhưng bài đo tốc độ FlashAttention cần GPU.")
+
+if __name__ == "__main__":
+    check_backend()
+    q, k, v = make_qkv(256)
+    ref = naive_attention(q, k, v)
+    out = sdpa_attention(q, k, v)
+    print(f"naive vs SDPA: max abs diff = {(ref - out).abs().max().item():.2e}")
+    # TODO ở Bước 1 sẽ thêm dòng so sánh với chunked_attention tại đây.</code></pre>
+
+<h3>Bước 1 — Online softmax theo khối (TODO chính)</h3>
+<p>Viết hàm <code>chunked_attention(q, k, v, block=64, causal=True)</code>. Gợi ý từng bước, làm đúng thứ tự:</p>
+<ol>
+<li>Khởi tạo cho mỗi query: <code>m = -inf</code> (max chạy), <code>l = 0</code> (tổng chạy), <code>acc = 0</code> (tử số chạy).</li>
+<li>Duyệt K/V theo từng khối cột có kích thước <code>block</code>. Với mỗi khối, tính <code>scores</code> của khối đó rồi áp causal mask: vị trí key &gt; query thì đặt <code>-inf</code> <em>trước</em> khi lấy max của khối.</li>
+<li><code>m_new = max(m, max_khối)</code>; hệ số rescale <code>alpha = exp(m - m_new)</code> — dùng để hiệu chỉnh cả <code>l</code> và <code>acc</code> cũ.</li>
+<li><code>p = exp(scores - m_new)</code>; <code>l = l * alpha + sum(p)</code>; <code>acc = acc * alpha + p @ V_khối</code>.</li>
+<li>Hết các khối: trả về <code>acc / l</code>. Không bao giờ tạo ma trận N×N đầy đủ.</li>
+</ol>
+<pre><code>def chunked_attention(q, k, v, block=64, causal=True):
+    # TODO: triển khai theo 5 bước trên.
+    # Lưu ý: m, l, acc có shape theo từng query (..., N, 1) để broadcast đúng.
+    raise NotImplementedError("Bạn điền phần này")
+
+# Kiểm chứng (thêm vào __main__):
+#   chunked = chunked_attention(q, k, v)
+#   print(f"naive vs chunked: max abs diff = {(ref - chunked).abs().max().item():.2e}")
+#   print(f"SDPA  vs chunked: max abs diff = {(out - chunked).abs().max().item():.2e}")</code></pre>
+<div class="ok"><strong>Kết quả kỳ vọng:</strong> với N = 256, fp32, cả hai sai số đều nhỏ (cỡ 1e-6 trở xuống). Nếu sai số lớn hơn nhiều — kiểm tra ngay: đã rescale <code>acc</code> cũ chưa, đã mask causal trước khi lấy max chưa, đã chia cho <code>l</code> cuối cùng chưa. Đừng vội kết luận “online softmax là xấp xỉ”: bài sáng đã nói rõ nó là <em>exact</em>, sai số chỉ do thứ tự tính toán và làm tròn số.</div>
+<p><strong>Câu hỏi bắt buộc trả lời bằng thí nghiệm:</strong> đổi <code>block</code> thành 32 rồi 128 — đáp án có đổi không (trong sai số làm tròn)? Vì sao kích thước khối ảnh hưởng tốc độ/bộ nhớ nhưng không được phép ảnh hưởng đáp án?</p>
+
+<h3>Bước 2 — Đo: N×N tăng nhanh hơn bạn tưởng (TODO chính)</h3>
+<p>Với mỗi N trong <code>[512, 1024, 2048, 4096]</code>, tính và điền bảng. Công thức bộ nhớ lý thuyết cho ma trận điểm số fp32: <code>N × N × 4 byte</code> (chưa kể các bản sao khi backward). Đo thời gian bằng <code>time.perf_counter()</code> sau vài lần warmup, cùng một hàm, cùng thiết bị.</p>
+<table>
+<tr><th>N</th><th>Ma trận N×N (fp32, lý thuyết)</th><th>Thời gian naive</th><th>Thời gian chunked</th><th>Nhận xét</th></tr>
+<tr><td>512</td><td>1 MB</td><td></td><td></td><td></td></tr>
+<tr><td>1024</td><td>4 MB</td><td></td><td></td><td></td></tr>
+<tr><td>2048</td><td>16 MB</td><td></td><td></td><td></td></tr>
+<tr><td>4096</td><td>64 MB</td><td></td><td></td><td></td></tr>
+</table>
+<p class="muted">Bảng trên là cho 1 head, 1 lớp, 1 mẫu. Nhân lên với số head × số lớp × batch size bạn sẽ thấy vì sao chuỗi 32k–128k “không chạy nổi” bằng attention chuẩn — và vì sao bài sáng gọi đây là bài toán memory-bound, không phải chỉ compute-bound.</p>
+<p>Nếu có GPU: chạy thêm cùng bảng trên GPU và ghi backend thực tế (dùng <code>check_backend()</code> + <code>torch.backends.cuda.sdp_kernel</code> nếu cần). Nếu không có GPU: ghi rõ “chạy CPU, SDPA dùng backend math” và kết luận về tốc độ FlashAttention thì để ngỏ — đừng suy ra từ số CPU.</p>
+
+<h3>Bước 3 — Khi nào FlashAttention không giúp (TODO nâng cao)</h3>
+<p>Thử 2 trường hợp và ghi kết quả, mỗi trường hợp chỉ đổi đúng 1 thứ so với Bước 1:</p>
+<ul>
+<li><strong>Chuỗi rất ngắn</strong> (N = 32, 64): chênh lệch naive vs chunked/SDPA còn đáng kể không? Giải thích theo bài sáng: ma trận N×N vốn đã nhỏ, nút thắt không còn ở bộ nhớ.</li>
+<li><strong>Dtype không được hỗ trợ</strong> (nếu có GPU): chạy SDPA với fp32 trên GPU cũ, hoặc ép SDPA về backend math bằng <code>torch.backends.cuda.sdp_kernel(enable_math=True, enable_flash=False, enable_mem_efficient=False)</code> rồi so thời gian. Kết quả đúng hay sai? Nhanh hay chậm? Đây là bẫy “bật FlashAttention mà không kiểm tra backend”.</li>
+</ul>
+<p><strong>Green checkpoint (nối Day 24):</strong> so sánh hai cách chạy attention đừng chỉ so thời gian — hãy so <em>độ dài chuỗi tối đa chạy được trên cùng một GPU</em>. Một kernel cho phép chuỗi dài gấp đôi trên cùng phần cứng chính là một lần tiết kiệm phần cứng thật.</p>
+
+<h2>✅ 3 câu tự kiểm tra nhanh</h2>
+<div class="card">
+<p><strong>1. Vì sao attention chuẩn bị gọi là memory-bound khi chuỗi dài, dù số phép tính cũng là O(N²)?</strong></p>
+<button onclick="this.nextElementSibling.classList.toggle('show')">Hiện đáp án</button>
+<div class="ans">Vì GPU tính nhanh nhưng phải chờ dữ liệu: ma trận N×N bị ghi ra HBM rồi đọc lại nhiều lần (ghi điểm số, đọc để softmax, đọc để nhân V). Thời gian chờ và lưu lượng bộ nhớ chiếm phần lớn, nên giảm số lần đọc/ghi HBM đã nhanh hơn nhiều dù số phép tính không đổi.</div>
+</div>
+<div class="card">
+<p><strong>2. Online softmax tính từng khối mà vẫn đúng — phép màu nằm ở đâu?</strong></p>
+<button onclick="this.nextElementSibling.classList.toggle('show')">Hiện đáp án</button>
+<div class="ans">Ở phép rescale: mỗi khi khối mới đến, giá trị lớn nhất chạy m được cập nhật và kết quả cũ được nhân với exp(m_cũ − m_mới) để hiệu chỉnh. Nhờ vậy kết quả cuối bằng đúng softmax trên cả hàng — đây là đổi thứ tự tính toán, không phải xấp xỉ. Quên rescale acc cũ là lỗi sai đáp án phổ biến nhất.</div>
+</div>
+<div class="card">
+<p><strong>3. Đổi sang FlashAttention mà điểm eval của mô hình thay đổi — có nên kết luận “FlashAttention làm mô hình tốt/xấu đi”?</strong></p>
+<button onclick="this.nextElementSibling.classList.toggle('show')">Hiện đáp án</button>
+<div class="ans">Không. Vì FlashAttention là exact attention, đáp án chỉ khác ở mức làm tròn số. Điểm thay đổi đáng kể thì nguyên nhân nằm ở chỗ khác (dữ liệu, seed, backend rơi về math, dtype, hoặc thay đổi khác cùng lúc) — phải kiểm tra backend thực tế và điều kiện thí nghiệm trước khi kết luận.</div>
+</div>
+
+<h2>⚠️ Bẫy thường gặp</h2>
+<div class="warn"><strong>1. Quên rescale kết quả cũ khi m thay đổi.</strong> Chỉ cập nhật m và cộng khối mới mà không nhân acc cũ với exp(m_cũ − m_mới) thì đáp án sai ngay khi khối sau có giá trị lớn hơn khối trước. Đây là lỗi số 1 của bài này — kiểm tra bằng N nhỏ trước.</div>
+<div class="warn"><strong>2. Áp causal mask sau khi lấy max của khối.</strong> Mask phải áp trước khi tính max và exp của khối đó; nếu không, vị trí tương lai (đáng lẽ bị cấm) sẽ lọt vào max và làm lệch toàn bộ hàng softmax.</div>
+<div class="warn"><strong>3. Đo tốc độ FlashAttention mà không kiểm tra backend.</strong> Trên GPU cũ hoặc dtype fp32, SDPA có thể tự rơi về backend math — đáp án vẫn đúng nhưng không có tốc độ FlashAttention. Luôn in backend thực tế rồi mới kết luận.</div>
+
+<h2>📋 Checklist nộp bài</h2>
+<ul>
+<li>☐ Code <code>chunked_attention</code> + sai số tối đa so với naive và SDPA ở N = 256 (và với block = 32 / 128)</li>
+<li>☐ Bảng Bước 2 (N = 512 → 4096: bộ nhớ lý thuyết + thời gian naive vs chunked)</li>
+<li>☐ Kết quả Bước 3: chuỗi ngắn và/hoặc trường hợp backend math — kèm backend thực tế đã kiểm tra</li>
+<li>☐ Trả lời: vì sao đổi kích thước khối không được phép đổi đáp án?</li>
+</ul>
+<p><strong>Paste code/kết quả vào chat để được nhận xét chi tiết.</strong> Ghi rõ: “thứ duy nhất thay đổi là cách thực thi attention” và các điều kiện còn lại bạn đã giữ nguyên những gì (seed, Q/K/V, dtype, causal, thiết bị).</p>
+<p class="muted">Bài sáng liên quan: <a href="Day25_lesson.html">Day25_lesson.html — FlashAttention: tối ưu luồng dữ liệu, không đổi định nghĩa attention</a> · Quiz: Day25_quiz.html</p>
+</main>
+</body>
+</html>
