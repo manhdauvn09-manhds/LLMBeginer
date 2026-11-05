@@ -477,12 +477,21 @@ class DenseModel(nn.Module):
         _kiem_tra_so_nguyen("d_vao", d_vao)
         _kiem_tra_so_nguyen("d_model", d_model)
         _kiem_tra_so_nguyen("n_lop", n_lop)
+        # [TRAINER] Luu d_vao de forward guard theo
+        # dung cau hinh cua instance (xem forward).
+        self.d_vao = d_vao
         self.fc1 = nn.Linear(d_vao, d_model)
         self.fc2 = nn.Linear(d_model, d_model)
         self.fc3 = nn.Linear(d_model, n_lop)
 
     def forward(self, x):
-        _kiem_tra_tensor_2d("x", x, d_in=D_VAO)
+        # [TRAINER] Truoc day guard bang hang toan cuc
+        # D_VAO: model tao voi d_vao khac 2 thi du lieu
+        # DUNG bi chan (bao phai = 2) con du lieu SAI lai
+        # lot qua roi chet RuntimeError trong fc1 - dung
+        # ho loi Day 24/25 "guard kiem tra sai doi tuong".
+        # Guard phai hoi cau hinh cua chinh instance.
+        _kiem_tra_tensor_2d("x", x, d_in=self.d_vao)
         h = F.relu(self.fc1(x))
         h = F.relu(self.fc2(h))
         return self.fc3(h), None
@@ -504,6 +513,9 @@ class MoEModel(nn.Module):
         _kiem_tra_so_nguyen("d_model", d_model)
         _kiem_tra_so_nguyen("d_an", d_an)
         _kiem_tra_so_nguyen("n_lop", n_lop)
+        # [TRAINER] Luu d_vao de forward guard theo
+        # dung cau hinh cua instance (xem forward).
+        self.d_vao = d_vao
         self.fc1 = nn.Linear(d_vao, d_model)
         self.moe = MoELayer(d_model, d_an,
                             n_experts=n_experts,
@@ -512,7 +524,13 @@ class MoEModel(nn.Module):
         self.fc3 = nn.Linear(d_model, n_lop)
 
     def forward(self, x):
-        _kiem_tra_tensor_2d("x", x, d_in=D_VAO)
+        # [TRAINER] Truoc day guard bang hang toan cuc
+        # D_VAO: model tao voi d_vao khac 2 thi du lieu
+        # DUNG bi chan (bao phai = 2) con du lieu SAI lai
+        # lot qua roi chet RuntimeError trong fc1 - dung
+        # ho loi Day 24/25 "guard kiem tra sai doi tuong".
+        # Guard phai hoi cau hinh cua chinh instance.
+        _kiem_tra_tensor_2d("x", x, d_in=self.d_vao)
         h = F.relu(self.fc1(x))
         h, router_probs = self.moe(h)
         return self.fc3(h), router_probs
@@ -641,10 +659,16 @@ def train_model(model, x_train, y_train, x_test, y_test,
         tong_loss.backward()
         toi_uu.step()
     acc = danh_gia(model, x_test, y_test)
+    # [TRAINER] detach() truoc float(): task_cuoi va
+    # aux_cuoi con mang requires_grad, float() truc
+    # tiep sinh UserWarning "Converting a tensor with
+    # requires_grad=True to a scalar" (da xuat hien o
+    # lan chay ban goc). Code da biet bai hoc nay o
+    # _sai_so_lon_nhat nhung sot tai day.
     return {"accuracy": acc,
-            "task_loss": float(task_cuoi),
+            "task_loss": float(task_cuoi.detach()),
             "aux_loss": None if aux_cuoi is None
-            else float(aux_cuoi)}
+            else float(aux_cuoi.detach())}
 
 
 def lay_router_probs(model, x):
@@ -792,8 +816,24 @@ def tu_kiem_tra():
                 MoELayer(32, 16, capacity_factor=1.25),
                 torch.randn(4, 32)),
             "vector hoa co capacity"),
+        _expect_value_error(
+            lambda: DenseModel(d_vao=3)(
+                torch.zeros(4, 2)),
+            "DenseModel d_vao=3 chan x 2 chieu"),
+        _expect_value_error(
+            lambda: MoEModel(d_vao=3)(
+                torch.zeros(4, 2)),
+            "MoEModel d_vao=3 chan x 2 chieu"),
     ]
     assert all(ket_qua), "Co guard khong chan dung!"
+
+    # [TRAINER] Guard moi phai co test duong: model
+    # tao voi d_vao=3 thi du lieu DUNG (4, 3) phai
+    # chay duoc, khong bi guard chan nham.
+    assert DenseModel(d_vao=3)(
+        torch.randn(4, 3))[0].shape == (4, 4)
+    assert MoEModel(d_vao=3)(
+        torch.randn(4, 3))[0].shape == (4, 4)
 
     # Du lieu toy: 2000 diem, train 1600 / test
     # 400, moi lop 400 train / 100 test.
@@ -1101,6 +1141,17 @@ def bai3(x_train, y_train, x_test, y_test, acc_moe_k1):
           f"{t_vec:.2f} ms | sai so={sai:.2e}")
     print(f"     Ket luan: "
           f"{_ket_luan_ti_le(ti_le, 'vector hoa', 'vong lap')}.")
+    # [TRAINER] Ket luan toc do phai ghi ro pham vi do:
+    # day chi la so 2 cach cai CUNG MOT lop tren 1 may
+    # CPU voi 1 batch co dinh - khong phai MoE vs Dense,
+    # va chi phi giao tiep all-to-all (expert nam tren
+    # nhieu GPU, batch lon nho khac nhau) khong xuat
+    # hien trong lab nay. Khong ghi pham vi thi nguoi
+    # doc de suy rong thanh "MoE nhanh hon noi chung".
+    print("     Pham vi: chi so 2 cach cai cung 1 lop "
+          "tren 1 may CPU, batch "
+          f"{len(x_test)} token - khong suy rong sang "
+          "MoE vs Dense hay chay phan tan nhieu GPU.")
     # C3: capacity 1.25 (theo de) va 0.5 (qua nho).
     ket_qua_cap = {}
     for he_so in (1.25, 0.5):
@@ -1126,12 +1177,23 @@ def bai3(x_train, y_train, x_test, y_test, acc_moe_k1):
                    f"(~{n_mau_cap} mau)")
         print(f"  C3 capacity={he_so}: accuracy="
               f"{kq_cap['accuracy']:.3f} - {cap}.")
+    # [TRAINER] Bon con so cap (500/200/125/50) truoc
+    # day GO TAY trong cau in: dung voi du lieu hien
+    # tai nhung se sai am tham neu doi N_MOI_CUM hay
+    # TI_LE_TRAIN (ho loi Day 24: chu khong suy ra tu
+    # so). Tinh lai tu len() cua tap va dung cong
+    # thuc cua forward: max(1, int(cf * batch / n)).
+    def _cap(he_so, batch):
+        return max(1, int(he_so * batch / N_EXPERTS))
     print("     Capacity tinh theo batch hien tai: "
-          "train 1600 token -> cap 500 (1.25) / "
-          "200 (0.5) token/expert; test 400 token "
-          "-> cap 125 / 50. Cap cang nho cang nhieu "
-          "token bi roi (out=0) nen accuracy cang "
-          "de giam.")
+          f"train {len(x_train)} token -> cap "
+          f"{_cap(1.25, len(x_train))} (1.25) / "
+          f"{_cap(0.5, len(x_train))} (0.5) "
+          f"token/expert; test {len(x_test)} token "
+          f"-> cap {_cap(1.25, len(x_test))} / "
+          f"{_cap(0.5, len(x_test))}. Cap cang nho "
+          "cang nhieu token bi roi (out=0) nen "
+          "accuracy cang de giam.")
     return {"acc_k2": kq_k2["accuracy"],
             "pb_k2": pb_k2, "ti_le_vec": ti_le,
             "acc_cap": ket_qua_cap}
