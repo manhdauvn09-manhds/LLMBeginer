@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ngày 27 — Thực hành: Đo và tối ưu serving LLM</title>
+<style>
+  :root{--bg:#0f172a;--card:#1e293b;--text:#e2e8f0;--muted:#94a3b8;--accent:#38bdf8;--green:#4ade80;--amber:#fbbf24;--red:#f87171;--code-bg:#0b1220}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.7;padding:16px}
+  .wrap{max-width:760px;margin:0 auto}
+  h1{font-size:1.5rem;line-height:1.35;margin-bottom:4px}
+  h2{font-size:1.2rem;color:var(--accent);margin:28px 0 10px;border-bottom:1px solid #334155;padding-bottom:6px}
+  h3{font-size:1.05rem;margin:18px 0 6px;color:#fde68a}
+  p,li{font-size:1rem}
+  p{margin:8px 0}
+  ul,ol{margin:6px 0 6px 22px}
+  li{margin:4px 0}
+  .sub{color:var(--muted);font-size:.95rem}
+  .card{background:var(--card);border-radius:12px;padding:16px;margin:14px 0}
+  .goal{background:#0c2b3d;border-left:4px solid var(--accent)}
+  .warn{background:#2b1d05;border-left:4px solid var(--amber)}
+  .tip{background:#052e16;border-left:4px solid var(--green)}
+  .trap{background:#2b0a0a;border-left:4px solid var(--red)}
+  code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.88em;background:#334155;padding:1px 5px;border-radius:4px}
+  pre{background:var(--code-bg);border:1px solid #334155;border-radius:10px;padding:14px;overflow-x:auto;margin:10px 0;font-size:.88rem;line-height:1.55}
+  pre code{background:none;padding:0}
+  .todo{color:var(--amber)}
+  .time{color:var(--muted);font-size:.9rem}
+  .q{margin:14px 0}
+  .q b{display:block;margin-bottom:6px}
+  button{background:#0369a1;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:.95rem;cursor:pointer}
+  button:hover{background:#0284c7}
+  .ans{display:none;background:#052e16;border:1px solid #166534;border-radius:8px;padding:12px;margin-top:8px}
+  .check{list-style:none;margin-left:0}
+  .check li::before{content:"☐ ";color:var(--accent)}
+  .tag{display:inline-block;background:#0369a1;color:#fff;font-size:.8rem;border-radius:999px;padding:2px 10px;margin-bottom:8px}
+  .foot{color:var(--muted);font-size:.9rem;margin-top:28px;border-top:1px solid #334155;padding-top:12px}
+  .links a{color:var(--accent)}
+  table{border-collapse:collapse;width:100%;margin:10px 0;font-size:.95rem}
+  th,td{border:1px solid #334155;padding:8px 10px;text-align:left}
+  th{background:#0b1220;color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>🛠️ Ngày 27 — Buổi tối: Thực hành serving LLM</h1>
+<p class="sub">Serving hiệu quả là bài toán hệ thống — tự tay đo KV cache, prefill/decode, mô phỏng PagedAttention + continuous batching, rồi kiểm chứng speculative decoding bằng số liệu thật.</p>
+<p class="time">⏱️ Ước lượng: Phần A ~25 phút · Phần B ~20 phút · Phần C ~15 phút · Tự kiểm tra ~5 phút</p>
+
+<div class="card goal">
+<h2 style="margin-top:0">🎯 Mục tiêu buổi tối</h2>
+<ol>
+<li>Đo được <b>KV cache / token</b> và <b>TTFT / TPOT</b> trên một mô hình Transformer nhỏ chạy thật — thấy tận mắt decode là memory-bound.</li>
+<li>Mô phỏng <b>PagedAttention</b> (cấp phát theo block) và <b>continuous batching</b> — đo được mức lãng phí bộ nhớ và thời gian chờ giảm bao nhiêu so với cách naive.</li>
+<li>Tính được <b>tốc độ tăng của speculative decoding</b> theo tỉ lệ chấp nhận α — và biết khi nào nó không còn thắng.</li>
+</ol>
+<p><b>Kiến thức nền (1 dòng):</b> buổi sáng đã học — prefill xử lý cả prompt cùng lúc nên compute-bound, decode sinh từng token nên memory-bound; KV cache là nút thắt bộ nhớ số 1 của serving; PagedAttention, continuous batching và speculative decoding là 3 đòn bẩy chính.</p>
+</div>
+
+<h2>Phần A — Đo KV cache + prefill vs decode (25 phút)</h2>
+<p><span class="tag">Bài tập chính</span></p>
+<p><b>Nhiệm vụ:</b> Dùng một Transformer nhỏ (4 lớp, d_model=256 — dùng lại mô hình mini-GPT của bạn từ các ngày trước, hoặc dùng khung dưới đây), đo 3 thứ: (1) kích thước KV cache thực tế mỗi token, (2) thời gian prefill theo độ dài prompt, (3) thời gian decode mỗi token.</p>
+
+<h3>Bước 1 — Tính KV cache bằng công thức trước</h3>
+<p>Trước khi chạy code, tính tay trên giấy với mô hình của bạn:</p>
+<pre><code># Công thức buổi sáng:
+# KV cache / token = 2 (K và V) × n_layer × d_model × bytes_per_param
+# FP16 = 2 byte; FP32 = 4 byte
+# Ví dụ: 4 lớp, d_model=256, FP16 → 2 × 4 × 256 × 2 = 4096 byte/token ≈ 4 KB/token
+# Một request 2.000 token → ~8 MB; 64 request đồng thời → ~512 MB
+# TODO: thay số của mô hình BẠN dùng và ghi kết quả ra giấy trước khi chạy.</code></pre>
+
+<h3>Bước 2 — Khung code: đo prefill và decode</h3>
+<pre><code>import time, torch
+import torch.nn as nn
+
+# Mô hình nhỏ: dùng lại mini-GPT của bạn, hoặc khung tối giản này
+# (chỉ cần 1 block Transformer có hỗ trợ use_cache kiểu KV cache)
+class Block(nn.Module):
+    def __init__(self, d=256, n_head=4):
+        super().__init__()
+        self.attn = nn.MultiheadAttention(d, n_head, batch_first=True)
+        self.ln1, self.ln2 = nn.LayerNorm(d), nn.LayerNorm(d)
+        self.mlp = nn.Sequential(nn.Linear(d, 4*d), nn.GELU(), nn.Linear(4*d, d))
+    def forward(self, x, kv=None):
+        # kv: (K, V) đã cache từ các token trước; None = prefill
+        q = self.ln1(x)
+        if kv is None:
+            out, _ = self.attn(q, q, q, need_weights=False)
+            new_kv = None  # TODO: tách K, V ra để cache (gợi ý: dùng attn.in_proj_weight)
+        else:
+            K, V = kv
+            # TODO: nối K, V mới vào cache, rồi attention với K, V đầy đủ
+            out, _ = self.attn(q, K, V, need_weights=False)
+            new_kv = (K, V)
+        x = x + out
+        x = x + self.mlp(self.ln2(x))
+        return x, new_kv
+
+# Gợi ý đơn giản hơn (được chấp nhận ở bài này):
+# - Prefill: cho cả prompt (n token) qua mô hình 1 lần, bấm giờ.
+# - Decode: cho từng token một qua mô hình, bấm giờ mỗi bước,
+#   cộng dồn cache bằng cách giữ lại hidden state / KV của các bước trước.
+# - Đo KV cache: dùng torch.cuda.memory_allocated() trước/sau khi cache
+#   đầy (nếu chạy CPU: đếm số phần tử cache × 4 byte cho FP32).</code></pre>
+
+<h3>Bước 3 — Chạy đo và điền bảng</h3>
+<p>Chạy với 3 độ dài prompt (128 / 512 / 2048 token) và 50 token decode. Điền kết quả của bạn vào bảng:</p>
+<table>
+<tr><th>Độ dài prompt</th><th>TTFT (prefill)</th><th>TPOT trung bình</th><th>KV cache (MB)</th></tr>
+<tr><td>128</td><td>… ms</td><td>… ms/token</td><td>…</td></tr>
+<tr><td>512</td><td>… ms</td><td>… ms/token</td><td>…</td></tr>
+<tr><td>2048</td><td>… ms</td><td>… ms/token</td><td>…</td></tr>
+</table>
+<p><b>Câu hỏi để tự trả lời:</b> TTFT có tăng gần tuyến tính với độ dài prompt không? TPOT có gần như không đổi khi prompt dài ra không? Điều đó chứng tỏ điều gì về bản chất compute-bound / memory-bound của hai pha?</p>
+
+<div class="card warn">
+<p><b>⚠️ Trước khi chạy so sánh — viết ra 1 dòng này vào code/note của bạn:</b></p>
+<p><code>Thứ duy nhất thay đổi là: độ dài prompt (cùng mô hình, cùng phần cứng, cùng batch size = 1, cùng số token decode).</code></p>
+<p>Đổi cả độ dài prompt lẫn batch size trong cùng một lần đo thì không biết cái nào gây ra khác biệt — đúng quy tắc đã dùng từ Day 24.</p>
+</div>
+
+<h2>Phần B — Mô phỏng PagedAttention + continuous batching (20 phút)</h2>
+<p><b>Nhiệm vụ:</b> Không cần GPU — mô phỏng bằng Python thuần, với 20 request giả lập có độ dài ngẫu nhiên (50–500 token). So sánh naive vs PagedAttention (bộ nhớ), static batching vs continuous batching (thời gian chờ).</p>
+
+<h3>Bước 1 — PagedAttention: đo lãng phí bộ nhớ</h3>
+<pre><code>import random
+random.seed(0)
+lengths = [random.randint(50, 500) for _ in range(20)]  # độ dài thực tế
+MAX_LEN = 512          # cấp phát tối đa kiểu naive
+BLOCK = 16             # kích thước block của PagedAttention (token/block)
+
+# TODO 1: naive_waste = sum(MAX_LEN - L for L in lengths)  # token bị cấp thừa
+# TODO 2: paged_waste = sum(-(-L // BLOCK) * BLOCK - L for L in lengths)
+#         (mỗi request chỉ thừa phần lẻ của block cuối, tối đa 15 token)
+# TODO 3: in ra tỉ lệ lãng phí naive vs paged (theo % tổng bộ nhớ cấp phát).
+# Kỳ vọng: naive lãng phí 30–60%, paged chỉ còn ~2–3%.</code></pre>
+
+<h3>Bước 2 — Continuous batching: đo thời gian chờ</h3>
+<p>Mô phỏng đơn giản: mỗi request cần <code>L</code> bước decode, mỗi bước tốn 1 đơn vị thời gian; batch tối đa 4 request chạy song song.</p>
+<pre><code># Static batching: gom 4 request thành 1 batch, batch chỉ xong khi
+#   request DÀI NHẤT trong batch xong → các request ngắn phải chờ.
+# Continuous batching: request nào xong thì rời ngay, request mới
+#   chen vào ở bước tiếp theo.
+# TODO: viết 2 hàm mô phỏng, mỗi hàm trả về (tổng thời gian hoàn thành
+#   của 20 request, thời gian chờ trung bình của 1 request).
+# Gợi ý: dùng heap hàng đợi (queue) cho continuous; vòng lặp theo batch
+#   cho static. In ra 2 con số để so sánh.</code></pre>
+<p><b>Câu hỏi để tự trả lời:</b> continuous batching thắng nhiều nhất khi độ dài request chênh lệch lớn hay khi chúng gần bằng nhau? Vì sao? (Gợi ý: nghĩ về trường hợp mọi request dài bằng nhau thì static có thua gì không.)</p>
+
+<h2>Phần C — Nâng cao (15 phút, làm nếu còn sức)</h2>
+<ol>
+<li><b>Speculative decoding bằng số:</b> giả sử draft model đoán đúng trung bình α token mỗi lần kiểm chứng (α = 0, 1, 2, 3, 4), mỗi lần kiểm chứng tốn 1 lần đọc trọng số model lớn + chi phí draft không đáng kể. Tốc độ tăng ≈ α + 1 token / lần đọc (token cuối do model lớn sửa). Vẽ bảng α → speedup, rồi trả lời: với văn bản khó đoán (α ≈ 0.5) còn đáng dùng không? Draft model phải nhanh hơn model lớn bao nhiêu lần thì mới có lãi?</li>
+<li><b>Prefix caching:</b> 20 request có chung system prompt 200 token. Tính KV cache tiết kiệm được nếu chia sẻ block prefix (gợi ý: dùng công thức Phần A) và thời gian prefill tiết kiệm được (dùng số đo TTFT ở Phần A). Khi nào prefix caching KHÔNG giúp gì?</li>
+<li><b>Quantized serving:</b> tính lại KV cache / token ở Phần A nếu chuyển FP16 → INT8 (1 byte). Decode nhanh lên khoảng bao nhiêu lần theo lý thuyết (vì decode memory-bound)? Rồi đối chiếu với Day 25: cái giá phải trả là gì, đo bằng cách nào?</li>
+</ol>
+
+<h2>✅ Tự kiểm tra nhanh (3 câu — bấm để hiện đáp án)</h2>
+
+<div class="q">
+<b>Câu 1.</b> Vì sao decode lại memory-bound trong khi prefill lại compute-bound, dù cả hai đều chạy cùng một mô hình?
+<button onclick="this.nextElementSibling.style.display='block';this.style.display='none'">Hiện đáp án</button>
+<div class="ans">Prefill xử lý nhiều token cùng lúc nên mỗi lần đọc trọng số được "chia" cho nhiều token — GPU có đủ phép tính để làm, giới hạn nằm ở tốc độ tính toán. Decode mỗi bước chỉ xử lý 1 token nhưng vẫn phải đọc toàn bộ trọng số + toàn bộ KV cache — lượng tính toán ít, lượng dữ liệu phải đọc nhiều, nên GPU phần lớn thời gian chờ đọc bộ nhớ. Cùng một mô hình, khác tỉ lệ "tính toán / dữ liệu đọc" nên khác nút thắt.</div>
+</div>
+
+<div class="q">
+<b>Câu 2.</b> PagedAttention không hề thay đổi mô hình, vì sao nó vẫn làm throughput tăng vài lần?
+<button onclick="this.nextElementSibling.style.display='block';this.style.display='none'">Hiện đáp án</button>
+<div class="ans">Vì nó gỡ nút thắt bộ nhớ: cấp phát naive giữ chỗ tối đa cho mọi request ngay từ đầu nên phần lớn VRAM bị "đặt trước" mà không dùng tới — batch size bị giới hạn bởi bộ nhớ lãng phí, GPU chạy rỗi. PagedAttention cấp phát theo block đúng nhu cầu thực tế, gần như không lãng phí, nên cùng một GPU chứa được nhiều request đồng thời hơn → GPU luôn có việc làm → throughput tăng mà mô hình không đổi gì.</div>
+</div>
+
+<div class="q">
+<b>Câu 3.</b> Speculative decoding cho ra kết quả giống hệt chạy model lớn thuần túy, nhưng quantization thì không. Vì sao khác nhau? Trường hợp nào bạn chọn quantization thay vì speculative decoding?
+<button onclick="this.nextElementSibling.style.display='block';this.style.display='none'">Hiện đáp án</button>
+<div class="ans">Speculative decoding chỉ dùng draft model để <b>đề xuất</b> token, mọi token cuối cùng đều được model lớn kiểm chứng (token sai bị sửa), nên đầu ra giống hệt model lớn. Quantization thay đổi chính trọng số và phép tính của model lớn nên đầu ra có thể khác (mất chính xác). Chọn quantization khi: bộ nhớ/VRAM là nút thắt (model không vừa GPU, KV cache quá lớn), hoặc cần giảm chi phí mỗi request; chọn speculative decoding khi: chất lượng đầu ra không được phép thay đổi và văn bản đủ dễ đoán (code, template) để draft đoán đúng thường xuyên.</div>
+</div>
+
+<h2>⚠️ Bẫy thường gặp</h2>
+<div class="card trap">
+<ol>
+<li><b>Đo TTFT/TPOT mà không warm-up:</b> lần chạy đầu tiên bao gồm cả thời gian load mô hình, compile kernel, cấp phát bộ nhớ — con số sẽ cao gấp nhiều lần thực tế. Luôn chạy warm-up 2–3 lần rồi mới bấm giờ, và báo rõ "đã warm-up".</li>
+<li><b>Báo "100 tokens/giây" mà không nói bối cảnh:</b> đó là throughput hệ thống hay tốc độ 1 request? Batch size bao nhiêu? Prompt dài bao nhiêu? Thiếu 3 thông tin này thì con số gần như vô nghĩa — đúng tinh thần Day 24: đo tốc độ thực trong điều kiện thực.</li>
+<li><b>Quên KV cache khi tính bộ nhớ serving:</b> chỉ tính trọng số mô hình rồi kết luận "vừa GPU" là sai — với nhiều request đồng thời, KV cache có thể lớn gấp nhiều lần trọng số (xem ví dụ buổi sáng: 16 request × 4.000 token ≈ 32 GB). Luôn cộng cả hai trước khi chọn GPU / batch size.</li>
+</ol>
+</div>
+
+<div class="card tip">
+<h2 style="margin-top:0">⚡ Góc tiết kiệm năng lượng</h2>
+<p>Serving là nơi LLM "đốt" năng lượng nhiều nhất trong vòng đời — huấn luyện một lần, phục vụ hàng triệu request. Ba cách tiết kiệm lớn nhất đều là bài toán hệ thống: chọn model nhỏ nhất đạt SLO thay vì model lớn nhất có thể; cap context và độ dài output (mỗi token thêm vào đều tốn KV cache + thời gian decode); autoscale theo tải thay vì luôn bật tối đa. Bài tập tối nay đo đúng điểm này: TTFT/TPOT và KV cache chính là "hóa đơn năng lượng" của mỗi request.</p>
+</div>
+
+<h2>📋 Checklist nộp bài</h2>
+<ul class="check">
+<li>Bảng đo Phần A: TTFT / TPOT / KV cache với 3 độ dài prompt (128 / 512 / 2048).</li>
+<li>Kết quả mô phỏng Phần B: tỉ lệ lãng phí bộ nhớ naive vs paged; thời gian chờ static vs continuous batching.</li>
+<li>Trả lời ngắn 3 câu tự kiểm tra (hoặc ghi câu nào còn lấn cấn).</li>
+<li>(Nâng cao, nếu làm) Bảng α → speedup của speculative decoding.</li>
+</ul>
+<p><b>Nộp bài:</b> paste code/kết quả vào chat để được nhận xét chi tiết. Nếu kẹt ở TODO nào quá 15 phút, cứ paste đoạn code đang dở + lỗi gặp phải — mình gỡ cùng nhau, đừng ngồi mò một mình.</p>
+
+<div class="foot links">
+<p>📖 Tài liệu bài học: <a href="https://manhdauvn09-manhds.github.io/LLMBeginer/day27/Day27_lesson.html">https://manhdauvn09-manhds.github.io/LLMBeginer/day27/Day27_lesson.html</a><br>
+📝 Quiz: <a href="https://manhdauvn09-manhds.github.io/LLMBeginer/day27/Day27_quiz.html">https://manhdauvn09-manhds.github.io/LLMBeginer/day27/Day27_quiz.html</a></p>
+<p>Ngày 27 — Serving hiệu quả là bài toán hệ thống · Khóa "Trở thành AI Engineer (LLM)"</p>
+</div>
+
+</div>
+</body>
+</html>
