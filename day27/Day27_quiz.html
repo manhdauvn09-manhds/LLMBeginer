@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quiz Ngày 27 — Serving hiệu quả | Khóa LLM 30 ngày</title>
+<style>
+:root{--bg:#0a0f1e; --card:#101830; --line:#22305a; --gold:#f5c542; --green:#4ade80; --red:#f87171; --cyan:#67e8f9; --text:#e8edf7; --muted:#93a0bd;}
+*{box-sizing:border-box;}
+body{margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif; line-height:1.7; font-size:16.5px;}
+.wrap{max-width:780px; margin:0 auto; padding:18px 16px 60px;}
+.kicker{color:var(--gold); font-size:13px; letter-spacing:1px; font-weight:700;}
+h1{font-size:28px; line-height:1.3;}
+.sub{color:var(--muted);}
+.q{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px; margin:18px 0;}
+.q h3{margin:0 0 10px; color:var(--cyan); font-size:18px;}
+label{display:block; padding:8px 10px; margin:6px 0; border:1px solid var(--line); border-radius:10px; cursor:pointer;}
+label:hover{border-color:var(--gold);}
+label input{margin-right:10px;}
+.expl{display:none; margin-top:12px; padding:12px 14px; border-radius:10px; font-size:15.5px;}
+.expl.ok{display:block; background:#0f2233; border-left:4px solid var(--green);}
+.expl.bad{display:block; background:#23141a; border-left:4px solid var(--red);}
+button{background:var(--gold); color:#14100a; font-weight:700; border:none; border-radius:10px; padding:13px 26px; font-size:16px; margin:6px 8px 0 0; cursor:pointer;}
+button.ghost{background:transparent; color:var(--gold); border:2px solid var(--gold);}
+#result{font-weight:700; margin-top:14px; font-size:18px;}
+#copyout{background:#0a0f1e; border:1px dashed var(--gold); border-radius:10px; padding:12px 16px; margin-top:12px; font-size:16px; word-break:break-all;}
+.note{color:var(--muted); font-size:14.5px; margin-top:24px; border-top:1px solid var(--line); padding-top:14px;}
+a{color:var(--gold);}
+textarea{width:100%; background:#0a0f1e; color:var(--text); border:1px solid var(--line); border-radius:10px; padding:12px; font-size:15.5px; font-family:inherit;}
+</style>
+</head>
+<body>
+<div class="wrap">
+<span class="kicker">NGÀY 27 · QUIZ — 5 CÂU</span>
+<h1>Quiz: Serving hiệu quả là bài toán hệ thống</h1>
+<p class="sub">Chọn đáp án rồi bấm "Nộp bài" để chấm điểm ngay trong file và xem giải thích từng câu. Sau đó bấm "Copy kết quả" rồi paste vào chat để trợ lý ghi điểm.</p>
+<form id="quiz">
+<div class="q" data-answer="B"><h3>Câu 1. Prefill và decode khác nhau căn bản ở điểm nào?</h3>
+<label><input type="radio" name="q1" value="A"> A. Prefill sinh từng token một, còn decode xử lý cả prompt cùng lúc</label>
+<label><input type="radio" name="q1" value="B"> B. Prefill xử lý toàn bộ prompt song song nên compute-bound, còn decode sinh một token mỗi bước và phải đọc toàn bộ trọng số + KV cache nên memory-bound</label>
+<label><input type="radio" name="q1" value="C"> C. Prefill chỉ xảy ra với mô hình nhỏ, decode chỉ xảy ra với mô hình lớn</label>
+<label><input type="radio" name="q1" value="D"> D. Prefill và decode giống nhau, chỉ khác tên gọi ở các framework khác nhau</label>
+<div class="expl">Đáp án B. Prefill xảy ra 1 lần/request, tính toán nặng; decode lặp lại N lần, mỗi lần tính ít nhưng đọc nhiều. Vì vậy prompt dài thì prefill đắt, đáp án dài thì decode đắt.</div></div>
+
+<div class="q" data-answer="C"><h3>Câu 2. TTFT và TPOT đo cái gì, và vì sao throughput thô chưa đủ?</h3>
+<label><input type="radio" name="q2" value="A"> A. TTFT đo tốc độ huấn luyện, TPOT đo tốc độ lưu checkpoint</label>
+<label><input type="radio" name="q2" value="B"> B. TTFT và TPOT là hai tên gọi của cùng một chỉ số throughput hệ thống</label>
+<label><input type="radio" name="q2" value="C"> C. TTFT là thời gian tới token đầu tiên (người dùng thấy “đơ” hay không), TPOT là thời gian mỗi token tiếp theo (chữ hiện nhanh hay chậm); throughput cao mà TTFT tệ thì người dùng vẫn khó chịu</label>
+<label><input type="radio" name="q2" value="D"> D. TTFT đo độ dài prompt, TPOT đo độ dài đáp án</label>
+<div class="expl">Đáp án C. Tổng thời gian ≈ TTFT + (số token − 1) × TPOT. Throughput là con số của người vận hành; TTFT/TPOT là thứ người dùng trực tiếp cảm nhận, và hai chỉ số này thường đánh đổi lẫn nhau.</div></div>
+
+<div class="q" data-answer="A"><h3>Câu 3. KV cache giải quyết vấn đề gì và cái giá của nó là gì?</h3>
+<label><input type="radio" name="q3" value="A"> A. Lưu Key và Value của các token đã xử lý để mỗi bước decode không phải tính lại attention từ đầu; cái giá là bộ nhớ — cache có thể chiếm hàng GB mỗi request và là nút thắt số 1 của serving</label>
+<label><input type="radio" name="q3" value="B"> B. Nén trọng số mô hình xuống một nửa để vừa VRAM; cái giá là mất chính xác</label>
+<label><input type="radio" name="q3" value="C"> C. Lưu toàn bộ prompt của người dùng để huấn luyện tiếp; cái giá là rò rỉ dữ liệu</label>
+<label><input type="radio" name="q3" value="D"> D. Tăng tốc prefill bằng cách bỏ qua các token không quan trọng; cái giá là đáp án ngắn hơn</label>
+<div class="expl">Đáp án A. Không có KV cache, mỗi bước decode phải tính lại attention cho toàn bộ chuỗi (O(n²)). Nhưng cache lớn rất nhanh: ví dụ mô hình 32 lớp, hidden 4096 thì mỗi token ~0,5 MB, request 4.000 token ~2 GB.</div></div>
+
+<div class="q" data-answer="D"><h3>Câu 4. PagedAttention cải thiện serving như thế nào?</h3>
+<label><input type="radio" name="q4" value="A"> A. Tăng kích thước batch bằng cách giảm độ chính xác của mô hình</label>
+<label><input type="radio" name="q4" value="B"> B. Chia mô hình thành nhiều phần chạy trên nhiều GPU khác nhau</label>
+<label><input type="radio" name="q4" value="C"> C. Bỏ KV cache hoàn toàn và tính lại attention mỗi bước để tiết kiệm bộ nhớ</label>
+<label><input type="radio" name="q4" value="D"> D. Chia KV cache thành các block nhỏ cố định, cấp phát theo nhu cầu thực tế như paging của hệ điều hành — hết phân mảnh, nhiều request chia sẻ được block chung tiền tố, batch được nhiều request hơn</label>
+<div class="expl">Đáp án D. Cấp phát liên tục với kích thước tối đa ngay từ đầu gây lãng phí và phân mảnh. PagedAttention cấp phát từng block khi cần, thu hồi khi request xong — throughput tăng vài lần mà không đổi mô hình.</div></div>
+
+<div class="q" data-answer="B"><h3>Câu 5. Vì sao speculative decoding tăng tốc mà không làm thay đổi chất lượng đầu ra?</h3>
+<label><input type="radio" name="q5" value="A"> A. Vì draft model nhỏ nhưng chính xác hơn mô hình lớn</label>
+<label><input type="radio" name="q5" value="B"> B. Vì draft model chỉ đoán trước, còn mọi token đều được mô hình lớn kiểm chứng trong một lần chạy duy nhất — token sai thì bị sửa, nên đầu ra giống hệt như chạy mô hình lớn thuần túy</label>
+<label><input type="radio" name="q5" value="C"> C. Vì nó bỏ qua bước kiểm chứng khi draft model tự tin</label>
+<label><input type="radio" name="q5" value="D"> D. Vì nó giảm số token cần sinh bằng cách tóm tắt đáp án trước</label>
+<div class="expl">Đáp án B. Mỗi lần đọc trọng số của mô hình lớn kiểm chứng được k token cùng lúc thay vì 1 token, nên tốc độ tăng gần bằng tỉ lệ đoán đúng trung bình. Khi văn bản khó đoán, tỉ lệ chấp nhận thấp và lợi ích biến mất.</div></div>
+</form>
+<button onclick="grade()">Nộp bài</button>
+<button class="ghost" onclick="copyResult()">Copy kết quả</button>
+<div id="result"></div>
+<div id="copyout" style="display:none"></div>
+<div class="q"><h3>Câu tự luận (không tính điểm trắc nghiệm)</h3>
+<p>Giải thích bằng lời của bạn, trong 2–3 câu: một chatbot trả lời rất nhanh từng chữ (TPOT thấp) nhưng người dùng vẫn phàn nàn “chậm”. Có thể nguyên nhân nằm ở đâu? Hãy nhắc tới TTFT và prefill.</p>
+<textarea rows="4" placeholder="Viết câu trả lời của bạn ở đây, rồi paste cùng kết quả trắc nghiệm vào chat..."></textarea></div>
+<p class="note">Lưu ý: file HTML này không tự gửi kết quả về được. Sau khi bấm "Copy kết quả", hãy paste chuỗi kết quả vào chat để trợ lý ghi điểm cho bạn. Đáp án đúng không hiện trước khi nộp bài — giải thích chỉ mở sau khi bạn chọn và nộp.</p>
+<p><a href="Day27_lesson.html">← Về lại tài liệu bài học</a></p>
+<script>
+let graded = false, answers = [];
+function grade(){
+  const qs = document.querySelectorAll('form .q');
+  let score = 0; answers = [];
+  qs.forEach((q, i) => {
+    const sel = q.querySelector('input:checked');
+    const v = sel ? sel.value : '–';
+    answers.push(v);
+    const expl = q.querySelector('.expl');
+    if (v === q.dataset.answer) { score++; expl.className = 'expl ok'; expl.innerHTML = '✅ Đúng. ' + expl.innerHTML; }
+    else { expl.className = 'expl bad'; expl.innerHTML = '❌ Chưa đúng. ' + expl.innerHTML; }
+  });
+  graded = true;
+  document.getElementById('result').textContent = 'Bạn được ' + score + '/' + qs.length + ' câu.';
+  const out = document.getElementById('copyout');
+  out.style.display = 'block';
+  out.textContent = 'Day27 Quiz: ' + answers.map((a, i) => (i+1) + a).join(' ') + ' — ' + score + '/' + qs.length;
+}
+function copyResult(){
+  if (!graded) { alert('Hãy bấm "Nộp bài" trước đã nhé.'); return; }
+  const t = document.getElementById('copyout').textContent;
+  navigator.clipboard.writeText(t).then(() => alert('Đã copy! Paste vào chat để trợ lý ghi điểm nhé.'));
+}
+</script>
+</div>
+</body>
+</html>
