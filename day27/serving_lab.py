@@ -372,6 +372,24 @@ class MiniTransformer(nn.Module):
                 raise ValueError(
                     "kv_caches phai la list dai "
                     "n_layer.")
+            # [TRAINER] Phai kiem tra cau truc
+            # tung (K, V) NGAY tai day: ban goc lay
+            # kv_caches[0][0] truoc khi Block kip
+            # kiem tra, nen phan tu sai cau truc
+            # (vd so nguyen, tensor don) lam ro
+            # TypeError / IndexError ra ngoai thay
+            # vi ValueError - lech quy uoc "moi loi
+            # dau vao la ValueError" cua ca lab.
+            for cap in kv_caches:
+                if not isinstance(cap, tuple) \
+                        or len(cap) != 2 \
+                        or not isinstance(
+                            cap[0], torch.Tensor) \
+                        or not isinstance(
+                            cap[1], torch.Tensor):
+                    raise ValueError(
+                        "moi phan tu kv_caches phai "
+                        "la tuple (K, V) tensor.")
             past = kv_caches[0][0].size(2)
             if tokens.size(1) != 1:
                 raise ValueError(
@@ -460,6 +478,65 @@ def bench(fn, warmup=WARMUP, reps=REPS):
                 torch.cuda.synchronize()
             thoi_gian.append(time.perf_counter() - t0)
     return float(statistics.median(thoi_gian) * 1000.0)
+
+
+def _phan_vi(mau, p):
+    """Percentile nearest-rank cua 1 list so.
+
+    Sap xep tang dan, lay phan tu o hang
+    ceil(p / 100 * n) (toi thieu hang 1).
+    p phai trong (0, 100]. nearest-rank khac
+    trung vi: p50 cua [1..10] la 5, khong
+    phai 5.5 - doc so thi nho dung dinh nghia.
+
+    Raises:
+        ValueError: mau rong / khong phai list,
+            p ngoai (0, 100].
+    """
+    if not isinstance(mau, (list, tuple)) \
+            or len(mau) == 0:
+        raise ValueError("mau khong duoc rong.")
+    _kiem_tra_so_thuc("p", p, lon_hon=0)
+    if float(p) > 100:
+        raise ValueError("p phai <= 100.")
+    ds = sorted(float(x) for x in mau)
+    hang = max(1, math.ceil(
+        float(p) / 100.0 * len(ds)))
+    return ds[hang - 1]
+
+
+def bench_day_du(fn, warmup=WARMUP, reps=10):
+    """Do thoi gian: tra (TRUNG VI, p95) ms.
+
+    [TRAINER] Ban goc chi co bench() tra trung
+    vi, ma brief Day 27 yeu cau bao ca p95 cho
+    TTFT / TPOT: trung vi giu nhip trung tam
+    nhung giau duoi phan phoi - nguoi dung xau
+    nhat (request cham) khong thay o dau ca.
+    reps mac dinh 10 (thay vi 3 cua bench) de
+    p95 co y nghia hon; trung vi van tinh
+    giong het bench() nen so chinh khong doi
+    cach do. Sync CUDA giong bench.
+    """
+    _kiem_tra_so_nguyen("warmup", warmup, toi_thieu=0)
+    _kiem_tra_so_nguyen("reps", reps)
+    if not callable(fn):
+        raise ValueError("fn phai goi duoc.")
+    with torch.no_grad():
+        for _ in range(warmup):
+            fn()
+        if torch.cuda.is_available():
+            torch.cuda.synchronize()
+        thoi_gian = []
+        for _ in range(reps):
+            t0 = time.perf_counter()
+            fn()
+            if torch.cuda.is_available():
+                torch.cuda.synchronize()
+            thoi_gian.append(
+                (time.perf_counter() - t0) * 1000.0)
+    return (float(statistics.median(thoi_gian)),
+            float(_phan_vi(thoi_gian, 95)))
 
 
 def _tao_prompt(do_dai, seed=SEED):
@@ -561,6 +638,40 @@ def _kiem_tra_danh_sach_do_dai(lengths, ten="lengths"):
     return list(lengths)
 
 
+def _kiem_tra_arrivals(arrivals, n):
+    """Chuan hoa thoi diem den cua n request.
+
+    [TRAINER] Ban goc khong co arrivals: ca 2
+    mo phong deu gia dinh moi request den o
+    t = 0, trong khi brief Day 27 yeu cau xet
+    request "den lech pha nhau" - request den
+    muon phai cho duoc cong vao thoi gian cho
+    cua chinh no, khong duoc chay truoc khi no
+    den. None -> tat ca den o t = 0 (giu nguyen
+    hanh vi va moi con so cua ban goc).
+
+    Returns:
+        List thoi diem den (int/float >= 0),
+        dai n.
+
+    Raises:
+        ValueError: arrivals khong phai list /
+            tuple dai n, phan tu am / NaN / sai
+            kieu.
+    """
+    if arrivals is None:
+        return [0] * n
+    if not isinstance(arrivals, (list, tuple)) \
+            or len(arrivals) != n:
+        raise ValueError(
+            "arrivals phai la list/tuple cung do "
+            "dai voi lengths.")
+    for i, a in enumerate(arrivals):
+        _kiem_tra_so_thuc(f"arrivals[{i}]", a,
+                          lon_hon_bang=0)
+    return list(arrivals)
+
+
 def paged_waste(lengths, max_len=MAX_LEN_NAIVE,
                 block=BLOCK_TOKEN):
     """Lang phi bo nho naive vs PagedAttention.
@@ -610,44 +721,57 @@ def paged_waste(lengths, max_len=MAX_LEN_NAIVE,
                 thua_paged / cap_paged * 100.0}
 
 
-def simulate_static(lengths, max_batch=MAX_BATCH):
+def simulate_static(lengths, max_batch=MAX_BATCH,
+                    arrivals=None):
     """Mo phong static batching.
 
     Gom request theo thu tu thanh batch toi da
     max_batch, chay tuan tu: batch chi xong
     khi request DAI NHAT xong, request ngan
-    trong batch phai cho. Moi request den luc
-    t = 0 (khong co hang doi den truoc).
+    trong batch phai cho.
+
+    [TRAINER] arrivals (mac dinh None = moi
+    request den luc t = 0, giong ban goc): batch
+    khong the bat dau truoc khi request den
+    muon nhat trong batch da den; thoi gian
+    cho cua 1 request = hoan thanh - thoi diem
+    den - do dai (truoc day thieu so hang thoi
+    diem den vi gia dinh den = 0).
 
     Returns:
         {"sum_completion": float, "avg_wait": float,
          "makespan": float} - sum_completion la
         tong thoi gian hoan thanh cua moi
         request; avg_wait la thoi gian cho
-        trung binh = (hoan thanh - do dai);
-        makespan la thoi gian request cuoi cung
-        xong.
+        trung binh = (hoan thanh - thoi diem
+        den - do dai); makespan la thoi gian
+        request cuoi cung xong.
 
     Raises:
-        ValueError: lengths / max_batch sai.
+        ValueError: lengths / max_batch /
+            arrivals sai.
     """
     ds = _kiem_tra_danh_sach_do_dai(lengths)
     _kiem_tra_so_nguyen("max_batch", max_batch)
+    arr = _kiem_tra_arrivals(arrivals, len(ds))
     thoi_gian = 0
     tong_hoan_thanh = 0
     tong_cho = 0
     for i in range(0, len(ds), max_batch):
         batch = ds[i:i + max_batch]
-        thoi_gian += max(batch)
-        for l in batch:
+        den = arr[i:i + max_batch]
+        thoi_gian = max(thoi_gian, max(den)) \
+            + max(batch)
+        for l, a in zip(batch, den):
             tong_hoan_thanh += thoi_gian
-            tong_cho += thoi_gian - l
+            tong_cho += thoi_gian - a - l
     return {"sum_completion": float(tong_hoan_thanh),
             "avg_wait": tong_cho / len(ds),
             "makespan": float(thoi_gian)}
 
 
-def simulate_continuous(lengths, max_batch=MAX_BATCH):
+def simulate_continuous(lengths, max_batch=MAX_BATCH,
+                        arrivals=None):
     """Mo phong continuous batching.
 
     Request nao xong thi roi ngay, request moi
@@ -658,35 +782,63 @@ def simulate_continuous(lengths, max_batch=MAX_BATCH):
     cho tap dang chay (20 request, buoc toi
     da 500 - khong can heap phuc tap).
 
+    [TRAINER] arrivals (mac dinh None = den o
+    t = 0 het, giong ban goc): request chi vao
+    hang doi khi da den (sap xep theo thoi
+    diem den, cung thoi diem thi theo thu tu
+    goc); chua co gi chay ma request ke tiep
+    chua den thi dong ho nhay thang toi luc
+    no den (khong quay vong rong, khong cho
+    request chay truoc khi den).
+
     Returns:
         Giong simulate_static (cung dinh nghia
         sum_completion / avg_wait / makespan,
         de so sanh truc tiep).
 
     Raises:
-        ValueError: lengths / max_batch sai.
+        ValueError: lengths / max_batch /
+            arrivals sai.
     """
     ds = _kiem_tra_danh_sach_do_dai(lengths)
     _kiem_tra_so_nguyen("max_batch", max_batch)
-    hang_doi = deque(ds)
-    # Moi phan tu dang chay: [con_lai, do_dai_goc].
+    arr = _kiem_tra_arrivals(arrivals, len(ds))
+    # Thu tu nap: den som truoc, hoa thi theo
+    # thu tu trong list goc.
+    thu_tu = sorted(range(len(ds)),
+                    key=lambda i: (arr[i], i))
+    ke_tiep = 0
+    hang_doi = deque()
+    # Moi phan tu dang chay: [con_lai, do_dai_goc,
+    # thoi_diem_den].
     dang_chay = []
     thoi_gian = 0
     tong_hoan_thanh = 0
     tong_cho = 0
-    while hang_doi or dang_chay:
+    while ke_tiep < len(thu_tu) or hang_doi \
+            or dang_chay:
+        while ke_tiep < len(thu_tu) \
+                and arr[thu_tu[ke_tiep]] <= thoi_gian:
+            i = thu_tu[ke_tiep]
+            ke_tiep += 1
+            hang_doi.append((ds[i], arr[i]))
         while hang_doi and len(dang_chay) < max_batch:
-            l = hang_doi.popleft()
-            dang_chay.append([l, l])
+            l, a = hang_doi.popleft()
+            dang_chay.append([l, l, a])
+        if not dang_chay:
+            # Chua request nao den: nhay dong ho
+            # toi thoi diem den ke tiep.
+            thoi_gian = arr[thu_tu[ke_tiep]]
+            continue
         thoi_gian += 1
         con_lai = []
-        for con, goc in dang_chay:
+        for con, goc, a in dang_chay:
             con -= 1
             if con == 0:
                 tong_hoan_thanh += thoi_gian
-                tong_cho += thoi_gian - goc
+                tong_cho += thoi_gian - a - goc
             else:
-                con_lai.append([con, goc])
+                con_lai.append([con, goc, a])
         dang_chay = con_lai
     return {"sum_completion": float(tong_hoan_thanh),
             "avg_wait": tong_cho / len(ds),
@@ -713,6 +865,20 @@ def speculative_speedup(alpha, draft_speedup=None):
 
     Returns:
         Toc do tang (float, lan).
+
+    Luu y [TRAINER]: alpha o day la SO TOKEN
+    chap nhan ky vong moi vong (so dem, >= 0,
+    co the > 1), KHONG phai ti le chap nhan
+    theo tung token nhu trong tai lieu
+    speculative decoding goc. Neu co ti le chap
+    nhan beta / token va gamma token nhap moi
+    vong thi so token ky vong / vong la
+    (1 - beta ** (gamma + 1)) / (1 - beta) -
+    phai doi beta, gamma ve alpha theo dung
+    nghia do truoc khi dung cong thuc alpha + 1
+    o day, neu khong se tinh thieu (vd beta =
+    0.7, gamma = 4 cho ky vong ~2.77 token, ma
+    alpha + 1 chi cho 1.7x).
     """
     _kiem_tra_so_thuc("alpha", alpha, lon_hon_bang=0)
     if draft_speedup is not None:
@@ -816,8 +982,66 @@ def tu_kiem_tra():
             "decode caches sai"),
         _expect_value_error(
             lambda: bench(42), "bench fn khong goi"),
+        # [TRAINER] Guard moi kem cac sua o vong
+        # review Day 27: _phan_vi, arrivals cua 2
+        # mo phong, va cau truc (K, V) cua
+        # kv_caches (truoc day ro TypeError).
+        _expect_value_error(
+            lambda: _phan_vi([], 95),
+            "phan vi mau rong"),
+        _expect_value_error(
+            lambda: _phan_vi([1.0], 101),
+            "phan vi p > 100"),
+        _expect_value_error(
+            lambda: simulate_static(
+                [10, 10], 2, arrivals=[0]),
+            "static arrivals thieu phan tu"),
+        _expect_value_error(
+            lambda: simulate_continuous(
+                [10, 10], 2, arrivals=[0, -1]),
+            "continuous arrival am"),
+        _expect_value_error(
+            lambda: MiniTransformer(
+                vocab=50, d_model=32, n_layer=2,
+                n_head=2, d_ff=64).forward(
+                    torch.zeros(1, 1,
+                                dtype=torch.long),
+                    [1, 2]),
+            "kv_caches phan tu khong phai (K, V)"),
     ]
     assert all(ket_qua), "Co guard khong chan dung!"
+
+    # [TRAINER] _phan_vi nearest-rank: p95 cua
+    # [1..20] la phan tu thu ceil(0.95*20)=19;
+    # p50 cua [1..10] la 5 (khong phai 5.5).
+    assert _phan_vi(
+        [float(i) for i in range(1, 21)], 95) == 19.0
+    assert _phan_vi(
+        [float(i) for i in range(1, 11)], 50) == 5.0
+    assert _phan_vi([7.5], 95) == 7.5
+
+    # [TRAINER] Arrivals lech pha, tinh tay:
+    # continuous [10, 10], batch 1, den [0, 9]:
+    # req1 chay 0->10; req2 den t=9 nhung phai
+    # cho slot, chay 10->20: tong hoan thanh
+    # 30, cho TB (0 + 1) / 2.
+    kq_den = simulate_continuous(
+        [10, 10], 1, arrivals=[0, 9])
+    assert kq_den["sum_completion"] == 30
+    assert kq_den["avg_wait"] == 0.5
+    # Static [10, 10], batch 2, den [0, 9]: batch
+    # cho req muon nhat, bat dau t=9, xong t=19:
+    # tong 38, cho TB ((19-0-10) + (19-9-10))/2.
+    kq_den_tinh = simulate_static(
+        [10, 10], 2, arrivals=[0, 9])
+    assert kq_den_tinh["sum_completion"] == 38
+    assert kq_den_tinh["avg_wait"] == 4.5
+    # Khong truyen arrivals thi phai y het ban
+    # goc (tat ca den t = 0).
+    assert simulate_continuous(
+        [10, 10], 1)["sum_completion"] == 30
+    assert simulate_static(
+        [10, 10], 2)["sum_completion"] == 20
 
     # Test duong: token id 0 la hop le, forward
     # voi tokens toan 0 phai chay duoc (khong
@@ -964,21 +1188,32 @@ def bai_a():
     ket_qua = {}
     for do_dai in DO_DAI_PROMPT:
         prompt = _tao_prompt(do_dai)
-        ttft = bench(lambda: prefill(model, prompt))
+        # [TRAINER] Do bang bench_day_du de co ca
+        # trung vi (so chinh, giong ban goc) lan
+        # p95 (brief Day 27 yeu cau tach TTFT /
+        # TPOT va bao ca p95, khong gop 1 so duy
+        # nhat). p95 cua TPOT = p95 tong thoi gian
+        # decode / so token (percentile la ham
+        # don dieu nen chia deu duoc).
+        ttft, ttft_p95 = bench_day_du(
+            lambda: prefill(model, prompt))
         _, caches = prefill(model, prompt)
         token_dau = int(prompt[0, -1])
         # Bench decode: moi lan chay decode lai
         # 50 token tu cung cache ban dau - dung
         # cache da prefill, khong tinh prefill
         # vao thoi gian decode.
-        t_decode = bench(
+        t_decode, t_decode_p95 = bench_day_du(
             lambda: decode_greedy(
                 model, caches, token_dau, N_DECODE))
         tpot = t_decode / N_DECODE
+        tpot_p95 = t_decode_p95 / N_DECODE
         kv_mb = kv_fp32 * do_dai / 2 ** 20
         ket_qua[do_dai] = (ttft, tpot, kv_mb)
-        print(f"  Prompt {do_dai}: TTFT={ttft:.1f} ms | "
+        print(f"  Prompt {do_dai}: TTFT={ttft:.1f} ms "
+              f"(p95 {ttft_p95:.1f}) | "
               f"TPOT={tpot:.2f} ms/token "
+              f"(p95 {tpot_p95:.2f}) "
               f"({1000.0 / tpot:.0f} token/s) | "
               f"KV cache={kv_mb:.1f} MiB")
     ti_le_ttft = ket_qua[2048][0] / ket_qua[128][0]
@@ -1123,17 +1358,28 @@ def bai_c(model, kv_fp16):
           f"con alpha=0 thi khong bao gio co lai.")
     print("  C2 prefix caching (20 request, chung "
           f"system prompt {HE_SO_PREFIX} token):")
-    kv_tiet_kiem = 19 * HE_SO_PREFIX * kv_fp16
+    # [TRAINER] So request dung chung prefix la
+    # N_REQUEST - 1 (tru request dau tien phai tu
+    # cache): ban goc go tay "19" o 3 cho - doi
+    # N_REQUEST la cac so nay sai am tham trong
+    # khi code van chay so khac (bai hoc Day 26:
+    # so trong ket luan phai tinh tu so do / hang
+    # so, khong go tay). Gia tri in ra khong doi.
+    so_dung_chung = N_REQUEST - 1
+    kv_tiet_kiem = so_dung_chung * HE_SO_PREFIX \
+        * kv_fp16
     prompt_200 = _tao_prompt(HE_SO_PREFIX)
     t_prefill_200 = bench(
         lambda: prefill(model, prompt_200))
-    print(f"     KV tiet kiem: 19 request x "
+    print(f"     KV tiet kiem: {so_dung_chung} "
+          f"request x "
           f"{HE_SO_PREFIX} token x {kv_fp16} byte "
           f"= {kv_tiet_kiem / 2 ** 20:.1f} MiB "
           f"(request dau tien van phai cache).")
-    print(f"     Prefill tiet kiem: 19 x "
+    print(f"     Prefill tiet kiem: "
+          f"{so_dung_chung} x "
           f"{t_prefill_200:.1f} ms = "
-          f"{19 * t_prefill_200:.0f} ms (do that "
+          f"{so_dung_chung * t_prefill_200:.0f} ms (do that "
           f"prefill 200 token). Khong giup gi khi "
           f"chi 1 request, khong chung prefix, "
           f"hoac block prefix da bi evict khoi "
@@ -1192,6 +1438,13 @@ def main():
     kq_a = bai_a()
     kq_b = bai_b()
     kq_c = bai_c(kq_a["model"], kq_a["kv_fp16"])
+    # [TRAINER] Bang ket qua chua co cot nang
+    # luong (kWh/token hoac token/kWh) theo brief
+    # Day 27: lab khong do cong suat (W) nen
+    # khong co so lieu tinh nang luong - khong
+    # bia so. Chi so hieu suat hien co la token/s
+    # suy tu TPOT o Bai A; muon co cot nang luong
+    # phai do cong suat that khi chay serving.
     print("\nBANG KET QUA: TTFT 128/512/2048 = "
           f"{kq_a['ttft'][128]:.1f}/"
           f"{kq_a['ttft'][512]:.1f}/"
