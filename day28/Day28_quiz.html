@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quiz Ngày 28 — Green serving và Pareto frontier | Khóa LLM 30 ngày</title>
+<style>
+:root{--bg:#0a0f1e; --card:#101830; --line:#22305a; --gold:#f5c542; --green:#4ade80; --red:#f87171; --cyan:#67e8f9; --text:#e8edf7; --muted:#93a0bd;}
+*{box-sizing:border-box;}
+body{margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif; line-height:1.7; font-size:16.5px;}
+.wrap{max-width:780px; margin:0 auto; padding:18px 16px 60px;}
+.kicker{color:var(--gold); font-size:13px; letter-spacing:1px; font-weight:700;}
+h1{font-size:28px; line-height:1.3;}
+.sub{color:var(--muted);}
+.q{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px; margin:18px 0;}
+.q h3{margin:0 0 10px; color:var(--cyan); font-size:18px;}
+label{display:block; padding:8px 10px; margin:6px 0; border:1px solid var(--line); border-radius:10px; cursor:pointer;}
+label:hover{border-color:var(--gold);}
+label input{margin-right:10px;}
+.expl{display:none; margin-top:12px; padding:12px 14px; border-radius:10px; font-size:15.5px;}
+.expl.ok{display:block; background:#0f2233; border-left:4px solid var(--green);}
+.expl.bad{display:block; background:#23141a; border-left:4px solid var(--red);}
+button{background:var(--gold); color:#14100a; font-weight:700; border:none; border-radius:10px; padding:13px 26px; font-size:16px; margin:6px 8px 0 0; cursor:pointer;}
+button.ghost{background:transparent; color:var(--gold); border:2px solid var(--gold);}
+#result{font-weight:700; margin-top:14px; font-size:18px;}
+#copyout{background:#0a0f1e; border:1px dashed var(--gold); border-radius:10px; padding:12px 16px; margin-top:12px; font-size:16px; word-break:break-all;}
+.note{color:var(--muted); font-size:14.5px; margin-top:24px; border-top:1px solid var(--line); padding-top:14px;}
+a{color:var(--gold);}
+textarea{width:100%; background:#0a0f1e; color:var(--text); border:1px solid var(--line); border-radius:10px; padding:12px; font-size:15.5px; font-family:inherit;}
+</style>
+</head>
+<body>
+<div class="wrap">
+<span class="kicker">NGÀY 28 · QUIZ — 5 CÂU</span>
+<h1>Quiz: Green serving và Pareto frontier</h1>
+<p class="sub">Chọn đáp án rồi bấm "Nộp bài" để chấm điểm ngay trong file và xem giải thích từng câu. Sau đó bấm "Copy kết quả" rồi paste vào chat để trợ lý ghi điểm.</p>
+<form id="quiz">
+<div class="q" data-answer="B"><h3>Câu 1. Pareto frontier là gì?</h3>
+<label><input type="radio" name="q1" value="A"> A. Cấu hình duy nhất tốt nhất trên mọi mặt: nhanh nhất, chính xác nhất và rẻ nhất</label>
+<label><input type="radio" name="q1" value="B"> B. Tập hợp các cấu hình không bị cấu hình nào khác vượt qua trên mọi mặt cùng lúc — muốn cải thiện một trục thì phải hy sinh một trục khác</label>
+<label><input type="radio" name="q1" value="C"> C. Đường cong thể hiện mối quan hệ giữa số tham số mô hình và độ chính xác</label>
+<label><input type="radio" name="q1" value="D"> D. Giới hạn tối đa của batch size mà GPU chịu được trước khi hết bộ nhớ</label>
+<div class="expl">Đáp án B. Không tồn tại cấu hình tốt nhất tuyệt đối khi các mục tiêu xung đột nhau. Một cấu hình trên frontier chỉ bị “đánh bại” khi có cấu hình khác tốt hơn nó ở mọi trục — lúc đó nó bị chi phối và nên loại bỏ.</div></div>
+
+<div class="q" data-answer="C"><h3>Câu 2. Một cấu hình bị gọi là “bị chi phối” (dominated) khi nào?</h3>
+<label><input type="radio" name="q2" value="A"> A. Khi nó chạy chậm hơn mọi cấu hình khác, dù chất lượng có thể cao hơn</label>
+<label><input type="radio" name="q2" value="B"> B. Khi nó tốn nhiều điện nhất trong số các cấu hình được đo</label>
+<label><input type="radio" name="q2" value="C"> C. Khi tồn tại một cấu hình khác tốt hơn hoặc bằng nó ở mọi trục — nhanh hơn, chính xác hơn và rẻ hơn cùng lúc</label>
+<label><input type="radio" name="q2" value="D"> D. Khi nó không đạt được SLO mà nhóm sản phẩm đặt ra</label>
+<div class="expl">Đáp án C. Cấu hình bị chi phối không bao giờ nên chọn: có một lựa chọn khác tốt hơn nó về mọi mặt. Việc đầu tiên khi vẽ frontier là loại bỏ mọi điểm bị chi phối, rồi mới chọn theo SLO.</div></div>
+
+<div class="q" data-answer="A"><h3>Câu 3. Vì sao khi báo độ trễ phải có p50 và p95, không chỉ trung bình?</h3>
+<label><input type="radio" name="q3" value="A"> A. Vì trung bình giấu đi trải nghiệm tệ nhất: p95 cho biết người dùng chậm nhất phải chờ bao lâu, và p50 đẹp mà p95 xấu là dấu hiệu hàng đợi bị tắc lúc tải cao</label>
+<label><input type="radio" name="q3" value="B"> B. Vì p50 và p95 là hai cách tính trung bình khác nhau, cộng lại mới ra độ trễ thật</label>
+<label><input type="radio" name="q3" value="C"> C. Vì framework serving chỉ xuất ra p50 và p95, không xuất ra trung bình</label>
+<label><input type="radio" name="q3" value="D"> D. Vì p95 luôn nhỏ hơn trung bình nên báo p95 làm con số trông đẹp hơn</label>
+<div class="expl">Đáp án A. Người dùng không cảm nhận “trung bình”, họ cảm nhận lần chậm nhất của chính mình. Một hệ thống trung bình nhanh nhưng p95 tệ vẫn khiến nhiều người dùng khó chịu, đặc biệt lúc tải cao.</div></div>
+
+<div class="q" data-answer="D"><h3>Câu 4. So sánh “cấu hình INT8 chạy batch 32” với “cấu hình FP16 chạy batch 1” rồi kết luận “INT8 nhanh gấp 5 lần” là sai ở đâu?</h3>
+<label><input type="radio" name="q4" value="A"> A. Sai vì INT8 không bao giờ nhanh hơn FP16</label>
+<label><input type="radio" name="q4" value="B"> B. Sai vì batch 32 luôn làm tăng độ trễ của từng request, nên INT8 thực ra chậm hơn</label>
+<label><input type="radio" name="q4" value="C"> C. Sai vì hai cấu hình dùng phần cứng khác nhau nên không so sánh được</label>
+<label><input type="radio" name="q4" value="D"> D. Sai vì hai biến đã thay đổi cùng lúc (quantization và batch size) — không biết phần nhanh hơn đến từ INT8 hay từ batch lớn, nên kết luận không còn giá trị</label>
+<div class="expl">Đáp án D. Nguyên tắc benchmark công bằng: mỗi lần chạy chỉ đổi một biến duy nhất, viết rõ “thứ duy nhất thay đổi là ___”. Đổi hai thứ cùng lúc thì không biết cái nào gây ra khác biệt.</div></div>
+
+<div class="q" data-answer="B"><h3>Câu 5. Một chatbot tương tác và một tác vụ batch offline nên chọn điểm nào trên Pareto frontier?</h3>
+<label><input type="radio" name="q5" value="A"> A. Cả hai đều chọn điểm chính xác nhất, vì chất lượng luôn là ưu tiên số một</label>
+<label><input type="radio" name="q5" value="B"> B. Chatbot cần TTFT thấp nên chọn điểm phía “nhanh, đủ chính xác”; tác vụ batch offline không gấp nên chọn điểm phía “rẻ, đủ chính xác” — cùng một frontier, chọn khác nhau theo SLO</label>
+<label><input type="radio" name="q5" value="C"> C. Cả hai đều chọn điểm rẻ nhất, vì tiết kiệm năng lượng là mục tiêu duy nhất của green serving</label>
+<label><input type="radio" name="q5" value="D"> D. Chatbot chọn điểm rẻ nhất vì có nhiều người dùng, còn batch offline chọn điểm nhanh nhất vì chạy ban đêm</label>
+<div class="expl">Đáp án B. Không có cấu hình tốt nhất tuyệt đối — chỉ có cấu hình phù hợp SLO. Chatbot bị người dùng chờ từng token nên TTFT là ưu tiên; batch offline chịu được chờ nên đổi tốc độ lấy chi phí thấp.</div></div>
+</form>
+<button onclick="grade()">Nộp bài</button>
+<button class="ghost" onclick="copyResult()">Copy kết quả</button>
+<div id="result"></div>
+<div id="copyout" style="display:none"></div>
+<div class="q"><h3>Câu tự luận (không tính điểm trắc nghiệm)</h3>
+<p>Giải thích bằng lời của bạn, trong 2–3 câu: bạn benchmark 6 cấu hình và thấy cấu hình X nhanh nhất, rẻ nhất, nhưng mất 8 điểm chính xác so với cấu hình tốt nhất. Bạn có nên chọn X cho một chatbot hỗ trợ khách hàng không? Cần thêm thông tin gì để quyết định?</p>
+<textarea rows="4" placeholder="Viết câu trả lời của bạn ở đây, rồi paste cùng kết quả trắc nghiệm vào chat..."></textarea></div>
+<p class="note">Lưu ý: file HTML này không tự gửi kết quả về được. Sau khi bấm "Copy kết quả", hãy paste chuỗi kết quả vào chat để trợ lý ghi điểm cho bạn. Đáp án đúng không hiện trước khi nộp bài — giải thích chỉ mở sau khi bạn chọn và nộp.</p>
+<p><a href="Day28_lesson.html">← Về lại tài liệu bài học</a></p>
+<script>
+let graded = false, answers = [];
+function grade(){
+  const qs = document.querySelectorAll('form .q');
+  let score = 0; answers = [];
+  qs.forEach((q, i) => {
+    const sel = q.querySelector('input:checked');
+    const v = sel ? sel.value : '–';
+    answers.push(v);
+    const expl = q.querySelector('.expl');
+    if (v === q.dataset.answer) { score++; expl.className = 'expl ok'; expl.innerHTML = '✅ Đúng. ' + expl.innerHTML; }
+    else { expl.className = 'expl bad'; expl.innerHTML = '❌ Chưa đúng. ' + expl.innerHTML; }
+  });
+  graded = true;
+  document.getElementById('result').textContent = 'Bạn được ' + score + '/' + qs.length + ' câu.';
+  const out = document.getElementById('copyout');
+  out.style.display = 'block';
+  out.textContent = 'Day28 Quiz: ' + answers.map((a, i) => (i+1) + a).join(' ') + ' — ' + score + '/' + qs.length;
+}
+function copyResult(){
+  if (!graded) { alert('Hãy bấm "Nộp bài" trước đã nhé.'); return; }
+  const t = document.getElementById('copyout').textContent;
+  navigator.clipboard.writeText(t).then(() => alert('Đã copy! Paste vào chat để trợ lý ghi điểm nhé.'));
+}
+</script>
+</div>
+</body>
+</html>

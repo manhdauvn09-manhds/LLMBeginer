@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ngày 28 — Green serving và Pareto frontier | Khóa LLM 30 ngày</title>
+<style>
+:root{--bg:#0a0f1e; --card:#101830; --line:#22305a; --gold:#f5c542; --green:#4ade80;
+ --red:#f87171; --violet:#a78bfa; --cyan:#67e8f9; --text:#e8edf7; --muted:#93a0bd;}
+*{box-sizing:border-box;}
+body{margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.75; font-size:16.5px;}
+.wrap{max-width:820px; margin:0 auto; padding:18px 16px 60px;}
+.kicker{display:inline-block; font-size:13px; letter-spacing:1px; color:var(--gold); font-weight:700; margin-bottom:8px;}
+h1{font-size:30px; line-height:1.3; margin:6px 0 10px;}
+h2{font-size:22px; margin:34px 0 10px; color:var(--cyan);}
+h3{font-size:18px; margin:22px 0 8px; color:var(--gold);}
+.sub{color:var(--muted); font-size:16.5px;}
+.meta{display:flex; gap:8px; flex-wrap:wrap; margin:14px 0 6px;}
+.meta span{font-size:13.5px; background:var(--card); border:1px solid var(--line); border-radius:999px; padding:5px 14px;}
+.hero{width:100%; border-radius:14px; margin:16px 0;}
+.card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px; margin:16px 0;}
+.note{border-left:4px solid var(--green); background:#0f2233; border-radius:0 12px 12px 0; padding:12px 16px; margin:14px 0;}
+.warn{border-left:4px solid var(--red); background:#23141a; border-radius:0 12px 12px 0; padding:12px 16px; margin:14px 0;}
+.formula{background:#0a0f1e; border:1px dashed var(--violet); border-radius:10px; padding:12px 16px; margin:12px 0; font-size:17px; text-align:center;}
+table{width:100%; border-collapse:collapse; margin:12px 0; font-size:15px;}
+th,td{border:1px solid var(--line); padding:8px 10px; text-align:left;}
+th{background:#141d3a; color:var(--gold);}
+svg{max-width:100%; height:auto; display:block; margin:12px auto;}
+.btn{display:inline-block; background:var(--gold); color:#14100a; font-weight:700; border-radius:10px; padding:12px 22px; margin:10px 8px 0 0; text-decoration:none;}
+.btn.ghost{background:transparent; color:var(--gold); border:2px solid var(--gold);}
+code{background:#0a0f1e; border:1px solid var(--line); border-radius:6px; padding:1px 7px; font-size:15px;}
+.footer{color:var(--muted); font-size:14px; margin-top:40px; border-top:1px solid var(--line); padding-top:14px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+<span class="kicker">KHÓA TRỞ THÀNH AI ENGINEER (LLM) · NGÀY 28 / 30</span>
+<h1>Mini-project 4: Green serving và Pareto frontier</h1>
+<p class="sub">Ba tuần qua ta đã tích lũy từng đòn bẩy riêng lẻ: quantization, batching, KV cache, pruning, distillation, speculative decoding. Hôm nay là lúc ghép chúng lại thành một hệ thống phục vụ thật — và học cách trả lời câu hỏi khó nhất của serving: cấu hình nào là “tốt nhất” khi nhanh hơn thường đồng nghĩa với tốn điện hơn và kém chính xác hơn?</p>
+<div class="meta"><span>⏱ Ước lượng: 25–30 phút đọc + quiz</span><span>🎯 3 khái niệm chính</span><span>⚡ Tiết kiệm năng lượng</span></div>
+<img class="hero" src="img/media-generation-day28-hero-pareto-0-49140b50-d078-4389-bda6-90a60f3286f2.webp" alt="Biểu đồ Pareto frontier: các cấu hình phục vụ trên đồ thị chất lượng và năng lượng">
+
+<h2>1 · Mục tiêu buổi học</h2>
+<ul>
+<li>Hiểu <strong>Pareto frontier</strong>: vì sao không tồn tại một cấu hình “tốt nhất tuyệt đối”, chỉ có những cấu hình không bị cấu hình nào khác vượt qua trên mọi mặt.</li>
+<li>Biết cách <strong>benchmark công bằng</strong>: giữ mọi điều kiện bằng nhau, chỉ đổi một biến, đo đủ ba trục chất lượng – độ trễ – năng lượng và báo kèm sai số.</li>
+<li>Biết cách <strong>ghép các đòn bẩy</strong> (quantization, batching, cache, pruning/distillation) theo từng workload và chọn cấu hình theo SLO của sản phẩm.</li>
+</ul>
+
+<h2 id="sec-pareto">2 · Pareto frontier: khi không có đáp án đúng duy nhất</h2>
+<p>Giả sử bạn có hai cấu hình phục vụ cùng một mô hình. Cấu hình A trả lời chính xác hơn, nhưng mỗi request tốn gấp đôi điện và chậm hơn 30%. Cấu hình B rẻ và nhanh, nhưng sai nhiều hơn. Cấu hình nào “tốt hơn”? Câu trả lời phụ thuộc vào sản phẩm của bạn — và đó chính là bản chất của bài toán đa mục tiêu.</p>
+<p><strong>Pareto frontier</strong> (biên Pareto) là tập hợp các cấu hình mà <strong>không cấu hình nào khác vượt qua nó trên mọi mặt cùng lúc</strong>. Một cấu hình gọi là <strong>bị chi phối (dominated)</strong> nếu tồn tại một cấu hình khác tốt hơn hoặc bằng nó ở mọi trục — nhanh hơn, chính xác hơn <em>và</em> rẻ hơn. Cấu hình bị chi phối thì không bao giờ nên chọn, dù nó trông “ổn”. Một cấu hình nằm trên frontier thì <strong>không bị chi phối (non-dominated)</strong>: muốn cải thiện một trục, bạn bắt buộc phải hy sinh một trục khác.</p>
+<svg viewBox="0 0 760 320" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Biểu đồ Pareto frontier">
+<rect x="10" y="10" width="740" height="300" rx="14" fill="#101830" stroke="#22305a"/>
+<line x1="90" y1="270" x2="700" y2="270" stroke="#93a0bd" stroke-width="2"/>
+<line x1="90" y1="270" x2="90" y2="40" stroke="#93a0bd" stroke-width="2"/>
+<text x="390" y="300" text-anchor="middle" fill="#93a0bd" font-size="15">Năng lượng / request tăng dần →</text>
+<text x="28" y="160" text-anchor="middle" fill="#93a0bd" font-size="15" transform="rotate(-90 28 160)">Chất lượng tăng dần →</text>
+<path d="M 150 120 C 280 110, 420 150, 620 240" fill="none" stroke="#f5c542" stroke-width="3"/>
+<circle cx="150" cy="120" r="10" fill="#f5c542"/><circle cx="280" cy="112" r="10" fill="#f5c542"/><circle cx="420" cy="150" r="10" fill="#f5c542"/><circle cx="620" cy="240" r="10" fill="#f5c542"/>
+<text x="150" y="95" text-anchor="middle" fill="#f5c542" font-size="14">A: rẻ, đủ tốt</text>
+<text x="280" y="87" text-anchor="middle" fill="#f5c542" font-size="14">B</text>
+<text x="430" y="125" text-anchor="middle" fill="#f5c542" font-size="14">C</text>
+<text x="620" y="215" text-anchor="middle" fill="#f5c542" font-size="14">D: tốt nhất, đắt nhất</text>
+<circle cx="380" cy="220" r="10" fill="#f87171"/>
+<text x="380" y="255" text-anchor="middle" fill="#f87171" font-size="14">E: bị chi phối — bỏ</text>
+<text x="560" y="70" text-anchor="middle" fill="#e8edf7" font-size="15">Đường vàng = Pareto frontier</text>
+<text x="560" y="95" text-anchor="middle" fill="#93a0bd" font-size="14">Mọi điểm trên đường đều “đúng”</text>
+</svg>
+<p>Điểm E trong hình minh họa điều quan trọng nhất: E tốn nhiều năng lượng hơn B mà chất lượng lại thấp hơn — E bị B chi phối hoàn toàn. Trong thực tế, nhiều hệ thống đang chạy ở những điểm như E mà không biết: ví dụ chạy mô hình FP16 batch nhỏ lúc nửa đêm, vừa chậm vừa tốn điện, trong khi một cấu hình INT8 batch lớn hơn sẽ nhanh hơn, rẻ hơn <em>và</em> đủ chính xác. <strong>Việc đầu tiên của mini-project tối nay không phải là tìm cấu hình nhanh nhất, mà là loại bỏ mọi cấu hình bị chi phối.</strong></p>
+<div class="note"><strong>Quy tắc chọn:</strong> Vẽ frontier xong, đừng hỏi “cấu hình nào tốt nhất” nữa. Hãy hỏi “SLO của mình là gì?” — chatbot cần TTFT thấp thì chọn điểm trái của frontier, tác vụ batch offline cần rẻ thì chọn điểm phải, và mọi điểm còn lại đều là lựa chọn hợp lệ tùy ngữ cảnh.</div>
+
+<h2 id="sec-metrics">3 · Ba trục đo: chất lượng – độ trễ – năng lượng</h2>
+<p>Một cấu hình chỉ có ý nghĩa khi đo đủ cả ba trục, trên cùng một workload:</p>
+<ul>
+<li><strong>Chất lượng:</strong> đo bằng metric của tác vụ thật (độ chính xác, BLEU, tỉ lệ trả lời đúng trên bộ kiểm tra), không phải bằng cảm giác. Quantization hay distillation có thể làm mất vài điểm chất lượng — mất bao nhiêu phải đo, không đoán.</li>
+<li><strong>Độ trễ:</strong> TTFT và TPOT từ Day 27, nhưng phải báo <strong>p50 và p95</strong>, không chỉ trung bình. Trung bình giấu đi trải nghiệm tệ nhất: p95 mới là thứ người dùng “đen đủi” cảm nhận. Cùng một cấu hình, p50 đẹp nhưng p95 xấu là dấu hiệu hàng đợi bị tắc lúc tải cao.</li>
+<li><strong>Năng lượng:</strong> Joules/request hoặc kWh/1.000 request, đo ở <strong>concurrency thực tế</strong> (ví dụ 1/4/16) chứ không phải chạy lẻ một request lúc máy rỗi. Công cụ quen thuộc: CodeCarbon, <code>nvidia-smi</code> đo công suất GPU.</li>
+</ul>
+<div class="formula">Tổng thời gian ≈ TTFT + (số token đáp án − 1) × TPOT &nbsp;·&nbsp; Năng lượng/request ≈ công suất trung bình × thời gian / số request</div>
+<p><strong>Lỗi thường gặp:</strong> chỉ báo một con số duy nhất, ví dụ “120 tokens/giây”, rồi kết luận cấu hình tốt. Một con số không có trục chất lượng đi kèm thì không biết mô hình đã mất bao nhiêu chính xác để đổi lấy tốc độ đó; không có p95 thì không biết người dùng chậm nhất phải chờ bao lâu; không có bối cảnh phần cứng thì không ai tái tạo được kết quả.</p>
+
+<h2 id="sec-bench">4 · Benchmark công bằng: đo, đừng đoán</h2>
+<img class="hero" src="img/media-generation-day28-benchmark-0-90c6d5f2-98ca-4382-a60d-c36e88ffa51d.webp" alt="Phòng thí nghiệm benchmark: các máy chủ GPU chạy cùng một bộ kiểm tra">
+<p>Muốn so sánh 6 cấu hình, phải đảm bảo mọi thứ khác đều bằng nhau. Danh sách kiểm tra tối thiểu cho buổi tối nay:</p>
+<ul>
+<li><strong>Cùng prompt set:</strong> cùng một tập prompt, cùng độ dài, cùng phân phối — vì prompt dài làm prefill đắt, đáp án dài làm decode đắt (Day 27).</li>
+<li><strong>Cùng concurrency:</strong> so sánh ở 1, 4 và 16 request đồng thời; một cấu hình thắng ở concurrency 1 có thể thua ở concurrency 16.</li>
+<li><strong>Warmup trước khi đo:</strong> bỏ qua vài chục request đầu để GPU, cache và bộ nhớ ổn định; đo lúc máy vừa khởi động là đo cả “khởi động”, không phải “phục vụ”.</li>
+<li><strong>Một biến duy nhất thay đổi:</strong> trước mỗi lần chạy, viết rõ “thứ duy nhất thay đổi là ___” — chỉ đổi batch size, hoặc chỉ đổi quantization, không đổi hai thứ cùng lúc.</li>
+<li><strong>Lặp lại và báo sai số:</strong> chạy mỗi cấu hình ít nhất 3 lần, báo trung bình ± độ lệch. Chênh lệch nhỏ hơn sai số đo thì chưa đủ kết luận ai thắng.</li>
+<li><strong>Công bố bối cảnh:</strong> phần cứng, nhiệt độ lúc chạy, phiên bản framework, batch size — không có bối cảnh thì con số không tái tạo được, và theo tinh thần Day 24, số không tái tạo được gần như vô nghĩa.</li>
+</ul>
+<div class="warn"><strong>Lỗi thường gặp:</strong> so sánh cấu hình INT8 chạy batch 32 với cấu hình FP16 chạy batch 1, rồi kết luận “INT8 nhanh gấp 5 lần”. Đó không phải là so sánh quantization, mà là so sánh batch size — hai biến đã thay đổi cùng lúc, kết luận không còn giá trị.</div>
+
+<h2 id="sec-combo">5 · Ghép các đòn bẩy theo workload</h2>
+<p>Không có một “combo” chung cho mọi workload. Mỗi đòn bẩy thắng ở một chỗ và có thể phản tác dụng ở chỗ khác:</p>
+<table>
+<tr><th>Đòn bẩy</th><th>Thắng khi…</th><th>Phản tác dụng khi…</th></tr>
+<tr><td>Quantization (INT8/FP8)</td><td>Decode bị memory-bound; cần giảm VRAM và tăng batch</td><td>Tác vụ nhạy cảm chính xác; mô hình đã nhỏ</td></tr>
+<tr><td>Continuous batching</td><td>Nhiều request đồng thời, độ dài khác nhau</td><td>Tải thấp, request lẻ (không có gì để gom)</td></tr>
+<tr><td>KV cache + prefix sharing</td><td>Nhiều request chung system prompt / tiền tố dài</td><td>Prompt hoàn toàn khác nhau, chuỗi ngắn</td></tr>
+<tr><td>Pruning / distillation</td><td>Cần model nhỏ hẳn để vừa thiết bị yếu</td><td>Chưa đo mất mát chất lượng; thời gian train lại lớn</td></tr>
+<tr><td>Speculative decoding</td><td>Văn bản dễ đoán (code, mẫu lặp); draft model tốt</td><td>Văn bản sáng tạo, tỉ lệ chấp nhận thấp</td></tr>
+</table>
+<p>Vì thế cách làm đúng là <strong>theo workload mà chọn combo</strong>: chatbot tương tác cần TTFT thấp → ưu tiên prefix caching + continuous batching + model vừa đủ; tác vụ batch offline cần rẻ → ưu tiên quantization + batch lớn + model đã distill; RAG với context dài → ưu tiên KV cache quản lý tốt + quantization để vừa VRAM. Tối nay bạn sẽ tự tay chạy ít nhất 6 cấu hình, vẽ ba trục quality–latency–energy và tìm frontier của chính mình.</p>
+<p>Một ví dụ minh họa (số liệu giả định, chỉ để đọc hình): sáu cấu hình A–F đo trên cùng prompt set cho ra các điểm rải rác; A và F là hai đầu frontier — A rẻ nhất nhưng chất lượng thấp nhất, F chính xác nhất nhưng tốn điện nhất; B, C, D nằm giữa frontier; E bị chi phối vì tốn hơn B mà kém hơn B. Bài tập tối nay là thay các chữ cái này bằng số đo thật của bạn.</p>
+
+<h2>⚡ Góc tiết kiệm năng lượng</h2>
+<div class="card">
+<p>Green serving không phải là một tính năng gắn thêm — nó là kết quả của việc chọn đúng điểm trên frontier:</p>
+<ul>
+<li><strong>Chọn model nhỏ nhất đạt SLO</strong> thay vì model lớn nhất: một model 7B INT8 đạt SLO thường xanh hơn nhiều so với model 70B FP16 chạy “cho chắc”.</li>
+<li><strong>Đừng phục vụ lúc rỗi bằng cấu hình lúc cao điểm:</strong> autoscale theo tải, gom request, tắt bớt replica lúc ít người — GPU chạy rỗi vẫn đốt điện.</li>
+<li><strong>Báo cáo đầy đủ bối cảnh:</strong> năng lượng/request ở concurrency thực tế, kèm p50/p95 latency và phần cứng, nhiệt độ, warmup, batch, sai số đo. Không chọn một số duy nhất để khoe — một hệ thống chỉ xanh khi nó xanh ở tải thực.</li>
+</ul>
+<p><strong>Green checkpoint:</strong> Khi vẽ xong frontier tối nay, hãy chỉ ra một cấu hình bạn đã loại vì bị chi phối, và một cấu hình bạn chọn kèm lý do theo SLO. Nếu mọi cấu hình đều “ngon” thì có thể bạn chưa đo đủ trục — thường là thiếu trục năng lượng hoặc thiếu p95.</p>
+</div>
+
+<h2 id="sec-summary">6 · Tóm tắt</h2>
+<ul>
+<li><strong>Pareto frontier</strong> là tập các cấu hình không bị cấu hình nào khác vượt qua trên mọi mặt; cấu hình bị chi phối thì loại ngay, không cần tranh cãi.</li>
+<li>Chọn điểm trên frontier theo <strong>SLO của sản phẩm</strong> — không có cấu hình tốt nhất tuyệt đối.</li>
+<li>Đo đủ ba trục <strong>chất lượng – độ trễ (p50/p95) – năng lượng</strong>, ở concurrency thực tế.</li>
+<li>Benchmark công bằng: cùng prompt set, cùng concurrency, warmup, một biến duy nhất, lặp lại có sai số, công bố bối cảnh.</li>
+<li>Ghép đòn bẩy <strong>theo workload</strong>: chatbot khác batch offline, RAG context dài khác trả lời ngắn.</li>
+</ul>
+<p>Buổi tối nay (mini-project 4): benchmark ít nhất 6 cấu hình trên cùng prompt set và concurrency, vẽ quality–latency–energy, chọn cấu hình theo SLO và viết báo cáo kèm API, benchmark script và dashboard.</p>
+<p><a class="btn" href="Day28_quiz.html">📝 Làm quiz Ngày 28</a></p>
+<p class="footer">Khóa Trở thành AI Engineer (LLM) · Ngày 28 / 30 · Bài tiếp theo: Ngày 29 — Thiết kế capstone như một thí nghiệm có đối chứng.</p>
+</div>
+</body>
+</html>
