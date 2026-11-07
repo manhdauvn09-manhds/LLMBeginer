@@ -1,10 +1,13 @@
 """Lab Day 28 - Mini-project 4: Green serving va Pareto.
 
 Benchmark 6 cau hinh phuc vu (distilgpt2, CPU)
-tren cung prompt set, do du 3 truc: chat luong
-(PPL) - do tre (TTFT/TPOT, p50 va p95) - nang
-luong (Joules/request), roi tim Pareto frontier
-va chon cau hinh theo SLO.
+tren cung prompt set, do du 4 truc: chat luong
+(PPL) - do tre TRAI NGHIEM (TTFT/TPOT p95) -
+nang luong (Joules/request), roi tim Pareto
+frontier va chon cau hinh theo SLO. Ban khau
+hao (thoi gian batch / so request) chi la chi
+phi / request, khong phai do tre nguoi dung -
+xem _sinh_mot_batch.
 
 "Thu duy nhat thay doi la ___" (quy tac Day 24
 + Day 28): moi lan chay chi doi 1 bien (dtype,
@@ -32,6 +35,25 @@ Ket qua: in bang 6 cau hinh + frontier + 3 lua
 chon theo SLO, luu results.json va pareto.png
 cung thu muc voi file nay.
 """
+
+# ============================================================
+# [TRAINER] REVIEW Day 28 (ban green_serving_lab_review.py)
+# Kiem chung doc lap: tu_kiem_tra PASS khi chay lai;
+# frontier tinh lai tu results.json dung {B} theo 3 truc
+# code da chon (ppl, ttft_p95, joules). NHUNG co 2 diem
+# chinh can sua truoc khi ket luan "frontier chi co B":
+#  (1) TTFT/TPOT trong code la CHI PHI KHAU HAO theo
+#      request (chia cho kich thuoc batch), khong phai do
+#      tre nguoi dung trai nghiem - xem comment o
+#      _sinh_mot_batch va chon_chatbot.
+#  (2) So lieu cau hinh C khoi phuc tu log lan chay khac,
+#      thieu 3 truong TPOT - xem comment o
+#      _doc_ket_qua_da_co.
+# 3 diem nhe: p95 qua it mau o batch lon (do_mot_cau_hinh),
+# frontier chua dung truc TPOT (_kiem_tra_diem), hinh ve
+# 2 truc trong khi frontier tinh 3 truc (ve_pareto).
+# Moi cho sua deu co comment [TRAINER] ngay trong code.
+# ============================================================
 
 import json
 import math
@@ -341,6 +363,21 @@ def _sinh_mot_batch(tok, model, batch, use_cache,
     that, khong gop 1 so). Tra ca uoc luong
     tho cua khung mau de so sanh o Buoc 3.
 
+    PHAN BIET 2 BAN SO (review Day 28, diem
+    chinh 1) - dung sai ban la ket luan sai:
+    - KHAU HAO (chi phi / request): thoi gian
+      batch chia cho so request - dung de tinh
+      nang luong / thong luong, KHONG phai do
+      tre nguoi dung cam nhan.
+    - TRAI NGHIEM (do tre nguoi dung): trong 1
+      batch, MOI request deu phai cho het
+      t_prefill moi nhan token dau, va moi buoc
+      decode moi request deu cho het thoi gian
+      cua buoc do. TTFT_exp = t_prefill (khong
+      chia), TPOT_exp = t_decode / n_decode
+      (khong chia). Frontier truc do tre + SLO
+      chatbot phai dung ban trai nghiem.
+
     use_cache=True: moi buoc decode chi dua 1
     token moi + KV cache cu. use_cache=False:
     moi buoc phai dua lai TOAN BO chuoi (khong
@@ -353,10 +390,13 @@ def _sinh_mot_batch(tok, model, batch, use_cache,
         n_decode: so token sinh them, int >= 1.
 
     Returns:
-        (ttft_s, tpot_s, ttft_tho_s, tpot_tho_s)
-        - ca 4 deu la giay / request (/ token
+        (ttft_s, tpot_s, ttft_tho_s, tpot_tho_s,
+         ttft_exp_s, tpot_exp_s) - ttft/tpot la
+        ban khau hao (giay / request, / token
         cho TPOT); tho = tong thoi gian / so
-        token (cach uoc luong cua khung mau).
+        token (cach uoc luong cua khung mau);
+        exp la ban trai nghiem (giay, khong
+        chia so request).
 
     Raises:
         ValueError: batch rong / prompt rong,
@@ -416,32 +456,54 @@ def _sinh_mot_batch(tok, model, batch, use_cache,
                         use_cache=False)
             t_decode += time.perf_counter() - t1
         logits = out.logits
+    # [TRAINER] DIEM CHINH 1 - ttft/tpot o day la CHI PHI
+    # KHAU HAO theo request (thoi gian batch / so request),
+    # KHONG phai do tre nguoi dung trai nghiem. Trong 1
+    # batch, MOI request deu phai cho het t_prefill moi
+    # nhan token dau, va moi buoc decode moi request deu
+    # cho het thoi gian cua buoc do. Do tre trai nghiem:
+    #   TTFT_exp = t_prefill (khong chia so_req)
+    #   TPOT_exp = t_decode / n_decode (khong chia so_req)
+    # So lieu Day 28 (p95, tinh lai tu results.json):
+    # B khau hao 77 ms nhung trai nghiem ~613 ms (x8);
+    # A trai nghiem 143 ms. Neu frontier dung truc TTFT
+    # trai nghiem thi frontier la {A, B} chu khong chi
+    # {B}: A thang do tre, B thang nang luong, PPL hoa.
+    # Cach sua: tra them ttft_exp/tpot_exp, dung ban trai
+    # nghiem cho frontier truc do tre + SLO, giu ban khau
+    # hao cho truc nang luong (J tinh tu tong thoi gian
+    # nhu hien tai la dung).
     ttft = t_prefill / so_req
     tpot = t_decode / so_req / n_decode
     tong = t_prefill + t_decode
     return (ttft, tpot, tong / so_req,
-            tong / so_req / n_decode)
+            tong / so_req / n_decode,
+            t_prefill, t_decode / n_decode)
 
 
 def _mot_luot(tok, model, cfg):
     """1 luot qua ca prompt set, tra mau do.
 
     Gom prompt thanh batch theo cfg, moi batch
-    do bang _sinh_mot_batch. Tra (list TTFT,
-    list TPOT, tong giay MODEL do, so request)
-    - list co 1 phan tu / batch (moi phan tu la
-    gia tri / request cua batch do); tong giay
-    chi tinh thoi gian model, khong tinh
-    tokenize.
+    do bang _sinh_mot_batch. Tra (list TTFT
+    khau hao, list TPOT khau hao, list TTFT
+    trai nghiem, list TPOT trai nghiem, tong
+    giay MODEL do, so request) - list co 1
+    phan tu / batch (moi phan tu la gia tri
+    cua batch do); tong giay chi tinh thoi
+    gian model, khong tinh tokenize.
     """
     cfg = _kiem_tra_cau_hinh(cfg)
     mau_ttft = []
     mau_tpot = []
+    mau_ttft_exp = []
+    mau_tpot_exp = []
     tong_giay = 0.0
     for i in range(0, len(PROMPTS), cfg["batch"]):
         batch = PROMPTS[i:i + cfg["batch"]]
-        ttft, tpot, tho_ttft, _ = _sinh_mot_batch(
-            tok, model, batch, cfg["use_cache"])
+        ttft, tpot, tho_ttft, _, ttft_exp, \
+            tpot_exp = _sinh_mot_batch(
+                tok, model, batch, cfg["use_cache"])
         # Tong thoi gian model / batch = TTFT tho
         # x so request (khong tinh tokenize - viec
         # chuan bi giong nhau o moi cau hinh nen
@@ -449,7 +511,45 @@ def _mot_luot(tok, model, cfg):
         tong_giay += tho_ttft * len(batch)
         mau_ttft.append(ttft)
         mau_tpot.append(tpot)
-    return mau_ttft, mau_tpot, tong_giay, len(PROMPTS)
+        mau_ttft_exp.append(ttft_exp)
+        mau_tpot_exp.append(tpot_exp)
+    return (mau_ttft, mau_tpot, mau_ttft_exp,
+            mau_tpot_exp, tong_giay, len(PROMPTS))
+
+
+def _p95_gop(mau_theo_rep):
+    """p95 gop: gom mau ca 3 rep roi tinh 1 lan.
+
+    p95 tinh rieng tung rep roi lay trung binh
+    se thieu mau o batch lon (batch 32 chi 3
+    mau/rep - p95 thuc chat la gia tri lon
+    nhat). Gom lai: batch 32 co 9 mau, batch 8
+    co 18, batch 1 co 90.
+    """
+    gop = []
+    for mau in mau_theo_rep:
+        gop.extend(mau)
+    if len(gop) == 0:
+        raise ValueError("khong co mau de tinh p95.")
+    return _phan_vi(gop, 95)
+
+
+# Bo khoa chuan cua 1 ket qua cau hinh (xem
+# do_mot_cau_hinh). _doc_ket_qua_da_co chi chap
+# nhan entry du bo khoa nay (ke ca cac khoa
+# _std) - thieu thi do lai cau hinh do, khong
+# tron so phien khac vao (review Day 28).
+KHOA_CHUAN_KET_QUA = (
+    "name", "dtype", "batch", "use_cache", "ppl",
+    "ttft_p50", "ttft_p50_std", "ttft_p95",
+    "ttft_p95_std", "tpot_p50", "tpot_p50_std",
+    "tpot_p95", "tpot_p95_std", "ttft_p50_exp",
+    "ttft_p50_exp_std", "ttft_p95_exp",
+    "ttft_p95_exp_std", "tpot_p50_exp",
+    "tpot_p50_exp_std", "tpot_p95_exp",
+    "tpot_p95_exp_std", "joules_per_req",
+    "joules_per_req_std", "n_mau",
+)
 
 
 def do_mot_cau_hinh(tok, model, cfg):
@@ -457,21 +557,28 @@ def do_mot_cau_hinh(tok, model, cfg):
 
     Moi rep: warmup WARMUP_PASSES luot (bo
     qua, de may on dinh) roi do MEASURE_PASSES
-    luot. Moi rep cho 1 bo (TTFT p50/p95,
-    TPOT p50/p95, J/request); ket qua cuoi la
-    trung binh +- do lech chuan mau qua 3 rep
-    (statistics.stdev, n - 1). PPL do 1 lan
-    (tien dinh, khong phu thuoc lan chay).
+    luot. p50 lay trung binh +- do lech chuan
+    mau qua 3 rep (statistics.stdev, n - 1).
+    p95 GOP mau cua ca 3 rep roi tinh 1 lan
+    (batch lon co it mau/rep, p95 rieng tung
+    rep rat nhieu); _std kem theo la do lech
+    cua 3 gia tri p95 tung rep, chi de tham
+    khao do on dinh, khong phai do tin cay
+    cua p95 gop. Tra ca 2 ban so: khau hao
+    (chi phi / request) va trai nghiem (do tre
+    nguoi dung) - xem _sinh_mot_batch. PPL do
+    1 lan (tien dinh, khong phu thuoc lan
+    chay). n_mau = so mau gop dung tinh p95.
 
     Returns:
         Dict ket qua 1 cau hinh (xem bai_a).
     """
     cfg = _kiem_tra_cau_hinh(cfg)
     ppl = perplexity(tok, model, PPL_TEXTS)
-    ttft_p50 = []
-    ttft_p95 = []
-    tpot_p50 = []
-    tpot_p95 = []
+    # Mau tung rep, theo 4 day so: khau hao va
+    # trai nghiem, TTFT va TPOT.
+    theo_rep_mau = {"ttft": [], "tpot": [],
+                    "ttft_exp": [], "tpot_exp": []}
     nang_luong = []
     for rep in range(N_REPS):
         # In tien do moi rep: lan chay dai (chuc
@@ -483,20 +590,22 @@ def do_mot_cau_hinh(tok, model, cfg):
               f"{MEASURE_PASSES})...", flush=True)
         for _ in range(WARMUP_PASSES):
             _mot_luot(tok, model, cfg)
-        mau_ttft = []
-        mau_tpot = []
+        mau = {"ttft": [], "tpot": [],
+               "ttft_exp": [], "tpot_exp": []}
         giay = 0.0
         n_req = 0
         for _ in range(MEASURE_PASSES):
-            a, b, g, n = _mot_luot(tok, model, cfg)
-            mau_ttft.extend(a)
-            mau_tpot.extend(b)
+            a, b, c, d, g, n = _mot_luot(
+                tok, model, cfg)
+            mau["ttft"].extend(a)
+            mau["tpot"].extend(b)
+            mau["ttft_exp"].extend(c)
+            mau["tpot_exp"].extend(d)
             giay += g
             n_req += n
-        ttft_p50.append(float(np.median(mau_ttft)))
-        ttft_p95.append(_phan_vi(mau_ttft, 95))
-        tpot_p50.append(float(np.median(mau_tpot)))
-        tpot_p95.append(_phan_vi(mau_tpot, 95))
+        for khoa in ("ttft", "tpot", "ttft_exp",
+                     "tpot_exp"):
+            theo_rep_mau[khoa].append(mau[khoa])
         nang_luong.append(_nang_luong(
             ASSUMED_WATTS, giay, n_req))
 
@@ -511,28 +620,47 @@ def do_mot_cau_hinh(tok, model, cfg):
           "dtype": _ten_dtype(cfg["dtype"]),
           "batch": cfg["batch"],
           "use_cache": cfg["use_cache"],
-          "ppl": ppl}
-    for khoa, ds in (("ttft_p50", ttft_p50),
-                     ("ttft_p95", ttft_p95),
-                     ("tpot_p50", tpot_p50),
-                     ("tpot_p95", tpot_p95),
-                     ("joules_per_req", nang_luong)):
-        tb, lc = _tb_lc(ds)
-        kq[khoa] = tb
-        kq[khoa + "_std"] = lc
+          "ppl": ppl,
+          "n_mau": sum(len(m)
+                       for m in theo_rep_mau["ttft"])}
+    for mau_khoa, tien_to, hau_to in (
+            ("ttft", "ttft", ""),
+            ("tpot", "tpot", ""),
+            ("ttft_exp", "ttft", "_exp"),
+            ("tpot_exp", "tpot", "_exp")):
+        p50_rep = [float(np.median(m))
+                   for m in theo_rep_mau[mau_khoa]]
+        p95_rep = [_phan_vi(m, 95)
+                   for m in theo_rep_mau[mau_khoa]]
+        tb, lc = _tb_lc(p50_rep)
+        kq[f"{tien_to}_p50{hau_to}"] = tb
+        kq[f"{tien_to}_p50{hau_to}_std"] = lc
+        # p95 lay tu mau gop; _std la do lech cua
+        # 3 gia tri p95 tung rep (chi tham khao).
+        kq[f"{tien_to}_p95{hau_to}"] = _p95_gop(
+            theo_rep_mau[mau_khoa])
+        _, lc95 = _tb_lc(p95_rep)
+        kq[f"{tien_to}_p95{hau_to}_std"] = lc95
+    tb, lc = _tb_lc(nang_luong)
+    kq["joules_per_req"] = tb
+    kq["joules_per_req_std"] = lc
     return kq
 
 def _kiem_tra_diem(diem):
-    """Guard diem Pareto: du 3 truc so huu han.
+    """Guard diem Pareto: du 4 truc so huu han.
 
-    Truc: ppl, ttft_p95, joules_per_req - ca 3
-    cang nho cang tot. Tra dict da chuan hoa
-    (name giu nguyen, 3 truc float).
+    Truc (review Day 28, diem chinh 1 + diem
+    nhe 2): ppl, ttft_p95_exp (do tre TRAI
+    NGHIEM, khong phai ban khau hao),
+    tpot_p95_exp (do tre TRAI NGHIEM),
+    joules_per_req - ca 4 cang nho cang tot.
+    Tra dict da chuan hoa (name giu nguyen, 4
+    truc float).
     """
     if not isinstance(diem, dict):
         raise ValueError("diem phai la dict.")
-    for khoa in ("name", "ppl", "ttft_p95",
-                 "joules_per_req"):
+    for khoa in ("name", "ppl", "ttft_p95_exp",
+                 "tpot_p95_exp", "joules_per_req"):
         if khoa not in diem:
             raise ValueError(
                 f"diem thieu khoa '{khoa}'.")
@@ -541,8 +669,8 @@ def _kiem_tra_diem(diem):
         raise ValueError("name phai la chuoi khong "
                          "rong.")
     truc = {}
-    for khoa in ("ppl", "ttft_p95",
-                 "joules_per_req"):
+    for khoa in ("ppl", "ttft_p95_exp",
+                 "tpot_p95_exp", "joules_per_req"):
         truc[khoa] = _kiem_tra_so_thuc(
             khoa, diem[khoa], lon_hon_bang=0)
     return {"name": diem["name"], **truc}
@@ -551,21 +679,24 @@ def _kiem_tra_diem(diem):
 def dominates(a, b):
     """True neu a chi phoi b (Pareto).
 
-    a tot hon hoac bang b o CA 3 truc (ppl,
-    ttft_p95, joules_per_req) VA tot hon han
-    o IT NHAT 1 truc. "Tot hon" = nho hon vi
-    ca 3 truc deu cang nho cang tot. Hai diem
-    bang nhau o ca 3 truc thi khong ai chi
-    phoi ai (can tot hon han o 1 truc).
+    a tot hon hoac bang b o CA 4 truc (ppl,
+    ttft_p95_exp, tpot_p95_exp,
+    joules_per_req) VA tot hon han o IT NHAT
+    1 truc. "Tot hon" = nho hon vi ca 4 truc
+    deu cang nho cang tot. Hai diem bang nhau
+    o ca 4 truc thi khong ai chi phoi ai (can
+    tot hon han o 1 truc).
     """
     a = _kiem_tra_diem(a)
     b = _kiem_tra_diem(b)
     tot_hon_hoac_bang = all(
         a[k] <= b[k] for k in
-        ("ppl", "ttft_p95", "joules_per_req"))
+        ("ppl", "ttft_p95_exp", "tpot_p95_exp",
+         "joules_per_req"))
     tot_hon_han = any(
         a[k] < b[k] for k in
-        ("ppl", "ttft_p95", "joules_per_req"))
+        ("ppl", "ttft_p95_exp", "tpot_p95_exp",
+         "joules_per_req"))
     return tot_hon_hoac_bang and tot_hon_han
 
 
@@ -581,7 +712,7 @@ def tim_frontier(results):
         (frontier, dominated) - 2 list dict,
         dominated co them khoa "bi_chi_phoi_boi"
         (ten ke chi phoi) va "ly_do" (chuoi
-        mo ta 3 truc cua ke chi phoi tot hon).
+        mo ta 4 truc cua ke chi phoi tot hon).
     """
     if not isinstance(results, (list, tuple)) \
             or len(results) == 0:
@@ -602,9 +733,13 @@ def tim_frontier(results):
         else:
             ly_do = (
                 f"PPL {ke_chi_phoi['ppl']:.2f} <= "
-                f"{r['ppl']:.2f}, TTFT p95 "
-                f"{ke_chi_phoi['ttft_p95'] * 1000:.0f} "
-                f"<= {r['ttft_p95'] * 1000:.0f} ms, "
+                f"{r['ppl']:.2f}, TTFT p95 trai "
+                f"nghiem "
+                f"{ke_chi_phoi['ttft_p95_exp'] * 1000:.0f} "
+                f"<= {r['ttft_p95_exp'] * 1000:.0f} ms, "
+                f"TPOT p95 trai nghiem "
+                f"{ke_chi_phoi['tpot_p95_exp'] * 1000:.0f} "
+                f"<= {r['tpot_p95_exp'] * 1000:.0f} ms, "
                 f"{ke_chi_phoi['joules_per_req']:.1f} "
                 f"<= {r['joules_per_req']:.1f} J/req")
             dominated.append(
@@ -621,6 +756,14 @@ def ve_pareto(results, ten_frontier, duong_ra):
     (sap xep theo x tang dan); bi chi phoi
     mau xam; ghi ten A-F canh moi diem. Luu
     thanh file PNG (khong hien cua so).
+
+    LUU Y (review Day 28, diem nhe 3): hinh
+    chi chieu 2 truc (Joules, PPL) trong khi
+    frontier tinh tren 4 truc (them TTFT p95
+    trai nghiem, TPOT p95 trai nghiem) - 1
+    diem bi chi phoi vi do tre van co the nam
+    ngay tren duong vang va trong nhu thuoc
+    frontier. Ghi chu trong title cho ro.
 
     Raises:
         ValueError: results rong, ten_frontier
@@ -658,11 +801,19 @@ def ve_pareto(results, ten_frontier, duong_ra):
     ax.set_xlabel("Nang luong (Joules / request) "
                   "- cang nho cang tot")
     ax.set_ylabel("PPL - cang nho cang tot")
-    ax.set_title("Pareto frontier Day 28: "
-                 "PPL vs Joules/request "
-                 "(vang = frontier, xam = bi chi phoi)")
+    ax.set_title("Pareto frontier Day 28: PPL vs "
+                 "Joules/request\n(vang = frontier, "
+                 "xam = bi chi phoi)", fontsize=12)
+    # Ghi chu 4 truc o duoi hinh (title dai se
+    # bi cat - review Day 28, diem nhe 3).
+    fig.text(0.5, 0.01,
+             "Frontier tinh tren 4 truc: PPL, "
+             "TTFT p95 trai nghiem, TPOT p95 trai "
+             "nghiem, Joules - hinh chi chieu "
+             "2 truc",
+             ha="center", fontsize=9)
     ax.grid(True, alpha=0.3)
-    fig.tight_layout()
+    fig.tight_layout(rect=[0, 0.04, 1, 1])
     fig.savefig(duong_ra, dpi=150)
     plt.close(fig)
     return duong_ra
@@ -671,8 +822,12 @@ def ve_pareto(results, ten_frontier, duong_ra):
 def chon_chatbot(frontier):
     """Chon cau hinh cho chatbot tuong tac.
 
-    SLO: TTFT p95 < 300 ms (nguoi dung cho
-    tung token). Trong cac diem frontier dat
+    SLO: TTFT p95 TRAI NGHIEM < 300 ms (nguoi
+    dung cho tung token - review Day 28, diem
+    chinh 1: so SLO tren do tre trai nghiem,
+    KHONG phai ban khau hao; B khau hao 77 ms
+    nhung nguoi dung that cho ~613 ms nen
+    truot SLO). Trong cac diem frontier dat
     SLO, chon diem re nhat (J/request thap
     nhat) - dat SLO roi thi khong can tra
     them dien cho do tre thua. Tra None neu
@@ -682,7 +837,7 @@ def chon_chatbot(frontier):
     """
     ds = [_kiem_tra_diem(r) for r in frontier]
     dat = [r for r in ds
-           if r["ttft_p95"] < SLO_CHATBOT_TTFT_P95]
+           if r["ttft_p95_exp"] < SLO_CHATBOT_TTFT_P95]
     if not dat:
         return None
     return min(dat, key=lambda r: r["joules_per_req"])
@@ -755,9 +910,10 @@ def tu_kiem_tra():
         _expect_value_error(
             lambda: dominates(
                 {"name": "X", "ppl": 10.0,
-                 "ttft_p95": 0.1},
+                 "ttft_p95_exp": 0.1},
                 {"name": "Y", "ppl": 10.0,
-                 "ttft_p95": 0.1,
+                 "ttft_p95_exp": 0.1,
+                 "tpot_p95_exp": 0.05,
                  "joules_per_req": 1.0}),
             "dominates thieu truc"),
         _expect_value_error(
@@ -770,14 +926,16 @@ def tu_kiem_tra():
         _expect_value_error(
             lambda: ve_pareto(
                 [{"name": "A", "ppl": 10.0,
-                  "ttft_p95": 0.1,
+                  "ttft_p95_exp": 0.1,
+                  "tpot_p95_exp": 0.05,
                   "joules_per_req": 1.0}],
                 ["Z"], "/tmp/pareto_test.png"),
             "ve pareto ten la"),
         _expect_value_error(
             lambda: chon_offline(
                 [{"name": "B", "ppl": 10.0,
-                  "ttft_p95": 0.1,
+                  "ttft_p95_exp": 0.1,
+                  "tpot_p95_exp": 0.05,
                   "joules_per_req": 1.0}]),
             "chon offline thieu A"),
     ]
@@ -788,38 +946,71 @@ def tu_kiem_tra():
         [float(i) for i in range(1, 21)], 95) == 19.0
     assert _phan_vi(
         [float(i) for i in range(1, 11)], 50) == 5.0
+    # _p95_gop: gom mau ca rep roi tinh 1 lan
+    # ([1..6] gop -> 6.0; p95 cua 3 mau la gia
+    # tri lon nhat).
+    assert _p95_gop([[1.0, 2.0, 3.0],
+                     [4.0, 5.0, 6.0]]) == 6.0
+    assert _p95_gop([[10.0, 20.0], [30.0]]) == 30.0
+    assert _expect_value_error(
+        lambda: _p95_gop([]),
+        "p95 gop khong co mau")
     # Nang luong: 65 W x 10 s / 20 req = 32.5 J.
     assert _nang_luong(65.0, 10.0, 20) == 32.5
 
-    # Cau 1 trong de: Y chi phoi X (tot hon ca 3
-    # truc). Bang nhau ca 3 truc thi khong ai
-    # chi phoi ai; tot hon 1 truc + bang 2 truc
+    # Resume chi chap nhan entry du bo khoa
+    # chuan: entry thieu tpot_p95 bi loai (do
+    # lai), entry du khoa duoc giu.
+    du = {k: 1.0 for k in KHOA_CHUAN_KET_QUA}
+    du.update({"name": "A", "dtype": "FP32",
+               "batch": 1, "use_cache": True})
+    thieu = dict(du, name="B")
+    del thieu["tpot_p95"]
+    del thieu["tpot_p95_std"]
+    duong_resume = "/tmp/resume_test.json"
+    with open(duong_resume, "w") as f:
+        json.dump([du, thieu], f)
+    assert [r["name"] for r in
+            _doc_ket_qua_da_co(duong_resume)] == ["A"]
+    os.remove(duong_resume)
+
+    # Cau 1 trong de: Y chi phoi X (tot hon ca 4
+    # truc). Bang nhau ca 4 truc thi khong ai
+    # chi phoi ai; tot hon 1 truc + bang 3 truc
     # con lai thi co chi phoi.
-    x = {"name": "X", "ppl": 24.0, "ttft_p95": 0.4,
+    x = {"name": "X", "ppl": 24.0,
+         "ttft_p95_exp": 0.4, "tpot_p95_exp": 0.05,
          "joules_per_req": 30.0}
-    y = {"name": "Y", "ppl": 22.0, "ttft_p95": 0.35,
+    y = {"name": "Y", "ppl": 22.0,
+         "ttft_p95_exp": 0.35, "tpot_p95_exp": 0.04,
          "joules_per_req": 25.0}
     assert dominates(y, x)
     assert not dominates(x, y)
     assert not dominates(x, dict(x, name="X2"))
     assert dominates(
-        {"name": "P", "ppl": 20.0, "ttft_p95": 0.35,
+        {"name": "P", "ppl": 20.0,
+         "ttft_p95_exp": 0.35, "tpot_p95_exp": 0.04,
          "joules_per_req": 25.0}, y)
     assert not dominates(
-        {"name": "Q", "ppl": 21.0, "ttft_p95": 0.36,
+        {"name": "Q", "ppl": 21.0,
+         "ttft_p95_exp": 0.36, "tpot_p95_exp": 0.04,
          "joules_per_req": 25.0}, y)
 
     # Frontier tinh tay: D bi A chi phoi, A/B/C
     # khong ai chi phoi ai (moi diem thang 1
     # truc, thua truc khac).
     tong_hop = [
-        {"name": "A", "ppl": 10.0, "ttft_p95": 0.10,
+        {"name": "A", "ppl": 10.0,
+         "ttft_p95_exp": 0.10, "tpot_p95_exp": 0.05,
          "joules_per_req": 10.0},
-        {"name": "B", "ppl": 12.0, "ttft_p95": 0.08,
+        {"name": "B", "ppl": 12.0,
+         "ttft_p95_exp": 0.08, "tpot_p95_exp": 0.06,
          "joules_per_req": 20.0},
-        {"name": "C", "ppl": 11.0, "ttft_p95": 0.09,
+        {"name": "C", "ppl": 11.0,
+         "ttft_p95_exp": 0.09, "tpot_p95_exp": 0.055,
          "joules_per_req": 15.0},
-        {"name": "D", "ppl": 20.0, "ttft_p95": 0.20,
+        {"name": "D", "ppl": 20.0,
+         "ttft_p95_exp": 0.20, "tpot_p95_exp": 0.10,
          "joules_per_req": 30.0},
     ]
     frontier, dominated = tim_frontier(tong_hop)
@@ -841,16 +1032,20 @@ def tu_kiem_tra():
         "dtype", "batch size"]
     assert _bien_thay_doi(CONFIGS[0], CONFIGS[0]) == []
 
-    # Chon theo SLO tren so gia: chatbot lay
-    # diem frontier dat TTFT p95 < 300 ms re
-    # nhat (B); offline lay re nhat trong
-    # nguong PPL <= 1.05 x PPL cua A (C).
+    # Chon theo SLO tren so gia (ban TRAI
+    # NGHIEM): chatbot lay diem frontier dat
+    # TTFT p95 trai nghiem < 300 ms re nhat
+    # (B); offline lay re nhat trong nguong
+    # PPL <= 1.05 x PPL cua A (C).
     gia = [
-        {"name": "A", "ppl": 20.0, "ttft_p95": 0.10,
+        {"name": "A", "ppl": 20.0,
+         "ttft_p95_exp": 0.10, "tpot_p95_exp": 0.05,
          "joules_per_req": 10.0},
-        {"name": "B", "ppl": 20.5, "ttft_p95": 0.20,
+        {"name": "B", "ppl": 20.5,
+         "ttft_p95_exp": 0.20, "tpot_p95_exp": 0.09,
          "joules_per_req": 5.0},
-        {"name": "C", "ppl": 20.8, "ttft_p95": 0.40,
+        {"name": "C", "ppl": 20.8,
+         "ttft_p95_exp": 0.40, "tpot_p95_exp": 0.12,
          "joules_per_req": 3.0},
     ]
     assert chon_chatbot(gia)["name"] == "B"
@@ -909,39 +1104,62 @@ def tu_kiem_tra():
     # _sinh_mot_batch chay duoc ca 2 che do,
     # tra thoi gian duong huu han.
     for cache in (True, False):
-        ttft, tpot, tho_ttft, tho_tpot = \
-            _sinh_mot_batch(tok, nho, cau, cache, 4)
+        ttft, tpot, tho_ttft, tho_tpot, ttft_exp, \
+            tpot_exp = _sinh_mot_batch(
+                tok, nho, cau, cache, 4)
         for gia_tri in (ttft, tpot, tho_ttft,
-                        tho_tpot):
+                        tho_tpot, ttft_exp, tpot_exp):
             assert math.isfinite(gia_tri)
             assert gia_tri > 0
+        # Trai nghiem = khau hao x so request
+        # (batch 2 cau): cung 1 lan do, chi
+        # khac nhau o cho chia hay khong.
+        assert abs(ttft_exp - ttft * 2) <= 1e-9
+        assert abs(tpot_exp - tpot * 2) <= 1e-9
     print("Tu kiem tra: PASS (tat ca assert deu qua).")
 
 
-def _doc_ket_qua_da_co():
+def _doc_ket_qua_da_co(duong=DUONG_KET_QUA):
     """Doc results.json cu (neu co) de chay tiep.
 
-    Tra list ket qua da do (rong neu chua co
-    file / file hong). Dung de chay tiep sau
-    khi lan chay truoc bi ngat (vd treo may)
-    ma khong do lai cau hinh da xong.
+    Chi chap nhan entry DU BO KHOA CHUAN
+    (KHOA_CHUAN_KET_QUA, ke ca cac khoa _std)
+    - thieu thi do lai cau hinh do (review
+    Day 28, diem chinh 2: so khoi phuc tu
+    phien khac, thieu truong TPOT, khong duoc
+    tron am tham vao bang/frontier). Tra list
+    ket qua da do (rong neu chua co file /
+    file hong). Dung de chay tiep sau khi lan
+    chay truoc bi ngat (vd treo may) ma
+    khong do lai cau hinh da xong.
     """
-    if not os.path.exists(DUONG_KET_QUA):
+    if not os.path.exists(duong):
         return []
     try:
-        with open(DUONG_KET_QUA) as f:
+        with open(duong) as f:
             ds = json.load(f)
     except (ValueError, OSError) as exc:
         print(f"  Canh bao: khong doc duoc "
-              f"{DUONG_KET_QUA} ({exc}) - do lai "
+              f"{duong} ({exc}) - do lai "
               f"tu dau.")
         return []
     if not isinstance(ds, list):
         print("  Canh bao: results.json khong phai "
               "list - do lai tu dau.")
         return []
-    return [r for r in ds
-            if isinstance(r, dict) and r.get("name")]
+    du = []
+    for r in ds:
+        if not isinstance(r, dict) or not r.get("name"):
+            continue
+        thieu = [k for k in KHOA_CHUAN_KET_QUA
+                 if k not in r]
+        if thieu:
+            print(f"  Bo qua {r['name']}: thieu "
+                  f"{', '.join(thieu)} - do lai "
+                  f"cau hinh nay.")
+            continue
+        du.append(r)
+    return du
 
 
 def _luu_ket_qua(ket_qua):
@@ -963,8 +1181,9 @@ def bai_a():
     """Bai A: benchmark cong bang 6 cau hinh.
 
     Moi cau hinh: PPL (3 cau co dinh) + TTFT /
-    TPOT p50/p95 + J/request (TB +- LC qua 3
-    rep). In "thu duy nhat thay doi" so voi A
+    TPOT p50/p95 (ca ban khau hao va trai
+    nghiem) + J/request (TB +- LC qua 3 rep).
+    In "thu duy nhat thay doi" so voi A
     (tinh tu du lieu) va cac cap doi cong bang
     (chi khac 1 bien). Model chi tai 1 lan /
     dtype (D va E chung FP16) de bot tai lai
@@ -1029,7 +1248,10 @@ def bai_a():
                   f"{kq['ttft_p50'] * 1000:.0f}+-"
                   f"{kq['ttft_p50_std'] * 1000:.0f} ms, "
                   f"p95={kq['ttft_p95'] * 1000:.0f}+-"
-                  f"{kq['ttft_p95_std'] * 1000:.0f} ms | "
+                  f"{kq['ttft_p95_std'] * 1000:.0f} ms "
+                  f"(trai nghiem p95="
+                  f"{kq['ttft_p95_exp'] * 1000:.0f} ms, "
+                  f"n_mau={kq['n_mau']}) | "
                   f"TPOT p50={kq['tpot_p50'] * 1000:.1f}"
                   f"+-{kq['tpot_p50_std'] * 1000:.1f} "
                   f"ms, p95={kq['tpot_p95'] * 1000:.1f}"
@@ -1064,7 +1286,7 @@ def _so_sanh_uoc_luong_tho(tok, model, cfg):
     that_tpot = []
     for i in range(0, len(PROMPTS), cfg["batch"]):
         batch = PROMPTS[i:i + cfg["batch"]]
-        a, b, c, d = _sinh_mot_batch(
+        a, b, c, d, _, _ = _sinh_mot_batch(
             tok, model, batch, cfg["use_cache"])
         that_ttft.append(a)
         that_tpot.append(b)
@@ -1126,8 +1348,8 @@ def bai_b(ket_qua=None):
 def bai_c(ket_qua, frontier, dominated):
     """Bai C: chon theo SLO + Green checkpoint.
 
-    Chatbot: TTFT p95 < 300 ms, trong frontier
-    dat SLO thi chon re nhat. Batch offline:
+    Chatbot: TTFT p95 trai nghiem < 300 ms,
+    trong frontier dat SLO thi chon re nhat. Batch offline:
     re nhat trong nguong PPL <= 1.05 x PPL A.
     Green checkpoint: 1 cau hinh loai vi bi chi
     phoi + 1 cau hinh chon kem ly do SLO. Moi
@@ -1142,21 +1364,24 @@ def bai_c(ket_qua, frontier, dominated):
         frontier, key=lambda r: r["ppl"])
     chon_bot = chon_chatbot(frontier)
     if chon_bot is None:
-        print("  Chatbot (TTFT p95 < 300 ms): KHONG "
+        print("  Chatbot (TTFT p95 trai nghiem "
+              "< 300 ms): KHONG "
               "diem frontier nao dat SLO - can doi "
               "SLO hoac them cau hinh (vd batch "
               "lon hon / model nho hon).")
     else:
-        print(f"  Chatbot (TTFT p95 < 300 ms): chon "
-              f"{chon_bot['name']} (TTFT p95 "
-              f"{chon_bot['ttft_p95'] * 1000:.0f} "
+        print(f"  Chatbot (TTFT p95 trai nghiem "
+              f"< 300 ms): chon "
+              f"{chon_bot['name']} (TTFT p95 trai "
+              f"nghiem "
+              f"{chon_bot['ttft_p95_exp'] * 1000:.0f} "
               f"ms, {chon_bot['joules_per_req']:.1f} "
               f"J/req, PPL {chon_bot['ppl']:.2f}).")
         if chon_bot["name"] != re_nhat["name"]:
             print(f"    Khong chon re nhat "
                   f"{re_nhat['name']} vi TTFT p95 "
-                  f"cua no "
-                  f"{re_nhat['ttft_p95'] * 1000:.0f} "
+                  f"trai nghiem cua no "
+                  f"{re_nhat['ttft_p95_exp'] * 1000:.0f} "
                   f"ms khong dat SLO 300 ms.")
         if chon_bot["name"] != chinh_xac_nhat["name"]:
             print(f"    Khong chon chinh xac nhat "
@@ -1190,7 +1415,8 @@ def bai_c(ket_qua, frontier, dominated):
               "can do them truc truoc khi ket luan.")
     if chon_bot is not None:
         print(f"    Chon {chon_bot['name']} cho "
-              f"chatbot vi dat SLO TTFT p95 < 300 "
+              f"chatbot vi dat SLO TTFT p95 trai "
+              f"nghiem < 300 "
               f"ms voi nang luong thap nhat trong "
               f"so diem frontier dat SLO.")
     elif chon_off is not None:
@@ -1243,7 +1469,8 @@ def main():
         if lua_chon["offline"] else "khong co"
     print("\nBANG KET QUA: " + "; ".join(
         f"{r['name']} PPL {r['ppl']:.2f}, TTFT p95 "
-        f"{r['ttft_p95'] * 1000:.0f} ms, "
+        f"trai nghiem "
+        f"{r['ttft_p95_exp'] * 1000:.0f} ms, "
         f"{r['joules_per_req']:.1f} J/req"
         for r in ket_qua))
     print(f"Frontier: "
