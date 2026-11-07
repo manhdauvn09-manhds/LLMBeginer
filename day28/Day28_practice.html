@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ngày 28 — Thực hành: Green serving và Pareto frontier</title>
+<style>
+  :root{--bg:#0f172a;--card:#1e293b;--text:#e2e8f0;--muted:#94a3b8;--accent:#38bdf8;--green:#4ade80;--amber:#fbbf24;--red:#f87171;--code-bg:#0b1220}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.7;padding:16px}
+  .wrap{max-width:760px;margin:0 auto}
+  h1{font-size:1.5rem;line-height:1.35;margin-bottom:4px}
+  h2{font-size:1.2rem;color:var(--accent);margin:28px 0 10px;border-bottom:1px solid #334155;padding-bottom:6px}
+  h3{font-size:1.05rem;margin:18px 0 6px;color:#fde68a}
+  p,li{font-size:1rem}
+  p{margin:8px 0}
+  ul,ol{margin:6px 0 6px 22px}
+  li{margin:4px 0}
+  .sub{color:var(--muted);font-size:.95rem}
+  .card{background:var(--card);border-radius:12px;padding:16px;margin:14px 0}
+  .goal{background:#0c2b3d;border-left:4px solid var(--accent)}
+  .warn{background:#2b1d05;border-left:4px solid var(--amber)}
+  .tip{background:#052e16;border-left:4px solid var(--green)}
+  .trap{background:#2b0a0a;border-left:4px solid var(--red)}
+  code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.88em;background:#334155;padding:1px 5px;border-radius:4px}
+  pre{background:var(--code-bg);border:1px solid #334155;border-radius:10px;padding:14px;overflow-x:auto;margin:10px 0;font-size:.88rem;line-height:1.55}
+  pre code{background:none;padding:0}
+  .todo{color:var(--amber)}
+  .time{color:var(--muted);font-size:.9rem}
+  .q{margin:14px 0}
+  .q b{display:block;margin-bottom:6px}
+  button{background:#0369a1;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:.95rem;cursor:pointer}
+  button:hover{background:#0284c7}
+  .ans{display:none;background:#052e16;border:1px solid #166534;border-radius:8px;padding:12px;margin-top:8px}
+  .check{list-style:none;margin-left:0}
+  .check li::before{content:"☐ ";color:var(--accent)}
+  .tag{display:inline-block;background:#0369a1;color:#fff;font-size:.8rem;border-radius:999px;padding:2px 10px;margin-bottom:8px}
+  .foot{color:var(--muted);font-size:.9rem;margin-top:28px;border-top:1px solid #334155;padding-top:12px}
+  .links a{color:var(--accent)}
+  table{border-collapse:collapse;width:100%;margin:10px 0;font-size:.95rem}
+  th,td{border:1px solid #334155;padding:8px 10px;text-align:left}
+  th{background:#0b1220;color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>🛠️ Ngày 28 — Buổi tối: Mini-project 4 — Green serving và Pareto frontier</h1>
+<p class="sub">Ghép các đòn bẩy đã học (quantization, batching, KV cache) thành một hệ thống phục vụ thật: benchmark 6 cấu hình trên cùng một workload, đo đủ ba trục chất lượng – độ trễ – năng lượng, vẽ Pareto frontier của chính mình và chọn cấu hình theo SLO.</p>
+<p class="time">⏱️ Ước lượng: Phần A ~30 phút · Phần B ~20 phút · Phần C ~15 phút · Tự kiểm tra ~10 phút</p>
+
+<div class="card goal">
+<span class="tag">MỤC TIÊU BUỔI TỐI</span>
+<p>Cuối buổi bạn có: (1) một bảng số đo thật của 6 cấu hình trên cùng prompt set, (2) một biểu đồ Pareto frontier do chính bạn vẽ, (3) một cấu hình bị loại vì bị chi phối + một cấu hình được chọn kèm lý do theo SLO. Không có cấu hình "tốt nhất tuyệt đối" — chỉ có lựa chọn đúng cho sản phẩm của bạn.</p>
+<p><b>Kiến thức nền cần nhớ (1 dòng):</b> cấu hình bị chi phối = tồn tại cấu hình khác tốt hơn hoặc bằng nó ở <i>mọi</i> trục; điểm trên frontier thì muốn cải thiện một trục phải hy sinh một trục khác.</p>
+</div>
+
+<h2>Phần A — Benchmark công bằng 6 cấu hình (~30 phút)</h2>
+
+<p><b>Thiết lập thí nghiệm.</b> Trước khi viết code, viết rõ câu này vào đầu file (quy tắc Day 24 + Day 28):</p>
+<div class="card warn">
+<p>📝 <b>"Thứ duy nhất thay đổi là ___"</b> — mỗi lần chạy chỉ đổi <b>một</b> biến: dtype, hoặc batch size, hoặc <code>use_cache</code>. Mọi thứ khác — cùng prompt set, cùng concurrency, cùng warmup, cùng phần cứng — giữ nguyên. So sánh INT8 batch 32 với FP16 batch 1 rồi kết luận "INT8 nhanh gấp 5 lần" là kết luận vô giá trị.</p>
+</div>
+
+<p><b>6 cấu hình cần đo</b> (model nhỏ <code>distilgpt2</code>, chạy được trên CPU — không cần GPU):</p>
+<table>
+<tr><th>Cấu hình</th><th>dtype</th><th>batch</th><th>use_cache</th></tr>
+<tr><td>A</td><td>FP32</td><td>1</td><td>True</td></tr>
+<tr><td>B</td><td>FP32</td><td>8</td><td>True</td></tr>
+<tr><td>C</td><td>FP16*</td><td>1</td><td>True</td></tr>
+<tr><td>D</td><td>FP16*</td><td>8</td><td>True</td></tr>
+<tr><td>E</td><td>FP16*</td><td>32</td><td>True</td></tr>
+<tr><td>F</td><td>FP32</td><td>8</td><td>False</td></tr>
+</table>
+<p class="sub">* Trên CPU, FP16 thường không nhanh hơn FP32 — đó chính là một phát hiện đáng ghi lại, không phải lỗi. Nếu máy bạn có GPU, chạy lại cùng 6 cấu hình trên GPU và so sánh frontier hai lần chạy.</p>
+
+<p><b>Ba trục đo, trên cùng một prompt set cố định:</b></p>
+<ul>
+<li><b>Chất lượng:</b> perplexity (PPL) trên 10 câu cố định — càng thấp càng tốt. Quantization làm mất bao nhiêu điểm phải <i>đo</i>, không đoán.</li>
+<li><b>Độ trễ:</b> TTFT (thời gian tới token đầu) và TPOT (thời gian mỗi token tiếp theo), báo <b>p50 và p95</b>, không chỉ trung bình. Chạy mỗi cấu hình <b>3 lần</b>, báo trung bình ± độ lệch.</li>
+<li><b>Năng lượng:</b> Joules/request ≈ công suất trung bình × thời gian / số request. Trên CPU dùng công suất giả định (ghi rõ, vd 65 W cho laptop, 250 W cho GPU) hoặc <code>codecarbon</code> nếu cài được. Quan trọng là <b>cùng một cách tính cho mọi cấu hình</b>.</li>
+</ul>
+
+<p><b>Bước 1 — Tạo file <code>benchmark.py</code>:</b> cài đặt rồi chạy khung dưới đây. Khung đã có sẵn phần đo; phần bạn tự làm là hàm Pareto ở Phần B.</p>
+<pre><code>pip install torch transformers numpy matplotlib   # codecarbon: pip install codecarbon (tùy chọn)
+</code></pre>
+
+<pre><code>"""Benchmark 6 cấu hình serving — Ngày 28, Mini-project 4.
+Chạy:  python benchmark.py
+Kết quả: in bảng quality / latency / energy + lưu results.json
+"""
+import json, time
+import numpy as np
+import torch
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
+MODEL = "distilgpt2"
+# Cùng prompt set cho MỌI cấu hình — không đổi giữa các lần chạy.
+PROMPTS = [
+    "The future of artificial intelligence is",
+    "To save energy, a data center should",
+    "The capital of France is",
+    "In machine learning, overfitting means",
+    "A transformer model uses attention to",
+    "The quick brown fox jumps over",
+    "Renewable energy is important because",
+    "To train a neural network, we need",
+    "The largest planet in the solar system is",
+    "A good benchmark should measure",
+]
+# Câu cố định để tính perplexity (chất lượng) — không trùng prompt set.
+PPL_TEXTS = [
+    "The cat sat on the mat and looked out of the window.",
+    "Machine learning models learn patterns from data.",
+    "The sun rises in the east and sets in the west.",
+]
+ASSUMED_WATTS = 65.0   # GHI RÕ giả định: 65 W CPU laptop; đổi thành 250 nếu chạy GPU
+N_REPS = 3             # mỗi cấu hình chạy 3 lần, báo trung bình ± độ lệch
+WARMUP = 3             # bỏ qua vài request đầu để máy ổn định
+
+CONFIGS = [
+    {"name": "A", "dtype": torch.float32, "batch": 1,  "use_cache": True},
+    {"name": "B", "dtype": torch.float32, "batch": 8,  "use_cache": True},
+    {"name": "C", "dtype": torch.float16, "batch": 1,  "use_cache": True},
+    {"name": "D", "dtype": torch.float16, "batch": 8,  "use_cache": True},
+    {"name": "E", "dtype": torch.float16, "batch": 32, "use_cache": True},
+    {"name": "F", "dtype": torch.float32, "batch": 8,  "use_cache": False},
+]
+
+def load(dtype):
+    tok = AutoTokenizer.from_pretrained(MODEL)
+    tok.pad_token = tok.eos_token
+    m = AutoModelForCausalLM.from_pretrained(MODEL, torch_dtype=dtype)
+    m.eval()
+    return tok, m
+
+@torch.no_grad()
+def perplexity(tok, model, texts):
+    """PPL trung bình trên các câu cố định — càng thấp càng tốt."""
+    total_nll, total_tok = 0.0, 0
+    for t in texts:
+        ids = tok(t, return_tensors="pt").input_ids
+        out = model(ids, labels=ids)
+        n = ids.shape[1] - 1
+        total_nll += out.loss.item() * n
+        total_tok += n
+    return float(np.exp(total_nll / total_tok))
+
+@torch.no_grad()
+def time_one_config(tok, model, cfg):
+    """Đo TTFT + TPOT trên prompt set, trả về (ttft_p50, ttft_p95, tpot_p50, tpot_p95, joules/request)."""
+    ttfts, tpots = [], []
+    t0 = time.perf_counter()
+    for r in range(WARMUP + N_REPS * 2):
+        # Gom prompt thành batch theo cfg["batch"]
+        for i in range(0, len(PROMPTS), cfg["batch"]):
+            batch = PROMPTS[i:i + cfg["batch"]]
+            enc = tok(batch, return_tensors="pt", padding=True)
+            start = time.perf_counter()
+            out = model.generate(**enc, max_new_tokens=16,
+                                 do_sample=False, use_cache=cfg["use_cache"],
+                                 pad_token_id=tok.eos_token_id)
+            # Ước lượng thô: TTFT ~ thời gian prefill (lần generate đầu),
+            # TPOT ~ (tổng thời gian - TTFT) / (số token - 1).
+            # Muốn tách chính xác TTFT/TPOT từng token: dùng streamer
+            # hoặc generate từng bước (xem gợi ý ở Phần A, bước 3).
+            elapsed = time.perf_counter() - start
+            ttfts.append(elapsed / len(batch))          # xấp xỉ: thời gian/request
+            tpots.append(elapsed / len(batch) / 16)     # xấp xỉ: thời gian/token
+    total = time.perf_counter() - t0
+    n_req = (WARMUP + N_REPS * 2) * len(PROMPTS)
+    joules = ASSUMED_WATTS * total / n_req
+    return (float(np.percentile(ttfts, 50)), float(np.percentile(ttfts, 95)),
+            float(np.percentile(tpots, 50)), float(np.percentile(tpots, 95)), joules)
+
+def main():
+    results = []
+    for cfg in CONFIGS:
+        print(f"\n=== Cấu hình {cfg['name']}: dtype={cfg['dtype']}, "
+              f"batch={cfg['batch']}, use_cache={cfg['use_cache']} ===")
+        print("Thứ duy nhất thay đổi là:", cfg)  # kiểm chứng: chỉ 1 biến đổi
+        tok, model = load(cfg["dtype"])
+        ppl = perplexity(tok, model, PPL_TEXTS)
+        ttft50, ttft95, tpot50, tpot95, joules = time_one_config(tok, model, cfg)
+        print(f"PPL={ppl:.2f} | TTFT p50={ttft50*1000:.0f}ms p95={ttft95*1000:.0f}ms | "
+              f"TPOT p50={tpot50*1000:.1f}ms | Năng lượng={joules:.1f} J/req")
+        results.append({"name": cfg["name"], "ppl": ppl,
+                        "ttft_p50": ttft50, "ttft_p95": ttft95,
+                        "tpot_p50": tpot50, "joules_per_req": joules})
+        del model
+        torch.cuda.empty_cache() if torch.cuda.is_available() else None
+    json.dump(results, open("results.json", "w"), indent=2)
+    print("\nĐã lưu results.json — sang Phần B để tìm frontier.")
+
+if __name__ == "__main__":
+    main()
+</code></pre>
+
+<p><b>Bước 2 — Chạy và ghi bảng số đo thật của bạn</b> (đừng dùng số ví dụ dưới đây — đó chỉ là minh họa cách trình bày):</p>
+<table>
+<tr><th>Cấu hình</th><th>PPL ↓</th><th>TTFT p50</th><th>TTFT p95</th><th>J/request ↓</th></tr>
+<tr><td>A (FP32, b1)</td><td>…</td><td>…</td><td>…</td><td>…</td></tr>
+<tr><td>B (FP32, b8)</td><td>…</td><td>…</td><td>…</td><td>…</td></tr>
+<tr><td>C (FP16, b1)</td><td>…</td><td>…</td><td>…</td><td>…</td></tr>
+<tr><td>D (FP16, b8)</td><td>…</td><td>…</td><td>…</td><td>…</td></tr>
+<tr><td>E (FP16, b32)</td><td>…</td><td>…</td><td>…</td><td>…</td></tr>
+<tr><td>F (FP32, b8, no cache)</td><td>…</td><td>…</td><td>…</td><td>…</td></tr>
+</table>
+<p class="sub">Ghi kèm bối cảnh vào bảng: phần cứng (CPU/GPU cụ thể), <code>ASSUMED_WATTS</code>, số lần lặp, nhiệt độ nếu biết. Không có bối cảnh thì số không tái tạo được.</p>
+
+<p><b>Bước 3 (nâng cao, tùy chọn) — Tách TTFT/TPOT thật từng token:</b> thay <code>model.generate</code> bằng vòng lặp <code>model(input_ids, use_cache=True)</code> từng bước: đo thời gian của bước prefill đầu tiên (= TTFT), rồi thời gian trung bình mỗi bước decode tiếp theo (= TPOT). So sánh với ước lượng thô ở khung trên — chênh lệch bao nhiêu? Vì sao?</p>
+
+<div class="card tip">
+<p>💡 <b>Gợi ý kiểm chứng nhanh:</b> cấu hình F (tắt KV cache) phải chậm hơn rõ rệt so với B ở cùng batch 8 — nếu không, kiểm tra xem <code>use_cache=False</code> có thực sự được truyền vào <code>generate</code> không. Cấu hình E (batch 32) trên CPU có thể chậm hơn D vì bộ nhớ — đó là dữ liệu thật, ghi lại, đừng "sửa" cho đẹp.</p>
+</div>
+
+<h2>Phần B — Tìm và vẽ Pareto frontier (~20 phút)</h2>
+
+<p><b>Bước 1 — Tự viết hàm kiểm tra chi phối</b> (phần chính của buổi tối — đừng copy đáp án trước khi tự làm). Ba trục, quy ước "càng nhỏ càng tốt" cho cả ba: chất lượng dùng PPL (thấp = tốt), độ trễ dùng TTFT p95, năng lượng dùng Joules/request.</p>
+<pre><code>import json
+import matplotlib.pyplot as plt
+
+results = json.load(open("results.json"))
+# Mỗi item: {"name", "ppl", "ttft_p50", "ttft_p95", "tpot_p50", "joules_per_req"}
+
+# TODO 1: viết hàm dominates(a, b) -> True nếu a chi phối b, tức là:
+#   a tốt hơn hoặc bằng b ở CẢ 3 trục (ppl, ttft_p95, joules_per_req)
+#   VÀ a tốt hơn hẳn b ở ÍT NHẤT 1 trục.
+#   Lưu ý: "tốt hơn" nghĩa là nhỏ hơn (vì cả 3 trục đều càng nhỏ càng tốt).
+
+# TODO 2: frontier = [r for r in results nếu KHÔNG có cấu hình nào chi phối r]
+#         dominated = các cấu hình còn lại.
+
+# TODO 3: vẽ scatter: trục x = Joules/request, trục y = PPL,
+#   tô màu frontier bằng vàng, dominated bằng xám, ghi tên A–F cạnh mỗi điểm,
+#   nối các điểm frontier bằng đường vàng. Lưu thành pareto.png.
+#   (Gợi ý: sắp xếp frontier theo x tăng dần rồi plt.plot.)
+</code></pre>
+
+<p><b>Bước 2 — Trả lời bằng số đo của bạn:</b></p>
+<ol>
+<li>Cấu hình nào bị chi phối? Ai chi phối nó (tốt hơn ở mọi trục)? Viết rõ: "___ bị ___ chi phối vì ___".</li>
+<li>Frontier của bạn gồm những cấu hình nào, theo thứ tự từ rẻ nhất tới chính xác nhất?</li>
+<li>So sánh với hình minh họa trong bài sáng: điểm E trong bài bị B chi phối. Trong số đo của bạn, có điểm nào giống vai trò của E không?</li>
+</ol>
+
+<div class="card warn">
+<p>⚠️ <b>Kiểm tra tính công bằng trước khi kết luận:</b> nếu một cấu hình "thắng" nhưng bạn nghi ngờ do đo sai (vd quên warmup, đổi 2 biến cùng lúc, chạy lúc máy đang bận việc khác), chạy lại cấu hình đó 3 lần nữa và báo trung bình ± độ lệch. Chênh lệch nhỏ hơn sai số đo thì <b>chưa đủ kết luận</b> ai thắng.</p>
+</div>
+
+<h2>Phần C — Chọn theo SLO + Green checkpoint (~15 phút)</h2>
+
+<p>Bây giờ đóng vai người ra quyết định. Viết 3 lựa chọn, mỗi lựa chọn 2–3 câu, dựa trên frontier <b>của chính bạn</b>:</p>
+<ol>
+<li><b>Chatbot tương tác</b> (SLO: TTFT p95 &lt; 300 ms, người dùng chờ từng token): chọn điểm nào trên frontier? Vì sao không chọn điểm rẻ nhất, cũng không chọn điểm chính xác nhất?</li>
+<li><b>Tác vụ batch offline</b> (SLO: rẻ nhất có thể, PPL tăng tối đa 5% so với FP32 là chấp nhận được): chọn điểm nào? Tiết kiệm được bao nhiêu % năng lượng so với cấu hình FP32 batch 1?</li>
+<li><b>Green checkpoint:</b> chỉ ra <b>một</b> cấu hình bạn đã loại vì bị chi phối, và <b>một</b> cấu hình bạn chọn kèm lý do theo SLO. Nếu mọi cấu hình đều "ngon" thì bạn chưa đo đủ trục — thường là thiếu trục năng lượng hoặc thiếu p95. Quay lại Phần A và đo thêm.</li>
+</ol>
+
+<h2>✅ Tự kiểm tra nhanh (3 câu)</h2>
+
+<div class="q">
+<b>Câu 1 — Cấu hình X có PPL 24, TTFT p95 400 ms, 30 J/req. Cấu hình Y có PPL 22, TTFT p95 350 ms, 25 J/req. X có bị Y chi phối không?</b>
+<button onclick="this.nextElementSibling.style.display='block';this.style.display='none'">Hiện đáp án</button>
+<div class="ans">Có. Y tốt hơn X ở cả ba trục (PPL 22 &lt; 24, TTFT 350 &lt; 400, năng lượng 25 &lt; 30) nên X bị chi phối — loại X ngay, không cần tranh cãi, dù X "trông vẫn ổn".</div>
+</div>
+
+<div class="q">
+<b>Câu 2 — Vì sao phải báo TTFT p95 mà không chỉ báo trung bình? Cho một tình huống cụ thể mà trung bình đẹp nhưng p95 xấu.</b>
+<button onclick="this.nextElementSibling.style.display='block';this.style.display='none'">Hiện đáp án</button>
+<div class="ans">Trung bình giấu trải nghiệm tệ nhất. Ví dụ: 19/20 request trả lời trong 100 ms nhưng 1 request kẹt hàng đợi 3 giây vì tới đúng lúc batch đang đầy — trung bình vẫn đẹp (~245 ms) nhưng 5% người dùng "đen đủi" phải chờ 3 giây. p95 bắt được đúng nhóm này, và p95 xấu là dấu hiệu hàng đợi tắc lúc tải cao.</div>
+</div>
+
+<div class="q">
+<b>Câu 3 — Bạn so sánh INT8 batch 32 với FP16 batch 1, thấy INT8 nhanh gấp 5 lần và kết luận "INT8 nhanh hơn FP16". Kết luận này sai ở đâu, và cách so sánh đúng là gì?</b>
+<button onclick="this.nextElementSibling.style.display='block';this.style.display='none'">Hiện đáp án</button>
+<div class="ans">Sai vì đã đổi hai biến cùng lúc (quantization + batch size) — đó là so sánh batch size, không phải so sánh quantization. Cách đúng: giữ batch size bằng nhau (vd cùng batch 8), chỉ đổi dtype, rồi mới kết luận về quantization; muốn kết luận về batch thì giữ dtype bằng nhau, chỉ đổi batch.</div>
+</div>
+
+<h2>🪤 Bẫy thường gặp</h2>
+<div class="card trap">
+<ul>
+<li><b>Chỉ báo một con số duy nhất</b> ("120 tokens/giây") rồi kết luận cấu hình tốt — không có trục chất lượng đi kèm thì không biết đã mất bao nhiêu chính xác để đổi lấy tốc độ; không có p95 thì không biết người dùng chậm nhất chờ bao lâu.</li>
+<li><b>Đo lúc máy vừa khởi động, không warmup:</b> vài chục request đầu đo cả "khởi động" (load model, cấp phát bộ nhớ, GPU chưa ổn định), không phải "phục vụ". Luôn warmup rồi mới đo.</li>
+<li><b>So sánh ở concurrency khác nhau:</b> một cấu hình thắng ở concurrency 1 có thể thua ở concurrency 16. So sánh phải cùng concurrency, và năng lượng phải đo ở concurrency thực tế, không phải chạy lẻ một request lúc máy rỗi.</li>
+</ul>
+</div>
+
+<h2>📋 Checklist nộp bài</h2>
+<ul class="check">
+<li>Bảng số đo thật của 6 cấu hình (PPL, TTFT p50/p95, J/request) + bối cảnh phần cứng</li>
+<li>Ảnh <code>pareto.png</code> do bạn vẽ + danh sách frontier / dominated</li>
+<li>3 lựa chọn theo SLO (chatbot / batch offline / Green checkpoint)</li>
+<li>Paste code/kết quả vào chat để được nhận xét chi tiết</li>
+</ul>
+
+<div class="foot">
+<p>Khóa Trở Thành AI Engineer (LLM) · Ngày 28 / 30 — Mini-project 4: Green serving và Pareto frontier.</p>
+<p class="links">📖 Tài liệu bài học: <a href="https://manhdauvn09-manhds.github.io/LLMBeginer/day28/Day28_lesson.html">Day28_lesson.html</a> · 📝 Quiz: <a href="https://manhdauvn09-manhds.github.io/LLMBeginer/day28/Day28_quiz.html">Day28_quiz.html</a></p>
+</div>
+
+</div>
+</body>
+</html>
