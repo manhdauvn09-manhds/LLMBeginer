@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quiz Ngày 29 — Giả thuyết bác bỏ được | Khóa LLM 30 ngày</title>
+<style>
+:root{--bg:#0a0f1e; --card:#101830; --line:#22305a; --gold:#f5c542; --green:#4ade80; --red:#f87171; --cyan:#67e8f9; --text:#e8edf7; --muted:#93a0bd;}
+*{box-sizing:border-box;}
+body{margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif; line-height:1.7; font-size:16.5px;}
+.wrap{max-width:780px; margin:0 auto; padding:18px 16px 60px;}
+.kicker{color:var(--gold); font-size:13px; letter-spacing:1px; font-weight:700;}
+h1{font-size:28px; line-height:1.3;}
+.sub{color:var(--muted);}
+.q{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px; margin:18px 0;}
+.q h3{margin:0 0 10px; color:var(--cyan); font-size:18px;}
+label{display:block; padding:8px 10px; margin:6px 0; border:1px solid var(--line); border-radius:10px; cursor:pointer;}
+label:hover{border-color:var(--gold);}
+label input{margin-right:10px;}
+.expl{display:none; margin-top:12px; padding:12px 14px; border-radius:10px; font-size:15.5px;}
+.expl.ok{display:block; background:#0f2233; border-left:4px solid var(--green);}
+.expl.bad{display:block; background:#23141a; border-left:4px solid var(--red);}
+button{background:var(--gold); color:#14100a; font-weight:700; border:none; border-radius:10px; padding:13px 26px; font-size:16px; margin:6px 8px 0 0; cursor:pointer;}
+button.ghost{background:transparent; color:var(--gold); border:2px solid var(--gold);}
+#result{font-weight:700; margin-top:14px; font-size:18px;}
+#copyout{background:#0a0f1e; border:1px dashed var(--gold); border-radius:10px; padding:12px 16px; margin-top:12px; font-size:16px; word-break:break-all;}
+.note{color:var(--muted); font-size:14.5px; margin-top:24px; border-top:1px solid var(--line); padding-top:14px;}
+a{color:var(--gold);}
+textarea{width:100%; background:#0a0f1e; color:var(--text); border:1px solid var(--line); border-radius:10px; padding:12px; font-size:15.5px; font-family:inherit;}
+</style>
+</head>
+<body>
+<div class="wrap">
+<span class="kicker">NGÀY 29 · QUIZ — 5 CÂU</span>
+<h1>Quiz: Giả thuyết bác bỏ được</h1>
+<p class="sub">Chọn đáp án rồi bấm "Nộp bài" để chấm điểm ngay trong file và xem giải thích từng câu. Sau đó bấm "Copy kết quả" rồi paste vào chat để trợ lý ghi điểm.</p>
+<form id="quiz">
+<div class="q" data-answer="B"><h3>Câu 1. Đâu là một giả thuyết bác bỏ được (falsifiable hypothesis)?</h3>
+<label><input type="radio" name="q1" value="A"> A. "Mô hình của tôi sẽ tốt hơn các mô hình hiện có"</label>
+<label><input type="radio" name="q1" value="B"> B. "Chưng cất từ mô hình thầy 7B sang trò 1B, dùng 50% dữ liệu, giữ được ít nhất 98% điểm MMLU của thầy"</label>
+<label><input type="radio" name="q1" value="C"> C. "Trí tuệ nhân tạo sẽ thay đổi thế giới trong tương lai"</label>
+<label><input type="radio" name="q1" value="D"> D. "Mô hình nhỏ hơn thì chạy nhanh hơn và tiết kiệm điện hơn"</label>
+<div class="expl">Đáp án B. Chỉ có B chứa con số cụ thể và ngưỡng rõ ràng (98% điểm MMLU, 50% dữ liệu) nên một phép đo duy nhất cũng đủ bác bỏ nó. Các đáp án còn lại mơ hồ, không có kết quả nào có thể chứng minh chúng sai.</div></div>
+
+<div class="q" data-answer="C"><h3>Câu 2. Vì sao phải viết giả thuyết TRƯỚC khi chạy thí nghiệm, không viết sau?</h3>
+<label><input type="radio" name="q2" value="A"> A. Vì viết sau sẽ tốn thêm thời gian làm báo cáo</label>
+<label><input type="radio" name="q2" value="B"> B. Vì công cụ đo đạc chỉ hoạt động khi có giả thuyết viết sẵn trong file</label>
+<label><input type="radio" name="q2" value="C"> C. Vì viết sau khi thấy kết quả là "bắn tên rồi mới vẽ bia" — mọi kết quả đều trông như trúng đích, giả thuyết mất hết khả năng bị bác bỏ</label>
+<label><input type="radio" name="q2" value="D"> D. Vì giả thuyết viết sau không được tạp chí khoa học chấp nhận về mặt hình thức</label>
+<div class="expl">Đáp án C. Giả thuyết chỉ có giá trị khi nó đặt cược trước vào một kết quả cụ thể. Viết sau khi đã biết đáp án thì nó không còn dự đoán gì nữa — đó là tự lừa mình, không phải nghiên cứu.</div></div>
+
+<div class="q" data-answer="A"><h3>Câu 3. Bạn vừa đổi quantization sang INT8, vừa tăng batch size từ 8 lên 32, vừa đổi dữ liệu huấn luyện — rồi kết quả tốt hơn. Vấn đề là gì?</h3>
+<label><input type="radio" name="q3" value="A"> A. Ba biến thay đổi cùng lúc nên không biết phần cải thiện đến từ đâu — vi phạm nguyên tắc "thứ duy nhất thay đổi là ___"</label>
+<label><input type="radio" name="q3" value="B"> B. Batch size 32 là quá lớn, GPU sẽ hết bộ nhớ</label>
+<label><input type="radio" name="q3" value="C"> C. INT8 và dữ liệu mới không tương thích với nhau về mặt kỹ thuật</label>
+<label><input type="radio" name="q3" value="D"> D. Không có vấn đề gì — kết quả tốt hơn là đủ để kết luận cả ba thay đổi đều tốt</label>
+<div class="expl">Đáp án A. Một lần chạy chỉ được thay một biến duy nhất. Đổi ba thứ cùng lúc thì chênh lệch đo được không gán được cho bất kỳ thay đổi nào — phải chạy lại từng biến riêng lẻ mới biết cái nào thực sự có ích.</div></div>
+
+<div class="q" data-answer="D"><h3>Câu 4. Ablation study dùng để làm gì?</h3>
+<label><input type="radio" name="q4" value="A"> A. Để chứng minh giải pháp cuối cùng tốt hơn baseline trên mọi metric</label>
+<label><input type="radio" name="q4" value="B"> B. Để tìm ra siêu tham số tốt nhất bằng cách thử mọi tổ hợp có thể</label>
+<label><input type="radio" name="q4" value="C"> C. Để loại bỏ các điểm dữ liệu ngoại lệ khỏi bộ đánh giá</label>
+<label><input type="radio" name="q4" value="D"> D. Để tháo từng thành phần của giải pháp ra và đo lại — biết thành phần nào thực sự đóng góp, thành phần nào chỉ "đi ké"</label>
+<div class="expl">Đáp án D. Ablation cho biết công lao thuộc về ai: trong ví dụ bài học, distillation gần như không tiết kiệm thêm điện nhưng khôi phục 0,8 điểm MMLU — vai trò của nó là bù chất lượng, không phải tiết kiệm năng lượng. Không ablation thì không bao giờ biết điều này.</div></div>
+
+<div class="q" data-answer="B"><h3>Câu 5. Cấu hình A đạt 67,8 ± 0,4 điểm, cấu hình B đạt 68,1 ± 0,5 điểm (mỗi cấu hình chạy 3 lần với seed khác nhau). Kết luận nào đúng?</h3>
+<label><input type="radio" name="q5" value="A"> A. B tốt hơn A vì 68,1 lớn hơn 67,8</label>
+<label><input type="radio" name="q5" value="B"> B. Chưa thể kết luận B tốt hơn A — hai khoảng tin cậy chồng lấn nhau, chênh lệch 0,3 điểm nằm trong nhiễu của phép đo</label>
+<label><input type="radio" name="q5" value="C"> C. A tốt hơn B vì độ lệch chuẩn của A nhỏ hơn</label>
+<label><input type="radio" name="q5" value="D"> D. Cả hai đều tệ, cần chạy lại với mô hình lớn hơn</label>
+<div class="expl">Đáp án B. Chênh lệch 0,3 điểm nhỏ hơn độ lệch chuẩn của phép đo — rất có thể chỉ là may rủi giữa các lần chạy. Quy tắc ngón tay cái: chênh lệch cần lớn hơn khoảng 2 lần độ lệch chuẩn gộp mới đáng gọi là "cải tiến". Cần thêm lần chạy hoặc chấp nhận "không khác biệt có ý nghĩa".</div></div>
+</form>
+<button onclick="grade()">Nộp bài</button>
+<button class="ghost" onclick="copyResult()">Copy kết quả</button>
+<div id="result"></div>
+<div id="copyout" style="display:none"></div>
+<div class="q"><h3>Câu tự luận (không tính điểm trắc nghiệm)</h3>
+<p>Giải thích bằng lời của bạn, trong 2–3 câu: viết một giả thuyết bác bỏ được cho đề tài capstone của chính bạn (hướng bạn định chọn tối nay: tokenizer Việt, attention hiệu quả, adaptive depth, sparse routing, distillation hoặc data quality). Giả thuyết của bạn chứa metric nào, ngưỡng bao nhiêu, và kết quả nào sẽ khiến nó bị bác bỏ?</p>
+<textarea rows="4" placeholder="Viết câu trả lời của bạn ở đây, rồi paste cùng kết quả trắc nghiệm vào chat..."></textarea></div>
+<p class="note">Lưu ý: file HTML này không tự gửi kết quả về được. Sau khi bấm "Copy kết quả", hãy paste chuỗi kết quả vào chat để trợ lý ghi điểm cho bạn. Đáp án đúng không hiện trước khi nộp bài — giải thích chỉ mở sau khi bạn chọn và nộp.</p>
+<p><a href="Day29_lesson.html">← Về lại tài liệu bài học</a></p>
+<script>
+let graded = false, answers = [];
+function grade(){
+  const qs = document.querySelectorAll('form .q');
+  let score = 0; answers = [];
+  qs.forEach((q, i) => {
+    const sel = q.querySelector('input:checked');
+    const v = sel ? sel.value : '–';
+    answers.push(v);
+    const expl = q.querySelector('.expl');
+    if (v === q.dataset.answer) { score++; expl.className = 'expl ok'; expl.innerHTML = '✅ Đúng. ' + expl.innerHTML; }
+    else { expl.className = 'expl bad'; expl.innerHTML = '❌ Chưa đúng. ' + expl.innerHTML; }
+  });
+  graded = true;
+  document.getElementById('result').textContent = 'Bạn được ' + score + '/' + qs.length + ' câu.';
+  const out = document.getElementById('copyout');
+  out.style.display = 'block';
+  out.textContent = 'Day29 Quiz: ' + answers.map((a, i) => (i+1) + a).join(' ') + ' — ' + score + '/' + qs.length;
+}
+function copyResult(){
+  if (!graded) { alert('Hãy bấm "Nộp bài" trước đã nhé.'); return; }
+  const t = document.getElementById('copyout').textContent;
+  navigator.clipboard.writeText(t).then(() => alert('Đã copy! Paste vào chat để trợ lý ghi điểm nhé.'));
+}
+</script>
+</div>
+</body>
+</html>
