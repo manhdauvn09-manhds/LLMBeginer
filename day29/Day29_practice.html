@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ngày 29 — Buổi tối: Viết giả thuyết &amp; chạy thí nghiệm kiểm chứng</title>
+<style>
+  :root{--bg:#0f1220;--card:#1a1e33;--line:#2c3357;--txt:#e8eaf6;--mut:#9aa3c7;--acc:#7c5cff;--grn:#2fd08c;--amb:#ffb454;--red:#ff6b6b}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.65;padding:0 0 48px}
+  header{padding:28px 18px 8px;max-width:820px;margin:0 auto}
+  .tag{display:inline-block;background:var(--acc);color:#fff;font-size:12px;font-weight:700;letter-spacing:.08em;padding:4px 10px;border-radius:999px}
+  h1{font-size:24px;line-height:1.3;margin:12px 0 6px}
+  .sub{color:var(--mut);font-size:15px}
+  main{max-width:820px;margin:0 auto;padding:0 18px}
+  section{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin:16px 0}
+  h2{font-size:19px;margin:0 0 10px;color:#cdbfff}
+  h3{font-size:16px;margin:16px 0 6px}
+  p{margin:8px 0}
+  code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13.5px;background:#0b0e1c;padding:1px 6px;border-radius:6px;color:#ffd479}
+  pre{background:#0b0e1c;border:1px solid var(--line);border-radius:10px;padding:14px;overflow-x:auto;font-size:13.5px;line-height:1.55}
+  pre code{background:none;padding:0;color:#d6deff}
+  .hl{color:var(--grn)} .warn{color:var(--amb)} .bad{color:var(--red)}
+  .goal{background:#14231d;border:1px solid #1f4d38;border-radius:10px;padding:12px 14px}
+  .goal b{color:var(--grn)}
+  .step{background:#141830;border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:10px 0}
+  .step b{color:#cdbfff}
+  .check{list-style:none;padding:0}
+  .check li{padding:6px 0;border-bottom:1px dashed var(--line)}
+  .check li:last-child{border-bottom:none}
+  .q{border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:10px 0}
+  .q button{background:var(--acc);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:14px;cursor:pointer;margin-top:8px}
+  .ans{display:none;margin-top:10px;background:#0b0e1c;border-left:3px solid var(--grn);padding:10px 12px;border-radius:0 8px 8px 0}
+  table{width:100%;border-collapse:collapse;font-size:14px;margin:10px 0}
+  th,td{border:1px solid var(--line);padding:8px;text-align:left}
+  th{background:#141830}
+  .trap{border-left:3px solid var(--red);padding:8px 12px;margin:10px 0;background:#241318;border-radius:0 8px 8px 0}
+  footer{max-width:820px;margin:0 auto;padding:0 18px;color:var(--mut);font-size:13px}
+</style>
+</head>
+<body>
+<header>
+  <span class="tag">NGÀY 29 / 30 · BUỔI TỐI · CAPSTONE</span>
+  <h1>🛠️ Viết giả thuyết bác bỏ được &amp; chạy thí nghiệm kiểm chứng</h1>
+  <p class="sub">Sáng nay ta học: giả thuyết tốt phải có số, có ngưỡng sai, và phải được viết <b>trước</b> khi chạy thí nghiệm. Tối nay ta làm đúng thứ tự đó — viết protocol trước, chạy sau — trên một thí nghiệm thu nhỏ của capstone GreenLLM.</p>
+</header>
+<main>
+
+<section>
+  <h2>🎯 Mục tiêu buổi tối (~45–60 phút)</h2>
+  <div class="goal">
+    <p>⏱ <b>15 phút</b> — Viết 1 giả thuyết bác bỏ được cho capstone của bạn vào <code>research_plan.md</code>.<br>
+    ⏱ <b>25 phút</b> — Chạy thí nghiệm thu nhỏ: baseline vs 1 biến thể, mỗi bên chạy lặp 3 lần.<br>
+    ⏱ <b>10 phút</b> — So kết quả với ngưỡng đã đăng ký trước, kết luận: giả thuyết <b>được ủng hộ / bị bác bỏ</b> — và ghi lại.</p>
+  </div>
+  <p><b>Quy tắc vàng tối nay:</b> trước mỗi thí nghiệm, viết ra câu <i>“thứ duy nhất thay đổi là ___”</i> và kiểm tra mọi điều kiện còn lại có bằng nhau không (dữ liệu, phần cứng, bộ đánh giá, seed). Nếu có 2 thứ cùng đổi, kết quả không nói được gì.</p>
+</section>
+
+<section>
+  <h2>📋 Bài 1 — Viết giả thuyết vào research_plan.md (làm trước, chạy sau)</h2>
+  <p>Tạo file <code>research_plan.md</code> trong thư mục capstone và điền theo mẫu sau — <b>điền số cụ thể của bạn</b>, đừng để trống:</p>
+<pre><code># Capstone GreenLLM — Research Plan (Ngày 29)
+
+## Câu hỏi nghiên cứu
+Làm sao cắt giảm năng lượng suy luận mà không mất nhiều chất lượng?
+
+## Giả thuyết (viết TRƯỚC khi chạy)
+Kết hợp quantization INT8 với pruning 30% trọng số nhỏ sẽ giảm
+ít nhất 40% năng lượng mỗi token, trong khi điểm đánh giá giảm
+tối đa 2 điểm phần trăm.
+
+## Dự đoán đo được
+- energy/token ↓ ≥ 40% so với baseline
+- accuracy ↓ ≤ 2 điểm phần trăm so với baseline
+
+## Thí nghiệm
+- Baseline: mô hình gốc, chưa làm gì.
+- Biến thể: CHỈ thay quantization INT8 + pruning 30%
+  (thứ duy nhất thay đổi là cách nén trọng số).
+- Cùng dữ liệu, cùng phần cứng, cùng bộ đánh giá, batch 32.
+- Chạy lặp 3 lần với 3 seed khác nhau, báo mean ± std.
+
+## Ngưỡng bác bỏ
+- Nếu accuracy giảm &gt; 2 điểm phần trăm → giả thuyết BỊ BÁC BỎ.
+- Nếu energy/token giảm &lt; 40% → giả thuyết BỊ BÁC BỎ.
+- Kết quả âm vẫn là kết quả tốt: ghi lại, không giấu.</code></pre>
+  <p>💡 <b>Gợi ý:</b> nếu bạn chưa chốt đề tài Phase 2, cứ dùng mẫu GreenLLM trên — ngày mai (Ngày 30) sẽ chốt đề tài chính thức, lúc đó chỉ cần thay số liệu vào khung này.</p>
+</section>
+
+<section>
+  <h2>🧪 Bài 2 — Thí nghiệm thu nhỏ: baseline vs nén trọng số</h2>
+  <p>Chạy trên CPU cũng được. Ta dùng một MLP nhỏ trên bài toán phân loại tổng hợp để mô phỏng đúng “nghi thức” của thí nghiệm thật: baseline → biến thể (chỉ đổi 1 thứ) → chạy lặp 3 seed → so với ngưỡng đăng ký trước.</p>
+
+  <div class="step"><b>Bước 1 — Chuẩn bị dữ liệu &amp; mô hình baseline.</b> Chạy đoạn dưới, ghi lại accuracy và thời gian suy luận trung bình của baseline.</div>
+<pre><code>import time, torch, torch.nn as nn
+from sklearn.datasets import make_classification
+from sklearn.model_selection import train_test_split
+
+torch.manual_seed(0)
+X, y = make_classification(n_samples=4000, n_features=32,
+                           n_informative=20, n_classes=2, random_state=0)
+Xtr, Xte, ytr, yte = train_test_split(X, y, test_size=0.25, random_state=0)
+Xtr = torch.tensor(Xtr, dtype=torch.float32)
+Xte = torch.tensor(Xte, dtype=torch.float32)
+ytr = torch.tensor(ytr); yte = torch.tensor(yte)
+
+class MLP(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(32, 128), nn.ReLU(),
+            nn.Linear(128, 64), nn.ReLU(),
+            nn.Linear(64, 2))
+    def forward(self, x):
+        return self.net(x)
+
+def train(model, epochs=15):
+    opt = torch.optim.AdamW(model.parameters(), lr=1e-3)
+    loss_fn = nn.CrossEntropyLoss()
+    for _ in range(epochs):
+        model.train(); opt.zero_grad()
+        loss = loss_fn(model(Xtr), ytr)
+        loss.backward(); opt.step()
+
+@torch.no_grad()
+def evaluate(model):
+    model.eval()
+    t0 = time.perf_counter()
+    for _ in range(20):            # đo thời gian suy luận (proxy cho năng lượng)
+        _ = model(Xte)
+    dt = (time.perf_counter() - t0) / 20
+    acc = (model(Xte).argmax(1) == yte).float().mean().item()
+    return acc, dt</code></pre>
+
+  <div class="step"><b>Bước 2 — Tự làm (phần chính của bạn): viết hàm <code>prune_and_quantize(model)</code>.</b></div>
+  <p>Hàm này nhận mô hình đã train và trả về mô hình “nén” — gợi ý từng bước:</p>
+  <ul>
+    <li><b>Pruning 30%:</b> với mỗi <code>nn.Linear</code>, lấy <code>weight.data</code>, tìm ngưỡng sao cho 30% trọng số có |giá trị| nhỏ nhất bị đưa về 0 (dùng <code>torch.quantile</code> trên <code>weight.abs()</code>).</li>
+    <li><b>Quantization INT8 (mô phỏng):</b> làm tròn trọng số về 256 mức: <code>w_q = round(w / scale) * scale</code> với <code>scale = w.abs().max() / 127</code>. (Đây là fake-quant — đủ để thấy hiệu ứng accuracy, còn tốc độ thật cần kernel INT8.)</li>
+    <li><b>Không train lại</b> sau khi nén — đó chính là điều thí nghiệm muốn đo: nén “trần” mất bao nhiêu điểm?</li>
+  </ul>
+<pre><code>def prune_and_quantize(model):
+    # TODO (bạn viết): với mỗi nn.Linear trong model:
+    #   1. prune 30% trọng số nhỏ nhất về 0
+    #   2. fake-quant INT8 phần trọng số còn lại
+    #   3. trả về model đã nén
+    raise NotImplementedError("Viết hàm này rồi chạy Bước 3")</code></pre>
+
+  <div class="step"><b>Bước 3 — Chạy thí nghiệm có đối chứng, lặp 3 seed.</b> Mỗi seed: train baseline mới → đo baseline → nén (chỉ đổi cách nén) → đo lại. Ghi kết quả vào bảng dưới.</div>
+<pre><code>import copy
+results = []
+for seed in [0, 1, 2]:
+    torch.manual_seed(seed)
+    base = MLP(); train(base)
+    acc_b, t_b = evaluate(base)
+
+    var = copy.deepcopy(base)
+    prune_and_quantize(var)        # thứ duy nhất thay đổi: cách nén
+    acc_v, t_v = evaluate(var)
+
+    results.append((acc_b, acc_v, t_b, t_v))
+    print(f"seed {seed}: baseline acc={acc_b:.4f} t={t_b*1000:.2f}ms | "
+          f"nén acc={acc_v:.4f} t={t_v*1000:.2f}ms | "
+          f"acc giảm {(acc_b-acc_v)*100:.2f} điểm %")
+
+# Tổng kết: mean ± std của "accuracy giảm" qua 3 lần chạy
+import statistics as st
+drops = [(b-v)*100 for b, v, _, _ in results]
+print(f"Accuracy giảm trung bình: {st.mean(drops):.2f} ± {st.stdev(drops):.2f} điểm %")</code></pre>
+
+  <div class="step"><b>Bước 4 — Kết luận theo ngưỡng đã đăng ký.</b> Điền bảng sau bằng số của bạn, rồi kết luận — không được sửa ngưỡng sau khi thấy kết quả:</div>
+  <table>
+    <tr><th>Metric</th><th>Ngưỡng đăng ký trước</th><th>Kết quả của bạn</th><th>Đạt?</th></tr>
+    <tr><td>Accuracy giảm</td><td>≤ 2 điểm phần trăm</td><td>___ ± ___ điểm %</td><td></td></tr>
+    <tr><td>Thời gian suy luận</td><td>(proxy năng lượng — ghi nhận, chưa kết luận)</td><td>___ ms → ___ ms</td><td></td></tr>
+  </table>
+  <p><b>Kết luận của bạn:</b> giả thuyết ☐ được ủng hộ &nbsp; ☐ bị bác bỏ &nbsp; (khoanh 1 ô, ghi 1 câu lý do). Nếu bị bác bỏ — tốt! Ghi rõ “kết quả âm” vào <code>research_plan.md</code>, đó chính là nghiên cứu thật.</p>
+  <p>⚡ <b>Góc tiết kiệm năng lượng:</b> fake-quant trên CPU không giảm thời gian thật — vì vậy bảng trên ghi thời gian chỉ để luyện nghi thức đo, chưa phải bằng chứng năng lượng. Muốn đo năng lượng thật: chạy trên GPU và đo bằng <code>nvidia-smi</code> hoặc thư viện <code>codecarbon</code> — đó là 1 hướng cải tiến cho ngày mai (xem Bài 3).</p>
+</section>
+
+<section>
+  <h2>🔭 Bài 3 — Ma trận ablation mini (10 phút, làm thêm)</h2>
+  <p>Chạy thêm 2 biến thể nữa, mỗi biến thể chỉ đổi <b>1 thứ</b> so với baseline — để biết phần nào thực sự có ích:</p>
+  <table>
+    <tr><th>Biến thể</th><th>Thứ duy nhất thay đổi</th><th>Accuracy giảm (điểm %)</th></tr>
+    <tr><td>A — chỉ pruning 30%</td><td>pruning, không quant</td><td></td></tr>
+    <tr><td>B — chỉ quant INT8</td><td>quant, không pruning</td><td></td></tr>
+    <tr><td>C — pruning + quant</td><td>cả hai (Bài 2)</td><td></td></tr>
+  </table>
+  <p>Câu hỏi để trả lời trong chat: <i>“Phần nào gây mất điểm nhiều hơn — pruning hay quant? Và với ngưỡng 2 điểm %, bạn sẽ chọn biến thể nào cho capstone?”</i></p>
+</section>
+
+<section>
+  <h2>✅ Tự kiểm tra nhanh (3 câu — bấm để hiện đáp án)</h2>
+
+  <div class="q">
+    <p><b>Câu 1.</b> Bạn chạy thí nghiệm xong thấy accuracy giảm 3,5 điểm % — vượt ngưỡng 2 điểm % đã đăng ký. Bạn nên làm gì?</p>
+    <button onclick="this.nextElementSibling.style.display='block';this.style.display='none'">Hiện đáp án</button>
+    <div class="ans">Kết luận <b>giả thuyết bị bác bỏ</b>, ghi “kết quả âm” vào research_plan.md. Tuyệt đối <b>không</b> sửa ngưỡng thành 4% cho vừa kết quả — đó là “bắn tên rồi mới vẽ bia”, làm mất giá trị khoa học của cả thí nghiệm. Thay vào đó, đề xuất giả thuyết mới (vd: pruning 15% thay vì 30%) cho lần chạy sau.</div>
+  </div>
+
+  <div class="q">
+    <p><b>Câu 2.</b> Trong thí nghiệm Bài 2, vì sao phải train lại baseline mới ở mỗi seed thay vì dùng chung một baseline cho cả 3 lần chạy?</p>
+    <button onclick="this.nextElementSibling.style.display='block';this.style.display='none'">Hiện đáp án</button>
+    <div class="ans">Vì khởi tạo ngẫu nhiên và thứ tự dữ liệu khác nhau theo seed có thể làm baseline lúc mạnh lúc yếu. Dùng chung 1 baseline thì 3 lần đo không độc lập — độ lệch chuẩn tính ra là giả. Mỗi seed train lại từ đầu thì cặp (baseline, biến thể) mới so sánh công bằng trong cùng một “vũ trụ ngẫu nhiên”.</div>
+  </div>
+
+  <div class="q">
+    <p><b>Câu 3.</b> Bạn muốn so sánh “pruning 30%” với “quant INT8” nhưng lỡ train biến thể pruning với lr=2e-3 trong khi baseline dùng lr=1e-3. Kết quả còn dùng được không?</p>
+    <button onclick="this.nextElementSibling.style.display='block';this.style.display='none'">Hiện đáp án</button>
+    <div class="ans">Không. Lúc này có <b>2 thứ cùng đổi</b> (cách nén + learning rate) nên không biết phần chênh lệch accuracy đến từ đâu. Phải chạy lại với cùng lr=1e-3 cho cả hai bên — đó chính là ý nghĩa của câu “thứ duy nhất thay đổi là ___”.</div>
+  </div>
+</section>
+
+<section>
+  <h2>⚠️ Bẫy thường gặp</h2>
+  <div class="trap"><b>Bẫy 1 — Viết giả thuyết sau khi thấy kết quả.</b> Thấy accuracy giảm 3,5% rồi mới đặt ngưỡng “≤ 4%” thì mọi kết quả đều “đạt”. Giả thuyết phải có trước, ghi vào research_plan.md trước khi chạy — tối nay ta làm đúng thứ tự này.</div>
+  <div class="trap"><b>Bẫy 2 — Nén xong train lại rồi mới đo.</b> Nếu fine-tune sau khi pruning/quant, accuracy hồi lại và bạn sẽ tưởng “nén không mất điểm”. Nhưng thí nghiệm lúc đó đo cả 2 thứ (nén + train lại). Muốn đo riêng hiệu ứng nén thì đo ngay sau khi nén, không train lại.</div>
+  <div class="trap"><b>Bẫy 3 — Báo 1 con số duy nhất, không chạy lặp.</b> Một lần chạy có thể may rủi do seed. Luôn chạy ≥ 3 seed và báo mean ± std — người chấm capstone sẽ hỏi câu này đầu tiên.</div>
+</section>
+
+<section>
+  <h2>📤 Checklist nộp bài</h2>
+  <ul class="check">
+    <li>☐ File <code>research_plan.md</code> đã có giả thuyết + dự đoán đo được + ngưỡng bác bỏ (viết trước khi chạy).</li>
+    <li>☐ Hàm <code>prune_and_quantize()</code> đã viết xong và chạy được.</li>
+    <li>☐ Bảng kết quả 3 seed: accuracy giảm trung bình ___ ± ___ điểm %.</li>
+    <li>☐ Kết luận: giả thuyết được ủng hộ / bị bác bỏ + 1 câu lý do.</li>
+    <li>☐ (Thêm) Bảng ablation A/B/C và câu trả lời: pruning hay quant mất điểm nhiều hơn?</li>
+  </ul>
+  <p><b>Paste code + kết quả vào chat để được nhận xét chi tiết</b> — kèm 2 câu: giả thuyết của bạn là gì, và nó bị bác bỏ hay được ủng hộ.</p>
+  <p style="color:var(--mut)">Ngày mai — Ngày 30 (ngày cuối Phase 1): tổng kết toàn khóa + chốt đề tài Phase 2. Giữ lại file <code>research_plan.md</code> tối nay — ngày mai ta dùng nó để chốt đề tài nghiên cứu thật.</p>
+</section>
+
+</main>
+<footer>Khóa “Trở Thành AI Engineer (LLM)” · Ngày 29 — Buổi tối · Capstone GreenLLM</footer>
+</body>
+</html>
