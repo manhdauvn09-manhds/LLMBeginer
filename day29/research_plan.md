@@ -40,8 +40,12 @@ tối đa 2 điểm phần trăm.
   A 0,33 ± 0,25; B -0,03 ± 0,06) → nhánh accuracy:
   ☑ được ủng hộ / ☐ bị bác bỏ.
 - Nhánh năng lượng: ☑ chưa kiểm chứng được (thời gian
-  suy luận trung vị x0,91–0,94 so với baseline — fake-quant
+  suy luận trung vị x0,98–0,99 so với baseline — fake-quant
   trên CPU không giảm thời gian thật, chỉ là proxy).
 - Ablation: pruning mất điểm nhiều hơn quant (0,33 vs
   -0,03 điểm %); chọn C (pruning + quant) cho capstone
-  vì nén mạnh nhất trong số các biến thể đạt ngưỡng.
+  vì kích thước nhỏ nhất tính thật (x0,17 so với baseline;
+  A x0,70, B x0,25 — đếm số trọng số khác 0 × byte/trọng số).
+- Phạm vi độ lệch: ± điểm % chỉ phản ánh biến thiên KHỞI
+  TẠO (dữ liệu cố định theo protocol); Phase 2 nên để seed
+  chi phối cả chia dữ liệu (hoặc k-fold).

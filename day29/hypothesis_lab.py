@@ -20,14 +20,41 @@ proxy - ghi nhan, khong ket luan thay.
 
 Bai 3 (them): ma tran ablation mini - A chi
 pruning, B chi quant, C ca hai; moi bien the
-chi khac baseline dung 1 thu.
+chi khac baseline dung 1 thu. Chon capstone
+theo ti le kich thuoc tinh that (so trong so
+khac 0 x byte / trong so), khong theo thu tu
+cung. Do lech +- diem % chi phan anh bien
+thien khoi tao (du lieu co dinh theo protocol
+da dang ky).
 
 Chay: python hypothesis_lab.py
 Ket qua: in bang 3 seed + bang ablation +
 ket luan theo nguong da dang ky truoc.
 """
 
+# ============================================================
+# [TRAINER] REVIEW Day 29 (ban hypothesis_lab_review.py)
+# Kiem chung doc lap: chay lai toan bo lab - tu kiem tra
+# PASS, so accuracy tai lap CHINH XAC tung so voi
+# research_plan.md (A 0,33 +- 0,25; B -0,03 +- 0,06;
+# C 0,37 +- 0,21 diem %; ket luan nhanh accuracy DUOC
+# UNG HO dung nguong dang ky truoc 2 diem %). Protocol
+# dung thu tu (gia thuyet + nguong viet truoc), nhanh
+# nang luong ghi ro CHUA kiem chung duoc - trung thuc.
+# KHONG co loi logic lam sai ket luan. 3 diem nhe:
+#  (1) evaluate khong warmup + thu tu bien the co dinh
+#      lam proxy thoi gian them nhieu (comment o evaluate).
+#  (2) 3 seed chi doi khoi tao, du lieu co dinh - do lech
+#      chua gom bien thien du lieu (comment o
+#      chuan_bi_du_lieu).
+#  (3) Thu tu uu tien chon capstone C > A > B la thu tu
+#      cung, chua phai "nen manh nhat" theo kich thuoc
+#      that (comment o ket_luan).
+# ============================================================
+
 import copy
+import math
+import random
 import statistics
 import time
 
@@ -94,21 +121,41 @@ def _kiem_tra_so_thuc(ten, gia_tri, nho_hon=None,
     return gia_tri
 
 
-def chuan_bi_du_lieu():
-    """Du lieu tong hop co dinh cho ca 3 seed.
+# [TRAINER] Diem nhe 2 - ca 3 seed dung CHUNG 1 bo du
+# lieu va 1 lan chia train/test co dinh (random_state=0
+# o ca hai buoc duoi day); seed chi thay doi khoi tao
+# mo hinh khi train baseline. Vi vay do lech +- 0,21
+# diem % cua C chi phan anh bien thien KHOI TAO, chua
+# gom bien thien DU LIEU. Ket luan "duoc ung ho" dung
+# trong pham vi protocol da dang ky, nhung khi len
+# Phase 2 voi du lieu that, nen de seed chi phoi ca
+# viec chia du lieu (hoac dung k-fold) thi std moi co
+# y nghia day du de so voi nguong.
 
-    make_classification (random_state=0) + chia
-    train/test (random_state=0): du lieu GIONG
-    nhau o moi seed, chi khoi tao mo hinh khac
-    nhau theo seed - dung nhu de bai (Buoc 3).
+def chuan_bi_du_lieu(du_lieu_seed=0):
+    """Du lieu tong hop (mac dinh co dinh ca 3 seed).
+
+    make_classification + chia train/test voi
+    cung du_lieu_seed: du lieu GIONG nhau o moi
+    seed, chi khoi tao mo hinh khac nhau theo
+    seed - dung nhu de bai (Buoc 3) va protocol
+    da dang ky ("Cung du lieu"). Vi vay do lech
+    +- X diem % o ket luan chi phan anh bien
+    thien KHOI TAO, chua gom bien thien DU
+    LIEU. Phase 2: truyen du_lieu_seed khac
+    nhau theo seed (hoac dung k-fold) thi std
+    moi co y nghia day du de so voi nguong.
     Tra (Xtr, Xte, ytr, yte) dang tensor.
     """
+    _kiem_tra_so_nguyen("du_lieu_seed", du_lieu_seed,
+                        toi_thieu=0)
     X, y = make_classification(
         n_samples=N_MAU, n_features=N_DAC_TRUNG,
         n_informative=N_CO_TINH, n_classes=N_LOP,
-        random_state=0)
+        random_state=du_lieu_seed)
     Xtr, Xte, ytr, yte = train_test_split(
-        X, y, test_size=TI_LE_TEST, random_state=0)
+        X, y, test_size=TI_LE_TEST,
+        random_state=du_lieu_seed)
     Xtr = torch.tensor(Xtr, dtype=torch.float32)
     Xte = torch.tensor(Xte, dtype=torch.float32)
     ytr = torch.tensor(ytr)
@@ -159,23 +206,55 @@ def train(model, Xtr, ytr, epochs=N_EPOCHS, lr=LR):
 
 
 @torch.no_grad()
-def evaluate(model, Xte, yte, n_lap=N_LAP_DO):
+def evaluate(model, Xte, yte, n_lap=N_LAP_DO,
+             n_warmup=2):
     """Do accuracy + thoi gian suy luan.
 
-    Chay n_lap luot forward tren tap test, lay
-    thoi gian trung binh / luot (proxy nang
-    luong - xem docstring module). Dung
-    time.perf_counter() de do thoi gian.
-    Tra (acc, giay_trung_binh_1_luot).
+    Chay n_warmup luot forward truoc (khoi
+    dong thread torch, dung chuan warmup cua
+    Day 28) roi do n_lap luot, lay TRUNG VI
+    thoi gian / luot (khong lay trung binh:
+    1 lan tre tren VM dung chung co the lam
+    ca trung binh cua 20 luot lech 7-8x, con
+    trung vi chi lech khi tre hon nua so luot).
+    Thoi gian la proxy nang luong - xem
+    docstring module. Dung time.perf_counter()
+    de do thoi gian. Tra (acc,
+    giay_trung_vi_1_luot).
     """
     if not isinstance(model, nn.Module):
         raise ValueError("model phai la nn.Module.")
     _kiem_tra_so_nguyen("n_lap", n_lap)
+    _kiem_tra_so_nguyen("n_warmup", n_warmup,
+                        toi_thieu=0)
     model.eval()
-    t0 = time.perf_counter()
-    for _ in range(n_lap):
+    for _ in range(n_warmup):
         _ = model(Xte)
-    dt = (time.perf_counter() - t0) / n_lap
+    # [TRAINER] Diem nhe 1 - do thoi gian o day khong co
+    # luot warmup, va chay_thi_nghiem luon do baseline
+    # truoc roi cac bien the theo thu tu co dinh A, B, C:
+    # ben nao chay dau trong dot thuong "an" chi phi khoi
+    # dong (thread spin-up cua torch). Bang chung khi
+    # Trainer chay lai: seed 0 baseline 0,62 ms nhung A
+    # (bien the dau tien) 4,80 ms; seed 1 nguoc lai -
+    # baseline 4,50 ms con cac bien the chi ~0,45 ms.
+    # Thoi gian o day chi la proxy nen ket luan khong
+    # doi, nhung nen them 1-2 luot forward warmup truoc
+    # t0 (dung chuan warmup cua Day 28) de proxy bot
+    # nhieu, va neu sau nay thoi gian duoc dung lam bang
+    # chung thi phai xao thu tu bien the theo seed.
+    # -> SUA: da them warmup + xao thu tu theo seed;
+    # them nua: lay TRUNG VI thoi gian tung luot thay
+    # vi trung binh tong thoi gian - lan chay lai sau
+    # khi sua van thay 1-2 luot tre ~3.7 ms khong phai
+    # do khoi dong ma do VM dung chung giat, trung vi
+    # moi triet duoc nhieu nay.
+    thoi_gian = []
+    for _ in range(n_lap):
+        t1 = time.perf_counter()
+        _ = model(Xte)
+        thoi_gian.append(time.perf_counter() - t1)
+    dt = float(statistics.median(thoi_gian))
     acc = (model(Xte).argmax(1) == yte).float() \
         .mean().item()
     return acc, dt
@@ -267,6 +346,49 @@ def _tb_lc(ds):
             float(statistics.stdev(ds)))
 
 
+def _thu_tu_bien_the(danh_sach, seed):
+    """Xao thu tu bien the theo seed (xac dinh).
+
+    Ben nao do dau trong dot thuong "an" chi phi
+    khoi dong (thread spin-up) nen thu tu co
+    dinh A, B, C lam lech proxy thoi gian theo
+    ben. Xao theo seed de moi seed co thu tu
+    khac nhau, lech trung binh hoa. Tra list
+    moi (khong sua list goc); cung seed cho
+    cung thu tu.
+    """
+    _kiem_tra_so_nguyen("seed", seed, toi_thieu=0)
+    thu_tu = list(danh_sach)
+    random.Random(seed).shuffle(thu_tu)
+    return thu_tu
+
+
+def _kich_thuoc_hieu_dung(model, bytes_moi_trong_so=4):
+    """Kich thuoc hieu dung (byte): so trong so
+    KHAC 0 x byte / trong so.
+
+    Pruning chi tao so 0 - luu dang dense thi
+    kich thuoc khong giam; chi khi dem so khac
+    0 moi thay duoc loi ich that. INT8: 1 byte
+    / trong so (FP32: 4). Fake-quant giu tensor
+    FP32 nen byte / trong so lay tu dinh nghia
+    bien the, khong doc tu dtype tensor.
+    Tra tong byte (int).
+    """
+    if not isinstance(model, nn.Module):
+        raise ValueError("model phai la nn.Module.")
+    _kiem_tra_so_nguyen("bytes_moi_trong_so",
+                        bytes_moi_trong_so)
+    tong = 0
+    with torch.no_grad():
+        for module in model.modules():
+            if not isinstance(module, nn.Linear):
+                continue
+            tong += int(
+                (module.weight.data != 0).sum())
+    return tong * bytes_moi_trong_so
+
+
 def chay_thi_nghiem(Xtr, Xte, ytr, yte):
     """Chay thi nghiem co doi chung, lap 3 seed.
 
@@ -274,19 +396,27 @@ def chay_thi_nghiem(Xtr, Xte, ytr, yte):
     seed(seed)) -> do baseline -> deepcopy roi
     nen tung bien the (A chi pruning, B chi
     quant, C ca hai) -> do lai. Moi bien the
-    chi khac baseline dung 1 thu (Bai 3). Tra
-    dict: moi bien the co list giam accuracy
-    (diem %) va ti le thoi gian (t_bien / t_co
-    so) qua 3 seed, kem baseline tung seed.
+    chi khac baseline dung 1 thu (Bai 3). Thu
+    tu do bien the XAO theo seed (tranh ben do
+    dau "an" chi phi khoi dong). Tra dict: moi
+    bien the co list giam accuracy (diem %),
+    ti le thoi gian (t_bien / t_co so) va ti le
+    kich thuoc (byte bien the / byte co so)
+    qua 3 seed, kem baseline tung seed.
     """
+    # Moi bien the: (ham nen, byte / trong so
+    # khi luu tru) - INT8: 1, FP32: 4.
     bien_the = {
-        "A (chi pruning)": lambda m: cat_tia(m),
-        "B (chi quant)": lambda m: luong_hoa_int8(m),
+        "A (chi pruning)":
+            (lambda m: cat_tia(m), 4),
+        "B (chi quant)":
+            (lambda m: luong_hoa_int8(m), 1),
         "C (pruning + quant)":
-            lambda m: prune_and_quantize(m),
+            (lambda m: prune_and_quantize(m), 1),
     }
     ket_qua = {ten: {"giam_acc": [],
-                     "ti_le_tgian": []}
+                     "ti_le_tgian": [],
+                     "ti_le_kich_thuoc": []}
                for ten in bien_the}
     co_so = []
     for seed in SEEDS:
@@ -295,9 +425,12 @@ def chay_thi_nghiem(Xtr, Xte, ytr, yte):
         train(base, Xtr, ytr)
         acc_b, t_b = evaluate(base, Xte, yte)
         co_so.append((acc_b, t_b))
+        co_ban = _kich_thuoc_hieu_dung(base, 4)
         print(f"  seed {seed}: baseline acc="
               f"{acc_b:.4f} t={t_b * 1000:.2f}ms")
-        for ten, ham_nen in bien_the.items():
+        for ten, (ham_nen, bytes_moi) in \
+                _thu_tu_bien_the(
+                    list(bien_the.items()), seed):
             var = copy.deepcopy(base)
             ham_nen(var)
             acc_v, t_v = evaluate(var, Xte, yte)
@@ -305,6 +438,9 @@ def chay_thi_nghiem(Xtr, Xte, ytr, yte):
             ket_qua[ten]["giam_acc"].append(giam)
             ket_qua[ten]["ti_le_tgian"].append(
                 t_v / t_b)
+            ket_qua[ten]["ti_le_kich_thuoc"].append(
+                _kich_thuoc_hieu_dung(var, bytes_moi)
+                / co_ban)
             print(f"    {ten}: acc={acc_v:.4f} "
                   f"t={t_v * 1000:.2f}ms | giam "
                   f"{giam:.2f} diem %")
@@ -318,15 +454,18 @@ def ket_luan(ket_qua):
     % thi "duoc ung ho", nguoc lai "bi bac
     bo". Nhanh nang luong: CHUA KIEM CHUNG
     DUOC - thi nghiem nay chi do thoi gian CPU
-    lam proxy. Chon bien the cho capstone:
-    trong cac bien the co giam trung binh <=
-    2 diem %, chon bien the nen manh nhat (C
-    > A, B); khong co bien the nao dat thi
+    lam proxy. Chon bien the cho capstone: trong
+    cac bien the co giam trung binh <= 2 diem
+    %, chon bien the co ti le kich thuoc trung
+    binh NHO NHAT (tinh that tu so trong so
+    khac 0 x byte / trong so - khong dung thu
+    tu cung); khong co bien the nao dat thi
     khong chon, de xuat gia thuyet moi (vd
     pruning 15%). Moi lua chon tinh tu so do.
     """
     print("\nBANG ABLATION (giam accuracy, diem %):")
     tb = {}
+    tb_co = {}
     for ten, ds in ket_qua.items():
         tb_giam, lc_giam = _tb_lc(ds["giam_acc"])
         # Thoi gian: lay TRUNG VI ti le (khong lay
@@ -338,9 +477,11 @@ def ket_luan(ket_qua):
         tgian_tv = float(
             statistics.median(ds["ti_le_tgian"]))
         tb[ten] = tb_giam
+        tb_co[ten], _ = _tb_lc(ds["ti_le_kich_thuoc"])
         print(f"  {ten}: giam {tb_giam:.2f} +- "
               f"{lc_giam:.2f} diem % | thoi gian "
-              f"trung vi x{tgian_tv:.2f} so voi "
+              f"trung vi x{tgian_tv:.2f} | kich "
+              f"thuoc x{tb_co[ten]:.2f} so voi "
               f"baseline")
     ten_c = "C (pruning + quant)"
     giam_c = tb[ten_c]
@@ -359,6 +500,11 @@ def ket_luan(ket_qua):
               f"%). Ket qua am van la ket qua tot "
               f"- ghi lai, khong giau.")
         duoc_ung_ho = False
+    print("Pham vi do lech: +- diem % chi phan "
+          "anh bien thien KHOI TAO (du lieu co "
+          "dinh theo protocol da dang ky); Phase "
+          "2 nen de seed chi phoi ca chia du lieu "
+          "(hoac k-fold) thi std moi day du.")
     print("Ket luan nhanh nang luong: CHUA KIEM "
           "CHUNG DUOC (fake-quant tren CPU khong "
           "giam thoi gian that; can GPU + "
@@ -376,13 +522,28 @@ def ket_luan(ket_qua):
     else:
         print(f"Pruning va quant mat diem nhu nhau "
               f"({tb[ten_a]:.2f} diem %).")
-    dat = [ten for ten in
-           (ten_c, ten_a, ten_b)
-           if tb[ten] <= NGUONG_ACC_GIAM_PP]
+    # [TRAINER] Diem nhe 3 - thu tu (C, A, B) o day la
+    # thu tu CO DINH trong code, duoc dien giai la "nen
+    # manh nhat", nhung A (pruning 30%) va B (INT8) nen
+    # theo hai chieu khac nhau: INT8 giam kich thuoc luu
+    # tru ~4 lan, con pruning 30% chi tao 30% so 0 - neu
+    # luu dang dense thi kich thuoc khong giam chut nao.
+    # Lan nay C dat nguong nen khong anh huong; neu C
+    # truot va A, B cung dat, tieu chi chon nen tinh
+    # bang ti le kich thuoc / chi phi that cua tung bien
+    # the thay vi thu tu cung nay.
+    # -> SUA: chon theo ti le kich thuoc trung binh
+    # NHO NHAT tinh that (tb_co), hoa thi lay ten
+    # truoc theo bang chu cai de xac dinh.
+    dat = sorted(
+        (ten for ten in tb
+         if tb[ten] <= NGUONG_ACC_GIAM_PP),
+        key=lambda t: (tb_co[t], t))
     if dat:
-        print(f"Chon cho capstone: {dat[0]} (nen "
-              f"manh nhat trong so cac bien the "
-              f"dat nguong).")
+        print(f"Chon cho capstone: {dat[0]} (kich "
+              f"thuoc nho nhat trong so cac bien "
+              f"the dat nguong: x{tb_co[dat[0]]:.2f} "
+              f"so voi baseline).")
         chon = dat[0]
     else:
         print("Khong chon bien the nao - tat ca "
@@ -391,7 +552,8 @@ def ket_luan(ket_qua):
               "lan chay sau.")
         chon = None
     return {"duoc_ung_ho": duoc_ung_ho,
-            "giam_tb": tb, "chon": chon}
+            "giam_tb": tb, "co_tb": tb_co,
+            "chon": chon}
 
 
 def _expect_value_error(fn, mo_ta):
@@ -410,7 +572,9 @@ def tu_kiem_tra():
 
     Kiem: guard chan sai dau vao, cat tia dung
     ~30%, quant lam tron dung muc + giu 0,
-    bias khong doi, deepcopy cach ly baseline.
+    bias khong doi, deepcopy cach ly baseline,
+    xao thu tu + seed du lieu + kich thuoc
+    hieu dung + evaluate co warmup.
     """
     ket_qua = [
         _expect_value_error(
@@ -433,11 +597,64 @@ def tu_kiem_tra():
                                          dtype=torch.long),
                              n_lap=0),
             "evaluate n_lap=0"),
+        _expect_value_error(
+            lambda: _kich_thuoc_hieu_dung(None),
+            "kich thuoc model None"),
+        _expect_value_error(
+            lambda: _kich_thuoc_hieu_dung(
+                MLP(), bytes_moi_trong_so=0),
+            "kich thuoc bytes=0"),
+        _expect_value_error(
+            lambda: _thu_tu_bien_the(["A"], -1),
+            "xao thu tu seed am"),
     ]
     assert all(ket_qua), "Co guard khong chan dung!"
     tb, lc = _tb_lc([1.0, 2.0, 3.0])
     assert abs(tb - 2.0) <= 1e-9
     assert abs(lc - 1.0) <= 1e-9
+
+    # Xao thu tu: hoan vi day du + xac dinh
+    # theo seed, khong sua list goc.
+    ds_bien = ["A", "B", "C"]
+    thu_tu_0 = _thu_tu_bien_the(ds_bien, 0)
+    assert sorted(thu_tu_0) == sorted(ds_bien)
+    assert _thu_tu_bien_the(ds_bien, 0) == thu_tu_0
+    assert ds_bien == ["A", "B", "C"], \
+        "xao khong duoc sua list goc"
+    # Seed du lieu: cung seed cho cung du lieu,
+    # khac seed cho du lieu khac.
+    Xtr0, _, _, _ = chuan_bi_du_lieu(0)
+    Xtr0_lan2, _, _, _ = chuan_bi_du_lieu(0)
+    Xtr1, _, _, _ = chuan_bi_du_lieu(1)
+    assert torch.equal(Xtr0, Xtr0_lan2)
+    assert not torch.equal(Xtr0, Xtr1)
+    # Kich thuoc hieu dung: goc = tong trong so
+    # x 4; cat tia ~30% -> x0.70; INT8 -> x0.25.
+    torch.manual_seed(3)
+    nho3 = MLP(64, 32, 16, 2)
+    tong_w = sum(m.weight.data.numel()
+                 for m in nho3.modules()
+                 if isinstance(m, nn.Linear))
+    assert _kich_thuoc_hieu_dung(nho3, 4) \
+        == tong_w * 4
+    assert _kich_thuoc_hieu_dung(nho3, 1) \
+        == tong_w * 1
+    var3 = copy.deepcopy(nho3)
+    cat_tia(var3)
+    ti_le_co = _kich_thuoc_hieu_dung(var3, 4) \
+        / _kich_thuoc_hieu_dung(nho3, 4)
+    assert 0.68 <= ti_le_co <= 0.72, \
+        f"cat tia 30% thi co phai ~0.70, got " \
+        f"{ti_le_co:.3f}"
+    # Evaluate co warmup: tra so huu han.
+    torch.manual_seed(4)
+    nho4 = MLP()
+    _, Xte_t, _, yte_t = chuan_bi_du_lieu()
+    acc_w, dt_w = evaluate(nho4, Xte_t, yte_t,
+                           n_lap=2, n_warmup=2)
+    assert math.isfinite(acc_w) \
+        and math.isfinite(dt_w)
+    assert 0.0 <= acc_w <= 1.0 and dt_w > 0
 
     # Cat tia ~30% tren model nho (seed co dinh).
     torch.manual_seed(0)
