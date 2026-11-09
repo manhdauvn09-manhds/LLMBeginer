@@ -1,0 +1,1713 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Day 30 — Capstone GreenLLM: chứng minh bằng code và số liệu</title>
+<style>
+:root{--ink:#12343b;--muted:#4b6a70;--accent:#0e7490;--accent2:#0891b2;--soft:#e6f6f9;--soft2:#f0f9fa;--line:#cfe6ea;--warn:#b45309;--warnbg:#fef3c7;--ok:#15803d;--okbg:#dcfce7}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--ink);line-height:1.65;background:#fff}
+header{padding:28px 20px 18px;background:linear-gradient(135deg,#0e7490,#155e75);color:#fff}
+header h1{margin:0 0 6px;font-size:1.65em;line-height:1.3}
+header p{margin:4px 0;color:#d9f2f7}
+.meta{font-size:.92em;color:#d9f2f7}
+nav{position:sticky;top:0;background:#fff;border-bottom:1px solid var(--line);padding:10px 20px;z-index:5}
+nav a{margin-right:16px;color:var(--accent);text-decoration:none;font-weight:600;font-size:.95em}
+nav a:hover{text-decoration:underline}
+main{max-width:880px;margin:0 auto;padding:8px 20px 40px}
+h2{margin-top:34px;border-bottom:2px solid var(--line);padding-bottom:6px;color:#155e75}
+h3{margin-top:24px;color:#155e75}
+p{margin:10px 0}
+ul,ol{margin:8px 0 8px 22px}
+li{margin:5px 0}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.92em;background:var(--soft2);padding:1px 5px;border-radius:4px;word-break:break-word}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:.95em}
+th,td{border:1px solid var(--line);padding:7px 9px;text-align:left;vertical-align:top}
+th{background:var(--soft)}
+.box{background:var(--soft2);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin:14px 0}
+.warn{background:var(--warnbg);border:1px solid #fcd34d;border-radius:10px;padding:14px 16px;margin:14px 0}
+.warn b{color:var(--warn)}
+.okbox{background:var(--okbg);border:1px solid #86efac;border-radius:10px;padding:14px 16px;margin:14px 0}
+.demo{background:#fff;border:2px solid var(--accent);border-radius:12px;padding:16px;margin:16px 0}
+.demo h3{margin-top:0}
+.demo label{display:block;font-weight:600;margin:10px 0 4px}
+.demo input[type=range],.demo select{width:100%}
+.demo button{margin:6px 6px 0 0;padding:8px 14px;border:1px solid var(--accent);background:var(--accent);color:#fff;border-radius:8px;cursor:pointer;font-size:.95em}
+.demo button.ghost{background:#fff;color:var(--accent)}
+.demo pre{background:#0f2a30;color:#e6f6f9;padding:12px;border-radius:8px;overflow:auto;font-size:.9em;white-space:pre-wrap}
+.kq{font-size:.92em;color:var(--muted)}
+.figure{margin:16px 0;text-align:center}
+.figure svg{max-width:100%;height:auto}
+.figure figcaption{font-size:.9em;color:var(--muted);margin-top:6px;text-align:left}
+.before-after{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.before-after>div{border:1px solid var(--line);border-radius:10px;padding:12px}
+.before-after h4{margin:0 0 6px}
+.before-after .before h4{color:#b91c1c}
+.before-after .after h4{color:var(--ok)}
+.before-after pre{white-space:pre-wrap;font-size:.85em;background:var(--soft2);padding:8px;border-radius:6px;overflow:auto}
+.checklist li{margin:7px 0}
+.srcbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:12px 0}
+.srcbar button{padding:8px 14px;border-radius:8px;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer}
+.srcbar button.ghost{background:#fff;color:var(--accent)}
+#srcPlain{display:none}
+pre.code{background:#272822;color:#f8f8f2;padding:14px;border-radius:10px;overflow:auto;font-size:.85em;line-height:1.5}
+pre.code code{background:none;padding:0}
+.highlight-wrap{border-radius:10px;overflow:auto;background:#272822}
+.highlight-wrap pre{margin:0;padding:14px;font-size:.85em;line-height:1.5}
+footer{border-top:1px solid var(--line);margin-top:36px;padding-top:14px;color:var(--muted);font-size:.9em}
+.bar{height:18px;border-radius:4px;background:var(--accent2);margin:3px 0}
+.bar2{height:18px;border-radius:4px;background:#f59e0b;margin:3px 0}
+.dist{display:grid;grid-template-columns:90px 1fr 44px;gap:8px;align-items:center;margin:4px 0;font-size:.92em}
+@media(max-width:640px){.before-after{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+<h1>Day 30 — Capstone GreenLLM: chứng minh bằng code và số liệu</h1>
+<p>Ngày cuối Phase 1, và là bài tổng hợp của cả khóa: một chuỗi khép kín từ dữ liệu đến báo cáo — baseline TinyLM huấn luyện trên đoạn văn tiếng Việt, biến thể INT8, luật Chinchilla, rồi Green checkpoint ra quyết định. Mọi tuyên bố “tốt hơn” đều phải có số liệu đứng sau, và mọi số liệu đều chạy lại được để kiểm chứng. Kết quả đáng nhớ nhất không phải là một con số đẹp, mà là một bài học về đo đạc: <b>perplexity tái lập đúng từng chữ số qua mọi lần chạy (7,78), còn verdict năng lượng thì lật qua lật lại giữa các lần chạy (−29,7% / −22,5% / −6,3%)</b> — và báo cáo trung thực cả ba lần chạy, không chỉ lấy lần đẹp nhất, chính là điều làm capstone này đáng tin.</p>
+<p class="meta">Capstone GreenLLM · Ngày cuối Phase 1 · Lab <code>capstone.py</code> commit <code>0a995a9</code> · Trainer review <code>1ab9c39</code> → sửa xong, Trainer OK (anh báo 18:57 JST 09/11/2026) · Phase 2 từ Day 31: Tiny Vietnamese LM</p>
+</header>
+<nav><a href="#tong-quan">Tổng quan</a><a href="#buoc01">Bước 0–1</a><a href="#buoc23">Bước 2–3</a><a href="#chinchilla">Chinchilla</a><a href="#green">Green checkpoint</a><a href="#trainer">Trainer review</a><a href="#checklist">Checklist 29 điểm</a><a href="#source">Source</a></nav>
+<main>
+
+<section id="tong-quan">
+<h2>Tổng quan: 30 ngày gói gọn trong một chuỗi đo</h2>
+<p>Bốn tuần của khóa học là bốn tầng của cùng một tòa nhà: tuần 1 hỏi “mô hình ngôn ngữ là gì” (token, attention, transformer), tuần 2 “huấn luyện thật thế nào” (dữ liệu sạch, AdamW, checkpoint), tuần 3 “mạnh hơn mà rẻ hơn” (LoRA, quantization, pruning, distillation, MoE), tuần 4 “đưa ra thực tế và chứng minh được” (serving, KV cache, đo năng lượng, Pareto, giả thuyết bác bỏ được). Capstone là lúc ghép cả bốn tầng thành một mạch số liệu chảy suốt bảy khâu — data → model → train → eval → optimize → serve → report — trong đó khâu sau chỉ tin số liệu của khâu trước khi chúng được đo trên <b>cùng dữ liệu, cùng phần cứng, cùng bộ đánh giá</b>.</p>
+<div class="figure">
+<svg viewBox="0 0 760 190" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Chuỗi bảy khâu của capstone GreenLLM">
+<rect x="8" y="20" width="92" height="70" rx="10" fill="#f0f9fa" stroke="#0e7490" stroke-width="2"/><text x="54" y="50" text-anchor="middle" fill="#12343b" font-size="15">1. Data</text><text x="54" y="72" text-anchor="middle" fill="#64748b" font-size="12">sạch, chia</text>
+<rect x="118" y="20" width="92" height="70" rx="10" fill="#f0f9fa" stroke="#0e7490" stroke-width="2"/><text x="164" y="50" text-anchor="middle" fill="#12343b" font-size="15">2. Model</text><text x="164" y="72" text-anchor="middle" fill="#64748b" font-size="12">baseline</text>
+<rect x="228" y="20" width="92" height="70" rx="10" fill="#f0f9fa" stroke="#b45309" stroke-width="2"/><text x="274" y="50" text-anchor="middle" fill="#12343b" font-size="15">3. Train</text><text x="274" y="72" text-anchor="middle" fill="#64748b" font-size="12">adapt</text>
+<rect x="338" y="20" width="92" height="70" rx="10" fill="#f0f9fa" stroke="#b45309" stroke-width="2"/><text x="384" y="50" text-anchor="middle" fill="#12343b" font-size="15">4. Eval</text><text x="384" y="72" text-anchor="middle" fill="#64748b" font-size="12">metric</text>
+<rect x="448" y="20" width="92" height="70" rx="10" fill="#f0f9fa" stroke="#155e75" stroke-width="2"/><text x="494" y="50" text-anchor="middle" fill="#12343b" font-size="15">5. Optimize</text><text x="494" y="72" text-anchor="middle" fill="#64748b" font-size="12">quant/prune</text>
+<rect x="558" y="20" width="92" height="70" rx="10" fill="#f0f9fa" stroke="#155e75" stroke-width="2"/><text x="604" y="50" text-anchor="middle" fill="#12343b" font-size="15">6. Serve</text><text x="604" y="72" text-anchor="middle" fill="#64748b" font-size="12">API, kWh</text>
+<rect x="300" y="120" width="160" height="60" rx="10" fill="#f0f9fa" stroke="#15803d" stroke-width="2"/><text x="380" y="148" text-anchor="middle" fill="#12343b" font-size="15">7. Report</text><text x="380" y="168" text-anchor="middle" fill="#64748b" font-size="12">paper + demo</text>
+<path d="M100 55 H116 M210 55 H226 M320 55 H336 M430 55 H446 M540 55 H556" stroke="#0e7490" stroke-width="2" fill="none"/>
+<path d="M604 90 L604 120 L460 120 L460 120" stroke="#0e7490" stroke-width="2" fill="none"/>
+</svg>
+<figcaption>Mỗi khâu sinh ra 1–2 số liệu, và khâu sau chỉ tin số liệu của khâu trước khi chúng được đo cùng điều kiện.</figcaption>
+</div>
+<p><b>Kết quả chính trong một bảng</b> (cùng máy, cùng tập test, cùng hàm đo — chi tiết từng lần chạy ở mục Green checkpoint):</p>
+<table>
+<tr><th>Biến thể</th><th>Perplexity (test)</th><th>Giây / 100 token</th><th>mWh / token (ước lượng 65 W)</th><th>Kích thước</th></tr>
+<tr><td>Baseline FP32</td><td><b>7,78</b></td><td>0,283 (lần kiểm chứng cho doc)</td><td>0,0511</td><td>1.118,4 KiB</td></tr>
+<tr><td>INT8 dynamic</td><td><b>7,78 (+0,0%)</b></td><td>0,239</td><td>0,0432</td><td><b>342,9 KiB (−69%)</b></td></tr>
+</table>
+<p class="kq">Hai con số “cứng” nhất của capstone: perplexity giữ nguyên tuyệt đối sau INT8 (7,7773 → 7,7773, chênh +0,00007% — tức 0 mẫu nào đổi khác về bản chất), và mô hình nhẹ hơn 69%. Còn verdict năng lượng thì không cứng: trung vị tiết kiệm qua 3 lần chạy xen kẽ độc lập là <b>−29,7% / −22,5% / −6,3%</b> — Green checkpoint ĐẠT ở một lần, KHÔNG ĐẠT ở hai lần. Doc này báo cả ba, vì đó mới là kết luận trung thực.</p>
+</section>
+
+<section id="buoc01">
+<h2>Bước 0–1 — Dữ liệu và baseline: chia đúng thì mọi số sau đó mới có nghĩa</h2>
+<p><b>Bước 0 — dữ liệu.</b> Một đoạn văn tiếng Việt về AI xanh, <b>2.716 ký tự</b>, chia train/val/test = 80/10/10 <b>theo thứ tự thời gian, không xáo trộn</b>: train 2.172, val 271, test 273 ký tự. Chia theo thứ tự là cố ý — nếu test lẫn vào train thì mọi số đo sau đó đều vô nghĩa (lỗi số 1 của capstone, theo đúng lời dặn trong đề). Từ đó cắt thành cửa sổ 64 ký tự, bước trượt 16: train 132 cửa sổ, val 13, test 14. Vocab = 40 ký tự riêng biệt (chữ cái có dấu, chữ số, dấu câu, khoảng trắng) — mô hình học đoán ký tự tiếp theo, đúng nghĩa “char-level LM”.</p>
+<p><b>Bước 1 — baseline.</b> <code>TinyLM</code>: embedding 40×64 → 1 lớp Transformer encoder (2 head) → Linear ra vocab. Tổng <b>286.312 tham số</b>, <b>1.118,4 KiB</b>. Huấn luyện 3 epoch, batch 32, AdamW lr=3e-3, seed cố định 42, loss cross-entropy trên cửa sổ next-token:</p>
+<table>
+<tr><th>Epoch</th><th>Train loss</th><th>Val loss</th></tr>
+<tr><td>1 / 3</td><td>2,3654</td><td>2,3682</td></tr>
+<tr><td>2 / 3</td><td>2,1158</td><td>2,1557</td></tr>
+<tr><td>3 / 3</td><td>2,0109</td><td>2,0756</td></tr>
+</table>
+<p>Loss 2,35 → 2,00 sau 3 epoch — mô hình nhỏ học được cấu trúc của đoạn văn (perplexity test 7,78 tức trung bình mỗi ký tự có ~7,8 lựa chọn “hợp lý” theo mô hình, so với đoán bừa trên 40 ký tự). Đây là baseline — đừng tối ưu nó, chỉ cần nó chạy đúng và lặp lại được. Và nó lặp lại được thật: PPL 7,7773 giống nhau đến 15 chữ số thập phân qua mọi lần chạy (cả lần chạy của Trainer trên máy khác) — vì seed được đặt lại 42 ngay trước khi train (xem mục Trainer review, điểm 29).</p>
+<div class="warn"><b>Chi tiết dễ bỏ qua — mask causal:</b> trong <code>forward</code>, mask tam giác trên được tạo bằng <code>torch.triu(..., device=x.device)</code> — vị trí <i>i</i> chỉ được “nhìn” các vị trí ≤ <i>i</i>, không được nhìn trước ký tự cần đoán. Quên mask thì mô hình “gian lận” bằng cách nhìn đáp án, perplexity đẹp giả. Đây cũng là chỗ bài học Day 7 từng bắt lỗi device — mask tạo đúng device của input ngay từ đầu.</div>
+</section>
+
+<section id="buoc23">
+<h2>Bước 2–3 — Đo rồi mới nén: cùng một thước, cùng một tập test</h2>
+<p><b>Bước 2 — hàm đo <code>measure()</code>.</b> Một hàm duy nhất đo cả hai biến thể, trả về perplexity trên tập test và thời gian sinh token. Perplexity = exp(loss trung bình) trên 14 cửa sổ test. Thời gian: 1 lượt warmup rồi 5 lượt bấm giờ bằng <code>time.perf_counter()</code>, lấy <b>trung vị</b> — practice ghi “trung bình 3 lần” nhưng trung bình bị kéo lệch khi 1 lần trễ gấp 10 lần (bài học Day 29: trung vị mới triệt được nhiễu VM dùng chung). Năng lượng là <b>ước lượng</b> (giây/token × 65 W, đổi sang mWh) — ghi rõ là ước lượng, không phải số đo CodeCarbon thật; quan trọng là cùng một cách đo cho cả hai bên.</p>
+<p>Một chi tiết đo lường đáng nhớ: ban đầu mỗi lần đo chỉ sinh <b>100 token (~0,2 giây)</b> — ngắn đến mức chênh lệch FP32/INT8 nằm ngay dưới mức nhiễu của môi trường đo, và verdict năng lượng lật giữa hai lần chạy độc lập (−1,25% vs −28,2%). Sau fix, mỗi lần đo sinh <b>500 token (~1 giây)</b> — dài hơn nhiễu nhiều lần. Bài học: <b>đừng đo thứ ngắn hơn nhiễu của thước</b>.</p>
+<p><b>Bước 3 — biến thể INT8.</b> <code>torch.quantization.quantize_dynamic(baseline, {nn.Linear}, dtype=torch.qint8)</code> — lượng tử hóa động, <b>không huấn luyện lại</b> (đó chính là điều thí nghiệm muốn đo: nén “trần” mất bao nhiêu chất lượng). Đo lại bằng đúng hàm <code>measure()</code>, đúng tập test, đúng máy:</p>
+<table>
+<tr><th></th><th>PPL test</th><th>Giây / 100 token</th><th>mWh / token</th><th>Kích thước</th></tr>
+<tr><td>Baseline FP32</td><td>7,7773</td><td>0,283</td><td>0,0511</td><td>1.118,4 KiB</td></tr>
+<tr><td>INT8 dynamic</td><td>7,7773</td><td>0,239</td><td>0,0432</td><td>342,9 KiB</td></tr>
+<tr><td><b>Thay đổi (đo riêng)</b></td><td><b>+0,0%</b></td><td>−15,5%</td><td>−15,5%</td><td><b>−69,3%</b></td></tr>
+</table>
+<p>Perplexity giữ nguyên đến 4 chữ số thập phân — INT8 dynamic gần như không mất chất lượng trên mô hình nhỏ này (trọng số làm tròn về 256 mức nhưng với mô hình 1 lớp, sai số làm tròn chưa đủ làm đổi dự đoán). Kích thước giảm 69% vì mỗi trọng số từ 4 byte (FP32) xuống 1 byte (INT8). Nhưng lưu ý: “thay đổi (đo riêng)” −15,5% ở bảng trên là số đo riêng hai phiên — còn số dùng cho Green checkpoint là trung vị xen kẽ <b>−6,3%</b> ở chính lần chạy này (xem mục sau). Hai cách đo, hai con số khác nhau — đó chính là vấn đề mà Trainer bắt.</p>
+<div class="box"><b>Hai lỗi kỹ thuật đã sửa dọc đường (ghi trong code, không giấu):</b> (1) <code>state_dict</code> của mô hình lượng tử hóa chứa mục đặc biệt <code>_packed_params</code> — một đối tượng dtype và một tuple chứa tensor thật — nên hàm đếm byte phải kiểm tra <i>kiểu</i> trước khi gọi <code>.numel()</code> (bài học Day 22, AGENTS.md điểm 11). (2) Khi đo mô hình INT8 phải tắt fastpath của Transformer (<code>torch.backends.mha.set_fastpath_enabled(False)</code>), vì Linear lượng tử hóa để <code>.weight</code> dưới dạng method, làm hàm kiểm tra fastpath crash; đường slow path thì chạy đúng — và bật lại ngay sau khi đo xong trong <code>finally</code>.</div>
+</section>
+
+<section id="chinchilla">
+<h2>Bước 4 — Luật Chinchilla: đừng tham mô hình to khi đói dữ liệu</h2>
+<p>Trước khi huấn luyện, câu hỏi đầu tiên không phải “mô hình bao nhiêu tỷ tham số” mà là “với ngân sách tính toán này, chia thế nào giữa mô hình lớn hơn và dữ liệu nhiều hơn”. Nghiên cứu Chinchilla (DeepMind, 2022) chạy hơn 400 mô hình và rút ra quy luật thực nghiệm: với ngân sách C cố định, mô hình tối ưu dùng khoảng <b>20 token huấn luyện cho mỗi tham số</b> — tăng gấp đôi ngân sách thì tăng gấp đôi cả số tham số N và số token D. Từ C ≈ 6·N·D và D ≈ 20·N suy ra <b>N = √(C/120)</b>, <b>D = 20·N</b> — và code assert lại đúng hai đẳng thức này (6·N·D = C và D/N = 20) mỗi lần in số, nên số in ra không thể sai lặng lẽ:</p>
+<table>
+<tr><th>Ngân sách C (FLOPs)</th><th>Tham số tối ưu N</th><th>Token tối ưu D</th></tr>
+<tr><td>1e18</td><td>0,09B</td><td>1,8B</td></tr>
+<tr><td>1e21</td><td>2,89B</td><td>57,7B</td></tr>
+</table>
+<p>So với GPT-3: 175B tham số / 300B token = <b>1,7 token/tham số</b> — thấp hơn nhiều so với mức tối ưu ~20, tức GPT-3 <b>thừa mô hình, thiếu dữ liệu</b>. Chinchilla 70B huấn luyện trên 1.400B token (20 token/tham số) thắng GPT-3 trên nhiều bài đánh giá với chi phí suy luận rẻ hơn nhiều — vì suy luận trả tiền theo từng token, mô hình nhỏ hơn luôn rẻ hơn mãi mãi. Bài học cho Phase 2 (Tiny Vietnamese LM, chốt từ Day 31): ngân sách nhỏ → đừng tham mô hình to; mô hình nhỏ + đủ dữ liệu tiếng Việt luôn thắng mô hình to + đói dữ liệu, cả về điểm lẫn hóa đơn điện.</p>
+
+<h3>Câu chuyện đẹp nhất của ngày này: người học bắt lỗi đáp án mẫu</h3>
+<p>Đáp án mẫu Câu 2 trong <code>Day30_practice.html</code> ban đầu ghi: N = √(1e21/120) ≈ <b>9,1e9</b> → khoảng 9B tham số, D ≈ 183B token. Người học tự tính lại và phát hiện sai: √(1e21/120) = <b>2,89e9</b> — 9,1B là kết quả khi chia cho <b>12</b> thay vì <b>120</b> (tức ứng với C=1e22, gấp 10 lần ngân sách). Trainer xác nhận và <b>sửa đáp án practice ngay trong commit review <code>1ab9c39</code></b> (đúng 1 dòng đổi: 9,1e9 → 2,9e9, D 183B → 58B). Đây là khoảnh khắc đáng ghi nhất của cả Phase 1: sau 30 ngày, người học không còn chỉ “làm theo đáp án” mà đã đủ vững để bắt lỗi đáp án — và quy trình review đã ghi nhận điều đó công khai thay vì sửa lặng lẽ. Code cũng tự bảo vệ mình ở điểm này: hàm <code>chinchilla_split()</code> assert 6·N·D = C, nên số in ra từ code luôn đúng dù đáp án mẫu có sai.</p>
+
+<div class="demo">
+<h3>Demo 1 — Máy tính Chinchilla + cái bẫy “chia 12 thay vì 120”</h3>
+<p>Kéo thanh trượt chọn ngân sách C: demo tính N = √(C/120), D = 20·N và kiểm tra lại 6·N·D = C. Bấm “chia cho 12” để xem đáp án mẫu đã sai như thế nào.</p>
+<label for="logC">Ngân sách C = 10^<span id="logCV">21</span> FLOPs</label>
+<input type="range" id="logC" min="15" max="24" step="0.1" value="21" oninput="updateDemo1()">
+<label><input type="checkbox" id="trap12" onchange="updateDemo1()"> Bẫy: chia cho 12 thay vì 120 (lỗi đáp án mẫu ban đầu)</label>
+<pre id="demo1Out"></pre>
+<label for="gptN">Kiểm tra một mô hình thật — số tham số N (tỷ): <span id="gptNV">175</span></label>
+<input type="range" id="gptN" min="1" max="500" step="1" value="175" oninput="updateDemo1()">
+<label for="gptD">Số token đã huấn luyện D (tỷ): <span id="gptDV">300</span></label>
+<input type="range" id="gptD" min="10" max="3000" step="10" value="300" oninput="updateDemo1()">
+<pre id="demo1Gpt"></pre>
+<p class="kq">Mặc định: C=1e21 → N ≈ 2,89B, D ≈ 57,7B. GPT-3 mặc định (175B / 300B) → 1,7 token/tham số: thừa mô hình, thiếu dữ liệu.</p>
+</div>
+</section>
+
+<section id="green">
+<h2>Bước 5 — Green checkpoint: khi nào mới được tuyên bố “tốt hơn”</h2>
+<p>Green checkpoint là chuẩn mực đạo đức của cả khóa: trước khi viết “phương pháp của tôi tốt hơn baseline”, phải trả lời “có” cho cả ba câu hỏi — (a) chất lượng giữ được không (perplexity tăng ≤ +5%), (b) năng lượng giảm thật không (năng lượng/token giảm ≥ 20%), (c) kết quả tái lập được không (đo lại lần 2 chênh &lt; 3% cả ppl lẫn thời gian). Một câu “không” hoặc “chưa đo” thì tuyên bố phải đổi thành “chưa đủ bằng chứng” — và đó vẫn là kết quả tốt, vì nó trung thực.</p>
+<p>Điều kiện (c) ban đầu chỉ đo lại <i>trong cùng một phiên chạy</i> (cùng tải máy, cùng trạng thái nhiễu) — nó chỉ chứng minh nhiễu ngắn hạn thấp, không chứng minh kết luận (b) ổn định giữa các lần chạy độc lập. Bằng chứng Trainer đưa ra: lần chạy của người học cho INT8 tiết kiệm <b>−1,25%</b> (verdict KHÔNG ĐẠT nhánh b), còn Trainer chạy lại độc lập trên cùng code, cùng seed cho <b>−28,2%</b> (verdict ĐẠT cả 3 nhánh) — chỉ PPL là tái lập đúng (7,78). Với mô hình 1 lớp rất nhỏ, sinh 100 token chỉ ~0,2 giây, chênh lệch FP32/INT8 nằm ngay dưới mức nhiễu của môi trường đo. Cách củng cố trước khi tin verdict (b): đo <b>xen kẽ A/B nhiều vòng</b> (diệt lệch do tải máy thay đổi theo thời gian), <b>tăng số token mỗi lần đo</b> (500 thay vì 100), và <b>báo verdict kèm khoảng dao động</b> giữa các lần chạy độc lập, không chỉ một con số.</p>
+
+<h3>Bảng tất cả các lần chạy — báo cả lần xấu, không chỉ lấy lần đẹp</h3>
+<table>
+<tr><th>Lần chạy</th><th>Cách đo nhánh (b)</th><th>Trung vị tiết kiệm năng lượng</th><th>Khoảng dao động</th><th>(c) chênh thời gian đo lại</th><th>Verdict</th></tr>
+<tr><td>Trước fix — người học (df318a6)</td><td>Đo riêng 2 phiên, 100 token/lần</td><td>−1,25%</td><td>không báo khoảng</td><td>1,8%</td><td><b>KHÔNG ĐẠT</b> (do b)</td></tr>
+<tr><td>Trainer chạy lại độc lập</td><td>Đo riêng, cùng code + seed</td><td>−28,2%</td><td>—</td><td>&lt; 3% (ĐẠT, số chi tiết không lưu)</td><td><b>ĐẠT</b> cả 3 nhánh</td></tr>
+<tr><td>Sau fix — lần 1</td><td>Xen kẽ 5 vòng × 500 token</td><td>−29,7%</td><td>−36,7%..−20,8%</td><td>13,8%</td><td><b>KHÔNG ĐẠT</b> (do c)</td></tr>
+<tr><td>Sau fix — lần 2 (đã lưu results.json)</td><td>Xen kẽ 5 vòng × 500 token</td><td>−22,5%</td><td>−31,7%..−2,5%</td><td>2,9%</td><td><b>ĐẠT, kèm cảnh báo</b> (khoảng cắt ngưỡng −20%)</td></tr>
+<tr><td>Kiểm chứng cho doc — lần 3</td><td>Xen kẽ 5 vòng × 500 token</td><td>−6,3%</td><td>−18,1%..+7,9%</td><td>1,5%</td><td><b>KHÔNG ĐẠT</b> (do b)</td></tr>
+</table>
+<p><b>Đọc bảng này như một nhà nghiên cứu:</b> nhánh (a) luôn ĐẠT (PPL +0,0% cả 5 lần — PPL là phép đo xác định, eval + no_grad, nên tái lập đúng từng chữ số). Nhánh (b) thì lật: −1,25% / −28,2% / −29,7% / −22,5% / −6,3% — trung vị đạt ngưỡng −20% ở 3/5 lần, trượt ở 2/5 lần; và ngay cả lần 2 “ĐẠT” thì khoảng dao động (−31,7%..−2,5%) vẫn cắt ngang ngưỡng −20%, nên code tự in cảnh báo “verdict (b) chưa vững”. Nhánh (c) cũng lật: 1,8% / 13,8% / 2,9% / 1,5% — vì (c) đo bằng hai lần <code>measure()</code> riêng biệt nên chính nó cũng dính nhiễu phiên đo; code ghi rõ điều này (“chỉ tham khảo”) và nhánh (b) thì lấy theo tỉ lệ xen kẽ nên vững hơn. Kết luận trung thực sau fix: <b>(b) trung vị đạt 2/3 lần chạy xen kẽ, nhưng verdict chưa vững vì khoảng dao động cắt ngưỡng — cần thêm vòng đo hoặc máy ổn định hơn mới kết luận chắc được.</b> Đây là giới hạn của phép đo thời gian trên mô hình tí hon + VM dùng chung, không phải lỗi code — và Trainer nói rõ điều đó trong review.</p>
+<p>Một chi tiết nữa cho thấy nhiễu lớn đến mức nào: thời gian tuyệt đối của baseline dao động 0,210 → 0,317 → 0,283 giây/100 token qua ba lần chạy (tải VM thay đổi), trong khi PPL không đổi một chữ số. Đo thời gian mà không xen kẽ thì đo cả tải máy, không chỉ đo mô hình. Và ở lần kiểm chứng cho doc, một trong 5 vòng xen kẽ có tỉ lệ 1,079 — tức vòng đó INT8 còn <i>chậm hơn</i> baseline — nhiễu đủ lớn để đảo chiều từng vòng đo, chỉ trung vị 5 vòng mới đứng vững phần nào.</p>
+
+<div class="demo">
+<h3>Demo 2 — Máy tính Green checkpoint: đổi số, xem verdict lật</h3>
+<p>Chọn một lần chạy có sẵn, hoặc tự kéo các thanh trượt: demo áp đúng 3 nhánh (a)/(b)/(c) của <code>green_checkpoint()</code>, kèm cảnh báo khi khoảng dao động cắt ngưỡng −20%.</p>
+<label for="preset">Lần chạy:</label>
+<select id="preset" onchange="applyPreset()">
+<option value="prefix">Trước fix — người học (−1,25%)</option>
+<option value="trainer">Trainer chạy lại (−28,2%)</option>
+<option value="run1">Sau fix — lần 1 (−29,7%)</option>
+<option value="run2" selected>Sau fix — lần 2 (−22,5%, đã lưu)</option>
+<option value="run3">Kiểm chứng cho doc — lần 3 (−6,3%)</option>
+</select>
+<label for="pplPct">Perplexity thay đổi (%): <span id="pplPctV">0,0</span></label>
+<input type="range" id="pplPct" min="-5" max="10" step="0.1" value="0" oninput="updateDemo2()">
+<label for="enMed">Năng lượng trung vị (%): <span id="enMedV">-22,5</span></label>
+<input type="range" id="enMed" min="-40" max="10" step="0.1" value="-22.5" oninput="updateDemo2()">
+<label for="enLo">Năng lượng — đầu thấp của khoảng (%): <span id="enLoV">-31,7</span></label>
+<input type="range" id="enLo" min="-50" max="10" step="0.1" value="-31.7" oninput="updateDemo2()">
+<label for="enHi">Năng lượng — đầu cao của khoảng (%): <span id="enHiV">-2,5</span></label>
+<input type="range" id="enHi" min="-50" max="10" step="0.1" value="-2.5" oninput="updateDemo2()">
+<label for="repPpl">Đo lại: chênh perplexity (%): <span id="repPplV">0,00</span></label>
+<input type="range" id="repPpl" min="0" max="10" step="0.05" value="0" oninput="updateDemo2()">
+<label for="repTime">Đo lại: chênh thời gian (%): <span id="repTimeV">2,9</span></label>
+<input type="range" id="repTime" min="0" max="20" step="0.1" value="2.9" oninput="updateDemo2()">
+<pre id="demo2Out"></pre>
+<p class="kq">Thử lần 1: (b) đạt nhưng (c) 13,8% làm rớt cả checkpoint. Thử lần 3: (b) trượt hẳn. Chỉ lần 2 đạt — và vẫn kèm cảnh báo khoảng cắt ngưỡng.</p>
+</div>
+
+<div class="demo">
+<h3>Demo 3 — Vì sao phải xen kẽ 5 vòng? (trung vị tỉ lệ từng vòng)</h3>
+<p>Nhập tỉ lệ thời gian INT8/baseline của từng vòng đo xen kẽ: demo tính trung vị, khoảng dao động và verdict nhánh (b). Mặc định là 5 vòng của lần 2 đã lưu. Thử preset “bẫy 2 vòng” để thấy vì sao trung vị của 2 giá trị là vô nghĩa.</p>
+<label for="ratios">Tỉ lệ từng vòng (cách nhau bằng dấu phẩy):</label>
+<input type="text" id="ratios" value="0.683, 0.975, 0.727, 0.775, 0.783" oninput="updateDemo3()" style="width:100%">
+<button onclick="setRatios('0.683, 0.975, 0.727, 0.775, 0.783')">Lần 2 đã lưu</button>
+<button onclick="setRatios('0.863, 0.937, 0.954, 0.819, 1.079')">Lần 3 kiểm chứng doc</button>
+<button onclick="setRatios('0.5, 3.55')">Bẫy: chỉ 2 vòng (tỉ lệ 3,55)</button>
+<pre id="demo3Out"></pre>
+<p class="kq">Lần 2: trung vị 0,775 → −22,5% (khoảng −31,7%..−2,5%). Lần 3: trung vị 0,937 → −6,3%, có vòng 1,079 (INT8 chậm hơn baseline). Bẫy 2 vòng: trung vị = trung bình = 2,03 — một lần trễ duy nhất đã làm lệch toàn bộ.</p>
+</div>
+</section>
+
+<section id="trainer">
+<h2>Trainer review — 1 điểm chính + 1 điểm nhẹ, cộng một lỗi đáp án mẫu do chính người học bắt được</h2>
+<p>Trainer review commit <code>1ab9c39</code> (09/11/2026, file <code>day30/capstone_review.py</code>, 500 dòng, thuần comment <code>[TRAINER]</code>). Trainer kiểm chứng độc lập: chạy lại toàn bộ capstone trên máy Trainer — <b>PPL tái lập đúng 7,78 cả baseline lẫn INT8</b>; công thức Chinchilla đúng (assert 6·N·D = C trong tự kiểm tra được khen là “cách kiểm chứng rất tốt”). <b>Đặc biệt: người học đã bắt được lỗi trong đáp án mẫu của practice</b> — practice ghi N = √(1e21/120) ≈ 9,1e9, nhưng giá trị đúng là 2,89e9 (9,1e9 là kết quả của √(1e21/12)) — và Trainer đã sửa đáp án practice theo đúng số này ngay trong commit review.</p>
+<table>
+<tr><th>#</th><th>Điểm của Trainer</th><th>Cách sửa (0a995a9)</th><th>Kết quả đo sau sửa</th></tr>
+<tr><td><b>CHÍNH</b></td><td><b>Verdict nhánh (b) năng lượng lật giữa hai lần chạy độc lập.</b> Điều kiện (c) chỉ đo lại trong cùng một phiên chạy nên chỉ chứng minh nhiễu ngắn hạn thấp, không chứng minh được kết luận (b) ổn định giữa các lần chạy độc lập. Bằng chứng: người học −1,25% (KHÔNG ĐẠT nhánh b), Trainer chạy lại −28,2% (ĐẠT cả 3 nhánh) — chỉ PPL tái lập đúng. Với mô hình 1 lớp rất nhỏ, sinh 100 token chỉ ~0,2 giây, chênh lệch FP32/INT8 nằm ngay dưới mức nhiễu của môi trường đo. Cách củng cố: đo xen kẽ A/B nhiều vòng + lấy trung vị tỉ lệ từng vòng; tăng GEN_TOKENS/số lần đo để 1 lần đo dài hơn nhiễu nhiều lần; báo verdict (b) kèm khoảng dao động. Kết luận KHÔNG ĐẠT của người học vẫn là cách báo cáo đúng (không sửa số), nhưng về mặt bằng chứng cả hai verdict đều chưa đủ mạnh — đây là giới hạn của phép đo, không phải lỗi code.</td><td>Hàm mới <code>do_xen_ke()</code>: 5 vòng × 500 token, mỗi vòng đo baseline rồi <i>ngay lập tức</i> đo INT8 (A/B/A/B…), <b>đổi thứ tự ở vòng lẻ</b> (B trước, A sau) để diệt cả lệch “bên đo sau lúc nào cũng chậm hơn”; lấy <b>trung vị tỉ lệ từng vòng</b> + báo khoảng (thấp..cao); <code>GEN_TOKENS</code> tăng 100 → 500; nhánh (b) của <code>green_checkpoint()</code> lấy theo trung vị xen kẽ thay vì 2 lần <code>measure()</code> riêng biệt; code tự in cảnh báo khi khoảng dao động cắt ngưỡng −20%.</td><td>Chạy lại 2 lần sau sửa (báo cả 2, không chỉ lấy lần đẹp): lần 1 trung vị −29,7% (khoảng −36,7%..−20,8%) nhưng (c) thời gian chênh 13,8% → KHÔNG ĐẠT do (c); lần 2 trung vị −22,5% (khoảng −31,7%..−2,5%), (c) 2,9% → ĐẠT kèm cảnh báo khoảng cắt ngưỡng. PPL 7,78 tái lập đúng cả 2 lần, Chinchilla không đổi. Lần 3 (kiểm chứng cho doc này): trung vị −6,3% (khoảng −18,1%..+7,9%), (c) 1,5% → KHÔNG ĐẠT do (b).</td></tr>
+<tr><td>Nhẹ</td><td><b><code>eval_loss</code> lấy trung bình không trọng số qua các batch.</b> Batch cuối ít cửa sổ hơn vẫn được tính ngang hàng batch đầy. Ở capstone này tập test chỉ có 14 cửa sổ (1 batch) nên không ảnh hưởng, nhưng đừng để thành thói quen xấu — ở Day 28 chính người học đã gộp PPL theo trọng số token (tổng NLL / tổng token). Nên giữ cùng một chuẩn: cộng loss × số token từng batch rồi chia cho tổng token.</td><td><code>eval_loss()</code> đổi sang cộng dồn NLL (loss × số token từng batch) rồi chia cho tổng token; tự kiểm tra thêm assert: batch 32 vs batch 5 phải cho cùng số (chênh &lt; 1e-6).</td><td>Kiểm chứng: cách cũ lệch 7,1e-05 giữa batch 32 và batch 5; cách mới cho cùng số (chênh &lt; 1e-6). Trên tập test 14 cửa sổ thì kết quả PPL không đổi (7,78) — đúng như Trainer dự báo “không ảnh hưởng”, nhưng chuẩn đo đã thống nhất.</td></tr>
+</table>
+<p><b>Hai lỗi tự kiểm tra bắt được dọc đường sửa (ghi trong code):</b> (1) trung vị của <b>2 vòng là vô nghĩa</b> — trung vị 2 giá trị chỉ là trung bình của chúng, nên 1 lần trễ cũng đủ làm lệch; tự kiểm tra bắt được tỉ lệ 3,55 trên 2 mô hình giống hệt nhau ở bản đầu dùng n_vong=2 → đổi sang 5 vòng (assert trung vị nằm trong [thấp, cao] và 0,5 ≤ trung vị ≤ 2,0 với 2 mô hình giống nhau). (2) <code>tu_kiem_tra()</code> tạo mô hình thử nên <b>tiêu thụ một phần luồng RNG toàn cục</b> — không đặt lại seed thì baseline khởi tạo khác lần chạy gốc và PPL đổi thành 7,75 → <code>main()</code> đặt lại <code>torch.manual_seed(42)</code> ngay trước khi train. Cả hai đều là bài học đo đạc/kiểm chứng đã vào AGENTS.md (điểm 28–29).</p>
+<p class="kq">Verdict: <b>Trainer OK</b> — anh báo 18:57 JST 09/11/2026, remote vẫn ở <code>0a995a9</code>, không có commit mới. Vòng review Day 30 đóng; Phase 1 khép lại ở đây — ngày mai Day 31 bắt đầu Phase 2 (Tiny Vietnamese LM).</p>
+</section>
+
+<section id="checklist">
+<h2>Checklist 29 điểm — đối chiếu từng điểm với code ngày này</h2>
+<p>Mẫu checklist xem chi tiết ở <code>~/AGENTS.md</code> (29 điểm: gốc 4 + Day 13 thêm 3 + Day 21–25 thêm 16 + Day 29 thêm 3 + Day 30 thêm 3 — điểm 27–29 là của chính ngày này). Dưới đây là đối chiếu cho <code>capstone.py</code>:</p>
+<table>
+<tr><th>#</th><th>Điểm</th><th>Ở đâu trong <code>capstone.py</code></th></tr>
+<tr><td>1</td><td>Edge case / input validation</td><td><code>chinchilla_split</code> chặn C không phải số / không hữu hạn / ≤ 0; <code>do_xen_ke</code> chặn model không phải <code>nn.Module</code>, n_vong/n_tokens không phải int ≥ 1; <code>eval_loss</code> assert tổng token &gt; 0 + loss hữu hạn; <code>measure</code> assert ppl hữu hạn &gt; 1,0; dữ liệu assert tổng 2.000–3.000 ký tự, chia đủ tổng, có ít nhất 1 cửa sổ.</td></tr>
+<tr><td>2</td><td>Docstring nói đúng code</td><td><code>measure</code> ghi trung vị 5 lần sau 1 warmup (không ghi “trung bình” như practice); <code>green_checkpoint</code> ghi nhận vào là phần trăm đã tính sẵn + (b) lấy theo trung vị xen kẽ; <code>do_xen_ke</code> ghi đổi thứ tự vòng lẻ + warmup 1 lần trước vòng đầu; <code>state_bytes</code> ghi mục đặc biệt của state_dict lượng tử hóa.</td></tr>
+<tr><td>3</td><td>Device cho mọi tensor mới</td><td>Mask causal tạo bằng <code>torch.triu(..., device=x.device)</code> ngay trong <code>forward</code>; dữ liệu <code>encode</code> ra tensor long; toàn lab CPU, không tạo tensor lẻ sai device.</td></tr>
+<tr><td>4</td><td>Đọc file defensively</td><td>Lab không đọc file ngoài nào (dữ liệu là <code>TEXT</code> trong code); <code>capstone_results.json</code> chỉ ghi ra cuối <code>main()</code> bằng <code>json.dump</code>, không nơi nào parse lại file rồi assume shape.</td></tr>
+<tr><td>5</td><td>Đo thời gian: perf_counter</td><td><code>_do_1_lan</code> và <code>measure</code> bấm giờ bằng <code>time.perf_counter()</code>; <code>time.time()</code> không xuất hiện.</td></tr>
+<tr><td>6</td><td>Ablation thật sự 1 biến</td><td>Chỉ thay biến thể mô hình (FP32 → INT8): cùng máy, cùng tập test, cùng hàm <code>measure()</code>; không huấn luyện lại sau khi nén.</td></tr>
+<tr><td>7</td><td>Resource cleanup trong finally</td><td>Fastpath Transformer tắt khi đo INT8, bật lại ngay sau khi đo xong trong <code>finally</code> (<code>set_fastpath_enabled(True)</code>) — exception giữa chừng cũng không để fastpath tắt.</td></tr>
+<tr><td>8</td><td>Tham số trả về tự nhất quán (round-trip)</td><td><code>chinchilla_split</code> assert 6·N·D = C và D/N = 20 khi in số; <code>eval_loss</code> batch 32 vs batch 5 cho cùng số; assert INT8 nhẹ hơn baseline (<code>state_bytes</code>).</td></tr>
+<tr><td>9</td><td>Tham chiếu không dùng → dùng thật hoặc xóa</td><td>Mọi import đều dùng: <code>copy</code> (deepcopy trong tự kiểm tra), <code>json</code> (ghi results), <code>math</code>, <code>statistics</code> (median), <code>time</code>, <code>torch</code>, <code>nn</code>, <code>DataLoader</code>/<code>TensorDataset</code> (train); <code>POWER_W</code>, <code>N_VONG_XEN_KE</code>, <code>GEN_TOKENS</code> đều dùng.</td></tr>
+<tr><td>10</td><td>Ablation: diff lời gọi kể cả mặc định</td><td><code>measure</code> mặc định sinh <code>GEN_TOKENS = 500</code> (practice ghi 100 — đổi có ghi chú lý do trong comment); <code>do_xen_ke</code> mặc định n_vong=5, n_tokens=GEN_TOKENS; <code>eval_loss</code> mặc định batch=32.</td></tr>
+<tr><td>11</td><td>Mở rộng tra cứu: audit mọi nơi sum() + lỗi rõ ở biên</td><td><code>state_bytes</code> kiểm tra <i>kiểu</i> từng giá trị state_dict (Tensor / tuple / list / khác) trước khi gọi <code>.numel()</code> — vì <code>_packed_params</code> của mô hình lượng tử hóa chứa cả dtype lẫn tuple; <code>chinchilla_split</code> báo <code>ValueError</code> kèm kiểu nhận được.</td></tr>
+<tr><td>12</td><td>Guard dtype + hữu hạn + kiểu, 1 loại exception</td><td><code>chinchilla_split</code> chặn C không phải số / NaN / Inf / ≤ 0 → <code>ValueError</code>; <code>do_xen_ke</code> chặn model/n_vong/n_tokens sai kiểu → <code>ValueError</code>.</td></tr>
+<tr><td>13</td><td>Tự kiểm tra FAIL bằng assert</td><td><code>tu_kiem_tra</code>: assert eval_loss không phụ thuộc cách chia batch; assert <code>green_checkpoint</code> rớt đúng từng nhánh (ppl +8% rớt, đủ 3 nhánh thì ĐẠT, thời gian đo lại chênh 5% rớt); assert <code>do_xen_ke</code> 5 vòng trên 2 mô hình giống nhau (đủ 5 tỉ lệ, đều &gt; 0, trung vị trong [thấp, cao], 0,5 ≤ trung vị ≤ 2,0); chỉ in PASS sau khi tất cả qua.</td></tr>
+<tr><td>14</td><td>Tập con rỗng → NaN có chủ đích</td><td><code>eval_loss</code> assert tổng token &gt; 0 (không trả loss giả trên tập rỗng); <code>green_checkpoint</code> trả False + danh sách lý do khi có nhánh rớt (không chọn bừa ĐẠT); <code>measure</code> assert ppl &gt; 1,0.</td></tr>
+<tr><td>15</td><td>Thêm guard → sửa docstring cùng edit</td><td>Fix <code>0a995a9</code>: docstring của <code>eval_loss</code> (cộng theo trọng số token), <code>green_checkpoint</code> (trung vị + khoảng), <code>measure</code> (trung vị + 500 token) cập nhật cùng commit với code; mỗi comment <code>[TRAINER]</code> có dòng “-&gt; SỬA:” ghi cách sửa ngay dưới.</td></tr>
+<tr><td>16</td><td>Guard dtype cho mọi tensor vào</td><td><code>do_xen_ke</code> kiểm tra cả 2 model là <code>nn.Module</code>; dữ liệu ép <code>dtype=torch.long</code> ngay lúc <code>encode</code>; mask tạo đúng device của input.</td></tr>
+<tr><td>17</td><td>Kết luận rẽ nhánh theo số đo</td><td><code>green_checkpoint</code> rẽ từng nhánh (a)/(b)/(c) theo số đo; <code>main()</code> in cảnh báo khi khoảng dao động cắt ngưỡng −20% (<code>energy_lo ≤ −20 ≤ energy_hi</code>) và ghi chú khi <code>diff_time ≥ 0,03</code>; kết luận ĐẠT/KHÔNG ĐẠT in theo đúng verdict tính ra.</td></tr>
+<tr><td>18</td><td>Số đếm trong câu chữ tính từ dữ liệu</td><td>Bảng tổng kết in từ dict <code>results</code> (không ghi cứng PPL/thời gian); kích thước 1.118,4/342,9 KiB tính bằng <code>state_bytes</code>; N/D Chinchilla tính bằng hàm; “1,7 token/tham số” tính 300/175; tỉ lệ xen kẽ in từ list đo thật.</td></tr>
+<tr><td>19</td><td>Áp review: diff docstring luôn</td><td>Commit fix <code>0a995a9</code> cập nhật docstring cùng code (điểm 15); tự kiểm tra thêm case mới cho từng fix: eval_loss batch 32 vs 5, green_checkpoint từng nhánh, do_xen_ke 5 vòng trên mô hình giống nhau.</td></tr>
+<tr><td>20</td><td>API im lặng / guard sai đối tượng</td><td>Bản cũ <code>measure()</code> riêng biệt lặng lẽ đo cả tải máy làm “tiết kiệm năng lượng” (điểm chính) → nay xen kẽ + trung vị + khoảng; bản cũ <code>eval_loss</code> lặng lẽ trung bình batch không đều → nay cộng theo token; bản cũ điều kiện (c) lặng lẽ chỉ đo trong phiên → nay báo khoảng + cảnh báo. Cảnh báo deprecation của <code>torch.quantization</code> là từ bên trong torch, không phải của lab.</td></tr>
+<tr><td>21</td><td>Đo thời gian trên GPU phải sync</td><td>Lab chỉ chạy CPU (không có nhánh CUDA nào để sync sai); doc ghi rõ giới hạn này thay vì giả vờ có số GPU.</td></tr>
+<tr><td>22</td><td>Tỉ lệ tốc độ tách cả 2 phía</td><td><code>do_xen_ke</code> trả (trung vị, thấp, cao, danh sách) — không gắn nhãn “nhanh hơn/chậm hơn”; doc trình tiết kiệm năng lượng dạng trung vị + khoảng qua 3 lần chạy (−29,7% / −22,5% / −6,3%), không lấy 1 tỉ lệ làm hằng số.</td></tr>
+<tr><td>23</td><td>Bộ nhớ phụ đếm đủ buffer đang sống</td><td><code>state_bytes</code> đếm đệ quy <i>mọi</i> giá trị trong state_dict (tensor + tuple lồng nhau), không bỏ mục <code>_packed_params</code>; dtype/số vô hướng tính 0 và ghi rõ trong docstring.</td></tr>
+<tr><td>24</td><td>Đo thời gian: warmup + xáo thứ tự + trung vị từng lượt</td><td><code>measure</code>: 1 warmup + 5 lượt, lấy trung vị; <code>do_xen_ke</code>: đổi thứ tự ở vòng lẻ + trung vị tỉ lệ từng vòng (điểm chính của review).</td></tr>
+<tr><td>25</td><td>Thứ tự ưu tiên / chọn lựa tính từ số đo thật</td><td>Nhánh (b) lấy theo trung vị tỉ lệ xen kẽ đo thật, không lấy verdict cứng; doc báo cả 3 lần chạy và kết luận “verdict chưa vững” từ khoảng dao động — không chọn lần đẹp nhất làm chuẩn.</td></tr>
+<tr><td>26</td><td>Độ lệch chuẩn ghi rõ phạm vi</td><td>Năng lượng luôn báo kèm khoảng dao động (thấp..cao) từng lần chạy; (c) báo riêng chênh ppl và chênh thời gian; doc ghi rõ các khoảng chỉ bao quát các vòng đo trong lần chạy đó, chưa gồm biến thiên giữa các máy/phiên.</td></tr>
+<tr><td>27</td><td>Loss trung bình cộng theo trọng số token</td><td><code>eval_loss</code>: tổng NLL / tổng token (điểm nhẹ của review); cách cũ lệch 7,1e-05 giữa batch 32 và batch 5, cách mới chênh &lt; 1e-6.</td></tr>
+<tr><td>28</td><td>Verdict năng lượng: xen kẽ A/B nhiều vòng + đổi thứ tự vòng lẻ + trung vị tỉ lệ + báo khoảng dao động</td><td><code>do_xen_ke()</code> mới: 5 vòng × 500 token, đổi thứ tự vòng lẻ, trung vị tỉ lệ từng vòng, trả cả khoảng; <code>green_checkpoint</code> nhận khoảng làm đầu vào; cảnh báo khi khoảng cắt ngưỡng −20%; báo cả 2 lần chạy sau sửa (lần 1 KHÔNG ĐẠT do (c), lần 2 ĐẠT kèm cảnh báo).</td></tr>
+<tr><td>29</td><td>Tự kiểm tra tạo model trước khi train tiêu thụ RNG → đặt lại seed ngay trước khi train</td><td><code>main()</code> đặt lại <code>torch.manual_seed(42)</code> ngay trước <code>train_baseline()</code> vì <code>tu_kiem_tra()</code> đã tạo mô hình thử và tiêu thụ RNG — không đặt lại thì PPL đổi 7,75 thay vì 7,78 (tự kiểm tra bắt được).</td></tr>
+</table>
+</section>
+
+<section id="source">
+<h2>Source — capstone.py (bản đã sửa 0a995a9, đầy đủ)</h2>
+<p>Source dưới đây là đúng file đã push. Có thể bôi đen toàn bộ khung để copy, hoặc bấm nút sao chép.</p>
+<div class="code-wrap">
+<button class="copy" data-target="srcPlain">Sao chép source</button>
+<pre class="code" id="srcPlain">"""Capstone GreenLLM - Day 30 (buoi toi, Phase 1).
+
+Chuoi capstone thu nho tren CPU: mo hinh ngon ngu ky tu (char-level)
+huan luyen tren doan van ban tieng Viet, do baseline FP32 roi so voi
+bien the luong tu hoa dong INT8, tinh chia Chinchilla, ap Green
+checkpoint de ra quyet dinh.
+
+Chi thu thay doi la bien the mo hinh (FP32 -&gt; INT8): cung mot may,
+cung mot bo danh gia (tap test), cung mot ham measure(). Nang luong
+do XEN KE A/B nhieu vong + lay trung vi ti le tung vong (sua theo
+review Trainer 1ab9c39: do rieng 2 phien lat verdict -1,25% vs
+-28,2% vi thoi gian sinh 100 token chi ~0,2 giay, nam duoi muc
+nhieu cua moi truong do).
+
+GHI CHU (nguoi hoc dien 1 dong truoc Phase 2): khai niem mo nhat
+trong 30 ngay la gi - de on lai truoc khi buoc sang Phase 2.
+"""
+
+# ============================================================
+# [TRAINER] REVIEW Day 30 - Capstone (capstone_review.py)
+# Kiem chung doc lap: chay lai toan bo capstone tren may
+# Trainer - PPL tai lap dung 7,78 ca baseline lan INT8;
+# cong thuc Chinchilla dung (assert 6*N*D = C tu kiem tra
+# trong code la cach kiem chung rat tot). DAC BIET: nguoi
+# hoc da bat duoc loi trong DAP AN MAU cua practice -
+# practice ghi N = sqrt(1e21/120) ~ 9,1e9, nhung gia tri
+# dung la 2,89e9 (9,1e9 la ket qua cua sqrt(1e21/12)).
+# Trainer da sua dap an practice theo dung so nay.
+# 1 diem chinh + 1 diem nhe:
+#  (1) CHINH: verdict nhanh (b) nang luong LAT giua hai
+#      lan chay doc lap - xem comment o green_checkpoint.
+#  (2) Nhe: eval_loss lay trung binh khong trong so qua
+#      cac batch (comment o eval_loss).
+# ============================================================
+
+import copy
+import json
+import math
+import statistics
+import time
+
+import torch
+import torch.nn as nn
+from torch.utils.data import DataLoader, TensorDataset
+
+torch.manual_seed(42)
+
+# ---- Buoc 0: du lieu (khau 1: Data) ----
+# Doan van tieng Viet ~2.000-3.000 ky tu, viet ve AI xanh.
+TEXT = (
+    "Tri tue nhan tao dang thay doi cach con nguoi lam viec, hoc tap "
+    "va sang tao. Nhung mo hinh ngon ngu lon co the viet van ban, "
+    "dich thuat, tra loi cau hoi va ho tro lap trinh voi do chinh xac "
+    "ngay cang cao. Dang sau moi cau tra loi troi chay la hang nghin "
+    "ty phep tinh duoc thuc hien trong cac trung tam du lieu, noi "
+    "hang chuc nghin bo xu ly do hoa chay lien tuc suot nhieu tuan "
+    "de huan luyen mot mo hinh duy nhat. Chi phi nang luong cua qua "
+    "trinh nay khong he nho, va no dat ra mot cau hoi quan trong cho "
+    "ca nganh: lam sao de tri tue nhan tao vua manh me vua ben vung. "
+    "Hieu qua nang luong khong chi la van de tiet kiem tien dien. "
+    "Moi mo hinh lon khi dua vao su dung se phuc vu hang trieu luot "
+    "truy van moi ngay, va nang luong tieu thu trong giai doan suy "
+    "luan thuong vuot xa nang luong huan luyen sau mot thoi gian dai "
+    "van hanh. Vi vay cac ky su bat dau quan tam den nhung mo hinh "
+    "nho hon nhung duoc huan luyen tot hon, thay vi chay dua tang so "
+    "tham so mot cach vo toi va. Luat Chinchilla da chi ra rang voi "
+    "cung mot ngan sach tinh toan, mot mo hinh vua phai huan luyen "
+    "tren nhieu du lieu thuong cho ket qua tot hon mot mo hinh kho "
+    "lo nhung thieu du lieu. Ben canh viec chon kich thuoc mo hinh "
+    "hop ly, nhieu ky thuat toi uu cung giup giam chi phi suy luan. "
+    "Luong tu hoa la mot trong nhung ky thuat pho bien nhat: thay vi "
+    "luu tru trong so bang so thuc 32 bit, mo hinh co the dung so "
+    "nguyen 8 bit, giup giam dung luong bo nho va tang toc do tinh "
+    "toan. Ky thuat cat tia loai bo nhung ket noi it quan trong, con "
+    "chung cat tri thuc chuyen kien thuc tu mo hinh lon sang mo hinh "
+    "nho gon hon. Moi ky thuat deu phai danh doi mot phan chat luong "
+    "de lay hieu qua, va nhiem vu cua nguoi lam mo hinh la do luong "
+    "su danh doi do mot cach trung thuc. Mot bao cao tot khong chi "
+    "khoe con so dep ma con noi ro dieu kien do: cung mot may, cung "
+    "mot bo du lieu, cung mot cach do. Neu hai mo hinh duoc do tren "
+    "hai phan cung khac nhau thi moi so sanh deu vo nghia. Green "
+    "checkpoint la mot khung kiem tra don gian: bien the toi uu chi "
+    "duoc coi la tot hon khi chat luong khong giam qua mot nguong "
+    "cho phep, dong thoi nang luong tieu thu giam du nhieu, va ket "
+    "qua co the lap lai khi do lan thu hai. Khung kiem tra nay giup "
+    "nguoi lam mo hinh tranh duoc cam do to ve so lieu. Cuoi cung, "
+    "tri tue nhan tao xanh khong phai la mot tinh nang them vao sau "
+    "cung ma la mot cach tiep can xuyen suot vong doi mo hinh: tu "
+    "khau thu thap du lieu, chon kien truc, huan luyen, toi uu, cho "
+    "den trien khai va bao cao. Moi quyet dinh o mot khau deu anh "
+    "huong den nang luong tieu thu o cac khau sau. Khi nguoi hoc "
+    "nam duoc tu duy nay, ho khong chi xay dung duoc mo hinh tot ma "
+    "con xay dung duoc mo hinh co trach nhiem voi moi truong va voi "
+    "chi phi van hanh lau dai."
+)
+
+# Chia 80/10/10 theo thu tu thoi gian, KHONG xao tron: neu test lan
+# vao train thi moi so do sau do deu vo nghia (loi so 1 capstone).
+N_TOTAL = len(TEXT)
+N_TRAIN = int(N_TOTAL * 0.8)
+N_VAL = int(N_TOTAL * 0.1)
+TEXT_TRAIN = TEXT[:N_TRAIN]
+TEXT_VAL = TEXT[N_TRAIN:N_TRAIN + N_VAL]
+TEXT_TEST = TEXT[N_TRAIN + N_VAL:]
+print(f"train={len(TEXT_TRAIN)} val={len(TEXT_VAL)} "
+      f"test={len(TEXT_TEST)} ky tu")
+assert len(TEXT_TRAIN) + len(TEXT_VAL) + len(TEXT_TEST) == N_TOTAL
+assert 2000 &lt;= N_TOTAL &lt;= 3000, f"doan van {N_TOTAL} ky tu, can 2-3k"
+
+CHARS = sorted(set(TEXT))
+STOI = {c: i for i, c in enumerate(CHARS)}
+VOCAB = len(CHARS)
+print(f"vocab={VOCAB} ky tu rieng biet")
+
+SEQ_LEN = 64
+BATCH = 32
+EPOCHS = 3
+LR = 3e-3
+D_MODEL = 64
+N_HEAD = 2
+GEN_TOKENS = 500
+# 1 lan do sinh 500 token (~1 giay) thay vi 100 token (~0,2 giay):
+# 100 token nam ngay duoi muc nhieu cua moi truong do nen verdict
+# nang luong lat giua 2 lan chay doc lap (review Trainer 1ab9c39).
+N_VONG_XEN_KE = 5
+POWER_W = 65.0  # cong suat gia dinh cua CPU laptop, de uoc luong
+
+
+def encode(text):
+    """Ma hoa chuoi thanh tensor id (moi ky tu -&gt; 1 so nguyen)."""
+    return torch.tensor([STOI[c] for c in text], dtype=torch.long)
+
+
+def make_windows(ids, stride=16):
+    """Cat chuoi id thanh cac cua so (input, target) dich 1 ky tu.
+
+    Vi du: ids = [5, 9, 2, ...], cua so dau tien co input la 64 id
+    dau, target la 64 id ke tiep (dich sang phai 1 buoc) - mo hinh
+    hoc doan ky tu tiep theo. Buoc truot 16 de co du mau ma van
+    nhanh tren CPU.
+    """
+    xs, ys = [], []
+    for i in range(0, len(ids) - SEQ_LEN, stride):
+        xs.append(ids[i:i + SEQ_LEN])
+        ys.append(ids[i + 1:i + SEQ_LEN + 1])
+    assert xs, "chuoi qua ngan, khong cat duoc cua so nao"
+    return torch.stack(xs), torch.stack(ys)
+
+
+IDS_TRAIN = encode(TEXT_TRAIN)
+IDS_VAL = encode(TEXT_VAL)
+IDS_TEST = encode(TEXT_TEST)
+X_TRAIN, Y_TRAIN = make_windows(IDS_TRAIN)
+X_VAL, Y_VAL = make_windows(IDS_VAL)
+X_TEST, Y_TEST = make_windows(IDS_TEST)
+print(f"cua so: train={len(X_TRAIN)} val={len(X_VAL)} "
+      f"test={len(X_TEST)} (moi cua so {SEQ_LEN} ky tu)")
+
+
+# ---- Buoc 1: baseline (khau 2-3: Model + Train) ----
+class TinyLM(nn.Module):
+    """Mo hinh ngon ngu ky tu nho: embedding -&gt; Transformer -&gt; Linear.
+
+    Dau vao (batch, seq) id ky tu; dau ra (batch, seq, vocab) logits
+    cho ky tu tiep theo o moi vi tri.
+    """
+
+    def __init__(self, vocab_size, d_model=64, n_head=2):
+        super().__init__()
+        self.emb = nn.Embedding(vocab_size, d_model)
+        layer = nn.TransformerEncoderLayer(d_model=d_model,
+                                           nhead=n_head,
+                                           batch_first=True)
+        self.enc = nn.TransformerEncoder(layer, num_layers=1)
+        self.head = nn.Linear(d_model, vocab_size)
+
+    def forward(self, x):
+        seq_len = x.size(1)
+        # Mat na nhan qua: vi tri i chi duoc "nhin" cac vi tri &lt;= i,
+        # khong duoc nhin truoc ky tu can doan (True = cam).
+        mask = torch.triu(torch.ones(seq_len, seq_len,
+                                     dtype=torch.bool,
+                                     device=x.device), diagonal=1)
+        h = self.emb(x)
+        h = self.enc(h, mask=mask)
+        return self.head(h)
+
+
+def count_params(model):
+    """Dem so tham so co the huan luyen cua mo hinh."""
+    return sum(p.numel() for p in model.parameters()
+               if p.requires_grad)
+
+
+def state_bytes(model):
+    """Tong so byte cua state_dict (trong so luong tu hoa nhe hon).
+
+    Vi du: tensor float32 co 1.000 phan tu chiem 4.000 byte, tensor
+    qint8 cung so phan tu chi chiem 1.000 byte. Mo hinh luong tu
+    hoa co cac muc dac biet trong state_dict: _packed_params.dtype
+    (1 doi tuong dtype, khong phai tensor) va _packed_params
+    (tuple chua tensor trong so that) - phai kiem tra KIEU truoc
+    khi goi .numel() (bai hoc Day 22/AGENTS.md diem 11).
+    """
+    def _bytes(value):
+        if isinstance(value, torch.Tensor):
+            return value.numel() * value.element_size()
+        if isinstance(value, (tuple, list)):
+            return sum(_bytes(v) for v in value)
+        return 0  # dtype/so vo huong: khong chiem bo nho dang ke
+
+    total = 0
+    for value in model.state_dict().values():
+        total += _bytes(value)
+    return total
+
+
+def eval_loss(model, x, y, batch=32):
+    """Loss trung binh THEO TRONG SO TOKEN tren mot tap.
+
+    Cong don NLL (loss * so token tung batch) roi chia cho tong
+    token - batch cuoi it mau khong duoc tinh ngang batch day
+    (sua theo review Trainer 1ab9c39; dung chuan Day 28: tong
+    NLL / tong token). Khong tinh grad.
+    """
+    model.eval()
+    tong_nll = 0.0
+    tong_token = 0
+    with torch.no_grad():
+        for i in range(0, len(x), batch):
+            xb, yb = x[i:i + batch], y[i:i + batch]
+            logits = model(xb)
+            loss = nn.functional.cross_entropy(
+                logits.reshape(-1, VOCAB), yb.reshape(-1))
+            n_token = int(yb.numel())
+            tong_nll += float(loss.item()) * n_token
+            tong_token += n_token
+    # [TRAINER] Diem nhe - trung binh cong cac loss theo
+    # batch ma khong trong so theo so token: batch cuoi
+    # it cua so hon van duoc tinh ngang hang batch day.
+    # O capstone nay tap test chi co 12 cua so (1 batch)
+    # nen khong anh huong, nhung dung lai quen xau - o
+    # Day 28 chinh nguoi hoc da gop PPL theo trong so
+    # token (tong_nll / tong_token). Nen giu cung mot
+    # chuan: cong loss * so token tung batch roi chia
+    # cho tong token.
+    # -&gt; SUA: da doi sang cong theo trong so token o tren.
+    assert tong_token &gt; 0, "tap du lieu rong"
+    loss_tb = tong_nll / tong_token
+    assert math.isfinite(loss_tb), "loss khong huu han"
+    return loss_tb
+
+
+def train_baseline():
+    """Huan luyen baseline 3 epoch, tra ve mo hinh da huan luyen."""
+    model = TinyLM(VOCAB, D_MODEL, N_HEAD)
+    print(f"baseline: {count_params(model):,} tham so, "
+          f"{state_bytes(model) / 1024:.1f} KiB")
+    opt = torch.optim.AdamW(model.parameters(), lr=LR)
+    loader = DataLoader(TensorDataset(X_TRAIN, Y_TRAIN),
+                        batch_size=BATCH, shuffle=True,
+                        generator=torch.Generator().manual_seed(42))
+    for epoch in range(EPOCHS):
+        model.train()
+        for xb, yb in loader:
+            opt.zero_grad()
+            logits = model(xb)
+            loss = nn.functional.cross_entropy(
+                logits.reshape(-1, VOCAB), yb.reshape(-1))
+            loss.backward()
+            opt.step()
+        train_loss = eval_loss(model, X_TRAIN, Y_TRAIN)
+        val_loss = eval_loss(model, X_VAL, Y_VAL)
+        print(f"epoch {epoch + 1}/{EPOCHS}: train loss={train_loss:.4f} "
+              f"val loss={val_loss:.4f}")
+    return model
+
+
+# ---- Buoc 2: ham do (khau 4 + 6: Eval + Serve) ----
+def generate(model, seed_ids, n_tokens=GEN_TOKENS):
+    """Sinh tham lam n_tokens ky tu tiep theo tu seed (argmax).
+
+    Moi buoc chi dua 64 ky tu gan nhat vao mo hinh roi lay ky tu co
+    xac suat cao nhat; lap lai cho den du so token.
+    """
+    model.eval()
+    ctx = list(seed_ids)
+    with torch.no_grad():
+        for _ in range(n_tokens):
+            window = torch.tensor([ctx[-SEQ_LEN:]], dtype=torch.long)
+            logits = model(window)
+            nxt = int(torch.argmax(logits[0, -1]).item())
+            ctx.append(nxt)
+    return ctx[len(seed_ids):]
+
+
+def measure(model, seed_ids):
+    """Do (perplexity test, giay/100 token) bang cung mot cach do.
+
+    Tra ve dict co ppl, sec_per_100, mwh_per_token (uoc luong bang
+    thoi gian x 65 W - ghi ro day la UOC LUONG, khong phai so do
+    CodeCarbon that). Thoi gian lay TRUNG VI 5 lan chay, sau 1 lan
+    warmup (bai hoc Day 29: trung vi triet duoc 1-2 lan do tre do
+    VM dung chung giat; practice ghi "trung binh 3 lan" nhung trung
+    binh bi keo lech khi 1 lan tre gap 10 lan, nen doi sang trung vi
+    van giu dung tinh than "nhieu lan roi gop lai").
+    """
+    model.eval()
+    # Perplexity = exp(loss trung binh) tren tap test.
+    test_loss = eval_loss(model, X_TEST, Y_TEST)
+    ppl = math.exp(test_loss)
+    assert math.isfinite(ppl) and ppl &gt; 1.0, f"ppl vo ly: {ppl}"
+    # Sinh GEN_TOKENS token: 1 lan warmup roi 5 lan bam gio lay
+    # trung vi, quy ve giay/100 token (GEN_TOKENS = 500 de 1 lan
+    # do dai hon han nhieu: 100 token chi ~0,2 giay, nam ngay
+    # duoi muc nhieu cua moi truong do - review Trainer 1ab9c39).
+    generate(model, seed_ids)
+    times = []
+    for _ in range(5):
+        t0 = time.perf_counter()
+        generate(model, seed_ids)
+        times.append(time.perf_counter() - t0)
+    sec_per_100 = statistics.median(times) * 100 / GEN_TOKENS
+    # Nang luong uoc luong: giay/token x 65 W = joule/token, doi
+    # sang mWh (1 Wh = 3600 J, 1 mWh = 3,6 J). Chu y chia cho
+    # 100 (so token cua don vi sec_per_100), khong chia cho
+    # GEN_TOKENS - 2 so nay chi bang nhau khi GEN_TOKENS = 100.
+    joule_per_token = (sec_per_100 / 100) * POWER_W
+    mwh_per_token = joule_per_token / 3.6
+    return {"ppl": ppl, "sec_per_100": sec_per_100,
+            "mwh_per_token": mwh_per_token}
+
+
+def rel_diff(a, b):
+    """Chen lech tuong doi |a-b|/a, dung de kiem tra lap lai duoc."""
+    return abs(a - b) / abs(a)
+
+
+def _do_1_lan(model, seed_ids, n_tokens):
+    """Sinh n_tokens token 1 lan, tra so giay (de do xen ke)."""
+    t0 = time.perf_counter()
+    generate(model, seed_ids, n_tokens)
+    return time.perf_counter() - t0
+
+
+def do_xen_ke(co_so, bien_the, seed_ids, n_vong=5,
+              n_tokens=GEN_TOKENS):
+    """Do xen ke A/B nhieu vong, tra ti le thoi gian tung vong.
+
+    Moi vong: sinh n_tokens token bang baseline roi NGAY LAP TUC
+    bang bien the (A/B/A/B...), tinh ti le t_bien / t_co_so cua
+    vong do - va DOI THU TU o vong le (B truoc, A sau) de diet
+    ca lech do "ben do sau luc nao cung cham hon". Tai may thay
+    doi cham theo thoi gian nen do rieng 2 phien (do het
+    baseline roi moi INT8) co the LAT verdict: lan chay cua
+    nguoi hoc -1,25%, Trainer chay lai -28,2%. Xen ke diet
+    lech nay. Tra (ti_le_trung_vi, ti_le_thap_nhat,
+    ti_le_cao_nhat, danh sach ti le). Moi mo hinh warmup 1 lan
+    truoc vong dau (khong warmup lai tung vong - mo hinh van
+    nong). Thoi gian bam bang time.perf_counter().
+    """
+    if not isinstance(co_so, nn.Module) \
+            or not isinstance(bien_the, nn.Module):
+        raise ValueError("mo hinh phai la nn.Module.")
+    if not isinstance(n_vong, int) or n_vong &lt; 1:
+        raise ValueError(f"n_vong phai la so nguyen &gt;= 1, "
+                         f"nhan duoc {n_vong}")
+    if not isinstance(n_tokens, int) or n_tokens &lt; 1:
+        raise ValueError(f"n_tokens phai la so nguyen &gt;= 1, "
+                         f"nhan duoc {n_tokens}")
+    co_so.eval()
+    bien_the.eval()
+    generate(co_so, seed_ids, n_tokens)
+    generate(bien_the, seed_ids, n_tokens)
+    ti_les = []
+    for vong in range(n_vong):
+        if vong % 2 == 0:
+            t_a = _do_1_lan(co_so, seed_ids, n_tokens)
+            t_b = _do_1_lan(bien_the, seed_ids, n_tokens)
+        else:
+            t_b = _do_1_lan(bien_the, seed_ids, n_tokens)
+            t_a = _do_1_lan(co_so, seed_ids, n_tokens)
+        assert t_a &gt; 0 and t_b &gt; 0, "thoi gian do phai duong"
+        ti_les.append(t_b / t_a)
+    return (float(statistics.median(ti_les)), min(ti_les),
+            max(ti_les), ti_les)
+
+
+# ---- Buoc 4: luat Chinchilla (khau 3: quyet dinh ngan sach) ----
+def chinchilla_split(c_flops):
+    """Chia ngan sach C (FLOPs) thanh so tham so N va so token D.
+
+    Theo quy tac thuc nghiem: N ~ D/20 va C ~ 6*N*D, suy ra
+    N = sqrt(C/120), D = 20*N. Tra ve (N, D).
+    """
+    if not isinstance(c_flops, (int, float)):
+        raise ValueError(f"C phai la so, nhan duoc {type(c_flops)}")
+    if not math.isfinite(c_flops) or c_flops &lt;= 0:
+        raise ValueError(f"C phai duong va huu han, nhan duoc {c_flops}")
+    n_params = math.sqrt(c_flops / 120.0)
+    return n_params, 20.0 * n_params
+
+
+# [TRAINER] DIEM CHINH - dieu kien (c) hien tai chi do
+# lai TRONG CUNG MOT PHIEN chay (cung tai may, cung
+# trang thai nhiet/nhieu), nen no chi chung minh nhieu
+# ngan han thap, khong chung minh duoc ket luan (b)
+# on dinh giua cac lan chay doc lap. Bang chung cu the:
+# lan chay cua nguoi hoc cho thoi gian INT8 chi giam
+# 1,25% (verdict KHONG DAT nhanh b), con lan chay lai
+# doc lap cua Trainer tren cung code, cung seed, cho
+# thoi gian giam 28,2% (verdict DAT ca 3 nhanh) - chi
+# PPL la tai lap dung (7,78). Voi mo hinh 1 lop rat
+# nho, thoi gian sinh 100 token chi ~0,2 giay, chenh
+# lech FP32/INT8 nam ngay duoi muc nhieu cua moi
+# truong do. Cach cung co truoc khi tin verdict (b):
+#  - do XEN KE A/B/A/B nhieu vong va tinh ti le cua
+#    tung vong roi lay trung vi cac ti le (diet lech
+#    do tai may thay doi theo thoi gian);
+#  - tang GEN_TOKENS / so lan do de thoi gian 1 lan do
+#    dai hon nhieu nhieu lan;
+#  - bao verdict (b) kem khoang dao dong giua cac lan
+#    chay doc lap, khong chi 1 con so.
+# Ket luan KHONG DAT cua nguoi hoc van la cach bao cao
+# dung (khong sua so), nhung ve mat bang chung ca hai
+# verdict deu chua du manh - day la gioi han cua phep
+# do thoi gian tren mo hinh ti hon, khong phai loi code.
+
+def green_checkpoint(ppl_pct, energy_pct, repeat_diff_ppl,
+                     repeat_diff_time, energy_lo_pct,
+                     energy_hi_pct):
+    """Ap Green checkpoint: var chi "tot hon" neu ca 3 dieu kien dung.
+
+    Nhan vao cac PHAN TRAM da tinh san (de test truc tiep tung
+    nhanh): (a) perplexity tang khong qua 5% so voi baseline;
+    (b) nang luong/token giam it nhat 20% - lay theo TRUNG VI
+    ti le xen ke A/B, kem khoang dao dong (thap..cao) giua cac
+    vong; (c) do lan 2 chenh lech &lt; 3% CA ppl VA thoi gian -
+    "ket qua" cua measure() gom ca 2 so, nen chi xet ppl thi
+    chua du: thoi gian khong lap lai duoc thi ket luan ve nang
+    luong cung khong dung vung.
+    Tra ve (dat_hay_khong, danh sach ly do).
+    """
+    ok_a = ppl_pct &lt;= 5.0
+    ok_b = energy_pct &lt;= -20.0
+    ok_c = repeat_diff_ppl &lt; 0.03 and repeat_diff_time &lt; 0.03
+    reasons = [
+        f"(a) ppl {ppl_pct:+.1f}% (nguong &lt;= +5%): "
+        f"{'DAT' if ok_a else 'KHONG DAT'}",
+        f"(b) nang luong/token {energy_pct:+.1f}% (trung vi "
+        f"xen ke, khoang {energy_lo_pct:+.1f}%.."
+        f"{energy_hi_pct:+.1f}%) (nguong &lt;= -20%): "
+        f"{'DAT' if ok_b else 'KHONG DAT'}",
+        f"(c) do lan 2 chenh ppl {repeat_diff_ppl * 100:.2f}%"
+        f" + thoi gian {repeat_diff_time * 100:.1f}%"
+        f" (nguong &lt; 3%): {'DAT' if ok_c else 'KHONG DAT'}",
+    ]
+    return ok_a and ok_b and ok_c, reasons
+
+
+def tu_kiem_tra():
+    """Tu kiem tra bang assert (fail la dung).
+
+    Kiem: eval_loss cong theo trong so token (batch 32 vs
+    batch 5 phai cho cung so); green_checkpoint dung tung
+    nhanh (a)/(b)/(c); do_xen_ke tra ti le hop le.
+    """
+    # eval_loss: tap test 14 cua so, batch=5 cat thanh 5/5/4 -
+    # lay trung binh khong trong so se lech (kiem chung: cach
+    # cu lech 7,1e-05 giua batch 32 va batch 5), cong theo
+    # token thi 2 cach chia phai cho cung so.
+    mo_hinh_thu = TinyLM(VOCAB, D_MODEL, N_HEAD)
+    loss_32 = eval_loss(mo_hinh_thu, X_TEST, Y_TEST,
+                        batch=32)
+    loss_5 = eval_loss(mo_hinh_thu, X_TEST, Y_TEST, batch=5)
+    assert abs(loss_32 - loss_5) &lt; 1e-6, (
+        f"eval_loss phai khong phu thuoc cach chia batch: "
+        f"{loss_32:.6f} vs {loss_5:.6f}")
+    # green_checkpoint: (a) ppl +8% -&gt; rot; ca 3 dat -&gt; DAT;
+    # (c) thoi gian do lan 2 chenh 5% -&gt; rot.
+    dat, _ = green_checkpoint(8.0, -40.0, 0.01, 0.01,
+                              -45.0, -35.0)
+    assert not dat, "ppl +8% vuot nguong 5% phai rot"
+    dat, _ = green_checkpoint(2.0, -25.0, 0.01, 0.01,
+                              -30.0, -21.0)
+    assert dat, "ca 3 nhanh dat thi phai DAT"
+    dat, _ = green_checkpoint(2.0, -25.0, 0.01, 0.05,
+                              -30.0, -21.0)
+    assert not dat, "thoi gian do lan 2 chenh 5% phai rot"
+    # do_xen_ke: 5 vong, 50 token tren 2 mo hinh giong het
+    # nhau - ti le phai duong, trung vi nam trong [thap, cao]
+    # va gan 1 (cung mo hinh thi khong the chenh nhieu). Dung
+    # 5 vong vi trung vi cua 2 gia tri chi la trung binh cua
+    # chung - 1 lan tre cung du lam lech (tu kiem tra bat duoc
+    # ti le 3,55 o ban dau tien dung n_vong=2).
+    ti_le_tv, ti_le_thap, ti_le_cao, ti_les = do_xen_ke(
+        mo_hinh_thu, copy.deepcopy(mo_hinh_thu),
+        IDS_TEST[:16].tolist(), n_vong=5, n_tokens=50)
+    assert len(ti_les) == 5 and all(t &gt; 0 for t in ti_les)
+    assert ti_le_thap &lt;= ti_le_tv &lt;= ti_le_cao
+    assert 0.5 &lt;= ti_le_tv &lt;= 2.0, (
+        f"2 mo hinh giong het nhau thi ti le phai ~1, got "
+        f"{ti_le_tv:.2f}")
+    print("Tu kiem tra: PASS.")
+
+
+def main():
+    """Chay tron chuoi capstone: train, do, luong tu hoa, ket luan."""
+    tu_kiem_tra()
+    # Dat lai seed 42 truoc khi train: tu_kiem_tra() da tieu thu
+    # mot phan luong RNG toan cuc (khoi tao mo hinh thu), khong
+    # dat lai thi baseline khoi tao khac lan chay goc va PPL
+    # khong tai lap dung 7,78 nua.
+    torch.manual_seed(42)
+    baseline = train_baseline()
+    # Seed sinh lay 16 ky tu dau cua tap test (mo hinh chua thay
+    # trong huan luyen, nhung thuoc cung doan van).
+    seed = IDS_TEST[:16].tolist()
+
+    results = {}
+    results["baseline"] = measure(baseline, seed)
+    print(f"baseline: ppl={results['baseline']['ppl']:.2f}, "
+          f"{results['baseline']['sec_per_100']:.3f} giay/100 token, "
+          f"{results['baseline']['mwh_per_token']:.4f} mWh/token "
+          f"(uoc luong 65 W)")
+
+    # ---- Buoc 3: bien the toi uu (khau 5: Optimize) ----
+    # Luong tu hoa dong INT8 tu chinh baseline, KHONG huan luyen
+    # lai; do lai bang CUNG ham measure(), CUNG tap test.
+    quantized = torch.quantization.quantize_dynamic(
+        baseline, {nn.Linear}, dtype=torch.qint8)
+    quantized.eval()
+    print(f"INT8: {state_bytes(quantized) / 1024:.1f} KiB "
+          f"(baseline {state_bytes(baseline) / 1024:.1f} KiB)")
+    assert state_bytes(quantized) &lt; state_bytes(baseline), (
+        "luong tu hoa phai nhe hon baseline")
+    # Tat fastpath cua Transformer khi do mo hinh luong tu hoa:
+    # Linear luong tu hoa de .weight duoi dang method (khong phai
+    # tensor) nen ham kiem tra fastpath cua TransformerEncoderLayer
+    # crash; duong slow path goi self.linear1(x) thi chay dung.
+    # out_proj cua MultiheadAttention khong bi luong tu hoa (PyTorch
+    # danh dau NonDynamicallyQuantizableLinear) nen attention van
+    # chay binh thuong. Bat lai ngay sau khi do xong.
+    torch.backends.mha.set_fastpath_enabled(False)
+    try:
+        results["int8"] = measure(quantized, seed)
+        # Kiem tra lap lai duoc (dieu kien (c)): do lan 2, so ca
+        # ppl va thoi gian. PPL la phep do xac dinh (eval + no_grad)
+        # nen 2 lan chay phai gan nhu giong het nhau; neu chenh
+        # &gt; 3% thi nghi ngay quen model.eval() (dropout 0.1 con
+        # bat se lam so dao dong). Thoi gian thi co the chenh lon
+        # do VM dung chung giat - do la ket qua do, khong phai loi
+        # code, nen chi bao cao chu khong assert.
+        repeat = measure(quantized, seed)
+        # Do xen ke A/B (nhanh (b) lay theo ti le nay, khong lay
+        # theo 2 lan measure() rieng biet - review 1ab9c39).
+        ti_le_tv, ti_le_thap, ti_le_cao, ti_les = do_xen_ke(
+            baseline, quantized, seed, n_vong=N_VONG_XEN_KE)
+        ti_le_chuoi = ", ".join(f"{t:.3f}" for t in ti_les)
+        print(f"xen ke A/B {N_VONG_XEN_KE} vong x {GEN_TOKENS} "
+              f"token: ti le INT8/baseline = {ti_le_chuoi}")
+    finally:
+        torch.backends.mha.set_fastpath_enabled(True)
+    print(f"INT8: ppl={results['int8']['ppl']:.2f}, "
+          f"{results['int8']['sec_per_100']:.3f} giay/100 token, "
+          f"{results['int8']['mwh_per_token']:.4f} mWh/token "
+          f"(uoc luong 65 W)")
+
+    diff_ppl = rel_diff(results["int8"]["ppl"], repeat["ppl"])
+    diff_time = rel_diff(results["int8"]["sec_per_100"],
+                         repeat["sec_per_100"])
+    print(f"do lan 2 INT8: ppl={repeat['ppl']:.2f} "
+          f"(chenh {diff_ppl * 100:.2f}%), thoi gian chenh "
+          f"{diff_time * 100:.1f}% (may dung chung co the giat, "
+          f"chi tham khao)")
+    assert diff_ppl &lt; 0.03, f"ppl do lan 2 chenh {diff_ppl:.3f} &gt; 3%"
+
+    # ---- Buoc 4: Chinchilla ----
+    # LUU Y: dap an Cau 2 trong practice tung ghi C=1e21 -&gt; N ~ 9,1B.
+    # Kiem tra lai bang cong thuc: N = sqrt(1e21/120) = 2,89e9
+    # (9,1B la ket qua khi chia cho 12 thay vi 120, tuc C=1e22).
+    # Trainer da sua dap an practice o commit 1ab9c39 (N = 2,9B,
+    # D = 57,7B). So in ra duoi day da duoc assert tai tao dung
+    # C (6*N*D = C).
+    print("\nLuat Chinchilla (N ~ D/20, C ~ 6*N*D):")
+    for c_flops in [1e18, 1e21]:
+        n_params, n_tokens = chinchilla_split(c_flops)
+        # Tu kiem tra: ap lai cong thuc phai tai tao dung C va D/N=20.
+        assert abs(6 * n_params * n_tokens - c_flops) / c_flops &lt; 1e-9
+        assert abs(n_tokens / n_params - 20.0) &lt; 1e-9
+        print(f"  C={c_flops:.0e}: N={n_params / 1e9:.2f}B tham so, "
+              f"D={n_tokens / 1e9:.1f}B token")
+    print("  GPT-3: 175B tham so / 300B token = 1,7 token/tham so, "
+          "thap hon nhieu so voi muc toi uu ~20 -&gt; GPT-3 THUA mo "
+          "hinh, THIEU du lieu (Chinchilla 70B/1400B token thang "
+          "GPT-3 voi chi phi suy luan re hon).")
+
+    # ---- Buoc 5: bang tong ket + Green checkpoint (khau 7) ----
+    base, var = results["baseline"], results["int8"]
+    ppl_pct = (var["ppl"] - base["ppl"]) / base["ppl"] * 100
+    time_pct = ((var["sec_per_100"] - base["sec_per_100"])
+                / base["sec_per_100"] * 100)
+    energy_pct_rieng = ((var["mwh_per_token"]
+                         - base["mwh_per_token"])
+                        / base["mwh_per_token"] * 100)
+    # Nhanh (b) lay theo TRUNG VI ti le xen ke, khong lay theo
+    # 2 lan measure() rieng biet (do rieng lat verdict giua 2
+    # lan chay doc lap - review Trainer 1ab9c39).
+    energy_pct = (ti_le_tv - 1) * 100
+    energy_lo_pct = (ti_le_thap - 1) * 100
+    energy_hi_pct = (ti_le_cao - 1) * 100
+    print("\nBang tong ket capstone (cung may, cung tap test, "
+          "cung ham measure):")
+    print(f"  {'Bien the':&lt;14} {'PPL':&gt;8} {'giay/100tok':&gt;12} "
+          f"{'mWh/token':&gt;11}")
+    print(f"  {'Baseline FP32':&lt;14} {base['ppl']:&gt;8.2f} "
+          f"{base['sec_per_100']:&gt;12.3f} {base['mwh_per_token']:&gt;11.4f}")
+    print(f"  {'INT8 dynamic':&lt;14} {var['ppl']:&gt;8.2f} "
+          f"{var['sec_per_100']:&gt;12.3f} {var['mwh_per_token']:&gt;11.4f}")
+    print(f"  Thay doi (do rieng): ppl {ppl_pct:+.1f}%, thoi gian "
+          f"{time_pct:+.1f}%, nang luong {energy_pct_rieng:+.1f}%")
+    print(f"  Thay doi (xen ke trung vi): nang luong "
+          f"{energy_pct:+.1f}% (khoang {energy_lo_pct:+.1f}%.."
+          f"{energy_hi_pct:+.1f}%) - day la so dung cho (b)")
+    passed, reasons = green_checkpoint(
+        ppl_pct, energy_pct, diff_ppl, diff_time, energy_lo_pct,
+        energy_hi_pct)
+    print("\nGreen checkpoint:")
+    for reason in reasons:
+        print(f"  {reason}")
+    verdict = "DAT" if passed else "KHONG DAT"
+    print(f"\nKet luan: INT8 {verdict} Green checkpoint.")
+    if passed:
+        print("  Bien the vua giu chat luong trong nguong (+5%), vua "
+              "tiet kiem nang luong (&gt;= 20%), lai lap lai duoc.")
+    else:
+        print("  Khong sua so: bao cao dung nhu vay, tim bien the "
+              "khac (vd INT8 + fine-tune nhe) neu muon cai thien.")
+    if energy_lo_pct &lt;= -20.0 &lt;= energy_hi_pct:
+        print("  Canh bao: khoang dao dong cua (b) cat ngang "
+              "nguong -20% - verdict (b) chua vung, can them "
+              "vong do hoac may on dinh hon.")
+    if diff_time &gt;= 0.03:
+        print(f"  Luu y: thoi gian 2 lan measure() rieng biet chenh "
+              f"{diff_time * 100:.1f}% - (c) khong dat vi nhieu "
+              "phien do; nhanh (b) thi lay theo ti le xen ke nen "
+              "vung hon (xem khoang dao dong o (b)).")
+    results["green_checkpoint"] = verdict
+    results["repeat_ppl_diff"] = diff_ppl
+    results["repeat_time_diff"] = diff_time
+    results["xen_ke_ti_le"] = ti_les
+    results["energy_pct_median"] = energy_pct
+    results["energy_pct_lo"] = energy_lo_pct
+    results["energy_pct_hi"] = energy_hi_pct
+    with open("capstone_results.json", "w", encoding="utf-8") as f:
+        json.dump(results, f, indent=2)
+    print("\nDa luu capstone_results.json")
+    print("Hoan tat capstone Day 30 - Phase 1.")
+
+
+if __name__ == "__main__":
+    main()
+</pre>
+<pre class="code" style="display:none" id="srcHl"><span style="color: #E6DB74">"""Capstone GreenLLM - Day 30 (buoi toi, Phase 1).</span>
+
+<span style="color: #E6DB74">Chuoi capstone thu nho tren CPU: mo hinh ngon ngu ky tu (char-level)</span>
+<span style="color: #E6DB74">huan luyen tren doan van ban tieng Viet, do baseline FP32 roi so voi</span>
+<span style="color: #E6DB74">bien the luong tu hoa dong INT8, tinh chia Chinchilla, ap Green</span>
+<span style="color: #E6DB74">checkpoint de ra quyet dinh.</span>
+
+<span style="color: #E6DB74">Chi thu thay doi la bien the mo hinh (FP32 -&gt; INT8): cung mot may,</span>
+<span style="color: #E6DB74">cung mot bo danh gia (tap test), cung mot ham measure(). Nang luong</span>
+<span style="color: #E6DB74">do XEN KE A/B nhieu vong + lay trung vi ti le tung vong (sua theo</span>
+<span style="color: #E6DB74">review Trainer 1ab9c39: do rieng 2 phien lat verdict -1,25% vs</span>
+<span style="color: #E6DB74">-28,2% vi thoi gian sinh 100 token chi ~0,2 giay, nam duoi muc</span>
+<span style="color: #E6DB74">nhieu cua moi truong do).</span>
+
+<span style="color: #E6DB74">GHI CHU (nguoi hoc dien 1 dong truoc Phase 2): khai niem mo nhat</span>
+<span style="color: #E6DB74">trong 30 ngay la gi - de on lai truoc khi buoc sang Phase 2.</span>
+<span style="color: #E6DB74">"""</span>
+
+<span style="color: #959077"># ============================================================</span>
+<span style="color: #959077"># [TRAINER] REVIEW Day 30 - Capstone (capstone_review.py)</span>
+<span style="color: #959077"># Kiem chung doc lap: chay lai toan bo capstone tren may</span>
+<span style="color: #959077"># Trainer - PPL tai lap dung 7,78 ca baseline lan INT8;</span>
+<span style="color: #959077"># cong thuc Chinchilla dung (assert 6*N*D = C tu kiem tra</span>
+<span style="color: #959077"># trong code la cach kiem chung rat tot). DAC BIET: nguoi</span>
+<span style="color: #959077"># hoc da bat duoc loi trong DAP AN MAU cua practice -</span>
+<span style="color: #959077"># practice ghi N = sqrt(1e21/120) ~ 9,1e9, nhung gia tri</span>
+<span style="color: #959077"># dung la 2,89e9 (9,1e9 la ket qua cua sqrt(1e21/12)).</span>
+<span style="color: #959077"># Trainer da sua dap an practice theo dung so nay.</span>
+<span style="color: #959077"># 1 diem chinh + 1 diem nhe:</span>
+<span style="color: #959077">#  (1) CHINH: verdict nhanh (b) nang luong LAT giua hai</span>
+<span style="color: #959077">#      lan chay doc lap - xem comment o green_checkpoint.</span>
+<span style="color: #959077">#  (2) Nhe: eval_loss lay trung binh khong trong so qua</span>
+<span style="color: #959077">#      cac batch (comment o eval_loss).</span>
+<span style="color: #959077"># ============================================================</span>
+
+<span style="color: #FF4689">import</span><span style="color: #F8F8F2"> copy</span>
+<span style="color: #FF4689">import</span><span style="color: #F8F8F2"> json</span>
+<span style="color: #FF4689">import</span><span style="color: #F8F8F2"> math</span>
+<span style="color: #FF4689">import</span><span style="color: #F8F8F2"> statistics</span>
+<span style="color: #FF4689">import</span><span style="color: #F8F8F2"> time</span>
+
+<span style="color: #FF4689">import</span><span style="color: #F8F8F2"> torch</span>
+<span style="color: #FF4689">import</span><span style="color: #F8F8F2"> torch.nn </span><span style="color: #66D9EF">as</span><span style="color: #F8F8F2"> nn</span>
+<span style="color: #FF4689">from</span><span style="color: #F8F8F2"> torch.utils.data </span><span style="color: #FF4689">import</span> <span style="color: #F8F8F2">DataLoader,</span> <span style="color: #F8F8F2">TensorDataset</span>
+
+<span style="color: #F8F8F2">torch</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">manual_seed(</span><span style="color: #AE81FF">42</span><span style="color: #F8F8F2">)</span>
+
+<span style="color: #959077"># ---- Buoc 0: du lieu (khau 1: Data) ----</span>
+<span style="color: #959077"># Doan van tieng Viet ~2.000-3.000 ky tu, viet ve AI xanh.</span>
+<span style="color: #F8F8F2">TEXT</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">(</span>
+    <span style="color: #E6DB74">"Tri tue nhan tao dang thay doi cach con nguoi lam viec, hoc tap "</span>
+    <span style="color: #E6DB74">"va sang tao. Nhung mo hinh ngon ngu lon co the viet van ban, "</span>
+    <span style="color: #E6DB74">"dich thuat, tra loi cau hoi va ho tro lap trinh voi do chinh xac "</span>
+    <span style="color: #E6DB74">"ngay cang cao. Dang sau moi cau tra loi troi chay la hang nghin "</span>
+    <span style="color: #E6DB74">"ty phep tinh duoc thuc hien trong cac trung tam du lieu, noi "</span>
+    <span style="color: #E6DB74">"hang chuc nghin bo xu ly do hoa chay lien tuc suot nhieu tuan "</span>
+    <span style="color: #E6DB74">"de huan luyen mot mo hinh duy nhat. Chi phi nang luong cua qua "</span>
+    <span style="color: #E6DB74">"trinh nay khong he nho, va no dat ra mot cau hoi quan trong cho "</span>
+    <span style="color: #E6DB74">"ca nganh: lam sao de tri tue nhan tao vua manh me vua ben vung. "</span>
+    <span style="color: #E6DB74">"Hieu qua nang luong khong chi la van de tiet kiem tien dien. "</span>
+    <span style="color: #E6DB74">"Moi mo hinh lon khi dua vao su dung se phuc vu hang trieu luot "</span>
+    <span style="color: #E6DB74">"truy van moi ngay, va nang luong tieu thu trong giai doan suy "</span>
+    <span style="color: #E6DB74">"luan thuong vuot xa nang luong huan luyen sau mot thoi gian dai "</span>
+    <span style="color: #E6DB74">"van hanh. Vi vay cac ky su bat dau quan tam den nhung mo hinh "</span>
+    <span style="color: #E6DB74">"nho hon nhung duoc huan luyen tot hon, thay vi chay dua tang so "</span>
+    <span style="color: #E6DB74">"tham so mot cach vo toi va. Luat Chinchilla da chi ra rang voi "</span>
+    <span style="color: #E6DB74">"cung mot ngan sach tinh toan, mot mo hinh vua phai huan luyen "</span>
+    <span style="color: #E6DB74">"tren nhieu du lieu thuong cho ket qua tot hon mot mo hinh kho "</span>
+    <span style="color: #E6DB74">"lo nhung thieu du lieu. Ben canh viec chon kich thuoc mo hinh "</span>
+    <span style="color: #E6DB74">"hop ly, nhieu ky thuat toi uu cung giup giam chi phi suy luan. "</span>
+    <span style="color: #E6DB74">"Luong tu hoa la mot trong nhung ky thuat pho bien nhat: thay vi "</span>
+    <span style="color: #E6DB74">"luu tru trong so bang so thuc 32 bit, mo hinh co the dung so "</span>
+    <span style="color: #E6DB74">"nguyen 8 bit, giup giam dung luong bo nho va tang toc do tinh "</span>
+    <span style="color: #E6DB74">"toan. Ky thuat cat tia loai bo nhung ket noi it quan trong, con "</span>
+    <span style="color: #E6DB74">"chung cat tri thuc chuyen kien thuc tu mo hinh lon sang mo hinh "</span>
+    <span style="color: #E6DB74">"nho gon hon. Moi ky thuat deu phai danh doi mot phan chat luong "</span>
+    <span style="color: #E6DB74">"de lay hieu qua, va nhiem vu cua nguoi lam mo hinh la do luong "</span>
+    <span style="color: #E6DB74">"su danh doi do mot cach trung thuc. Mot bao cao tot khong chi "</span>
+    <span style="color: #E6DB74">"khoe con so dep ma con noi ro dieu kien do: cung mot may, cung "</span>
+    <span style="color: #E6DB74">"mot bo du lieu, cung mot cach do. Neu hai mo hinh duoc do tren "</span>
+    <span style="color: #E6DB74">"hai phan cung khac nhau thi moi so sanh deu vo nghia. Green "</span>
+    <span style="color: #E6DB74">"checkpoint la mot khung kiem tra don gian: bien the toi uu chi "</span>
+    <span style="color: #E6DB74">"duoc coi la tot hon khi chat luong khong giam qua mot nguong "</span>
+    <span style="color: #E6DB74">"cho phep, dong thoi nang luong tieu thu giam du nhieu, va ket "</span>
+    <span style="color: #E6DB74">"qua co the lap lai khi do lan thu hai. Khung kiem tra nay giup "</span>
+    <span style="color: #E6DB74">"nguoi lam mo hinh tranh duoc cam do to ve so lieu. Cuoi cung, "</span>
+    <span style="color: #E6DB74">"tri tue nhan tao xanh khong phai la mot tinh nang them vao sau "</span>
+    <span style="color: #E6DB74">"cung ma la mot cach tiep can xuyen suot vong doi mo hinh: tu "</span>
+    <span style="color: #E6DB74">"khau thu thap du lieu, chon kien truc, huan luyen, toi uu, cho "</span>
+    <span style="color: #E6DB74">"den trien khai va bao cao. Moi quyet dinh o mot khau deu anh "</span>
+    <span style="color: #E6DB74">"huong den nang luong tieu thu o cac khau sau. Khi nguoi hoc "</span>
+    <span style="color: #E6DB74">"nam duoc tu duy nay, ho khong chi xay dung duoc mo hinh tot ma "</span>
+    <span style="color: #E6DB74">"con xay dung duoc mo hinh co trach nhiem voi moi truong va voi "</span>
+    <span style="color: #E6DB74">"chi phi van hanh lau dai."</span>
+<span style="color: #F8F8F2">)</span>
+
+<span style="color: #959077"># Chia 80/10/10 theo thu tu thoi gian, KHONG xao tron: neu test lan</span>
+<span style="color: #959077"># vao train thi moi so do sau do deu vo nghia (loi so 1 capstone).</span>
+<span style="color: #F8F8F2">N_TOTAL</span> <span style="color: #FF4689">=</span> <span style="color: #A6E22E">len</span><span style="color: #F8F8F2">(TEXT)</span>
+<span style="color: #F8F8F2">N_TRAIN</span> <span style="color: #FF4689">=</span> <span style="color: #A6E22E">int</span><span style="color: #F8F8F2">(N_TOTAL</span> <span style="color: #FF4689">*</span> <span style="color: #AE81FF">0.8</span><span style="color: #F8F8F2">)</span>
+<span style="color: #F8F8F2">N_VAL</span> <span style="color: #FF4689">=</span> <span style="color: #A6E22E">int</span><span style="color: #F8F8F2">(N_TOTAL</span> <span style="color: #FF4689">*</span> <span style="color: #AE81FF">0.1</span><span style="color: #F8F8F2">)</span>
+<span style="color: #F8F8F2">TEXT_TRAIN</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">TEXT[:N_TRAIN]</span>
+<span style="color: #F8F8F2">TEXT_VAL</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">TEXT[N_TRAIN:N_TRAIN</span> <span style="color: #FF4689">+</span> <span style="color: #F8F8F2">N_VAL]</span>
+<span style="color: #F8F8F2">TEXT_TEST</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">TEXT[N_TRAIN</span> <span style="color: #FF4689">+</span> <span style="color: #F8F8F2">N_VAL:]</span>
+<span style="color: #A6E22E">print</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">f"train={</span><span style="color: #A6E22E">len</span><span style="color: #F8F8F2">(TEXT_TRAIN)</span><span style="color: #E6DB74">} val={</span><span style="color: #A6E22E">len</span><span style="color: #F8F8F2">(TEXT_VAL)</span><span style="color: #E6DB74">} "</span>
+      <span style="color: #E6DB74">f"test={</span><span style="color: #A6E22E">len</span><span style="color: #F8F8F2">(TEXT_TEST)</span><span style="color: #E6DB74">} ky tu"</span><span style="color: #F8F8F2">)</span>
+<span style="color: #66D9EF">assert</span> <span style="color: #A6E22E">len</span><span style="color: #F8F8F2">(TEXT_TRAIN)</span> <span style="color: #FF4689">+</span> <span style="color: #A6E22E">len</span><span style="color: #F8F8F2">(TEXT_VAL)</span> <span style="color: #FF4689">+</span> <span style="color: #A6E22E">len</span><span style="color: #F8F8F2">(TEXT_TEST)</span> <span style="color: #FF4689">==</span> <span style="color: #F8F8F2">N_TOTAL</span>
+<span style="color: #66D9EF">assert</span> <span style="color: #AE81FF">2000</span> <span style="color: #FF4689">&lt;=</span> <span style="color: #F8F8F2">N_TOTAL</span> <span style="color: #FF4689">&lt;=</span> <span style="color: #AE81FF">3000</span><span style="color: #F8F8F2">,</span> <span style="color: #E6DB74">f"doan van {</span><span style="color: #F8F8F2">N_TOTAL</span><span style="color: #E6DB74">} ky tu, can 2-3k"</span>
+
+<span style="color: #F8F8F2">CHARS</span> <span style="color: #FF4689">=</span> <span style="color: #A6E22E">sorted</span><span style="color: #F8F8F2">(</span><span style="color: #A6E22E">set</span><span style="color: #F8F8F2">(TEXT))</span>
+<span style="color: #F8F8F2">STOI</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">{c:</span> <span style="color: #F8F8F2">i</span> <span style="color: #66D9EF">for</span> <span style="color: #F8F8F2">i,</span> <span style="color: #F8F8F2">c</span> <span style="color: #FF4689">in</span> <span style="color: #A6E22E">enumerate</span><span style="color: #F8F8F2">(CHARS)}</span>
+<span style="color: #F8F8F2">VOCAB</span> <span style="color: #FF4689">=</span> <span style="color: #A6E22E">len</span><span style="color: #F8F8F2">(CHARS)</span>
+<span style="color: #A6E22E">print</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">f"vocab={</span><span style="color: #F8F8F2">VOCAB</span><span style="color: #E6DB74">} ky tu rieng biet"</span><span style="color: #F8F8F2">)</span>
+
+<span style="color: #F8F8F2">SEQ_LEN</span> <span style="color: #FF4689">=</span> <span style="color: #AE81FF">64</span>
+<span style="color: #F8F8F2">BATCH</span> <span style="color: #FF4689">=</span> <span style="color: #AE81FF">32</span>
+<span style="color: #F8F8F2">EPOCHS</span> <span style="color: #FF4689">=</span> <span style="color: #AE81FF">3</span>
+<span style="color: #F8F8F2">LR</span> <span style="color: #FF4689">=</span> <span style="color: #AE81FF">3e-3</span>
+<span style="color: #F8F8F2">D_MODEL</span> <span style="color: #FF4689">=</span> <span style="color: #AE81FF">64</span>
+<span style="color: #F8F8F2">N_HEAD</span> <span style="color: #FF4689">=</span> <span style="color: #AE81FF">2</span>
+<span style="color: #F8F8F2">GEN_TOKENS</span> <span style="color: #FF4689">=</span> <span style="color: #AE81FF">500</span>
+<span style="color: #959077"># 1 lan do sinh 500 token (~1 giay) thay vi 100 token (~0,2 giay):</span>
+<span style="color: #959077"># 100 token nam ngay duoi muc nhieu cua moi truong do nen verdict</span>
+<span style="color: #959077"># nang luong lat giua 2 lan chay doc lap (review Trainer 1ab9c39).</span>
+<span style="color: #F8F8F2">N_VONG_XEN_KE</span> <span style="color: #FF4689">=</span> <span style="color: #AE81FF">5</span>
+<span style="color: #F8F8F2">POWER_W</span> <span style="color: #FF4689">=</span> <span style="color: #AE81FF">65.0</span>  <span style="color: #959077"># cong suat gia dinh cua CPU laptop, de uoc luong</span>
+
+
+<span style="color: #66D9EF">def</span><span style="color: #F8F8F2"> </span><span style="color: #A6E22E">encode</span><span style="color: #F8F8F2">(text):</span>
+<span style="color: #F8F8F2">    </span><span style="color: #E6DB74">"""Ma hoa chuoi thanh tensor id (moi ky tu -&gt; 1 so nguyen)."""</span>
+    <span style="color: #66D9EF">return</span> <span style="color: #F8F8F2">torch</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">tensor([STOI[c]</span> <span style="color: #66D9EF">for</span> <span style="color: #F8F8F2">c</span> <span style="color: #FF4689">in</span> <span style="color: #F8F8F2">text],</span> <span style="color: #F8F8F2">dtype</span><span style="color: #FF4689">=</span><span style="color: #F8F8F2">torch</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">long)</span>
+
+
+<span style="color: #66D9EF">def</span><span style="color: #F8F8F2"> </span><span style="color: #A6E22E">make_windows</span><span style="color: #F8F8F2">(ids,</span> <span style="color: #F8F8F2">stride</span><span style="color: #FF4689">=</span><span style="color: #AE81FF">16</span><span style="color: #F8F8F2">):</span>
+<span style="color: #F8F8F2">    </span><span style="color: #E6DB74">"""Cat chuoi id thanh cac cua so (input, target) dich 1 ky tu.</span>
+
+<span style="color: #E6DB74">    Vi du: ids = [5, 9, 2, ...], cua so dau tien co input la 64 id</span>
+<span style="color: #E6DB74">    dau, target la 64 id ke tiep (dich sang phai 1 buoc) - mo hinh</span>
+<span style="color: #E6DB74">    hoc doan ky tu tiep theo. Buoc truot 16 de co du mau ma van</span>
+<span style="color: #E6DB74">    nhanh tren CPU.</span>
+<span style="color: #E6DB74">    """</span>
+    <span style="color: #F8F8F2">xs,</span> <span style="color: #F8F8F2">ys</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">[],</span> <span style="color: #F8F8F2">[]</span>
+    <span style="color: #66D9EF">for</span> <span style="color: #F8F8F2">i</span> <span style="color: #FF4689">in</span> <span style="color: #A6E22E">range</span><span style="color: #F8F8F2">(</span><span style="color: #AE81FF">0</span><span style="color: #F8F8F2">,</span> <span style="color: #A6E22E">len</span><span style="color: #F8F8F2">(ids)</span> <span style="color: #FF4689">-</span> <span style="color: #F8F8F2">SEQ_LEN,</span> <span style="color: #F8F8F2">stride):</span>
+        <span style="color: #F8F8F2">xs</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">append(ids[i:i</span> <span style="color: #FF4689">+</span> <span style="color: #F8F8F2">SEQ_LEN])</span>
+        <span style="color: #F8F8F2">ys</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">append(ids[i</span> <span style="color: #FF4689">+</span> <span style="color: #AE81FF">1</span><span style="color: #F8F8F2">:i</span> <span style="color: #FF4689">+</span> <span style="color: #F8F8F2">SEQ_LEN</span> <span style="color: #FF4689">+</span> <span style="color: #AE81FF">1</span><span style="color: #F8F8F2">])</span>
+    <span style="color: #66D9EF">assert</span> <span style="color: #F8F8F2">xs,</span> <span style="color: #E6DB74">"chuoi qua ngan, khong cat duoc cua so nao"</span>
+    <span style="color: #66D9EF">return</span> <span style="color: #F8F8F2">torch</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">stack(xs),</span> <span style="color: #F8F8F2">torch</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">stack(ys)</span>
+
+
+<span style="color: #F8F8F2">IDS_TRAIN</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">encode(TEXT_TRAIN)</span>
+<span style="color: #F8F8F2">IDS_VAL</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">encode(TEXT_VAL)</span>
+<span style="color: #F8F8F2">IDS_TEST</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">encode(TEXT_TEST)</span>
+<span style="color: #F8F8F2">X_TRAIN,</span> <span style="color: #F8F8F2">Y_TRAIN</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">make_windows(IDS_TRAIN)</span>
+<span style="color: #F8F8F2">X_VAL,</span> <span style="color: #F8F8F2">Y_VAL</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">make_windows(IDS_VAL)</span>
+<span style="color: #F8F8F2">X_TEST,</span> <span style="color: #F8F8F2">Y_TEST</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">make_windows(IDS_TEST)</span>
+<span style="color: #A6E22E">print</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">f"cua so: train={</span><span style="color: #A6E22E">len</span><span style="color: #F8F8F2">(X_TRAIN)</span><span style="color: #E6DB74">} val={</span><span style="color: #A6E22E">len</span><span style="color: #F8F8F2">(X_VAL)</span><span style="color: #E6DB74">} "</span>
+      <span style="color: #E6DB74">f"test={</span><span style="color: #A6E22E">len</span><span style="color: #F8F8F2">(X_TEST)</span><span style="color: #E6DB74">} (moi cua so {</span><span style="color: #F8F8F2">SEQ_LEN</span><span style="color: #E6DB74">} ky tu)"</span><span style="color: #F8F8F2">)</span>
+
+
+<span style="color: #959077"># ---- Buoc 1: baseline (khau 2-3: Model + Train) ----</span>
+<span style="color: #66D9EF">class</span><span style="color: #F8F8F2"> </span><span style="color: #A6E22E">TinyLM</span><span style="color: #F8F8F2">(nn</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">Module):</span>
+<span style="color: #F8F8F2">    </span><span style="color: #E6DB74">"""Mo hinh ngon ngu ky tu nho: embedding -&gt; Transformer -&gt; Linear.</span>
+
+<span style="color: #E6DB74">    Dau vao (batch, seq) id ky tu; dau ra (batch, seq, vocab) logits</span>
+<span style="color: #E6DB74">    cho ky tu tiep theo o moi vi tri.</span>
+<span style="color: #E6DB74">    """</span>
+
+    <span style="color: #66D9EF">def</span><span style="color: #F8F8F2"> </span><span style="color: #A6E22E">__init__</span><span style="color: #F8F8F2">(</span><span style="color: #A6E22E">self</span><span style="color: #F8F8F2">,</span> <span style="color: #F8F8F2">vocab_size,</span> <span style="color: #F8F8F2">d_model</span><span style="color: #FF4689">=</span><span style="color: #AE81FF">64</span><span style="color: #F8F8F2">,</span> <span style="color: #F8F8F2">n_head</span><span style="color: #FF4689">=</span><span style="color: #AE81FF">2</span><span style="color: #F8F8F2">):</span>
+        <span style="color: #A6E22E">super</span><span style="color: #F8F8F2">()</span><span style="color: #FF4689">.</span><span style="color: #A6E22E">__init__</span><span style="color: #F8F8F2">()</span>
+        <span style="color: #A6E22E">self</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">emb</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">nn</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">Embedding(vocab_size,</span> <span style="color: #F8F8F2">d_model)</span>
+        <span style="color: #F8F8F2">layer</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">nn</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">TransformerEncoderLayer(d_model</span><span style="color: #FF4689">=</span><span style="color: #F8F8F2">d_model,</span>
+                                           <span style="color: #F8F8F2">nhead</span><span style="color: #FF4689">=</span><span style="color: #F8F8F2">n_head,</span>
+                                           <span style="color: #F8F8F2">batch_first</span><span style="color: #FF4689">=</span><span style="color: #66D9EF">True</span><span style="color: #F8F8F2">)</span>
+        <span style="color: #A6E22E">self</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">enc</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">nn</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">TransformerEncoder(layer,</span> <span style="color: #F8F8F2">num_layers</span><span style="color: #FF4689">=</span><span style="color: #AE81FF">1</span><span style="color: #F8F8F2">)</span>
+        <span style="color: #A6E22E">self</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">head</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">nn</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">Linear(d_model,</span> <span style="color: #F8F8F2">vocab_size)</span>
+
+    <span style="color: #66D9EF">def</span><span style="color: #F8F8F2"> </span><span style="color: #A6E22E">forward</span><span style="color: #F8F8F2">(</span><span style="color: #A6E22E">self</span><span style="color: #F8F8F2">,</span> <span style="color: #F8F8F2">x):</span>
+        <span style="color: #F8F8F2">seq_len</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">x</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">size(</span><span style="color: #AE81FF">1</span><span style="color: #F8F8F2">)</span>
+        <span style="color: #959077"># Mat na nhan qua: vi tri i chi duoc "nhin" cac vi tri &lt;= i,</span>
+        <span style="color: #959077"># khong duoc nhin truoc ky tu can doan (True = cam).</span>
+        <span style="color: #F8F8F2">mask</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">torch</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">triu(torch</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">ones(seq_len,</span> <span style="color: #F8F8F2">seq_len,</span>
+                                     <span style="color: #F8F8F2">dtype</span><span style="color: #FF4689">=</span><span style="color: #F8F8F2">torch</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">bool,</span>
+                                     <span style="color: #F8F8F2">device</span><span style="color: #FF4689">=</span><span style="color: #F8F8F2">x</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">device),</span> <span style="color: #F8F8F2">diagonal</span><span style="color: #FF4689">=</span><span style="color: #AE81FF">1</span><span style="color: #F8F8F2">)</span>
+        <span style="color: #F8F8F2">h</span> <span style="color: #FF4689">=</span> <span style="color: #A6E22E">self</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">emb(x)</span>
+        <span style="color: #F8F8F2">h</span> <span style="color: #FF4689">=</span> <span style="color: #A6E22E">self</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">enc(h,</span> <span style="color: #F8F8F2">mask</span><span style="color: #FF4689">=</span><span style="color: #F8F8F2">mask)</span>
+        <span style="color: #66D9EF">return</span> <span style="color: #A6E22E">self</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">head(h)</span>
+
+
+<span style="color: #66D9EF">def</span><span style="color: #F8F8F2"> </span><span style="color: #A6E22E">count_params</span><span style="color: #F8F8F2">(model):</span>
+<span style="color: #F8F8F2">    </span><span style="color: #E6DB74">"""Dem so tham so co the huan luyen cua mo hinh."""</span>
+    <span style="color: #66D9EF">return</span> <span style="color: #A6E22E">sum</span><span style="color: #F8F8F2">(p</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">numel()</span> <span style="color: #66D9EF">for</span> <span style="color: #F8F8F2">p</span> <span style="color: #FF4689">in</span> <span style="color: #F8F8F2">model</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">parameters()</span>
+               <span style="color: #66D9EF">if</span> <span style="color: #F8F8F2">p</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">requires_grad)</span>
+
+
+<span style="color: #66D9EF">def</span><span style="color: #F8F8F2"> </span><span style="color: #A6E22E">state_bytes</span><span style="color: #F8F8F2">(model):</span>
+<span style="color: #F8F8F2">    </span><span style="color: #E6DB74">"""Tong so byte cua state_dict (trong so luong tu hoa nhe hon).</span>
+
+<span style="color: #E6DB74">    Vi du: tensor float32 co 1.000 phan tu chiem 4.000 byte, tensor</span>
+<span style="color: #E6DB74">    qint8 cung so phan tu chi chiem 1.000 byte. Mo hinh luong tu</span>
+<span style="color: #E6DB74">    hoa co cac muc dac biet trong state_dict: _packed_params.dtype</span>
+<span style="color: #E6DB74">    (1 doi tuong dtype, khong phai tensor) va _packed_params</span>
+<span style="color: #E6DB74">    (tuple chua tensor trong so that) - phai kiem tra KIEU truoc</span>
+<span style="color: #E6DB74">    khi goi .numel() (bai hoc Day 22/AGENTS.md diem 11).</span>
+<span style="color: #E6DB74">    """</span>
+    <span style="color: #66D9EF">def</span><span style="color: #F8F8F2"> </span><span style="color: #A6E22E">_bytes</span><span style="color: #F8F8F2">(value):</span>
+        <span style="color: #66D9EF">if</span> <span style="color: #A6E22E">isinstance</span><span style="color: #F8F8F2">(value,</span> <span style="color: #F8F8F2">torch</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">Tensor):</span>
+            <span style="color: #66D9EF">return</span> <span style="color: #F8F8F2">value</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">numel()</span> <span style="color: #FF4689">*</span> <span style="color: #F8F8F2">value</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">element_size()</span>
+        <span style="color: #66D9EF">if</span> <span style="color: #A6E22E">isinstance</span><span style="color: #F8F8F2">(value,</span> <span style="color: #F8F8F2">(</span><span style="color: #A6E22E">tuple</span><span style="color: #F8F8F2">,</span> <span style="color: #A6E22E">list</span><span style="color: #F8F8F2">)):</span>
+            <span style="color: #66D9EF">return</span> <span style="color: #A6E22E">sum</span><span style="color: #F8F8F2">(_bytes(v)</span> <span style="color: #66D9EF">for</span> <span style="color: #F8F8F2">v</span> <span style="color: #FF4689">in</span> <span style="color: #F8F8F2">value)</span>
+        <span style="color: #66D9EF">return</span> <span style="color: #AE81FF">0</span>  <span style="color: #959077"># dtype/so vo huong: khong chiem bo nho dang ke</span>
+
+    <span style="color: #F8F8F2">total</span> <span style="color: #FF4689">=</span> <span style="color: #AE81FF">0</span>
+    <span style="color: #66D9EF">for</span> <span style="color: #F8F8F2">value</span> <span style="color: #FF4689">in</span> <span style="color: #F8F8F2">model</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">state_dict()</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">values():</span>
+        <span style="color: #F8F8F2">total</span> <span style="color: #FF4689">+=</span> <span style="color: #F8F8F2">_bytes(value)</span>
+    <span style="color: #66D9EF">return</span> <span style="color: #F8F8F2">total</span>
+
+
+<span style="color: #66D9EF">def</span><span style="color: #F8F8F2"> </span><span style="color: #A6E22E">eval_loss</span><span style="color: #F8F8F2">(model,</span> <span style="color: #F8F8F2">x,</span> <span style="color: #F8F8F2">y,</span> <span style="color: #F8F8F2">batch</span><span style="color: #FF4689">=</span><span style="color: #AE81FF">32</span><span style="color: #F8F8F2">):</span>
+<span style="color: #F8F8F2">    </span><span style="color: #E6DB74">"""Loss trung binh THEO TRONG SO TOKEN tren mot tap.</span>
+
+<span style="color: #E6DB74">    Cong don NLL (loss * so token tung batch) roi chia cho tong</span>
+<span style="color: #E6DB74">    token - batch cuoi it mau khong duoc tinh ngang batch day</span>
+<span style="color: #E6DB74">    (sua theo review Trainer 1ab9c39; dung chuan Day 28: tong</span>
+<span style="color: #E6DB74">    NLL / tong token). Khong tinh grad.</span>
+<span style="color: #E6DB74">    """</span>
+    <span style="color: #F8F8F2">model</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">eval()</span>
+    <span style="color: #F8F8F2">tong_nll</span> <span style="color: #FF4689">=</span> <span style="color: #AE81FF">0.0</span>
+    <span style="color: #F8F8F2">tong_token</span> <span style="color: #FF4689">=</span> <span style="color: #AE81FF">0</span>
+    <span style="color: #66D9EF">with</span> <span style="color: #F8F8F2">torch</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">no_grad():</span>
+        <span style="color: #66D9EF">for</span> <span style="color: #F8F8F2">i</span> <span style="color: #FF4689">in</span> <span style="color: #A6E22E">range</span><span style="color: #F8F8F2">(</span><span style="color: #AE81FF">0</span><span style="color: #F8F8F2">,</span> <span style="color: #A6E22E">len</span><span style="color: #F8F8F2">(x),</span> <span style="color: #F8F8F2">batch):</span>
+            <span style="color: #F8F8F2">xb,</span> <span style="color: #F8F8F2">yb</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">x[i:i</span> <span style="color: #FF4689">+</span> <span style="color: #F8F8F2">batch],</span> <span style="color: #F8F8F2">y[i:i</span> <span style="color: #FF4689">+</span> <span style="color: #F8F8F2">batch]</span>
+            <span style="color: #F8F8F2">logits</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">model(xb)</span>
+            <span style="color: #F8F8F2">loss</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">nn</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">functional</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">cross_entropy(</span>
+                <span style="color: #F8F8F2">logits</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">reshape(</span><span style="color: #FF4689">-</span><span style="color: #AE81FF">1</span><span style="color: #F8F8F2">,</span> <span style="color: #F8F8F2">VOCAB),</span> <span style="color: #F8F8F2">yb</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">reshape(</span><span style="color: #FF4689">-</span><span style="color: #AE81FF">1</span><span style="color: #F8F8F2">))</span>
+            <span style="color: #F8F8F2">n_token</span> <span style="color: #FF4689">=</span> <span style="color: #A6E22E">int</span><span style="color: #F8F8F2">(yb</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">numel())</span>
+            <span style="color: #F8F8F2">tong_nll</span> <span style="color: #FF4689">+=</span> <span style="color: #A6E22E">float</span><span style="color: #F8F8F2">(loss</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">item())</span> <span style="color: #FF4689">*</span> <span style="color: #F8F8F2">n_token</span>
+            <span style="color: #F8F8F2">tong_token</span> <span style="color: #FF4689">+=</span> <span style="color: #F8F8F2">n_token</span>
+    <span style="color: #959077"># [TRAINER] Diem nhe - trung binh cong cac loss theo</span>
+    <span style="color: #959077"># batch ma khong trong so theo so token: batch cuoi</span>
+    <span style="color: #959077"># it cua so hon van duoc tinh ngang hang batch day.</span>
+    <span style="color: #959077"># O capstone nay tap test chi co 12 cua so (1 batch)</span>
+    <span style="color: #959077"># nen khong anh huong, nhung dung lai quen xau - o</span>
+    <span style="color: #959077"># Day 28 chinh nguoi hoc da gop PPL theo trong so</span>
+    <span style="color: #959077"># token (tong_nll / tong_token). Nen giu cung mot</span>
+    <span style="color: #959077"># chuan: cong loss * so token tung batch roi chia</span>
+    <span style="color: #959077"># cho tong token.</span>
+    <span style="color: #959077"># -&gt; SUA: da doi sang cong theo trong so token o tren.</span>
+    <span style="color: #66D9EF">assert</span> <span style="color: #F8F8F2">tong_token</span> <span style="color: #FF4689">&gt;</span> <span style="color: #AE81FF">0</span><span style="color: #F8F8F2">,</span> <span style="color: #E6DB74">"tap du lieu rong"</span>
+    <span style="color: #F8F8F2">loss_tb</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">tong_nll</span> <span style="color: #FF4689">/</span> <span style="color: #F8F8F2">tong_token</span>
+    <span style="color: #66D9EF">assert</span> <span style="color: #F8F8F2">math</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">isfinite(loss_tb),</span> <span style="color: #E6DB74">"loss khong huu han"</span>
+    <span style="color: #66D9EF">return</span> <span style="color: #F8F8F2">loss_tb</span>
+
+
+<span style="color: #66D9EF">def</span><span style="color: #F8F8F2"> </span><span style="color: #A6E22E">train_baseline</span><span style="color: #F8F8F2">():</span>
+<span style="color: #F8F8F2">    </span><span style="color: #E6DB74">"""Huan luyen baseline 3 epoch, tra ve mo hinh da huan luyen."""</span>
+    <span style="color: #F8F8F2">model</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">TinyLM(VOCAB,</span> <span style="color: #F8F8F2">D_MODEL,</span> <span style="color: #F8F8F2">N_HEAD)</span>
+    <span style="color: #A6E22E">print</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">f"baseline: {</span><span style="color: #F8F8F2">count_params(model)</span><span style="color: #E6DB74">:,} tham so, "</span>
+          <span style="color: #E6DB74">f"{</span><span style="color: #F8F8F2">state_bytes(model) </span><span style="color: #FF4689">/</span><span style="color: #F8F8F2"> </span><span style="color: #AE81FF">1024</span><span style="color: #E6DB74">:.1f} KiB"</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #F8F8F2">opt</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">torch</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">optim</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">AdamW(model</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">parameters(),</span> <span style="color: #F8F8F2">lr</span><span style="color: #FF4689">=</span><span style="color: #F8F8F2">LR)</span>
+    <span style="color: #F8F8F2">loader</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">DataLoader(TensorDataset(X_TRAIN,</span> <span style="color: #F8F8F2">Y_TRAIN),</span>
+                        <span style="color: #F8F8F2">batch_size</span><span style="color: #FF4689">=</span><span style="color: #F8F8F2">BATCH,</span> <span style="color: #F8F8F2">shuffle</span><span style="color: #FF4689">=</span><span style="color: #66D9EF">True</span><span style="color: #F8F8F2">,</span>
+                        <span style="color: #F8F8F2">generator</span><span style="color: #FF4689">=</span><span style="color: #F8F8F2">torch</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">Generator()</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">manual_seed(</span><span style="color: #AE81FF">42</span><span style="color: #F8F8F2">))</span>
+    <span style="color: #66D9EF">for</span> <span style="color: #F8F8F2">epoch</span> <span style="color: #FF4689">in</span> <span style="color: #A6E22E">range</span><span style="color: #F8F8F2">(EPOCHS):</span>
+        <span style="color: #F8F8F2">model</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">train()</span>
+        <span style="color: #66D9EF">for</span> <span style="color: #F8F8F2">xb,</span> <span style="color: #F8F8F2">yb</span> <span style="color: #FF4689">in</span> <span style="color: #F8F8F2">loader:</span>
+            <span style="color: #F8F8F2">opt</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">zero_grad()</span>
+            <span style="color: #F8F8F2">logits</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">model(xb)</span>
+            <span style="color: #F8F8F2">loss</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">nn</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">functional</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">cross_entropy(</span>
+                <span style="color: #F8F8F2">logits</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">reshape(</span><span style="color: #FF4689">-</span><span style="color: #AE81FF">1</span><span style="color: #F8F8F2">,</span> <span style="color: #F8F8F2">VOCAB),</span> <span style="color: #F8F8F2">yb</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">reshape(</span><span style="color: #FF4689">-</span><span style="color: #AE81FF">1</span><span style="color: #F8F8F2">))</span>
+            <span style="color: #F8F8F2">loss</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">backward()</span>
+            <span style="color: #F8F8F2">opt</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">step()</span>
+        <span style="color: #F8F8F2">train_loss</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">eval_loss(model,</span> <span style="color: #F8F8F2">X_TRAIN,</span> <span style="color: #F8F8F2">Y_TRAIN)</span>
+        <span style="color: #F8F8F2">val_loss</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">eval_loss(model,</span> <span style="color: #F8F8F2">X_VAL,</span> <span style="color: #F8F8F2">Y_VAL)</span>
+        <span style="color: #A6E22E">print</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">f"epoch {</span><span style="color: #F8F8F2">epoch </span><span style="color: #FF4689">+</span><span style="color: #F8F8F2"> </span><span style="color: #AE81FF">1</span><span style="color: #E6DB74">}/{</span><span style="color: #F8F8F2">EPOCHS</span><span style="color: #E6DB74">}: train loss={</span><span style="color: #F8F8F2">train_loss</span><span style="color: #E6DB74">:.4f} "</span>
+              <span style="color: #E6DB74">f"val loss={</span><span style="color: #F8F8F2">val_loss</span><span style="color: #E6DB74">:.4f}"</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #66D9EF">return</span> <span style="color: #F8F8F2">model</span>
+
+
+<span style="color: #959077"># ---- Buoc 2: ham do (khau 4 + 6: Eval + Serve) ----</span>
+<span style="color: #66D9EF">def</span><span style="color: #F8F8F2"> </span><span style="color: #A6E22E">generate</span><span style="color: #F8F8F2">(model,</span> <span style="color: #F8F8F2">seed_ids,</span> <span style="color: #F8F8F2">n_tokens</span><span style="color: #FF4689">=</span><span style="color: #F8F8F2">GEN_TOKENS):</span>
+<span style="color: #F8F8F2">    </span><span style="color: #E6DB74">"""Sinh tham lam n_tokens ky tu tiep theo tu seed (argmax).</span>
+
+<span style="color: #E6DB74">    Moi buoc chi dua 64 ky tu gan nhat vao mo hinh roi lay ky tu co</span>
+<span style="color: #E6DB74">    xac suat cao nhat; lap lai cho den du so token.</span>
+<span style="color: #E6DB74">    """</span>
+    <span style="color: #F8F8F2">model</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">eval()</span>
+    <span style="color: #F8F8F2">ctx</span> <span style="color: #FF4689">=</span> <span style="color: #A6E22E">list</span><span style="color: #F8F8F2">(seed_ids)</span>
+    <span style="color: #66D9EF">with</span> <span style="color: #F8F8F2">torch</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">no_grad():</span>
+        <span style="color: #66D9EF">for</span> <span style="color: #F8F8F2">_</span> <span style="color: #FF4689">in</span> <span style="color: #A6E22E">range</span><span style="color: #F8F8F2">(n_tokens):</span>
+            <span style="color: #F8F8F2">window</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">torch</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">tensor([ctx[</span><span style="color: #FF4689">-</span><span style="color: #F8F8F2">SEQ_LEN:]],</span> <span style="color: #F8F8F2">dtype</span><span style="color: #FF4689">=</span><span style="color: #F8F8F2">torch</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">long)</span>
+            <span style="color: #F8F8F2">logits</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">model(window)</span>
+            <span style="color: #F8F8F2">nxt</span> <span style="color: #FF4689">=</span> <span style="color: #A6E22E">int</span><span style="color: #F8F8F2">(torch</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">argmax(logits[</span><span style="color: #AE81FF">0</span><span style="color: #F8F8F2">,</span> <span style="color: #FF4689">-</span><span style="color: #AE81FF">1</span><span style="color: #F8F8F2">])</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">item())</span>
+            <span style="color: #F8F8F2">ctx</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">append(nxt)</span>
+    <span style="color: #66D9EF">return</span> <span style="color: #F8F8F2">ctx[</span><span style="color: #A6E22E">len</span><span style="color: #F8F8F2">(seed_ids):]</span>
+
+
+<span style="color: #66D9EF">def</span><span style="color: #F8F8F2"> </span><span style="color: #A6E22E">measure</span><span style="color: #F8F8F2">(model,</span> <span style="color: #F8F8F2">seed_ids):</span>
+<span style="color: #F8F8F2">    </span><span style="color: #E6DB74">"""Do (perplexity test, giay/100 token) bang cung mot cach do.</span>
+
+<span style="color: #E6DB74">    Tra ve dict co ppl, sec_per_100, mwh_per_token (uoc luong bang</span>
+<span style="color: #E6DB74">    thoi gian x 65 W - ghi ro day la UOC LUONG, khong phai so do</span>
+<span style="color: #E6DB74">    CodeCarbon that). Thoi gian lay TRUNG VI 5 lan chay, sau 1 lan</span>
+<span style="color: #E6DB74">    warmup (bai hoc Day 29: trung vi triet duoc 1-2 lan do tre do</span>
+<span style="color: #E6DB74">    VM dung chung giat; practice ghi "trung binh 3 lan" nhung trung</span>
+<span style="color: #E6DB74">    binh bi keo lech khi 1 lan tre gap 10 lan, nen doi sang trung vi</span>
+<span style="color: #E6DB74">    van giu dung tinh than "nhieu lan roi gop lai").</span>
+<span style="color: #E6DB74">    """</span>
+    <span style="color: #F8F8F2">model</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">eval()</span>
+    <span style="color: #959077"># Perplexity = exp(loss trung binh) tren tap test.</span>
+    <span style="color: #F8F8F2">test_loss</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">eval_loss(model,</span> <span style="color: #F8F8F2">X_TEST,</span> <span style="color: #F8F8F2">Y_TEST)</span>
+    <span style="color: #F8F8F2">ppl</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">math</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">exp(test_loss)</span>
+    <span style="color: #66D9EF">assert</span> <span style="color: #F8F8F2">math</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">isfinite(ppl)</span> <span style="color: #FF4689">and</span> <span style="color: #F8F8F2">ppl</span> <span style="color: #FF4689">&gt;</span> <span style="color: #AE81FF">1.0</span><span style="color: #F8F8F2">,</span> <span style="color: #E6DB74">f"ppl vo ly: {</span><span style="color: #F8F8F2">ppl</span><span style="color: #E6DB74">}"</span>
+    <span style="color: #959077"># Sinh GEN_TOKENS token: 1 lan warmup roi 5 lan bam gio lay</span>
+    <span style="color: #959077"># trung vi, quy ve giay/100 token (GEN_TOKENS = 500 de 1 lan</span>
+    <span style="color: #959077"># do dai hon han nhieu: 100 token chi ~0,2 giay, nam ngay</span>
+    <span style="color: #959077"># duoi muc nhieu cua moi truong do - review Trainer 1ab9c39).</span>
+    <span style="color: #F8F8F2">generate(model,</span> <span style="color: #F8F8F2">seed_ids)</span>
+    <span style="color: #F8F8F2">times</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">[]</span>
+    <span style="color: #66D9EF">for</span> <span style="color: #F8F8F2">_</span> <span style="color: #FF4689">in</span> <span style="color: #A6E22E">range</span><span style="color: #F8F8F2">(</span><span style="color: #AE81FF">5</span><span style="color: #F8F8F2">):</span>
+        <span style="color: #F8F8F2">t0</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">time</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">perf_counter()</span>
+        <span style="color: #F8F8F2">generate(model,</span> <span style="color: #F8F8F2">seed_ids)</span>
+        <span style="color: #F8F8F2">times</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">append(time</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">perf_counter()</span> <span style="color: #FF4689">-</span> <span style="color: #F8F8F2">t0)</span>
+    <span style="color: #F8F8F2">sec_per_100</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">statistics</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">median(times)</span> <span style="color: #FF4689">*</span> <span style="color: #AE81FF">100</span> <span style="color: #FF4689">/</span> <span style="color: #F8F8F2">GEN_TOKENS</span>
+    <span style="color: #959077"># Nang luong uoc luong: giay/token x 65 W = joule/token, doi</span>
+    <span style="color: #959077"># sang mWh (1 Wh = 3600 J, 1 mWh = 3,6 J). Chu y chia cho</span>
+    <span style="color: #959077"># 100 (so token cua don vi sec_per_100), khong chia cho</span>
+    <span style="color: #959077"># GEN_TOKENS - 2 so nay chi bang nhau khi GEN_TOKENS = 100.</span>
+    <span style="color: #F8F8F2">joule_per_token</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">(sec_per_100</span> <span style="color: #FF4689">/</span> <span style="color: #AE81FF">100</span><span style="color: #F8F8F2">)</span> <span style="color: #FF4689">*</span> <span style="color: #F8F8F2">POWER_W</span>
+    <span style="color: #F8F8F2">mwh_per_token</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">joule_per_token</span> <span style="color: #FF4689">/</span> <span style="color: #AE81FF">3.6</span>
+    <span style="color: #66D9EF">return</span> <span style="color: #F8F8F2">{</span><span style="color: #E6DB74">"ppl"</span><span style="color: #F8F8F2">:</span> <span style="color: #F8F8F2">ppl,</span> <span style="color: #E6DB74">"sec_per_100"</span><span style="color: #F8F8F2">:</span> <span style="color: #F8F8F2">sec_per_100,</span>
+            <span style="color: #E6DB74">"mwh_per_token"</span><span style="color: #F8F8F2">:</span> <span style="color: #F8F8F2">mwh_per_token}</span>
+
+
+<span style="color: #66D9EF">def</span><span style="color: #F8F8F2"> </span><span style="color: #A6E22E">rel_diff</span><span style="color: #F8F8F2">(a,</span> <span style="color: #F8F8F2">b):</span>
+<span style="color: #F8F8F2">    </span><span style="color: #E6DB74">"""Chen lech tuong doi |a-b|/a, dung de kiem tra lap lai duoc."""</span>
+    <span style="color: #66D9EF">return</span> <span style="color: #A6E22E">abs</span><span style="color: #F8F8F2">(a</span> <span style="color: #FF4689">-</span> <span style="color: #F8F8F2">b)</span> <span style="color: #FF4689">/</span> <span style="color: #A6E22E">abs</span><span style="color: #F8F8F2">(a)</span>
+
+
+<span style="color: #66D9EF">def</span><span style="color: #F8F8F2"> </span><span style="color: #A6E22E">_do_1_lan</span><span style="color: #F8F8F2">(model,</span> <span style="color: #F8F8F2">seed_ids,</span> <span style="color: #F8F8F2">n_tokens):</span>
+<span style="color: #F8F8F2">    </span><span style="color: #E6DB74">"""Sinh n_tokens token 1 lan, tra so giay (de do xen ke)."""</span>
+    <span style="color: #F8F8F2">t0</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">time</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">perf_counter()</span>
+    <span style="color: #F8F8F2">generate(model,</span> <span style="color: #F8F8F2">seed_ids,</span> <span style="color: #F8F8F2">n_tokens)</span>
+    <span style="color: #66D9EF">return</span> <span style="color: #F8F8F2">time</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">perf_counter()</span> <span style="color: #FF4689">-</span> <span style="color: #F8F8F2">t0</span>
+
+
+<span style="color: #66D9EF">def</span><span style="color: #F8F8F2"> </span><span style="color: #A6E22E">do_xen_ke</span><span style="color: #F8F8F2">(co_so,</span> <span style="color: #F8F8F2">bien_the,</span> <span style="color: #F8F8F2">seed_ids,</span> <span style="color: #F8F8F2">n_vong</span><span style="color: #FF4689">=</span><span style="color: #AE81FF">5</span><span style="color: #F8F8F2">,</span>
+              <span style="color: #F8F8F2">n_tokens</span><span style="color: #FF4689">=</span><span style="color: #F8F8F2">GEN_TOKENS):</span>
+<span style="color: #F8F8F2">    </span><span style="color: #E6DB74">"""Do xen ke A/B nhieu vong, tra ti le thoi gian tung vong.</span>
+
+<span style="color: #E6DB74">    Moi vong: sinh n_tokens token bang baseline roi NGAY LAP TUC</span>
+<span style="color: #E6DB74">    bang bien the (A/B/A/B...), tinh ti le t_bien / t_co_so cua</span>
+<span style="color: #E6DB74">    vong do - va DOI THU TU o vong le (B truoc, A sau) de diet</span>
+<span style="color: #E6DB74">    ca lech do "ben do sau luc nao cung cham hon". Tai may thay</span>
+<span style="color: #E6DB74">    doi cham theo thoi gian nen do rieng 2 phien (do het</span>
+<span style="color: #E6DB74">    baseline roi moi INT8) co the LAT verdict: lan chay cua</span>
+<span style="color: #E6DB74">    nguoi hoc -1,25%, Trainer chay lai -28,2%. Xen ke diet</span>
+<span style="color: #E6DB74">    lech nay. Tra (ti_le_trung_vi, ti_le_thap_nhat,</span>
+<span style="color: #E6DB74">    ti_le_cao_nhat, danh sach ti le). Moi mo hinh warmup 1 lan</span>
+<span style="color: #E6DB74">    truoc vong dau (khong warmup lai tung vong - mo hinh van</span>
+<span style="color: #E6DB74">    nong). Thoi gian bam bang time.perf_counter().</span>
+<span style="color: #E6DB74">    """</span>
+    <span style="color: #66D9EF">if</span> <span style="color: #FF4689">not</span> <span style="color: #A6E22E">isinstance</span><span style="color: #F8F8F2">(co_so,</span> <span style="color: #F8F8F2">nn</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">Module)</span> \
+            <span style="color: #FF4689">or</span> <span style="color: #FF4689">not</span> <span style="color: #A6E22E">isinstance</span><span style="color: #F8F8F2">(bien_the,</span> <span style="color: #F8F8F2">nn</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">Module):</span>
+        <span style="color: #66D9EF">raise</span> <span style="color: #A6E22E">ValueError</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">"mo hinh phai la nn.Module."</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #66D9EF">if</span> <span style="color: #FF4689">not</span> <span style="color: #A6E22E">isinstance</span><span style="color: #F8F8F2">(n_vong,</span> <span style="color: #A6E22E">int</span><span style="color: #F8F8F2">)</span> <span style="color: #FF4689">or</span> <span style="color: #F8F8F2">n_vong</span> <span style="color: #FF4689">&lt;</span> <span style="color: #AE81FF">1</span><span style="color: #F8F8F2">:</span>
+        <span style="color: #66D9EF">raise</span> <span style="color: #A6E22E">ValueError</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">f"n_vong phai la so nguyen &gt;= 1, "</span>
+                         <span style="color: #E6DB74">f"nhan duoc {</span><span style="color: #F8F8F2">n_vong</span><span style="color: #E6DB74">}"</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #66D9EF">if</span> <span style="color: #FF4689">not</span> <span style="color: #A6E22E">isinstance</span><span style="color: #F8F8F2">(n_tokens,</span> <span style="color: #A6E22E">int</span><span style="color: #F8F8F2">)</span> <span style="color: #FF4689">or</span> <span style="color: #F8F8F2">n_tokens</span> <span style="color: #FF4689">&lt;</span> <span style="color: #AE81FF">1</span><span style="color: #F8F8F2">:</span>
+        <span style="color: #66D9EF">raise</span> <span style="color: #A6E22E">ValueError</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">f"n_tokens phai la so nguyen &gt;= 1, "</span>
+                         <span style="color: #E6DB74">f"nhan duoc {</span><span style="color: #F8F8F2">n_tokens</span><span style="color: #E6DB74">}"</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #F8F8F2">co_so</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">eval()</span>
+    <span style="color: #F8F8F2">bien_the</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">eval()</span>
+    <span style="color: #F8F8F2">generate(co_so,</span> <span style="color: #F8F8F2">seed_ids,</span> <span style="color: #F8F8F2">n_tokens)</span>
+    <span style="color: #F8F8F2">generate(bien_the,</span> <span style="color: #F8F8F2">seed_ids,</span> <span style="color: #F8F8F2">n_tokens)</span>
+    <span style="color: #F8F8F2">ti_les</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">[]</span>
+    <span style="color: #66D9EF">for</span> <span style="color: #F8F8F2">vong</span> <span style="color: #FF4689">in</span> <span style="color: #A6E22E">range</span><span style="color: #F8F8F2">(n_vong):</span>
+        <span style="color: #66D9EF">if</span> <span style="color: #F8F8F2">vong</span> <span style="color: #FF4689">%</span> <span style="color: #AE81FF">2</span> <span style="color: #FF4689">==</span> <span style="color: #AE81FF">0</span><span style="color: #F8F8F2">:</span>
+            <span style="color: #F8F8F2">t_a</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">_do_1_lan(co_so,</span> <span style="color: #F8F8F2">seed_ids,</span> <span style="color: #F8F8F2">n_tokens)</span>
+            <span style="color: #F8F8F2">t_b</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">_do_1_lan(bien_the,</span> <span style="color: #F8F8F2">seed_ids,</span> <span style="color: #F8F8F2">n_tokens)</span>
+        <span style="color: #66D9EF">else</span><span style="color: #F8F8F2">:</span>
+            <span style="color: #F8F8F2">t_b</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">_do_1_lan(bien_the,</span> <span style="color: #F8F8F2">seed_ids,</span> <span style="color: #F8F8F2">n_tokens)</span>
+            <span style="color: #F8F8F2">t_a</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">_do_1_lan(co_so,</span> <span style="color: #F8F8F2">seed_ids,</span> <span style="color: #F8F8F2">n_tokens)</span>
+        <span style="color: #66D9EF">assert</span> <span style="color: #F8F8F2">t_a</span> <span style="color: #FF4689">&gt;</span> <span style="color: #AE81FF">0</span> <span style="color: #FF4689">and</span> <span style="color: #F8F8F2">t_b</span> <span style="color: #FF4689">&gt;</span> <span style="color: #AE81FF">0</span><span style="color: #F8F8F2">,</span> <span style="color: #E6DB74">"thoi gian do phai duong"</span>
+        <span style="color: #F8F8F2">ti_les</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">append(t_b</span> <span style="color: #FF4689">/</span> <span style="color: #F8F8F2">t_a)</span>
+    <span style="color: #66D9EF">return</span> <span style="color: #F8F8F2">(</span><span style="color: #A6E22E">float</span><span style="color: #F8F8F2">(statistics</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">median(ti_les)),</span> <span style="color: #A6E22E">min</span><span style="color: #F8F8F2">(ti_les),</span>
+            <span style="color: #A6E22E">max</span><span style="color: #F8F8F2">(ti_les),</span> <span style="color: #F8F8F2">ti_les)</span>
+
+
+<span style="color: #959077"># ---- Buoc 4: luat Chinchilla (khau 3: quyet dinh ngan sach) ----</span>
+<span style="color: #66D9EF">def</span><span style="color: #F8F8F2"> </span><span style="color: #A6E22E">chinchilla_split</span><span style="color: #F8F8F2">(c_flops):</span>
+<span style="color: #F8F8F2">    </span><span style="color: #E6DB74">"""Chia ngan sach C (FLOPs) thanh so tham so N va so token D.</span>
+
+<span style="color: #E6DB74">    Theo quy tac thuc nghiem: N ~ D/20 va C ~ 6*N*D, suy ra</span>
+<span style="color: #E6DB74">    N = sqrt(C/120), D = 20*N. Tra ve (N, D).</span>
+<span style="color: #E6DB74">    """</span>
+    <span style="color: #66D9EF">if</span> <span style="color: #FF4689">not</span> <span style="color: #A6E22E">isinstance</span><span style="color: #F8F8F2">(c_flops,</span> <span style="color: #F8F8F2">(</span><span style="color: #A6E22E">int</span><span style="color: #F8F8F2">,</span> <span style="color: #A6E22E">float</span><span style="color: #F8F8F2">)):</span>
+        <span style="color: #66D9EF">raise</span> <span style="color: #A6E22E">ValueError</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">f"C phai la so, nhan duoc {</span><span style="color: #A6E22E">type</span><span style="color: #F8F8F2">(c_flops)</span><span style="color: #E6DB74">}"</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #66D9EF">if</span> <span style="color: #FF4689">not</span> <span style="color: #F8F8F2">math</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">isfinite(c_flops)</span> <span style="color: #FF4689">or</span> <span style="color: #F8F8F2">c_flops</span> <span style="color: #FF4689">&lt;=</span> <span style="color: #AE81FF">0</span><span style="color: #F8F8F2">:</span>
+        <span style="color: #66D9EF">raise</span> <span style="color: #A6E22E">ValueError</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">f"C phai duong va huu han, nhan duoc {</span><span style="color: #F8F8F2">c_flops</span><span style="color: #E6DB74">}"</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #F8F8F2">n_params</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">math</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">sqrt(c_flops</span> <span style="color: #FF4689">/</span> <span style="color: #AE81FF">120.0</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #66D9EF">return</span> <span style="color: #F8F8F2">n_params,</span> <span style="color: #AE81FF">20.0</span> <span style="color: #FF4689">*</span> <span style="color: #F8F8F2">n_params</span>
+
+
+<span style="color: #959077"># [TRAINER] DIEM CHINH - dieu kien (c) hien tai chi do</span>
+<span style="color: #959077"># lai TRONG CUNG MOT PHIEN chay (cung tai may, cung</span>
+<span style="color: #959077"># trang thai nhiet/nhieu), nen no chi chung minh nhieu</span>
+<span style="color: #959077"># ngan han thap, khong chung minh duoc ket luan (b)</span>
+<span style="color: #959077"># on dinh giua cac lan chay doc lap. Bang chung cu the:</span>
+<span style="color: #959077"># lan chay cua nguoi hoc cho thoi gian INT8 chi giam</span>
+<span style="color: #959077"># 1,25% (verdict KHONG DAT nhanh b), con lan chay lai</span>
+<span style="color: #959077"># doc lap cua Trainer tren cung code, cung seed, cho</span>
+<span style="color: #959077"># thoi gian giam 28,2% (verdict DAT ca 3 nhanh) - chi</span>
+<span style="color: #959077"># PPL la tai lap dung (7,78). Voi mo hinh 1 lop rat</span>
+<span style="color: #959077"># nho, thoi gian sinh 100 token chi ~0,2 giay, chenh</span>
+<span style="color: #959077"># lech FP32/INT8 nam ngay duoi muc nhieu cua moi</span>
+<span style="color: #959077"># truong do. Cach cung co truoc khi tin verdict (b):</span>
+<span style="color: #959077">#  - do XEN KE A/B/A/B nhieu vong va tinh ti le cua</span>
+<span style="color: #959077">#    tung vong roi lay trung vi cac ti le (diet lech</span>
+<span style="color: #959077">#    do tai may thay doi theo thoi gian);</span>
+<span style="color: #959077">#  - tang GEN_TOKENS / so lan do de thoi gian 1 lan do</span>
+<span style="color: #959077">#    dai hon nhieu nhieu lan;</span>
+<span style="color: #959077">#  - bao verdict (b) kem khoang dao dong giua cac lan</span>
+<span style="color: #959077">#    chay doc lap, khong chi 1 con so.</span>
+<span style="color: #959077"># Ket luan KHONG DAT cua nguoi hoc van la cach bao cao</span>
+<span style="color: #959077"># dung (khong sua so), nhung ve mat bang chung ca hai</span>
+<span style="color: #959077"># verdict deu chua du manh - day la gioi han cua phep</span>
+<span style="color: #959077"># do thoi gian tren mo hinh ti hon, khong phai loi code.</span>
+
+<span style="color: #66D9EF">def</span><span style="color: #F8F8F2"> </span><span style="color: #A6E22E">green_checkpoint</span><span style="color: #F8F8F2">(ppl_pct,</span> <span style="color: #F8F8F2">energy_pct,</span> <span style="color: #F8F8F2">repeat_diff_ppl,</span>
+                     <span style="color: #F8F8F2">repeat_diff_time,</span> <span style="color: #F8F8F2">energy_lo_pct,</span>
+                     <span style="color: #F8F8F2">energy_hi_pct):</span>
+<span style="color: #F8F8F2">    </span><span style="color: #E6DB74">"""Ap Green checkpoint: var chi "tot hon" neu ca 3 dieu kien dung.</span>
+
+<span style="color: #E6DB74">    Nhan vao cac PHAN TRAM da tinh san (de test truc tiep tung</span>
+<span style="color: #E6DB74">    nhanh): (a) perplexity tang khong qua 5% so voi baseline;</span>
+<span style="color: #E6DB74">    (b) nang luong/token giam it nhat 20% - lay theo TRUNG VI</span>
+<span style="color: #E6DB74">    ti le xen ke A/B, kem khoang dao dong (thap..cao) giua cac</span>
+<span style="color: #E6DB74">    vong; (c) do lan 2 chenh lech &lt; 3% CA ppl VA thoi gian -</span>
+<span style="color: #E6DB74">    "ket qua" cua measure() gom ca 2 so, nen chi xet ppl thi</span>
+<span style="color: #E6DB74">    chua du: thoi gian khong lap lai duoc thi ket luan ve nang</span>
+<span style="color: #E6DB74">    luong cung khong dung vung.</span>
+<span style="color: #E6DB74">    Tra ve (dat_hay_khong, danh sach ly do).</span>
+<span style="color: #E6DB74">    """</span>
+    <span style="color: #F8F8F2">ok_a</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">ppl_pct</span> <span style="color: #FF4689">&lt;=</span> <span style="color: #AE81FF">5.0</span>
+    <span style="color: #F8F8F2">ok_b</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">energy_pct</span> <span style="color: #FF4689">&lt;=</span> <span style="color: #FF4689">-</span><span style="color: #AE81FF">20.0</span>
+    <span style="color: #F8F8F2">ok_c</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">repeat_diff_ppl</span> <span style="color: #FF4689">&lt;</span> <span style="color: #AE81FF">0.03</span> <span style="color: #FF4689">and</span> <span style="color: #F8F8F2">repeat_diff_time</span> <span style="color: #FF4689">&lt;</span> <span style="color: #AE81FF">0.03</span>
+    <span style="color: #F8F8F2">reasons</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">[</span>
+        <span style="color: #E6DB74">f"(a) ppl {</span><span style="color: #F8F8F2">ppl_pct</span><span style="color: #E6DB74">:+.1f}% (nguong &lt;= +5%): "</span>
+        <span style="color: #E6DB74">f"{'DAT'</span><span style="color: #F8F8F2"> </span><span style="color: #66D9EF">if</span><span style="color: #F8F8F2"> ok_a </span><span style="color: #66D9EF">else</span><span style="color: #F8F8F2"> </span><span style="color: #E6DB74">'KHONG DAT'}"</span><span style="color: #F8F8F2">,</span>
+        <span style="color: #E6DB74">f"(b) nang luong/token {</span><span style="color: #F8F8F2">energy_pct</span><span style="color: #E6DB74">:+.1f}% (trung vi "</span>
+        <span style="color: #E6DB74">f"xen ke, khoang {</span><span style="color: #F8F8F2">energy_lo_pct</span><span style="color: #E6DB74">:+.1f}%.."</span>
+        <span style="color: #E6DB74">f"{</span><span style="color: #F8F8F2">energy_hi_pct</span><span style="color: #E6DB74">:+.1f}%) (nguong &lt;= -20%): "</span>
+        <span style="color: #E6DB74">f"{'DAT'</span><span style="color: #F8F8F2"> </span><span style="color: #66D9EF">if</span><span style="color: #F8F8F2"> ok_b </span><span style="color: #66D9EF">else</span><span style="color: #F8F8F2"> </span><span style="color: #E6DB74">'KHONG DAT'}"</span><span style="color: #F8F8F2">,</span>
+        <span style="color: #E6DB74">f"(c) do lan 2 chenh ppl {</span><span style="color: #F8F8F2">repeat_diff_ppl </span><span style="color: #FF4689">*</span><span style="color: #F8F8F2"> </span><span style="color: #AE81FF">100</span><span style="color: #E6DB74">:.2f}%"</span>
+        <span style="color: #E6DB74">f" + thoi gian {</span><span style="color: #F8F8F2">repeat_diff_time </span><span style="color: #FF4689">*</span><span style="color: #F8F8F2"> </span><span style="color: #AE81FF">100</span><span style="color: #E6DB74">:.1f}%"</span>
+        <span style="color: #E6DB74">f" (nguong &lt; 3%): {'DAT'</span><span style="color: #F8F8F2"> </span><span style="color: #66D9EF">if</span><span style="color: #F8F8F2"> ok_c </span><span style="color: #66D9EF">else</span><span style="color: #F8F8F2"> </span><span style="color: #E6DB74">'KHONG DAT'}"</span><span style="color: #F8F8F2">,</span>
+    <span style="color: #F8F8F2">]</span>
+    <span style="color: #66D9EF">return</span> <span style="color: #F8F8F2">ok_a</span> <span style="color: #FF4689">and</span> <span style="color: #F8F8F2">ok_b</span> <span style="color: #FF4689">and</span> <span style="color: #F8F8F2">ok_c,</span> <span style="color: #F8F8F2">reasons</span>
+
+
+<span style="color: #66D9EF">def</span><span style="color: #F8F8F2"> </span><span style="color: #A6E22E">tu_kiem_tra</span><span style="color: #F8F8F2">():</span>
+<span style="color: #F8F8F2">    </span><span style="color: #E6DB74">"""Tu kiem tra bang assert (fail la dung).</span>
+
+<span style="color: #E6DB74">    Kiem: eval_loss cong theo trong so token (batch 32 vs</span>
+<span style="color: #E6DB74">    batch 5 phai cho cung so); green_checkpoint dung tung</span>
+<span style="color: #E6DB74">    nhanh (a)/(b)/(c); do_xen_ke tra ti le hop le.</span>
+<span style="color: #E6DB74">    """</span>
+    <span style="color: #959077"># eval_loss: tap test 14 cua so, batch=5 cat thanh 5/5/4 -</span>
+    <span style="color: #959077"># lay trung binh khong trong so se lech (kiem chung: cach</span>
+    <span style="color: #959077"># cu lech 7,1e-05 giua batch 32 va batch 5), cong theo</span>
+    <span style="color: #959077"># token thi 2 cach chia phai cho cung so.</span>
+    <span style="color: #F8F8F2">mo_hinh_thu</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">TinyLM(VOCAB,</span> <span style="color: #F8F8F2">D_MODEL,</span> <span style="color: #F8F8F2">N_HEAD)</span>
+    <span style="color: #F8F8F2">loss_32</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">eval_loss(mo_hinh_thu,</span> <span style="color: #F8F8F2">X_TEST,</span> <span style="color: #F8F8F2">Y_TEST,</span>
+                        <span style="color: #F8F8F2">batch</span><span style="color: #FF4689">=</span><span style="color: #AE81FF">32</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #F8F8F2">loss_5</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">eval_loss(mo_hinh_thu,</span> <span style="color: #F8F8F2">X_TEST,</span> <span style="color: #F8F8F2">Y_TEST,</span> <span style="color: #F8F8F2">batch</span><span style="color: #FF4689">=</span><span style="color: #AE81FF">5</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #66D9EF">assert</span> <span style="color: #A6E22E">abs</span><span style="color: #F8F8F2">(loss_32</span> <span style="color: #FF4689">-</span> <span style="color: #F8F8F2">loss_5)</span> <span style="color: #FF4689">&lt;</span> <span style="color: #AE81FF">1e-6</span><span style="color: #F8F8F2">,</span> <span style="color: #F8F8F2">(</span>
+        <span style="color: #E6DB74">f"eval_loss phai khong phu thuoc cach chia batch: "</span>
+        <span style="color: #E6DB74">f"{</span><span style="color: #F8F8F2">loss_32</span><span style="color: #E6DB74">:.6f} vs {</span><span style="color: #F8F8F2">loss_5</span><span style="color: #E6DB74">:.6f}"</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #959077"># green_checkpoint: (a) ppl +8% -&gt; rot; ca 3 dat -&gt; DAT;</span>
+    <span style="color: #959077"># (c) thoi gian do lan 2 chenh 5% -&gt; rot.</span>
+    <span style="color: #F8F8F2">dat,</span> <span style="color: #F8F8F2">_</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">green_checkpoint(</span><span style="color: #AE81FF">8.0</span><span style="color: #F8F8F2">,</span> <span style="color: #FF4689">-</span><span style="color: #AE81FF">40.0</span><span style="color: #F8F8F2">,</span> <span style="color: #AE81FF">0.01</span><span style="color: #F8F8F2">,</span> <span style="color: #AE81FF">0.01</span><span style="color: #F8F8F2">,</span>
+                              <span style="color: #FF4689">-</span><span style="color: #AE81FF">45.0</span><span style="color: #F8F8F2">,</span> <span style="color: #FF4689">-</span><span style="color: #AE81FF">35.0</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #66D9EF">assert</span> <span style="color: #FF4689">not</span> <span style="color: #F8F8F2">dat,</span> <span style="color: #E6DB74">"ppl +8% vuot nguong 5% phai rot"</span>
+    <span style="color: #F8F8F2">dat,</span> <span style="color: #F8F8F2">_</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">green_checkpoint(</span><span style="color: #AE81FF">2.0</span><span style="color: #F8F8F2">,</span> <span style="color: #FF4689">-</span><span style="color: #AE81FF">25.0</span><span style="color: #F8F8F2">,</span> <span style="color: #AE81FF">0.01</span><span style="color: #F8F8F2">,</span> <span style="color: #AE81FF">0.01</span><span style="color: #F8F8F2">,</span>
+                              <span style="color: #FF4689">-</span><span style="color: #AE81FF">30.0</span><span style="color: #F8F8F2">,</span> <span style="color: #FF4689">-</span><span style="color: #AE81FF">21.0</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #66D9EF">assert</span> <span style="color: #F8F8F2">dat,</span> <span style="color: #E6DB74">"ca 3 nhanh dat thi phai DAT"</span>
+    <span style="color: #F8F8F2">dat,</span> <span style="color: #F8F8F2">_</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">green_checkpoint(</span><span style="color: #AE81FF">2.0</span><span style="color: #F8F8F2">,</span> <span style="color: #FF4689">-</span><span style="color: #AE81FF">25.0</span><span style="color: #F8F8F2">,</span> <span style="color: #AE81FF">0.01</span><span style="color: #F8F8F2">,</span> <span style="color: #AE81FF">0.05</span><span style="color: #F8F8F2">,</span>
+                              <span style="color: #FF4689">-</span><span style="color: #AE81FF">30.0</span><span style="color: #F8F8F2">,</span> <span style="color: #FF4689">-</span><span style="color: #AE81FF">21.0</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #66D9EF">assert</span> <span style="color: #FF4689">not</span> <span style="color: #F8F8F2">dat,</span> <span style="color: #E6DB74">"thoi gian do lan 2 chenh 5% phai rot"</span>
+    <span style="color: #959077"># do_xen_ke: 5 vong, 50 token tren 2 mo hinh giong het</span>
+    <span style="color: #959077"># nhau - ti le phai duong, trung vi nam trong [thap, cao]</span>
+    <span style="color: #959077"># va gan 1 (cung mo hinh thi khong the chenh nhieu). Dung</span>
+    <span style="color: #959077"># 5 vong vi trung vi cua 2 gia tri chi la trung binh cua</span>
+    <span style="color: #959077"># chung - 1 lan tre cung du lam lech (tu kiem tra bat duoc</span>
+    <span style="color: #959077"># ti le 3,55 o ban dau tien dung n_vong=2).</span>
+    <span style="color: #F8F8F2">ti_le_tv,</span> <span style="color: #F8F8F2">ti_le_thap,</span> <span style="color: #F8F8F2">ti_le_cao,</span> <span style="color: #F8F8F2">ti_les</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">do_xen_ke(</span>
+        <span style="color: #F8F8F2">mo_hinh_thu,</span> <span style="color: #F8F8F2">copy</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">deepcopy(mo_hinh_thu),</span>
+        <span style="color: #F8F8F2">IDS_TEST[:</span><span style="color: #AE81FF">16</span><span style="color: #F8F8F2">]</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">tolist(),</span> <span style="color: #F8F8F2">n_vong</span><span style="color: #FF4689">=</span><span style="color: #AE81FF">5</span><span style="color: #F8F8F2">,</span> <span style="color: #F8F8F2">n_tokens</span><span style="color: #FF4689">=</span><span style="color: #AE81FF">50</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #66D9EF">assert</span> <span style="color: #A6E22E">len</span><span style="color: #F8F8F2">(ti_les)</span> <span style="color: #FF4689">==</span> <span style="color: #AE81FF">5</span> <span style="color: #FF4689">and</span> <span style="color: #A6E22E">all</span><span style="color: #F8F8F2">(t</span> <span style="color: #FF4689">&gt;</span> <span style="color: #AE81FF">0</span> <span style="color: #66D9EF">for</span> <span style="color: #F8F8F2">t</span> <span style="color: #FF4689">in</span> <span style="color: #F8F8F2">ti_les)</span>
+    <span style="color: #66D9EF">assert</span> <span style="color: #F8F8F2">ti_le_thap</span> <span style="color: #FF4689">&lt;=</span> <span style="color: #F8F8F2">ti_le_tv</span> <span style="color: #FF4689">&lt;=</span> <span style="color: #F8F8F2">ti_le_cao</span>
+    <span style="color: #66D9EF">assert</span> <span style="color: #AE81FF">0.5</span> <span style="color: #FF4689">&lt;=</span> <span style="color: #F8F8F2">ti_le_tv</span> <span style="color: #FF4689">&lt;=</span> <span style="color: #AE81FF">2.0</span><span style="color: #F8F8F2">,</span> <span style="color: #F8F8F2">(</span>
+        <span style="color: #E6DB74">f"2 mo hinh giong het nhau thi ti le phai ~1, got "</span>
+        <span style="color: #E6DB74">f"{</span><span style="color: #F8F8F2">ti_le_tv</span><span style="color: #E6DB74">:.2f}"</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #A6E22E">print</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">"Tu kiem tra: PASS."</span><span style="color: #F8F8F2">)</span>
+
+
+<span style="color: #66D9EF">def</span><span style="color: #F8F8F2"> </span><span style="color: #A6E22E">main</span><span style="color: #F8F8F2">():</span>
+<span style="color: #F8F8F2">    </span><span style="color: #E6DB74">"""Chay tron chuoi capstone: train, do, luong tu hoa, ket luan."""</span>
+    <span style="color: #F8F8F2">tu_kiem_tra()</span>
+    <span style="color: #959077"># Dat lai seed 42 truoc khi train: tu_kiem_tra() da tieu thu</span>
+    <span style="color: #959077"># mot phan luong RNG toan cuc (khoi tao mo hinh thu), khong</span>
+    <span style="color: #959077"># dat lai thi baseline khoi tao khac lan chay goc va PPL</span>
+    <span style="color: #959077"># khong tai lap dung 7,78 nua.</span>
+    <span style="color: #F8F8F2">torch</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">manual_seed(</span><span style="color: #AE81FF">42</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #F8F8F2">baseline</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">train_baseline()</span>
+    <span style="color: #959077"># Seed sinh lay 16 ky tu dau cua tap test (mo hinh chua thay</span>
+    <span style="color: #959077"># trong huan luyen, nhung thuoc cung doan van).</span>
+    <span style="color: #F8F8F2">seed</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">IDS_TEST[:</span><span style="color: #AE81FF">16</span><span style="color: #F8F8F2">]</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">tolist()</span>
+
+    <span style="color: #F8F8F2">results</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">{}</span>
+    <span style="color: #F8F8F2">results[</span><span style="color: #E6DB74">"baseline"</span><span style="color: #F8F8F2">]</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">measure(baseline,</span> <span style="color: #F8F8F2">seed)</span>
+    <span style="color: #A6E22E">print</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">f"baseline: ppl={</span><span style="color: #F8F8F2">results[</span><span style="color: #E6DB74">'baseline'</span><span style="color: #F8F8F2">][</span><span style="color: #E6DB74">'ppl'</span><span style="color: #F8F8F2">]</span><span style="color: #E6DB74">:.2f}, "</span>
+          <span style="color: #E6DB74">f"{</span><span style="color: #F8F8F2">results[</span><span style="color: #E6DB74">'baseline'</span><span style="color: #F8F8F2">][</span><span style="color: #E6DB74">'sec_per_100'</span><span style="color: #F8F8F2">]</span><span style="color: #E6DB74">:.3f} giay/100 token, "</span>
+          <span style="color: #E6DB74">f"{</span><span style="color: #F8F8F2">results[</span><span style="color: #E6DB74">'baseline'</span><span style="color: #F8F8F2">][</span><span style="color: #E6DB74">'mwh_per_token'</span><span style="color: #F8F8F2">]</span><span style="color: #E6DB74">:.4f} mWh/token "</span>
+          <span style="color: #E6DB74">f"(uoc luong 65 W)"</span><span style="color: #F8F8F2">)</span>
+
+    <span style="color: #959077"># ---- Buoc 3: bien the toi uu (khau 5: Optimize) ----</span>
+    <span style="color: #959077"># Luong tu hoa dong INT8 tu chinh baseline, KHONG huan luyen</span>
+    <span style="color: #959077"># lai; do lai bang CUNG ham measure(), CUNG tap test.</span>
+    <span style="color: #F8F8F2">quantized</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">torch</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">quantization</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">quantize_dynamic(</span>
+        <span style="color: #F8F8F2">baseline,</span> <span style="color: #F8F8F2">{nn</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">Linear},</span> <span style="color: #F8F8F2">dtype</span><span style="color: #FF4689">=</span><span style="color: #F8F8F2">torch</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">qint8)</span>
+    <span style="color: #F8F8F2">quantized</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">eval()</span>
+    <span style="color: #A6E22E">print</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">f"INT8: {</span><span style="color: #F8F8F2">state_bytes(quantized) </span><span style="color: #FF4689">/</span><span style="color: #F8F8F2"> </span><span style="color: #AE81FF">1024</span><span style="color: #E6DB74">:.1f} KiB "</span>
+          <span style="color: #E6DB74">f"(baseline {</span><span style="color: #F8F8F2">state_bytes(baseline) </span><span style="color: #FF4689">/</span><span style="color: #F8F8F2"> </span><span style="color: #AE81FF">1024</span><span style="color: #E6DB74">:.1f} KiB)"</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #66D9EF">assert</span> <span style="color: #F8F8F2">state_bytes(quantized)</span> <span style="color: #FF4689">&lt;</span> <span style="color: #F8F8F2">state_bytes(baseline),</span> <span style="color: #F8F8F2">(</span>
+        <span style="color: #E6DB74">"luong tu hoa phai nhe hon baseline"</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #959077"># Tat fastpath cua Transformer khi do mo hinh luong tu hoa:</span>
+    <span style="color: #959077"># Linear luong tu hoa de .weight duoi dang method (khong phai</span>
+    <span style="color: #959077"># tensor) nen ham kiem tra fastpath cua TransformerEncoderLayer</span>
+    <span style="color: #959077"># crash; duong slow path goi self.linear1(x) thi chay dung.</span>
+    <span style="color: #959077"># out_proj cua MultiheadAttention khong bi luong tu hoa (PyTorch</span>
+    <span style="color: #959077"># danh dau NonDynamicallyQuantizableLinear) nen attention van</span>
+    <span style="color: #959077"># chay binh thuong. Bat lai ngay sau khi do xong.</span>
+    <span style="color: #F8F8F2">torch</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">backends</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">mha</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">set_fastpath_enabled(</span><span style="color: #66D9EF">False</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #66D9EF">try</span><span style="color: #F8F8F2">:</span>
+        <span style="color: #F8F8F2">results[</span><span style="color: #E6DB74">"int8"</span><span style="color: #F8F8F2">]</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">measure(quantized,</span> <span style="color: #F8F8F2">seed)</span>
+        <span style="color: #959077"># Kiem tra lap lai duoc (dieu kien (c)): do lan 2, so ca</span>
+        <span style="color: #959077"># ppl va thoi gian. PPL la phep do xac dinh (eval + no_grad)</span>
+        <span style="color: #959077"># nen 2 lan chay phai gan nhu giong het nhau; neu chenh</span>
+        <span style="color: #959077"># &gt; 3% thi nghi ngay quen model.eval() (dropout 0.1 con</span>
+        <span style="color: #959077"># bat se lam so dao dong). Thoi gian thi co the chenh lon</span>
+        <span style="color: #959077"># do VM dung chung giat - do la ket qua do, khong phai loi</span>
+        <span style="color: #959077"># code, nen chi bao cao chu khong assert.</span>
+        <span style="color: #F8F8F2">repeat</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">measure(quantized,</span> <span style="color: #F8F8F2">seed)</span>
+        <span style="color: #959077"># Do xen ke A/B (nhanh (b) lay theo ti le nay, khong lay</span>
+        <span style="color: #959077"># theo 2 lan measure() rieng biet - review 1ab9c39).</span>
+        <span style="color: #F8F8F2">ti_le_tv,</span> <span style="color: #F8F8F2">ti_le_thap,</span> <span style="color: #F8F8F2">ti_le_cao,</span> <span style="color: #F8F8F2">ti_les</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">do_xen_ke(</span>
+            <span style="color: #F8F8F2">baseline,</span> <span style="color: #F8F8F2">quantized,</span> <span style="color: #F8F8F2">seed,</span> <span style="color: #F8F8F2">n_vong</span><span style="color: #FF4689">=</span><span style="color: #F8F8F2">N_VONG_XEN_KE)</span>
+        <span style="color: #F8F8F2">ti_le_chuoi</span> <span style="color: #FF4689">=</span> <span style="color: #E6DB74">", "</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">join(</span><span style="color: #E6DB74">f"{</span><span style="color: #F8F8F2">t</span><span style="color: #E6DB74">:.3f}"</span> <span style="color: #66D9EF">for</span> <span style="color: #F8F8F2">t</span> <span style="color: #FF4689">in</span> <span style="color: #F8F8F2">ti_les)</span>
+        <span style="color: #A6E22E">print</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">f"xen ke A/B {</span><span style="color: #F8F8F2">N_VONG_XEN_KE</span><span style="color: #E6DB74">} vong x {</span><span style="color: #F8F8F2">GEN_TOKENS</span><span style="color: #E6DB74">} "</span>
+              <span style="color: #E6DB74">f"token: ti le INT8/baseline = {</span><span style="color: #F8F8F2">ti_le_chuoi</span><span style="color: #E6DB74">}"</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #66D9EF">finally</span><span style="color: #F8F8F2">:</span>
+        <span style="color: #F8F8F2">torch</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">backends</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">mha</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">set_fastpath_enabled(</span><span style="color: #66D9EF">True</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #A6E22E">print</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">f"INT8: ppl={</span><span style="color: #F8F8F2">results[</span><span style="color: #E6DB74">'int8'</span><span style="color: #F8F8F2">][</span><span style="color: #E6DB74">'ppl'</span><span style="color: #F8F8F2">]</span><span style="color: #E6DB74">:.2f}, "</span>
+          <span style="color: #E6DB74">f"{</span><span style="color: #F8F8F2">results[</span><span style="color: #E6DB74">'int8'</span><span style="color: #F8F8F2">][</span><span style="color: #E6DB74">'sec_per_100'</span><span style="color: #F8F8F2">]</span><span style="color: #E6DB74">:.3f} giay/100 token, "</span>
+          <span style="color: #E6DB74">f"{</span><span style="color: #F8F8F2">results[</span><span style="color: #E6DB74">'int8'</span><span style="color: #F8F8F2">][</span><span style="color: #E6DB74">'mwh_per_token'</span><span style="color: #F8F8F2">]</span><span style="color: #E6DB74">:.4f} mWh/token "</span>
+          <span style="color: #E6DB74">f"(uoc luong 65 W)"</span><span style="color: #F8F8F2">)</span>
+
+    <span style="color: #F8F8F2">diff_ppl</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">rel_diff(results[</span><span style="color: #E6DB74">"int8"</span><span style="color: #F8F8F2">][</span><span style="color: #E6DB74">"ppl"</span><span style="color: #F8F8F2">],</span> <span style="color: #F8F8F2">repeat[</span><span style="color: #E6DB74">"ppl"</span><span style="color: #F8F8F2">])</span>
+    <span style="color: #F8F8F2">diff_time</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">rel_diff(results[</span><span style="color: #E6DB74">"int8"</span><span style="color: #F8F8F2">][</span><span style="color: #E6DB74">"sec_per_100"</span><span style="color: #F8F8F2">],</span>
+                         <span style="color: #F8F8F2">repeat[</span><span style="color: #E6DB74">"sec_per_100"</span><span style="color: #F8F8F2">])</span>
+    <span style="color: #A6E22E">print</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">f"do lan 2 INT8: ppl={</span><span style="color: #F8F8F2">repeat[</span><span style="color: #E6DB74">'ppl'</span><span style="color: #F8F8F2">]</span><span style="color: #E6DB74">:.2f} "</span>
+          <span style="color: #E6DB74">f"(chenh {</span><span style="color: #F8F8F2">diff_ppl </span><span style="color: #FF4689">*</span><span style="color: #F8F8F2"> </span><span style="color: #AE81FF">100</span><span style="color: #E6DB74">:.2f}%), thoi gian chenh "</span>
+          <span style="color: #E6DB74">f"{</span><span style="color: #F8F8F2">diff_time </span><span style="color: #FF4689">*</span><span style="color: #F8F8F2"> </span><span style="color: #AE81FF">100</span><span style="color: #E6DB74">:.1f}% (may dung chung co the giat, "</span>
+          <span style="color: #E6DB74">f"chi tham khao)"</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #66D9EF">assert</span> <span style="color: #F8F8F2">diff_ppl</span> <span style="color: #FF4689">&lt;</span> <span style="color: #AE81FF">0.03</span><span style="color: #F8F8F2">,</span> <span style="color: #E6DB74">f"ppl do lan 2 chenh {</span><span style="color: #F8F8F2">diff_ppl</span><span style="color: #E6DB74">:.3f} &gt; 3%"</span>
+
+    <span style="color: #959077"># ---- Buoc 4: Chinchilla ----</span>
+    <span style="color: #959077"># LUU Y: dap an Cau 2 trong practice tung ghi C=1e21 -&gt; N ~ 9,1B.</span>
+    <span style="color: #959077"># Kiem tra lai bang cong thuc: N = sqrt(1e21/120) = 2,89e9</span>
+    <span style="color: #959077"># (9,1B la ket qua khi chia cho 12 thay vi 120, tuc C=1e22).</span>
+    <span style="color: #959077"># Trainer da sua dap an practice o commit 1ab9c39 (N = 2,9B,</span>
+    <span style="color: #959077"># D = 57,7B). So in ra duoi day da duoc assert tai tao dung</span>
+    <span style="color: #959077"># C (6*N*D = C).</span>
+    <span style="color: #A6E22E">print</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">"</span><span style="color: #AE81FF">\n</span><span style="color: #E6DB74">Luat Chinchilla (N ~ D/20, C ~ 6*N*D):"</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #66D9EF">for</span> <span style="color: #F8F8F2">c_flops</span> <span style="color: #FF4689">in</span> <span style="color: #F8F8F2">[</span><span style="color: #AE81FF">1e18</span><span style="color: #F8F8F2">,</span> <span style="color: #AE81FF">1e21</span><span style="color: #F8F8F2">]:</span>
+        <span style="color: #F8F8F2">n_params,</span> <span style="color: #F8F8F2">n_tokens</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">chinchilla_split(c_flops)</span>
+        <span style="color: #959077"># Tu kiem tra: ap lai cong thuc phai tai tao dung C va D/N=20.</span>
+        <span style="color: #66D9EF">assert</span> <span style="color: #A6E22E">abs</span><span style="color: #F8F8F2">(</span><span style="color: #AE81FF">6</span> <span style="color: #FF4689">*</span> <span style="color: #F8F8F2">n_params</span> <span style="color: #FF4689">*</span> <span style="color: #F8F8F2">n_tokens</span> <span style="color: #FF4689">-</span> <span style="color: #F8F8F2">c_flops)</span> <span style="color: #FF4689">/</span> <span style="color: #F8F8F2">c_flops</span> <span style="color: #FF4689">&lt;</span> <span style="color: #AE81FF">1e-9</span>
+        <span style="color: #66D9EF">assert</span> <span style="color: #A6E22E">abs</span><span style="color: #F8F8F2">(n_tokens</span> <span style="color: #FF4689">/</span> <span style="color: #F8F8F2">n_params</span> <span style="color: #FF4689">-</span> <span style="color: #AE81FF">20.0</span><span style="color: #F8F8F2">)</span> <span style="color: #FF4689">&lt;</span> <span style="color: #AE81FF">1e-9</span>
+        <span style="color: #A6E22E">print</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">f"  C={</span><span style="color: #F8F8F2">c_flops</span><span style="color: #E6DB74">:.0e}: N={</span><span style="color: #F8F8F2">n_params </span><span style="color: #FF4689">/</span><span style="color: #F8F8F2"> </span><span style="color: #AE81FF">1e9</span><span style="color: #E6DB74">:.2f}B tham so, "</span>
+              <span style="color: #E6DB74">f"D={</span><span style="color: #F8F8F2">n_tokens </span><span style="color: #FF4689">/</span><span style="color: #F8F8F2"> </span><span style="color: #AE81FF">1e9</span><span style="color: #E6DB74">:.1f}B token"</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #A6E22E">print</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">"  GPT-3: 175B tham so / 300B token = 1,7 token/tham so, "</span>
+          <span style="color: #E6DB74">"thap hon nhieu so voi muc toi uu ~20 -&gt; GPT-3 THUA mo "</span>
+          <span style="color: #E6DB74">"hinh, THIEU du lieu (Chinchilla 70B/1400B token thang "</span>
+          <span style="color: #E6DB74">"GPT-3 voi chi phi suy luan re hon)."</span><span style="color: #F8F8F2">)</span>
+
+    <span style="color: #959077"># ---- Buoc 5: bang tong ket + Green checkpoint (khau 7) ----</span>
+    <span style="color: #F8F8F2">base,</span> <span style="color: #F8F8F2">var</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">results[</span><span style="color: #E6DB74">"baseline"</span><span style="color: #F8F8F2">],</span> <span style="color: #F8F8F2">results[</span><span style="color: #E6DB74">"int8"</span><span style="color: #F8F8F2">]</span>
+    <span style="color: #F8F8F2">ppl_pct</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">(var[</span><span style="color: #E6DB74">"ppl"</span><span style="color: #F8F8F2">]</span> <span style="color: #FF4689">-</span> <span style="color: #F8F8F2">base[</span><span style="color: #E6DB74">"ppl"</span><span style="color: #F8F8F2">])</span> <span style="color: #FF4689">/</span> <span style="color: #F8F8F2">base[</span><span style="color: #E6DB74">"ppl"</span><span style="color: #F8F8F2">]</span> <span style="color: #FF4689">*</span> <span style="color: #AE81FF">100</span>
+    <span style="color: #F8F8F2">time_pct</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">((var[</span><span style="color: #E6DB74">"sec_per_100"</span><span style="color: #F8F8F2">]</span> <span style="color: #FF4689">-</span> <span style="color: #F8F8F2">base[</span><span style="color: #E6DB74">"sec_per_100"</span><span style="color: #F8F8F2">])</span>
+                <span style="color: #FF4689">/</span> <span style="color: #F8F8F2">base[</span><span style="color: #E6DB74">"sec_per_100"</span><span style="color: #F8F8F2">]</span> <span style="color: #FF4689">*</span> <span style="color: #AE81FF">100</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #F8F8F2">energy_pct_rieng</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">((var[</span><span style="color: #E6DB74">"mwh_per_token"</span><span style="color: #F8F8F2">]</span>
+                         <span style="color: #FF4689">-</span> <span style="color: #F8F8F2">base[</span><span style="color: #E6DB74">"mwh_per_token"</span><span style="color: #F8F8F2">])</span>
+                        <span style="color: #FF4689">/</span> <span style="color: #F8F8F2">base[</span><span style="color: #E6DB74">"mwh_per_token"</span><span style="color: #F8F8F2">]</span> <span style="color: #FF4689">*</span> <span style="color: #AE81FF">100</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #959077"># Nhanh (b) lay theo TRUNG VI ti le xen ke, khong lay theo</span>
+    <span style="color: #959077"># 2 lan measure() rieng biet (do rieng lat verdict giua 2</span>
+    <span style="color: #959077"># lan chay doc lap - review Trainer 1ab9c39).</span>
+    <span style="color: #F8F8F2">energy_pct</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">(ti_le_tv</span> <span style="color: #FF4689">-</span> <span style="color: #AE81FF">1</span><span style="color: #F8F8F2">)</span> <span style="color: #FF4689">*</span> <span style="color: #AE81FF">100</span>
+    <span style="color: #F8F8F2">energy_lo_pct</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">(ti_le_thap</span> <span style="color: #FF4689">-</span> <span style="color: #AE81FF">1</span><span style="color: #F8F8F2">)</span> <span style="color: #FF4689">*</span> <span style="color: #AE81FF">100</span>
+    <span style="color: #F8F8F2">energy_hi_pct</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">(ti_le_cao</span> <span style="color: #FF4689">-</span> <span style="color: #AE81FF">1</span><span style="color: #F8F8F2">)</span> <span style="color: #FF4689">*</span> <span style="color: #AE81FF">100</span>
+    <span style="color: #A6E22E">print</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">"</span><span style="color: #AE81FF">\n</span><span style="color: #E6DB74">Bang tong ket capstone (cung may, cung tap test, "</span>
+          <span style="color: #E6DB74">"cung ham measure):"</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #A6E22E">print</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">f"  {'Bien the':&lt;14} {'PPL':&gt;8} {'giay/100tok':&gt;12} "</span>
+          <span style="color: #E6DB74">f"{'mWh/token':&gt;11}"</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #A6E22E">print</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">f"  {'Baseline FP32':&lt;14} {</span><span style="color: #F8F8F2">base[</span><span style="color: #E6DB74">'ppl'</span><span style="color: #F8F8F2">]</span><span style="color: #E6DB74">:&gt;8.2f} "</span>
+          <span style="color: #E6DB74">f"{</span><span style="color: #F8F8F2">base[</span><span style="color: #E6DB74">'sec_per_100'</span><span style="color: #F8F8F2">]</span><span style="color: #E6DB74">:&gt;12.3f} {</span><span style="color: #F8F8F2">base[</span><span style="color: #E6DB74">'mwh_per_token'</span><span style="color: #F8F8F2">]</span><span style="color: #E6DB74">:&gt;11.4f}"</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #A6E22E">print</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">f"  {'INT8 dynamic':&lt;14} {</span><span style="color: #F8F8F2">var[</span><span style="color: #E6DB74">'ppl'</span><span style="color: #F8F8F2">]</span><span style="color: #E6DB74">:&gt;8.2f} "</span>
+          <span style="color: #E6DB74">f"{</span><span style="color: #F8F8F2">var[</span><span style="color: #E6DB74">'sec_per_100'</span><span style="color: #F8F8F2">]</span><span style="color: #E6DB74">:&gt;12.3f} {</span><span style="color: #F8F8F2">var[</span><span style="color: #E6DB74">'mwh_per_token'</span><span style="color: #F8F8F2">]</span><span style="color: #E6DB74">:&gt;11.4f}"</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #A6E22E">print</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">f"  Thay doi (do rieng): ppl {</span><span style="color: #F8F8F2">ppl_pct</span><span style="color: #E6DB74">:+.1f}%, thoi gian "</span>
+          <span style="color: #E6DB74">f"{</span><span style="color: #F8F8F2">time_pct</span><span style="color: #E6DB74">:+.1f}%, nang luong {</span><span style="color: #F8F8F2">energy_pct_rieng</span><span style="color: #E6DB74">:+.1f}%"</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #A6E22E">print</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">f"  Thay doi (xen ke trung vi): nang luong "</span>
+          <span style="color: #E6DB74">f"{</span><span style="color: #F8F8F2">energy_pct</span><span style="color: #E6DB74">:+.1f}% (khoang {</span><span style="color: #F8F8F2">energy_lo_pct</span><span style="color: #E6DB74">:+.1f}%.."</span>
+          <span style="color: #E6DB74">f"{</span><span style="color: #F8F8F2">energy_hi_pct</span><span style="color: #E6DB74">:+.1f}%) - day la so dung cho (b)"</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #F8F8F2">passed,</span> <span style="color: #F8F8F2">reasons</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">green_checkpoint(</span>
+        <span style="color: #F8F8F2">ppl_pct,</span> <span style="color: #F8F8F2">energy_pct,</span> <span style="color: #F8F8F2">diff_ppl,</span> <span style="color: #F8F8F2">diff_time,</span> <span style="color: #F8F8F2">energy_lo_pct,</span>
+        <span style="color: #F8F8F2">energy_hi_pct)</span>
+    <span style="color: #A6E22E">print</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">"</span><span style="color: #AE81FF">\n</span><span style="color: #E6DB74">Green checkpoint:"</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #66D9EF">for</span> <span style="color: #F8F8F2">reason</span> <span style="color: #FF4689">in</span> <span style="color: #F8F8F2">reasons:</span>
+        <span style="color: #A6E22E">print</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">f"  {</span><span style="color: #F8F8F2">reason</span><span style="color: #E6DB74">}"</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #F8F8F2">verdict</span> <span style="color: #FF4689">=</span> <span style="color: #E6DB74">"DAT"</span> <span style="color: #66D9EF">if</span> <span style="color: #F8F8F2">passed</span> <span style="color: #66D9EF">else</span> <span style="color: #E6DB74">"KHONG DAT"</span>
+    <span style="color: #A6E22E">print</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">f"</span><span style="color: #AE81FF">\n</span><span style="color: #E6DB74">Ket luan: INT8 {</span><span style="color: #F8F8F2">verdict</span><span style="color: #E6DB74">} Green checkpoint."</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #66D9EF">if</span> <span style="color: #F8F8F2">passed:</span>
+        <span style="color: #A6E22E">print</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">"  Bien the vua giu chat luong trong nguong (+5%), vua "</span>
+              <span style="color: #E6DB74">"tiet kiem nang luong (&gt;= 20%), lai lap lai duoc."</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #66D9EF">else</span><span style="color: #F8F8F2">:</span>
+        <span style="color: #A6E22E">print</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">"  Khong sua so: bao cao dung nhu vay, tim bien the "</span>
+              <span style="color: #E6DB74">"khac (vd INT8 + fine-tune nhe) neu muon cai thien."</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #66D9EF">if</span> <span style="color: #F8F8F2">energy_lo_pct</span> <span style="color: #FF4689">&lt;=</span> <span style="color: #FF4689">-</span><span style="color: #AE81FF">20.0</span> <span style="color: #FF4689">&lt;=</span> <span style="color: #F8F8F2">energy_hi_pct:</span>
+        <span style="color: #A6E22E">print</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">"  Canh bao: khoang dao dong cua (b) cat ngang "</span>
+              <span style="color: #E6DB74">"nguong -20% - verdict (b) chua vung, can them "</span>
+              <span style="color: #E6DB74">"vong do hoac may on dinh hon."</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #66D9EF">if</span> <span style="color: #F8F8F2">diff_time</span> <span style="color: #FF4689">&gt;=</span> <span style="color: #AE81FF">0.03</span><span style="color: #F8F8F2">:</span>
+        <span style="color: #A6E22E">print</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">f"  Luu y: thoi gian 2 lan measure() rieng biet chenh "</span>
+              <span style="color: #E6DB74">f"{</span><span style="color: #F8F8F2">diff_time </span><span style="color: #FF4689">*</span><span style="color: #F8F8F2"> </span><span style="color: #AE81FF">100</span><span style="color: #E6DB74">:.1f}% - (c) khong dat vi nhieu "</span>
+              <span style="color: #E6DB74">"phien do; nhanh (b) thi lay theo ti le xen ke nen "</span>
+              <span style="color: #E6DB74">"vung hon (xem khoang dao dong o (b))."</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #F8F8F2">results[</span><span style="color: #E6DB74">"green_checkpoint"</span><span style="color: #F8F8F2">]</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">verdict</span>
+    <span style="color: #F8F8F2">results[</span><span style="color: #E6DB74">"repeat_ppl_diff"</span><span style="color: #F8F8F2">]</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">diff_ppl</span>
+    <span style="color: #F8F8F2">results[</span><span style="color: #E6DB74">"repeat_time_diff"</span><span style="color: #F8F8F2">]</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">diff_time</span>
+    <span style="color: #F8F8F2">results[</span><span style="color: #E6DB74">"xen_ke_ti_le"</span><span style="color: #F8F8F2">]</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">ti_les</span>
+    <span style="color: #F8F8F2">results[</span><span style="color: #E6DB74">"energy_pct_median"</span><span style="color: #F8F8F2">]</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">energy_pct</span>
+    <span style="color: #F8F8F2">results[</span><span style="color: #E6DB74">"energy_pct_lo"</span><span style="color: #F8F8F2">]</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">energy_lo_pct</span>
+    <span style="color: #F8F8F2">results[</span><span style="color: #E6DB74">"energy_pct_hi"</span><span style="color: #F8F8F2">]</span> <span style="color: #FF4689">=</span> <span style="color: #F8F8F2">energy_hi_pct</span>
+    <span style="color: #66D9EF">with</span> <span style="color: #A6E22E">open</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">"capstone_results.json"</span><span style="color: #F8F8F2">,</span> <span style="color: #E6DB74">"w"</span><span style="color: #F8F8F2">,</span> <span style="color: #F8F8F2">encoding</span><span style="color: #FF4689">=</span><span style="color: #E6DB74">"utf-8"</span><span style="color: #F8F8F2">)</span> <span style="color: #66D9EF">as</span> <span style="color: #F8F8F2">f:</span>
+        <span style="color: #F8F8F2">json</span><span style="color: #FF4689">.</span><span style="color: #F8F8F2">dump(results,</span> <span style="color: #F8F8F2">f,</span> <span style="color: #F8F8F2">indent</span><span style="color: #FF4689">=</span><span style="color: #AE81FF">2</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #A6E22E">print</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">"</span><span style="color: #AE81FF">\n</span><span style="color: #E6DB74">Da luu capstone_results.json"</span><span style="color: #F8F8F2">)</span>
+    <span style="color: #A6E22E">print</span><span style="color: #F8F8F2">(</span><span style="color: #E6DB74">"Hoan tat capstone Day 30 - Phase 1."</span><span style="color: #F8F8F2">)</span>
+
+
+<span style="color: #66D9EF">if</span> <span style="color: #F8F8F2">__name__</span> <span style="color: #FF4689">==</span> <span style="color: #E6DB74">"__main__"</span><span style="color: #F8F8F2">:</span>
+    <span style="color: #F8F8F2">main()</span>
+</pre>
+<button class="copy" data-target="srcHl">Sao chép bản tô màu</button>
+</div>
+</section>
+</main>
+<footer>
+<p>Day 30 / 30 · Capstone GreenLLM · Khóa “Trở thành AI Engineer (LLM)” · Lab <code>day30/capstone.py</code> + <code>capstone_results.json</code> — commit <code>0a995a9</code>. Phase 1 khép lại ở đây; Phase 2 từ Day 31: Tiny Vietnamese LM — mô hình tiếng Việt nhỏ, huấn luyện đúng luật Chinchilla, đo bằng perplexity trên tập giữ lại.</p>
+</footer>
+<script>
+function fmt(n, d) { return n.toFixed(d === undefined ? 2 : d).replace(".", ","); }
+function fmtSigned(n, d) { return (n >= 0 ? "+" : "") + fmt(n, d); }
+// --- Demo 1: Chinchilla ---
+function updateDemo1() {
+  var logC = parseFloat(document.getElementById("logC").value);
+  var trap = document.getElementById("trap12").checked;
+  var C = Math.pow(10, logC);
+  document.getElementById("logCV").textContent = fmt(logC, 1);
+  var div = trap ? 12 : 120;
+  var N = Math.sqrt(C / div);
+  var D = 20 * N;
+  var check = 6 * N * D;
+  var out = ["C = 10^" + fmt(logC, 1) + " FLOPs, chia cho " + div + ":",
+    "  N = √(C/" + div + ") = " + fmt(N / 1e9) + "B tham số,",
+    "  D = 20·N = " + fmt(D / 1e9, 1) + "B token.",
+    "  Kiểm tra lại: 6·N·D = " + check.toExponential(2) + " (phải bằng C = " + C.toExponential(2) + ")."];
+  if (trap) out.push("  SAI: chia cho 12 cho N lớn gấp √10 ≈ 3,16 lần — đúng lỗi đáp án mẫu ban đầu (9,1B thay vì 2,9B ở C=1e21).");
+  else out.push("  Đúng công thức N = √(C/120). Ở C=1e21: N ≈ 2,89B, D ≈ 57,7B.");
+  document.getElementById("demo1Out").textContent = out.join("\n");
+  var gN = parseFloat(document.getElementById("gptN").value);
+  var gD = parseFloat(document.getElementById("gptD").value);
+  document.getElementById("gptNV").textContent = gN;
+  document.getElementById("gptDV").textContent = gD;
+  var ratio = gD / gN;
+  var g = ["Mô hình " + gN + "B tham số / " + gD + "B token → " + fmt(ratio, 1) + " token/tham số."];
+  if (ratio < 10) g.push("Verdict: THỪA MÔ HÌNH, THIẾU DỮ LIỆU — dưới xa mức tối ưu ~20 token/tham số (như GPT-3: 1,7).");
+  else if (ratio <= 40) g.push("Verdict: gần mức tối ưu Chinchilla (~20 token/tham số).");
+  else g.push("Verdict: nhiều dữ liệu so với mô hình — có thể tăng mô hình để tận dụng ngân sách.");
+  document.getElementById("demo1Gpt").textContent = g.join("\n");
+}
+// --- Demo 2: Green checkpoint ---
+var PRESETS = {
+  "prefix": {ppl: 0.0, en: -1.25, lo: -1.25, hi: -1.25, rp: 0.0, rt: 1.8},
+  "trainer": {ppl: 0.0, en: -28.2, lo: -28.2, hi: -28.2, rp: 0.0, rt: 1.0},
+  "run1": {ppl: 0.0, en: -29.7, lo: -36.7, hi: -20.8, rp: 0.0, rt: 13.8},
+  "run2": {ppl: 0.0, en: -22.5, lo: -31.7, hi: -2.5, rp: 0.0, rt: 2.9},
+  "run3": {ppl: 0.0, en: -6.3, lo: -18.1, hi: 7.9, rp: 0.0, rt: 1.5}
+};
+function applyPreset() {
+  var p = PRESETS[document.getElementById("preset").value];
+  document.getElementById("pplPct").value = p.ppl;
+  document.getElementById("enMed").value = p.en;
+  document.getElementById("enLo").value = p.lo;
+  document.getElementById("enHi").value = p.hi;
+  document.getElementById("repPpl").value = p.rp;
+  document.getElementById("repTime").value = p.rt;
+  updateDemo2();
+}
+function updateDemo2() {
+  var ppl = parseFloat(document.getElementById("pplPct").value);
+  var en = parseFloat(document.getElementById("enMed").value);
+  var lo = parseFloat(document.getElementById("enLo").value);
+  var hi = parseFloat(document.getElementById("enHi").value);
+  var rp = parseFloat(document.getElementById("repPpl").value);
+  var rt = parseFloat(document.getElementById("repTime").value);
+  document.getElementById("pplPctV").textContent = fmt(ppl, 1);
+  document.getElementById("enMedV").textContent = fmt(en, 1);
+  document.getElementById("enLoV").textContent = fmt(lo, 1);
+  document.getElementById("enHiV").textContent = fmt(hi, 1);
+  document.getElementById("repPplV").textContent = fmt(rp, 2);
+  document.getElementById("repTimeV").textContent = fmt(rt, 1);
+  var okA = ppl <= 5.0, okB = en <= -20.0, okC = rp < 3.0 && rt < 3.0;
+  var out = [
+    "(a) ppl " + fmtSigned(ppl, 1) + "% (ngưỡng <= +5%): " + (okA ? "ĐẠT" : "KHÔNG ĐẠT"),
+    "(b) năng lượng/token " + fmtSigned(en, 1) + "% (trung vị xen kẽ, khoảng " + fmtSigned(lo, 1) + "%.." + fmtSigned(hi, 1) + "%) (ngưỡng <= -20%): " + (okB ? "ĐẠT" : "KHÔNG ĐẠT"),
+    "(c) đo lại chênh ppl " + fmt(rp, 2) + "% + thời gian " + fmt(rt, 1) + "% (ngưỡng < 3%): " + (okC ? "ĐẠT" : "KHÔNG ĐẠT"),
+    "Kết luận: INT8 " + ((okA && okB && okC) ? "ĐẠT" : "KHÔNG ĐẠT") + " Green checkpoint."
+  ];
+  if (lo <= -20.0 && -20.0 <= hi) out.push("Cảnh báo: khoảng dao động của (b) cắt ngang ngưỡng -20% — verdict (b) chưa vững, cần thêm vòng đo hoặc máy ổn định hơn.");
+  if (rt >= 3.0) out.push("Lưu ý: thời gian 2 lần đo riêng biệt chênh " + fmt(rt, 1) + "% — (c) không đạt vì nhiễu phiên đo; nhánh (b) lấy theo tỉ lệ xen kẽ nên vững hơn.");
+  document.getElementById("demo2Out").textContent = out.join("\n");
+}
+// --- Demo 3: interleaved ratios ---
+function setRatios(s) {
+  document.getElementById("ratios").value = s;
+  updateDemo3();
+}
+function median(a) {
+  var s = a.slice().sort(function(x, y) { return x - y; });
+  var n = s.length;
+  return n % 2 === 1 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2;
+}
+function updateDemo3() {
+  var raw = document.getElementById("ratios").value.split(",");
+  var rs = [];
+  raw.forEach(function(x) { var v = parseFloat(x); if (isFinite(v) && v > 0) rs.push(v); });
+  var el = document.getElementById("demo3Out");
+  if (rs.length === 0) { el.textContent = "Nhập ít nhất 1 tỉ lệ hợp lệ (số > 0, cách nhau bằng dấu phẩy)."; return; }
+  var med = median(rs), lo = Math.min.apply(null, rs), hi = Math.max.apply(null, rs);
+  var enMed = (med - 1) * 100, enLo = (lo - 1) * 100, enHi = (hi - 1) * 100;
+  var out = ["Số vòng: " + rs.length + ". Tỉ lệ từng vòng: " + rs.map(function(r) { return fmt(r, 3); }).join(", ") + ".",
+    "Trung vị tỉ lệ = " + fmt(med, 3) + " → năng lượng " + fmtSigned(enMed, 1) + "% (khoảng " + fmtSigned(enLo, 1) + "%.." + fmtSigned(enHi, 1) + "%).",
+    "Nhánh (b) (ngưỡng <= -20%): " + (enMed <= -20.0 ? "ĐẠT" : "KHÔNG ĐẠT") + "."];
+  if (rs.length < 3) out.push("CẢNH BÁO: chỉ " + rs.length + " vòng — trung vị của 2 giá trị chỉ là trung bình của chúng, 1 lần trễ duy nhất đã làm lệch toàn bộ (tự kiểm tra bắt được tỉ lệ 3,55 ở bản dùng 2 vòng). Dùng ít nhất 5 vòng.");
+  else if (lo <= 0.8 && -20.0 <= hi) out.push("Cảnh báo: khoảng dao động cắt ngang ngưỡng -20% — verdict (b) chưa vững.");
+  else if (hi > 1.0) out.push("Lưu ý: có vòng tỉ lệ > 1 (INT8 chậm hơn baseline ở vòng đó) — nhiễu đủ lớn để đảo chiều từng vòng, chỉ trung vị nhiều vòng mới đứng vững phần nào.");
+  el.textContent = out.join("\n");
+}
+document.querySelectorAll(".copy").forEach(function(b) {
+  b.addEventListener("click", function() {
+    var el = document.getElementById(b.getAttribute("data-target"));
+    var txt = el.innerText;
+    if (navigator.clipboard) navigator.clipboard.writeText(txt);
+    b.textContent = "Đã sao chép!";
+    setTimeout(function() { b.textContent = "Sao chép source"; }, 1500);
+  });
+});
+updateDemo1(); updateDemo2(); updateDemo3();
+</script>
+</body>
+</html>
