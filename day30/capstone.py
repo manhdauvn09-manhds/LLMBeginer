@@ -6,12 +6,34 @@ bien the luong tu hoa dong INT8, tinh chia Chinchilla, ap Green
 checkpoint de ra quyet dinh.
 
 Chi thu thay doi la bien the mo hinh (FP32 -> INT8): cung mot may,
-cung mot bo danh gia (tap test), cung mot ham measure().
+cung mot bo danh gia (tap test), cung mot ham measure(). Nang luong
+do XEN KE A/B nhieu vong + lay trung vi ti le tung vong (sua theo
+review Trainer 1ab9c39: do rieng 2 phien lat verdict -1,25% vs
+-28,2% vi thoi gian sinh 100 token chi ~0,2 giay, nam duoi muc
+nhieu cua moi truong do).
 
 GHI CHU (nguoi hoc dien 1 dong truoc Phase 2): khai niem mo nhat
 trong 30 ngay la gi - de on lai truoc khi buoc sang Phase 2.
 """
 
+# ============================================================
+# [TRAINER] REVIEW Day 30 - Capstone (capstone_review.py)
+# Kiem chung doc lap: chay lai toan bo capstone tren may
+# Trainer - PPL tai lap dung 7,78 ca baseline lan INT8;
+# cong thuc Chinchilla dung (assert 6*N*D = C tu kiem tra
+# trong code la cach kiem chung rat tot). DAC BIET: nguoi
+# hoc da bat duoc loi trong DAP AN MAU cua practice -
+# practice ghi N = sqrt(1e21/120) ~ 9,1e9, nhung gia tri
+# dung la 2,89e9 (9,1e9 la ket qua cua sqrt(1e21/12)).
+# Trainer da sua dap an practice theo dung so nay.
+# 1 diem chinh + 1 diem nhe:
+#  (1) CHINH: verdict nhanh (b) nang luong LAT giua hai
+#      lan chay doc lap - xem comment o green_checkpoint.
+#  (2) Nhe: eval_loss lay trung binh khong trong so qua
+#      cac batch (comment o eval_loss).
+# ============================================================
+
+import copy
 import json
 import math
 import statistics
@@ -96,7 +118,11 @@ EPOCHS = 3
 LR = 3e-3
 D_MODEL = 64
 N_HEAD = 2
-GEN_TOKENS = 100
+GEN_TOKENS = 500
+# 1 lan do sinh 500 token (~1 giay) thay vi 100 token (~0,2 giay):
+# 100 token nam ngay duoi muc nhieu cua moi truong do nen verdict
+# nang luong lat giua 2 lan chay doc lap (review Trainer 1ab9c39).
+N_VONG_XEN_KE = 5
 POWER_W = 65.0  # cong suat gia dinh cua CPU laptop, de uoc luong
 
 
@@ -190,17 +216,39 @@ def state_bytes(model):
 
 
 def eval_loss(model, x, y, batch=32):
-    """Loss trung binh (cross-entropy) tren mot tap, khong tinh grad."""
+    """Loss trung binh THEO TRONG SO TOKEN tren mot tap.
+
+    Cong don NLL (loss * so token tung batch) roi chia cho tong
+    token - batch cuoi it mau khong duoc tinh ngang batch day
+    (sua theo review Trainer 1ab9c39; dung chuan Day 28: tong
+    NLL / tong token). Khong tinh grad.
+    """
     model.eval()
-    losses = []
+    tong_nll = 0.0
+    tong_token = 0
     with torch.no_grad():
         for i in range(0, len(x), batch):
-            logits = model(x[i:i + batch])
+            xb, yb = x[i:i + batch], y[i:i + batch]
+            logits = model(xb)
             loss = nn.functional.cross_entropy(
-                logits.reshape(-1, VOCAB), y[i:i + batch].reshape(-1))
-            losses.append(loss.item())
-    assert all(math.isfinite(v) for v in losses), "loss khong huu han"
-    return sum(losses) / len(losses)
+                logits.reshape(-1, VOCAB), yb.reshape(-1))
+            n_token = int(yb.numel())
+            tong_nll += float(loss.item()) * n_token
+            tong_token += n_token
+    # [TRAINER] Diem nhe - trung binh cong cac loss theo
+    # batch ma khong trong so theo so token: batch cuoi
+    # it cua so hon van duoc tinh ngang hang batch day.
+    # O capstone nay tap test chi co 12 cua so (1 batch)
+    # nen khong anh huong, nhung dung lai quen xau - o
+    # Day 28 chinh nguoi hoc da gop PPL theo trong so
+    # token (tong_nll / tong_token). Nen giu cung mot
+    # chuan: cong loss * so token tung batch roi chia
+    # cho tong token.
+    # -> SUA: da doi sang cong theo trong so token o tren.
+    assert tong_token > 0, "tap du lieu rong"
+    loss_tb = tong_nll / tong_token
+    assert math.isfinite(loss_tb), "loss khong huu han"
+    return loss_tb
 
 
 def train_baseline():
@@ -262,17 +310,22 @@ def measure(model, seed_ids):
     test_loss = eval_loss(model, X_TEST, Y_TEST)
     ppl = math.exp(test_loss)
     assert math.isfinite(ppl) and ppl > 1.0, f"ppl vo ly: {ppl}"
-    # Sinh 100 token: 1 lan warmup roi 5 lan bam gio lay trung vi.
+    # Sinh GEN_TOKENS token: 1 lan warmup roi 5 lan bam gio lay
+    # trung vi, quy ve giay/100 token (GEN_TOKENS = 500 de 1 lan
+    # do dai hon han nhieu: 100 token chi ~0,2 giay, nam ngay
+    # duoi muc nhieu cua moi truong do - review Trainer 1ab9c39).
     generate(model, seed_ids)
     times = []
     for _ in range(5):
         t0 = time.perf_counter()
         generate(model, seed_ids)
         times.append(time.perf_counter() - t0)
-    sec_per_100 = statistics.median(times)
+    sec_per_100 = statistics.median(times) * 100 / GEN_TOKENS
     # Nang luong uoc luong: giay/token x 65 W = joule/token, doi
-    # sang mWh (1 Wh = 3600 J, 1 mWh = 3,6 J).
-    joule_per_token = (sec_per_100 / GEN_TOKENS) * POWER_W
+    # sang mWh (1 Wh = 3600 J, 1 mWh = 3,6 J). Chu y chia cho
+    # 100 (so token cua don vi sec_per_100), khong chia cho
+    # GEN_TOKENS - 2 so nay chi bang nhau khi GEN_TOKENS = 100.
+    joule_per_token = (sec_per_100 / 100) * POWER_W
     mwh_per_token = joule_per_token / 3.6
     return {"ppl": ppl, "sec_per_100": sec_per_100,
             "mwh_per_token": mwh_per_token}
@@ -281,6 +334,56 @@ def measure(model, seed_ids):
 def rel_diff(a, b):
     """Chen lech tuong doi |a-b|/a, dung de kiem tra lap lai duoc."""
     return abs(a - b) / abs(a)
+
+
+def _do_1_lan(model, seed_ids, n_tokens):
+    """Sinh n_tokens token 1 lan, tra so giay (de do xen ke)."""
+    t0 = time.perf_counter()
+    generate(model, seed_ids, n_tokens)
+    return time.perf_counter() - t0
+
+
+def do_xen_ke(co_so, bien_the, seed_ids, n_vong=5,
+              n_tokens=GEN_TOKENS):
+    """Do xen ke A/B nhieu vong, tra ti le thoi gian tung vong.
+
+    Moi vong: sinh n_tokens token bang baseline roi NGAY LAP TUC
+    bang bien the (A/B/A/B...), tinh ti le t_bien / t_co_so cua
+    vong do - va DOI THU TU o vong le (B truoc, A sau) de diet
+    ca lech do "ben do sau luc nao cung cham hon". Tai may thay
+    doi cham theo thoi gian nen do rieng 2 phien (do het
+    baseline roi moi INT8) co the LAT verdict: lan chay cua
+    nguoi hoc -1,25%, Trainer chay lai -28,2%. Xen ke diet
+    lech nay. Tra (ti_le_trung_vi, ti_le_thap_nhat,
+    ti_le_cao_nhat, danh sach ti le). Moi mo hinh warmup 1 lan
+    truoc vong dau (khong warmup lai tung vong - mo hinh van
+    nong). Thoi gian bam bang time.perf_counter().
+    """
+    if not isinstance(co_so, nn.Module) \
+            or not isinstance(bien_the, nn.Module):
+        raise ValueError("mo hinh phai la nn.Module.")
+    if not isinstance(n_vong, int) or n_vong < 1:
+        raise ValueError(f"n_vong phai la so nguyen >= 1, "
+                         f"nhan duoc {n_vong}")
+    if not isinstance(n_tokens, int) or n_tokens < 1:
+        raise ValueError(f"n_tokens phai la so nguyen >= 1, "
+                         f"nhan duoc {n_tokens}")
+    co_so.eval()
+    bien_the.eval()
+    generate(co_so, seed_ids, n_tokens)
+    generate(bien_the, seed_ids, n_tokens)
+    ti_les = []
+    for vong in range(n_vong):
+        if vong % 2 == 0:
+            t_a = _do_1_lan(co_so, seed_ids, n_tokens)
+            t_b = _do_1_lan(bien_the, seed_ids, n_tokens)
+        else:
+            t_b = _do_1_lan(bien_the, seed_ids, n_tokens)
+            t_a = _do_1_lan(co_so, seed_ids, n_tokens)
+        assert t_a > 0 and t_b > 0, "thoi gian do phai duong"
+        ti_les.append(t_b / t_a)
+    return (float(statistics.median(ti_les)), min(ti_les),
+            max(ti_les), ti_les)
 
 
 # ---- Buoc 4: luat Chinchilla (khau 3: quyet dinh ngan sach) ----
@@ -298,27 +401,56 @@ def chinchilla_split(c_flops):
     return n_params, 20.0 * n_params
 
 
-def green_checkpoint(base, var, repeat_diff_ppl, repeat_diff_time):
+# [TRAINER] DIEM CHINH - dieu kien (c) hien tai chi do
+# lai TRONG CUNG MOT PHIEN chay (cung tai may, cung
+# trang thai nhiet/nhieu), nen no chi chung minh nhieu
+# ngan han thap, khong chung minh duoc ket luan (b)
+# on dinh giua cac lan chay doc lap. Bang chung cu the:
+# lan chay cua nguoi hoc cho thoi gian INT8 chi giam
+# 1,25% (verdict KHONG DAT nhanh b), con lan chay lai
+# doc lap cua Trainer tren cung code, cung seed, cho
+# thoi gian giam 28,2% (verdict DAT ca 3 nhanh) - chi
+# PPL la tai lap dung (7,78). Voi mo hinh 1 lop rat
+# nho, thoi gian sinh 100 token chi ~0,2 giay, chenh
+# lech FP32/INT8 nam ngay duoi muc nhieu cua moi
+# truong do. Cach cung co truoc khi tin verdict (b):
+#  - do XEN KE A/B/A/B nhieu vong va tinh ti le cua
+#    tung vong roi lay trung vi cac ti le (diet lech
+#    do tai may thay doi theo thoi gian);
+#  - tang GEN_TOKENS / so lan do de thoi gian 1 lan do
+#    dai hon nhieu nhieu lan;
+#  - bao verdict (b) kem khoang dao dong giua cac lan
+#    chay doc lap, khong chi 1 con so.
+# Ket luan KHONG DAT cua nguoi hoc van la cach bao cao
+# dung (khong sua so), nhung ve mat bang chung ca hai
+# verdict deu chua du manh - day la gioi han cua phep
+# do thoi gian tren mo hinh ti hon, khong phai loi code.
+
+def green_checkpoint(ppl_pct, energy_pct, repeat_diff_ppl,
+                     repeat_diff_time, energy_lo_pct,
+                     energy_hi_pct):
     """Ap Green checkpoint: var chi "tot hon" neu ca 3 dieu kien dung.
 
-    (a) perplexity tang khong qua 5% so voi baseline; (b) nang
-    luong/token giam it nhat 20%; (c) do lan 2 chenh lech < 3% CA
-    ppl VA thoi gian - "ket qua" cua measure() gom ca 2 so, nen
-    chi xet ppl thi chua du: thoi gian khong lap lai duoc thi
-    ket luan ve nang luong cung khong dung vung.
+    Nhan vao cac PHAN TRAM da tinh san (de test truc tiep tung
+    nhanh): (a) perplexity tang khong qua 5% so voi baseline;
+    (b) nang luong/token giam it nhat 20% - lay theo TRUNG VI
+    ti le xen ke A/B, kem khoang dao dong (thap..cao) giua cac
+    vong; (c) do lan 2 chenh lech < 3% CA ppl VA thoi gian -
+    "ket qua" cua measure() gom ca 2 so, nen chi xet ppl thi
+    chua du: thoi gian khong lap lai duoc thi ket luan ve nang
+    luong cung khong dung vung.
     Tra ve (dat_hay_khong, danh sach ly do).
     """
-    ppl_change = (var["ppl"] - base["ppl"]) / base["ppl"]
-    energy_change = (var["mwh_per_token"]
-                     - base["mwh_per_token"]) / base["mwh_per_token"]
-    ok_a = ppl_change <= 0.05
-    ok_b = energy_change <= -0.20
+    ok_a = ppl_pct <= 5.0
+    ok_b = energy_pct <= -20.0
     ok_c = repeat_diff_ppl < 0.03 and repeat_diff_time < 0.03
     reasons = [
-        f"(a) ppl {'+' if ppl_change >= 0 else ''}{ppl_change * 100:.1f}%"
-        f" (nguong <= +5%): {'DAT' if ok_a else 'KHONG DAT'}",
-        f"(b) nang luong/token {energy_change * 100:.1f}%"
-        f" (nguong <= -20%): {'DAT' if ok_b else 'KHONG DAT'}",
+        f"(a) ppl {ppl_pct:+.1f}% (nguong <= +5%): "
+        f"{'DAT' if ok_a else 'KHONG DAT'}",
+        f"(b) nang luong/token {energy_pct:+.1f}% (trung vi "
+        f"xen ke, khoang {energy_lo_pct:+.1f}%.."
+        f"{energy_hi_pct:+.1f}%) (nguong <= -20%): "
+        f"{'DAT' if ok_b else 'KHONG DAT'}",
         f"(c) do lan 2 chenh ppl {repeat_diff_ppl * 100:.2f}%"
         f" + thoi gian {repeat_diff_time * 100:.1f}%"
         f" (nguong < 3%): {'DAT' if ok_c else 'KHONG DAT'}",
@@ -326,8 +458,60 @@ def green_checkpoint(base, var, repeat_diff_ppl, repeat_diff_time):
     return ok_a and ok_b and ok_c, reasons
 
 
+def tu_kiem_tra():
+    """Tu kiem tra bang assert (fail la dung).
+
+    Kiem: eval_loss cong theo trong so token (batch 32 vs
+    batch 5 phai cho cung so); green_checkpoint dung tung
+    nhanh (a)/(b)/(c); do_xen_ke tra ti le hop le.
+    """
+    # eval_loss: tap test 14 cua so, batch=5 cat thanh 5/5/4 -
+    # lay trung binh khong trong so se lech (kiem chung: cach
+    # cu lech 7,1e-05 giua batch 32 va batch 5), cong theo
+    # token thi 2 cach chia phai cho cung so.
+    mo_hinh_thu = TinyLM(VOCAB, D_MODEL, N_HEAD)
+    loss_32 = eval_loss(mo_hinh_thu, X_TEST, Y_TEST,
+                        batch=32)
+    loss_5 = eval_loss(mo_hinh_thu, X_TEST, Y_TEST, batch=5)
+    assert abs(loss_32 - loss_5) < 1e-6, (
+        f"eval_loss phai khong phu thuoc cach chia batch: "
+        f"{loss_32:.6f} vs {loss_5:.6f}")
+    # green_checkpoint: (a) ppl +8% -> rot; ca 3 dat -> DAT;
+    # (c) thoi gian do lan 2 chenh 5% -> rot.
+    dat, _ = green_checkpoint(8.0, -40.0, 0.01, 0.01,
+                              -45.0, -35.0)
+    assert not dat, "ppl +8% vuot nguong 5% phai rot"
+    dat, _ = green_checkpoint(2.0, -25.0, 0.01, 0.01,
+                              -30.0, -21.0)
+    assert dat, "ca 3 nhanh dat thi phai DAT"
+    dat, _ = green_checkpoint(2.0, -25.0, 0.01, 0.05,
+                              -30.0, -21.0)
+    assert not dat, "thoi gian do lan 2 chenh 5% phai rot"
+    # do_xen_ke: 5 vong, 50 token tren 2 mo hinh giong het
+    # nhau - ti le phai duong, trung vi nam trong [thap, cao]
+    # va gan 1 (cung mo hinh thi khong the chenh nhieu). Dung
+    # 5 vong vi trung vi cua 2 gia tri chi la trung binh cua
+    # chung - 1 lan tre cung du lam lech (tu kiem tra bat duoc
+    # ti le 3,55 o ban dau tien dung n_vong=2).
+    ti_le_tv, ti_le_thap, ti_le_cao, ti_les = do_xen_ke(
+        mo_hinh_thu, copy.deepcopy(mo_hinh_thu),
+        IDS_TEST[:16].tolist(), n_vong=5, n_tokens=50)
+    assert len(ti_les) == 5 and all(t > 0 for t in ti_les)
+    assert ti_le_thap <= ti_le_tv <= ti_le_cao
+    assert 0.5 <= ti_le_tv <= 2.0, (
+        f"2 mo hinh giong het nhau thi ti le phai ~1, got "
+        f"{ti_le_tv:.2f}")
+    print("Tu kiem tra: PASS.")
+
+
 def main():
     """Chay tron chuoi capstone: train, do, luong tu hoa, ket luan."""
+    tu_kiem_tra()
+    # Dat lai seed 42 truoc khi train: tu_kiem_tra() da tieu thu
+    # mot phan luong RNG toan cuc (khoi tao mo hinh thu), khong
+    # dat lai thi baseline khoi tao khac lan chay goc va PPL
+    # khong tai lap dung 7,78 nua.
+    torch.manual_seed(42)
     baseline = train_baseline()
     # Seed sinh lay 16 ky tu dau cua tap test (mo hinh chua thay
     # trong huan luyen, nhung thuoc cung doan van).
@@ -368,6 +552,13 @@ def main():
         # do VM dung chung giat - do la ket qua do, khong phai loi
         # code, nen chi bao cao chu khong assert.
         repeat = measure(quantized, seed)
+        # Do xen ke A/B (nhanh (b) lay theo ti le nay, khong lay
+        # theo 2 lan measure() rieng biet - review 1ab9c39).
+        ti_le_tv, ti_le_thap, ti_le_cao, ti_les = do_xen_ke(
+            baseline, quantized, seed, n_vong=N_VONG_XEN_KE)
+        ti_le_chuoi = ", ".join(f"{t:.3f}" for t in ti_les)
+        print(f"xen ke A/B {N_VONG_XEN_KE} vong x {GEN_TOKENS} "
+              f"token: ti le INT8/baseline = {ti_le_chuoi}")
     finally:
         torch.backends.mha.set_fastpath_enabled(True)
     print(f"INT8: ppl={results['int8']['ppl']:.2f}, "
@@ -385,10 +576,12 @@ def main():
     assert diff_ppl < 0.03, f"ppl do lan 2 chenh {diff_ppl:.3f} > 3%"
 
     # ---- Buoc 4: Chinchilla ----
-    # LUU Y: dap an Cau 2 trong practice ghi C=1e21 -> N ~ 9,1B.
+    # LUU Y: dap an Cau 2 trong practice tung ghi C=1e21 -> N ~ 9,1B.
     # Kiem tra lai bang cong thuc: N = sqrt(1e21/120) = 2,89e9
     # (9,1B la ket qua khi chia cho 12 thay vi 120, tuc C=1e22).
-    # So in ra duoi day da duoc assert tai tao dung C (6*N*D = C).
+    # Trainer da sua dap an practice o commit 1ab9c39 (N = 2,9B,
+    # D = 57,7B). So in ra duoi day da duoc assert tai tao dung
+    # C (6*N*D = C).
     print("\nLuat Chinchilla (N ~ D/20, C ~ 6*N*D):")
     for c_flops in [1e18, 1e21]:
         n_params, n_tokens = chinchilla_split(c_flops)
@@ -407,8 +600,15 @@ def main():
     ppl_pct = (var["ppl"] - base["ppl"]) / base["ppl"] * 100
     time_pct = ((var["sec_per_100"] - base["sec_per_100"])
                 / base["sec_per_100"] * 100)
-    energy_pct = ((var["mwh_per_token"] - base["mwh_per_token"])
-                  / base["mwh_per_token"] * 100)
+    energy_pct_rieng = ((var["mwh_per_token"]
+                         - base["mwh_per_token"])
+                        / base["mwh_per_token"] * 100)
+    # Nhanh (b) lay theo TRUNG VI ti le xen ke, khong lay theo
+    # 2 lan measure() rieng biet (do rieng lat verdict giua 2
+    # lan chay doc lap - review Trainer 1ab9c39).
+    energy_pct = (ti_le_tv - 1) * 100
+    energy_lo_pct = (ti_le_thap - 1) * 100
+    energy_hi_pct = (ti_le_cao - 1) * 100
     print("\nBang tong ket capstone (cung may, cung tap test, "
           "cung ham measure):")
     print(f"  {'Bien the':<14} {'PPL':>8} {'giay/100tok':>12} "
@@ -417,9 +617,14 @@ def main():
           f"{base['sec_per_100']:>12.3f} {base['mwh_per_token']:>11.4f}")
     print(f"  {'INT8 dynamic':<14} {var['ppl']:>8.2f} "
           f"{var['sec_per_100']:>12.3f} {var['mwh_per_token']:>11.4f}")
-    print(f"  Thay doi: ppl {ppl_pct:+.1f}%, thoi gian {time_pct:+.1f}%, "
-          f"nang luong {energy_pct:+.1f}%")
-    passed, reasons = green_checkpoint(base, var, diff_ppl, diff_time)
+    print(f"  Thay doi (do rieng): ppl {ppl_pct:+.1f}%, thoi gian "
+          f"{time_pct:+.1f}%, nang luong {energy_pct_rieng:+.1f}%")
+    print(f"  Thay doi (xen ke trung vi): nang luong "
+          f"{energy_pct:+.1f}% (khoang {energy_lo_pct:+.1f}%.."
+          f"{energy_hi_pct:+.1f}%) - day la so dung cho (b)")
+    passed, reasons = green_checkpoint(
+        ppl_pct, energy_pct, diff_ppl, diff_time, energy_lo_pct,
+        energy_hi_pct)
     print("\nGreen checkpoint:")
     for reason in reasons:
         print(f"  {reason}")
@@ -431,14 +636,22 @@ def main():
     else:
         print("  Khong sua so: bao cao dung nhu vay, tim bien the "
               "khac (vd INT8 + fine-tune nhe) neu muon cai thien.")
+    if energy_lo_pct <= -20.0 <= energy_hi_pct:
+        print("  Canh bao: khoang dao dong cua (b) cat ngang "
+              "nguong -20% - verdict (b) chua vung, can them "
+              "vong do hoac may on dinh hon.")
     if diff_time >= 0.03:
-        print(f"  Luu y: thoi gian do lan 2 chenh {diff_time * 100:.1f}%"
-              " - phep do thoi gian tren VM dung chung qua nhieu nen"
-              " ket luan ve (b) chi dung cho lan do nay; muon chac"
-              " can do dai hon / may rieng / CodeCarbon that.")
+        print(f"  Luu y: thoi gian 2 lan measure() rieng biet chenh "
+              f"{diff_time * 100:.1f}% - (c) khong dat vi nhieu "
+              "phien do; nhanh (b) thi lay theo ti le xen ke nen "
+              "vung hon (xem khoang dao dong o (b)).")
     results["green_checkpoint"] = verdict
     results["repeat_ppl_diff"] = diff_ppl
     results["repeat_time_diff"] = diff_time
+    results["xen_ke_ti_le"] = ti_les
+    results["energy_pct_median"] = energy_pct
+    results["energy_pct_lo"] = energy_lo_pct
+    results["energy_pct_hi"] = energy_hi_pct
     with open("capstone_results.json", "w", encoding="utf-8") as f:
         json.dump(results, f, indent=2)
     print("\nDa luu capstone_results.json")
