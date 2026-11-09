@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ngày 30 — Capstone GreenLLM: chứng minh bằng code và số liệu | Khóa LLM 30 ngày</title>
+<style>
+:root{--bg:#0a0f1e; --card:#101830; --line:#22305a; --gold:#f5c542; --green:#4ade80;
+ --red:#f87171; --violet:#a78bfa; --cyan:#67e8f9; --text:#e8edf7; --muted:#93a0bd;}
+*{box-sizing:border-box;}
+body{margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.75; font-size:16.5px;}
+.wrap{max-width:820px; margin:0 auto; padding:18px 16px 60px;}
+.kicker{display:inline-block; font-size:13px; letter-spacing:1px; color:var(--gold); font-weight:700; margin-bottom:8px;}
+h1{font-size:30px; line-height:1.3; margin:6px 0 10px;}
+h2{font-size:22px; margin:34px 0 10px; color:var(--cyan);}
+h3{font-size:18px; margin:22px 0 8px; color:var(--gold);}
+.sub{color:var(--muted); font-size:16.5px;}
+.meta{display:flex; gap:8px; flex-wrap:wrap; margin:14px 0 6px;}
+.meta span{font-size:13.5px; background:var(--card); border:1px solid var(--line); border-radius:999px; padding:5px 14px;}
+.hero{width:100%; border-radius:14px; margin:16px 0;}
+.card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px; margin:16px 0;}
+.note{border-left:4px solid var(--green); background:#0f2233; border-radius:0 12px 12px 0; padding:12px 16px; margin:14px 0;}
+.warn{border-left:4px solid var(--red); background:#23141a; border-radius:0 12px 12px 0; padding:12px 16px; margin:14px 0;}
+.formula{background:#0a0f1e; border:1px dashed var(--violet); border-radius:10px; padding:12px 16px; margin:12px 0; font-size:17px; text-align:center;}
+table{width:100%; border-collapse:collapse; margin:12px 0; font-size:15px;}
+th,td{border:1px solid var(--line); padding:8px 10px; text-align:left;}
+th{background:#141d3a; color:var(--gold);}
+svg{max-width:100%; height:auto; display:block; margin:12px auto;}
+.btn{display:inline-block; background:var(--gold); color:#14100a; font-weight:700; border-radius:10px; padding:12px 22px; margin:10px 8px 0 0; text-decoration:none;}
+.btn.ghost{background:transparent; color:var(--gold); border:2px solid var(--gold);}
+code{background:#0a0f1e; border:1px solid var(--line); border-radius:6px; padding:1px 7px; font-size:15px;}
+.footer{color:var(--muted); font-size:14px; margin-top:40px; border-top:1px solid var(--line); padding-top:14px;}
+ul li, ol li{margin-bottom:6px;}
+.check{list-style:none; padding-left:0;}
+.check li{padding-left:28px; position:relative; margin-bottom:8px;}
+.check li::before{content:"☐"; position:absolute; left:0; color:var(--gold); font-size:17px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+<span class="kicker">KHÓA TRỞ THÀNH AI ENGINEER (LLM) · NGÀY 30 / 30 · CAPSTONE</span>
+<h1>Capstone GreenLLM: chứng minh bằng code và số liệu</h1>
+<p class="sub">Ba mươi ngày trước ta bắt đầu từ một câu hỏi: một mô hình ngôn ngữ lớn được tạo ra như thế nào? Hôm nay là ngày trả lời bằng một sản phẩm hoàn chỉnh — một chuỗi từ dữ liệu đến báo cáo, trong đó mọi tuyên bố "tốt hơn" đều có số liệu đứng sau, và mọi số liệu đều có thể chạy lại để kiểm chứng.</p>
+<div class="meta"><span>⏱ ~25 phút đọc</span><span>🎯 3 khái niệm chính</span><span>🧪 Capstone GreenLLM</span><span>📝 Quiz 8 câu + 1 câu tự luận</span></div>
+<img class="hero" src="img/day30-hero.webp" alt="Minh họa: toàn cảnh chuỗi GreenLLM — dữ liệu, mô hình, huấn luyện, đánh giá, tối ưu, phục vụ, báo cáo">
+
+<h2>Mục tiêu buổi học</h2>
+<div class="card">
+<ul>
+<li>Ghép toàn bộ 30 ngày thành một <b>chuỗi khép kín</b>: data → model → train/adapt → eval → optimize → serve → report, và biết mỗi khâu dùng kiến thức của ngày nào.</li>
+<li>Dùng <b>luật Chinchilla</b> để quyết định: với một ngân sách tính toán cho trước, chia bao nhiêu cho mô hình, bao nhiêu cho dữ liệu.</li>
+<li>Đọc được <b>Pareto chart</b> và áp dụng <b>Green checkpoint</b>: chỉ tuyên bố "tốt hơn" khi chất lượng không giảm ngoài ngưỡng và năng lượng giảm có thể tái lập.</li>
+</ul>
+</div>
+
+<h2>1. Ôn tập 30 ngày trong một cái nhìn</h2>
+<p>Bốn tuần của khóa học không phải bốn chủ đề rời rạc — chúng là bốn tầng của cùng một tòa nhà. Tầng dưới mà yếu thì tầng trên không đứng được:</p>
+<div class="card" id="sec-map">
+<table>
+<tr><th>Tuần</th><th>Hỏi gì?</th><th>Câu trả lời rút gọn</th></tr>
+<tr><td><b>Tuần 1</b><br>Ngày 1–7</td><td>Mô hình ngôn ngữ là gì?</td><td>Token + embedding + attention (softmax <code>p_i = e^z_i / Σe^z_j</code>) + transformer; huấn luyện = dự đoán token tiếp theo, tối ưu bằng gradient descent.</td></tr>
+<tr><td><b>Tuần 2</b><br>Ngày 8–14</td><td>Làm sao huấn luyện thật?</td><td>Dữ liệu sạch và chia train/val/test; optimizer AdamW; learning rate schedule; checkpoint; overfitting và regularization.</td></tr>
+<tr><td><b>Tuần 3</b><br>Ngày 15–21</td><td>Làm sao cho mạnh hơn mà rẻ hơn?</td><td>Fine-tuning, LoRA, quantization, pruning, distillation, FlashAttention, MoE — mỗi kỹ thuật đổi chất lượng lấy chi phí theo một tỷ lệ khác nhau.</td></tr>
+<tr><td><b>Tuần 4</b><br>Ngày 22–29</td><td>Làm sao đưa ra thực tế và chứng minh được?</td><td>Serving, KV cache, batching, đo năng lượng, Pareto frontier, giả thuyết bác bỏ được, ablation và chạy lặp.</td></tr>
+</table>
+<p>Nếu một khái niệm ở tuần 1 vẫn mờ — ví dụ attention tính ra sao, hay vì sao phải chia tập test — thì đó chính là chỗ cần ôn lại trước khi làm capstone. Một capstone xây trên nền mờ sẽ sụp ở phần đánh giá, vì đó là nơi mọi giả định bị phơi bày.</p>
+</div>
+
+<h2>2. Toàn chuỗi capstone: bảy khâu, một mạch số liệu</h2>
+<p>Capstone không phải bảy bài tập riêng lẻ. Nó là <b>một mạch số liệu chảy suốt</b>: quyết định ở khâu dữ liệu ảnh hưởng đến số đo ở khâu đánh giá, và con số năng lượng ở khâu phục vụ chỉ có ý nghĩa khi so với cùng một baseline.</p>
+<div class="card" id="sec-pipeline">
+<svg viewBox="0 0 760 330" role="img" aria-label="Chuỗi bảy khâu của capstone GreenLLM">
+<rect x="10" y="20" width="92" height="70" rx="10" fill="#101830" stroke="#67e8f9" stroke-width="2"/><text x="56" y="50" text-anchor="middle" fill="#e8edf7" font-size="15">1. Data</text><text x="56" y="72" text-anchor="middle" fill="#93a0bd" font-size="12">sạch, chia</text>
+<rect x="120" y="20" width="92" height="70" rx="10" fill="#101830" stroke="#67e8f9" stroke-width="2"/><text x="166" y="50" text-anchor="middle" fill="#e8edf7" font-size="15">2. Model</text><text x="166" y="72" text-anchor="middle" fill="#93a0bd" font-size="12">baseline</text>
+<rect x="230" y="20" width="92" height="70" rx="10" fill="#101830" stroke="#f5c542" stroke-width="2"/><text x="276" y="50" text-anchor="middle" fill="#e8edf7" font-size="15">3. Train</text><text x="276" y="72" text-anchor="middle" fill="#93a0bd" font-size="12">adapt</text>
+<rect x="340" y="20" width="92" height="70" rx="10" fill="#101830" stroke="#f5c542" stroke-width="2"/><text x="386" y="50" text-anchor="middle" fill="#e8edf7" font-size="15">4. Eval</text><text x="386" y="72" text-anchor="middle" fill="#93a0bd" font-size="12">metric</text>
+<rect x="450" y="20" width="92" height="70" rx="10" fill="#101830" stroke="#a78bfa" stroke-width="2"/><text x="496" y="50" text-anchor="middle" fill="#e8edf7" font-size="15">5. Optimize</text><text x="496" y="72" text-anchor="middle" fill="#93a0bd" font-size="12">quant/prune</text>
+<rect x="560" y="20" width="92" height="70" rx="10" fill="#101830" stroke="#a78bfa" stroke-width="2"/><text x="606" y="50" text-anchor="middle" fill="#e8edf7" font-size="15">6. Serve</text><text x="606" y="72" text-anchor="middle" fill="#93a0bd" font-size="12">API, kWh</text>
+<rect x="300" y="150" width="160" height="70" rx="10" fill="#101830" stroke="#4ade80" stroke-width="2"/><text x="380" y="180" text-anchor="middle" fill="#e8edf7" font-size="15">7. Report</text><text x="380" y="202" text-anchor="middle" fill="#93a0bd" font-size="12">paper + demo</text>
+<path d="M102 55 H118 M212 55 H228 M322 55 H338 M432 55 H448 M542 55 H558" stroke="#67e8f9" stroke-width="2" fill="none"/>
+<path d="M606 90 L606 130 L460 130 L460 150" stroke="#67e8f9" stroke-width="2" fill="none"/>
+<text x="380" y="260" text-anchor="middle" fill="#e8edf7" font-size="16">Mỗi khâu sinh ra đúng 1–2 số liệu, và khâu sau chỉ tin số liệu của khâu trước</text>
+<text x="380" y="288" text-anchor="middle" fill="#93a0bd" font-size="14">khi chúng được đo trên cùng dữ liệu, cùng phần cứng, cùng bộ đánh giá.</text>
+</svg>
+<p>Ví dụ cụ thể: baseline là mô hình nhỏ huấn luyện trên dữ liệu đã làm sạch (khâu 1–3), đo được <code>perplexity = 24,1</code> và <code>energy/token = 0,42 mWh</code> (khâu 4 + 6). Sau khi áp quantization INT8 và pruning 30% (khâu 5), đo lại trên <b>cùng</b> bộ đánh giá: <code>perplexity = 24,6</code>, <code>energy/token = 0,24 mWh</code>. Hai cặp số này — cùng phép đo, cùng điều kiện — mới là thứ đi vào báo cáo (khâu 7). Chỉ một con số đơn lẻ thì không nói lên điều gì.</p>
+</div>
+
+<div class="warn"><b>⚠️ Lỗi thường gặp:</b> đo baseline trên máy A, đo biến thể trên máy B, rồi so sánh hai con số năng lượng. Năng lượng phụ thuộc phần cứng, driver, nhiệt độ — đổi máy là đổi cả thước đo. Mọi so sánh trong capstone phải chạy trên <b>cùng một máy, cùng một cấu hình đo</b> (CodeCarbon, cùng chế độ), nếu không kết luận là vô giá trị.</div>
+
+<h2>3. Luật Chinchilla — chia ngân sách tính toán cho khôn ngoan</h2>
+<p>Trước khi huấn luyện, câu hỏi đầu tiên không phải "mô hình bao nhiêu tỷ tham số" mà là "với ngân sách tính toán này, chia thế nào giữa mô hình lớn hơn và dữ liệu nhiều hơn". Nghiên cứu Chinchilla (DeepMind, 2022) chạy hơn 400 mô hình với ngân sách khác nhau và rút ra một quy luật thực nghiệm:</p>
+<div class="formula">Với ngân sách tính toán C cố định, mô hình tối ưu dùng khoảng <b>20 token huấn luyện cho mỗi tham số</b> — tăng gấp đôi ngân sách thì tăng gấp đôi cả số tham số N và số token D.</div>
+<p>Nói cách khác, phần lớn mô hình lớn thời kỳ đầu đều <b>thiếu dữ liệu</b>: mô hình 175B tham số như GPT-3 chỉ huấn luyện trên 300B token (tức ~1,7 token/tham số), trong khi Chinchilla 70B huấn luyện trên 1.400B token (20 token/tham số) và thắng trên nhiều bài đánh giá với chi phí suy luận rẻ hơn nhiều — vì suy luận trả tiền theo từng token, mô hình nhỏ hơn luôn rẻ hơn mãi mãi.</p>
+<div class="card" id="sec-chinchilla">
+<svg viewBox="0 0 760 260" role="img" aria-label="So sánh GPT-3 và Chinchilla theo luật compute-optimal">
+<rect x="40" y="30" width="320" height="60" rx="10" fill="#101830" stroke="#f87171" stroke-width="2"/>
+<text x="200" y="58" text-anchor="middle" fill="#e8edf7" font-size="16">GPT-3 · 175B tham số · 300B token</text>
+<text x="200" y="78" text-anchor="middle" fill="#f87171" font-size="14">≈ 1,7 token / tham số — thiếu dữ liệu</text>
+<rect x="400" y="30" width="320" height="60" rx="10" fill="#101830" stroke="#4ade80" stroke-width="2"/>
+<text x="560" y="58" text-anchor="middle" fill="#e8edf7" font-size="16">Chinchilla · 70B tham số · 1.400B token</text>
+<text x="560" y="78" text-anchor="middle" fill="#4ade80" font-size="14">≈ 20 token / tham số — compute-optimal</text>
+<rect x="180" y="140" width="400" height="80" rx="10" fill="#0f2233" stroke="#f5c542" stroke-width="2"/>
+<text x="380" y="172" text-anchor="middle" fill="#f5c542" font-size="16">Bài học cho capstone (và cho Phase 2)</text>
+<text x="380" y="198" text-anchor="middle" fill="#e8edf7" font-size="14">Ngân sách nhỏ → đừng tham mô hình to. Mô hình nhỏ + đủ dữ liệu</text>
+<text x="380" y="218" text-anchor="middle" fill="#e8edf7" font-size="14">luôn thắng mô hình to + đói dữ liệu, cả về điểm lẫn hóa đơn điện.</text>
+</svg>
+<p>Với capstone chạy trên máy cá nhân, luật này càng đúng: một mô hình vài chục triệu tham số huấn luyện đủ token sẽ cho kết quả sạch và đo được, trong khi một mô hình "to cho oai" mà huấn luyện dở dang chỉ cho số liệu nhiễu. Phase 2 — Tiny Vietnamese LM — chính là áp dụng trực tiếp luật này: mô hình nhỏ, dữ liệu tiếng Việt đủ lớn, đo bằng perplexity trên tập giữ lại.</p>
+</div>
+
+<h2>4. Đọc Pareto chart — chọn điểm nào trên biên?</h2>
+<p>Khi đã có baseline và ít nhất hai biến thể, ta vẽ mỗi cấu hình thành một điểm: trục ngang là chi phí (năng lượng mỗi token hoặc thời gian), trục dọc là chất lượng (điểm đánh giá). Các điểm tốt nhất tạo thành <b>biên Pareto</b> — đường cong mà trên đó, muốn rẻ hơn thì phải chấp nhận kém hơn, muốn tốt hơn thì phải trả thêm.</p>
+<div class="card" id="sec-pareto">
+<svg viewBox="0 0 760 320" role="img" aria-label="Biểu đồ Pareto: chất lượng theo năng lượng mỗi token">
+<line x1="90" y1="30" x2="90" y2="270" stroke="#22305a" stroke-width="2"/>
+<line x1="90" y1="270" x2="700" y2="270" stroke="#22305a" stroke-width="2"/>
+<text x="380" y="300" text-anchor="middle" fill="#93a0bd" font-size="14">Năng lượng mỗi token (mWh) →</text>
+<text x="30" y="150" text-anchor="middle" fill="#93a0bd" font-size="14" transform="rotate(-90 30 150)">Chất lượng (điểm đánh giá) →</text>
+<path d="M140 100 C 260 130, 420 190, 620 240" stroke="#4ade80" stroke-width="2.5" fill="none" stroke-dasharray="6 4"/>
+<circle cx="140" cy="100" r="8" fill="#f87171"/><text x="140" y="80" text-anchor="middle" fill="#f87171" font-size="14">Baseline</text>
+<circle cx="300" cy="150" r="8" fill="#f5c542"/><text x="300" y="130" text-anchor="middle" fill="#f5c542" font-size="14">INT8</text>
+<circle cx="450" cy="200" r="8" fill="#67e8f9"/><text x="450" y="180" text-anchor="middle" fill="#67e8f9" font-size="14">INT8 + prune 30%</text>
+<circle cx="620" cy="240" r="8" fill="#a78bfa"/><text x="620" y="220" text-anchor="middle" fill="#a78bfa" font-size="14">INT8 + prune + distill</text>
+<circle cx="330" cy="215" r="8" fill="#22305a" stroke="#f87171" stroke-width="2"/><text x="330" y="245" text-anchor="middle" fill="#f87171" font-size="13">Prune 50% — dưới biên, bị loại</text>
+</svg>
+<p>Điểm <b>dưới biên</b> (như prune 50% trong hình) là điểm bị chi phối: tồn tại một cấu hình khác vừa rẻ hơn vừa tốt hơn nó — loại thẳng, không cần bàn thêm. Điểm <b>trên biên</b> thì không có đáp án đúng duy nhất: chọn điểm nào phụ thuộc vào bài toán thật. Chatbot chạy trên điện thoại chọn điểm rẻ nhất còn đủ tốt; hệ thống tóm tắt văn bản pháp lý chọn điểm tốt nhất còn đủ rẻ. Capstone tốt không chọn "điểm tốt nhất" một cách chung chung — nó <b>nêu rõ tiêu chí chọn</b> (ví dụ: "chọn điểm rẻ nhất mà điểm đánh giá giảm tối đa 2 điểm phần trăm") rồi chỉ ra điểm đó trên biên.</p>
+</div>
+
+<div class="note"><b>💡 Mẹo đọc biên:</b> nếu hai điểm trên biên chênh nhau 0,3 điểm chất lượng nhưng gấp đôi năng lượng, hãy nhớ bài Ngày 29: chênh lệch 0,3 điểm nằm trong nhiễu của phép đo (cần chạy lặp 3 lần, báo trung bình ± độ lệch chuẩn). Đừng trả gấp đôi tiền điện cho một "cải tiến" có thể chỉ là may rủi.</div>
+
+<h2>5. Green checkpoint — khi nào mới được tuyên bố "tốt hơn"</h2>
+<p>Đây là chuẩn mực đạo đức của cả khóa học, và là thứ phân biệt một kỹ sư AI với một người chỉ chạy thử cho vui. Trước khi viết vào báo cáo câu "phương pháp của tôi tốt hơn baseline", phải trả lời "có" cho cả ba câu hỏi:</p>
+<div class="card">
+<table>
+<tr><th>Câu hỏi kiểm tra</th><th>Ngưỡng</th><th>Ví dụ đạt</th></tr>
+<tr><td>Chất lượng có giữ được không?</td><td>Điểm đánh giá giảm tối đa 2 điểm phần trăm so với baseline</td><td>Baseline 68,0 → biến thể 66,5: đạt (giảm 1,5)</td></tr>
+<tr><td>Năng lượng có giảm thật không?</td><td>Energy/token hoặc kWh/run giảm rõ rệt, đo trên cùng máy</td><td>0,42 → 0,24 mWh/token: giảm 43%</td></tr>
+<tr><td>Kết quả có tái lập được không?</td><td>Chạy lặp ≥ 3 lần, seed khác nhau; chênh lệch vượt nhiễu đo</td><td>3 lần chạy: 66,4 / 66,6 / 66,5 — ổn định</td></tr>
+</table>
+<p>Nếu một trong ba câu trả lời là "không" hoặc "chưa đo", câu tuyên bố phải đổi thành "chưa đủ bằng chứng" — và đó vẫn là một kết quả tốt, vì nó trung thực. Một báo cáo nói "chưa đủ bằng chứng" đáng tin hơn nhiều một báo cáo khoe "tốt hơn 40%" mà không ai chạy lại được.</p>
+</div>
+
+<h2>6. Bộ hồ sơ capstone — checklist trước khi nộp</h2>
+<p>Một capstone hoàn chỉnh không chỉ là code chạy được. Người chấm (hay chính bạn sau ba tháng) cần mở repo ra và tái lập được mọi con số trong báo cáo mà không cần hỏi bạn câu nào. Kiểm tra từng mục:</p>
+<div class="card">
+<ul class="check">
+<li><b>Repo sạch:</b> README nêu rõ mục tiêu, cách chạy, yêu cầu phần cứng; không commit checkpoint nặng hay dữ liệu thô lên git.</li>
+<li><b>Tests:</b> ít nhất test kiểm tra dữ liệu (định dạng, không rò rỉ test vào train) và test smoke chạy được một vòng train–eval nhỏ.</li>
+<li><b>Config:</b> mọi siêu tham số nằm trong file config, không hard-code rải rác trong code; seed cố định và ghi rõ.</li>
+<li><b>Checkpoint / adapter:</b> lưu lại bản baseline và bản tốt nhất, kèm ghi chú cấu hình của từng bản.</li>
+<li><b>Model card + data card:</b> mô hình huấn luyện trên dữ liệu nào, giới hạn nào, đo bằng metric nào.</li>
+<li><b>Eval set:</b> bộ đánh giá tách riêng, không trùng dữ liệu huấn luyện; ghi rõ số mẫu và cách tính điểm.</li>
+<li><b>energy.csv:</b> log năng lượng từng lần chạy (CodeCarbon) — kWh, thời gian, phần cứng.</li>
+<li><b>Pareto chart:</b> biểu đồ chất lượng theo năng lượng, ghi rõ điểm được chọn và tiêu chí chọn.</li>
+<li><b>Roadmap tiếp theo:</b> 3 việc sẽ làm nếu có thêm thời gian — và việc đầu tiên trong số đó là gì.</li>
+</ul>
+</div>
+
+<h2>⚡ Góc tiết kiệm năng lượng</h2>
+<div class="card">
+<p>Capstone này đo năng lượng như một metric chính thức — và chính quá trình làm capstone cũng phải tiết kiệm năng lượng:</p>
+<ul>
+<li><b>Đo trước, tối ưu sau:</b> chạy baseline nhỏ, đo kWh/run bằng CodeCarbon rồi mới quyết định có đáng mở rộng không. Một lần chạy lớn không đo đạc là một lần đốt điện mù.</li>
+<li><b>Thử rẻ trước:</b> mọi ý tưởng mới thử trên mô hình nhỏ và tập dữ liệu con trước; chỉ mở rộng khi tín hiệu vượt ngưỡng đã viết sẵn trong kế hoạch (Ngày 29).</li>
+<li><b>Đặt trần GPU:</b> ghi trước "tối đa N giờ GPU cho capstone" — hết trần thì dừng và báo cáo những gì đã có, kể cả kết quả âm. Kết quả âm vẫn là kết quả.</li>
+<li><b>Bài học từ Chinchilla:</b> mô hình nhỏ + đủ dữ liệu không chỉ rẻ hơn khi suy luận — nó còn rẻ hơn ngay từ lúc huấn luyện, vì không phải trả tiền cho những tham số đói dữ liệu.</li>
+</ul>
+</div>
+
+<h2>Tóm tắt</h2>
+<div class="card">
+<ul>
+<li><b>30 ngày = 1 chuỗi:</b> data → model → train → eval → optimize → serve → report; mỗi khâu sinh số liệu cho khâu sau, và mọi so sánh phải cùng dữ liệu, cùng máy, cùng bộ đánh giá.</li>
+<li><b>Luật Chinchilla:</b> với ngân sách cố định, khoảng 20 token cho mỗi tham số là tối ưu — mô hình nhỏ + đủ dữ liệu thắng mô hình to + đói dữ liệu.</li>
+<li><b>Pareto:</b> điểm dưới biên bị loại thẳng; điểm trên biên chọn theo tiêu chí đã nêu rõ, không chọn "tốt nhất" chung chung.</li>
+<li><b>Green checkpoint:</b> chỉ tuyên bố tốt hơn khi chất lượng giảm trong ngưỡng, năng lượng giảm thật, và kết quả tái lập được qua chạy lặp.</li>
+<li><b>Hồ sơ capstone:</b> repo sạch, tests, config, checkpoint, model/data card, eval set, energy.csv, Pareto chart, roadmap — thiếu một mục là báo cáo chưa hoàn chỉnh.</li>
+</ul>
+<p>Buổi tối nay: chạy baseline và ít nhất 2 biến thể, làm ablation, đóng gói CLI/API, viết báo cáo 6–10 trang và demo 3 phút. Và từ ngày mai, Phase 2 bắt đầu — đề tài <b>Tiny Vietnamese LM</b> đã chốt: một mô hình tiếng Việt nhỏ, huấn luyện đúng luật Chinchilla, đo bằng perplexity trên tập giữ lại. Ba mươi ngày qua là học cách làm; ba mươi ngày tới là tự mình làm thật.</p>
+</div>
+
+<p><a class="btn" href="Day30_quiz.html">📝 Làm quiz Ngày 30 (8 câu + tự luận)</a>
+<a class="btn ghost" href="Day30_video.mp4">🎬 Xem video giải thích (~5 phút)</a></p>
+<p class="footer">Khóa "Trở thành AI Engineer (LLM)" · Ngày 30 / 30 · Capstone GreenLLM · Tài liệu tham khảo: Chinchilla (DeepMind, 2022) · CodeCarbon quickstart · LLM Evaluation Course</p>
+</div>
+</body>
+</html>

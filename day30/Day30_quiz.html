@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quiz Ngày 30 — Capstone GreenLLM | Khóa LLM 30 ngày</title>
+<style>
+:root{--bg:#0a0f1e; --card:#101830; --line:#22305a; --gold:#f5c542; --green:#4ade80; --red:#f87171; --cyan:#67e8f9; --text:#e8edf7; --muted:#93a0bd;}
+*{box-sizing:border-box;}
+body{margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif; line-height:1.7; font-size:16.5px;}
+.wrap{max-width:780px; margin:0 auto; padding:18px 16px 60px;}
+.kicker{color:var(--gold); font-size:13px; letter-spacing:1px; font-weight:700;}
+h1{font-size:28px; line-height:1.3;}
+.sub{color:var(--muted);}
+.q{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px; margin:18px 0;}
+.q h3{margin:0 0 10px; color:var(--cyan); font-size:18px;}
+label{display:block; padding:8px 10px; margin:6px 0; border:1px solid var(--line); border-radius:10px; cursor:pointer;}
+label:hover{border-color:var(--gold);}
+label input{margin-right:10px;}
+.expl{display:none; margin-top:12px; padding:12px 14px; border-radius:10px; font-size:15.5px;}
+.expl.ok{display:block; background:#0f2233; border-left:4px solid var(--green);}
+.expl.bad{display:block; background:#23141a; border-left:4px solid var(--red);}
+button{background:var(--gold); color:#14100a; font-weight:700; border:none; border-radius:10px; padding:13px 26px; font-size:16px; margin:6px 8px 0 0; cursor:pointer;}
+button.ghost{background:transparent; color:var(--gold); border:2px solid var(--gold);}
+#result{font-weight:700; margin-top:14px; font-size:18px;}
+#copyout{background:#0a0f1e; border:1px dashed var(--gold); border-radius:10px; padding:12px 16px; margin-top:12px; font-size:16px; word-break:break-all;}
+.note{color:var(--muted); font-size:14.5px; margin-top:24px; border-top:1px solid var(--line); padding-top:14px;}
+a{color:var(--gold);}
+textarea{width:100%; background:#0a0f1e; color:var(--text); border:1px solid var(--line); border-radius:10px; padding:12px; font-size:15.5px; font-family:inherit;}
+</style>
+</head>
+<body>
+<div class="wrap">
+<span class="kicker">NGÀY 30 · QUIZ ÔN TẬP — 8 CÂU</span>
+<h1>Quiz: Capstone GreenLLM</h1>
+<p class="sub">Chọn đáp án rồi bấm "Nộp bài" để chấm điểm ngay trong file và xem giải thích từng câu. Sau đó bấm "Copy kết quả" rồi paste vào chat để trợ lý ghi điểm.</p>
+<form id="quiz">
+<div class="q" data-answer="B"><h3>Câu 1. Trong chuỗi capstone data → model → train → eval → optimize → serve → report, vì sao con số năng lượng của baseline và biến thể phải đo trên cùng một máy?</h3>
+<label><input type="radio" name="q1" value="A"> A. Vì CodeCarbon chỉ cài được trên một máy duy nhất</label>
+<label><input type="radio" name="q1" value="B"> B. Vì năng lượng phụ thuộc phần cứng, driver và nhiệt độ — đổi máy là đổi cả thước đo, so sánh trở nên vô giá trị</label>
+<label><input type="radio" name="q1" value="C"> C. Vì báo cáo dạng paper chỉ chấp nhận số liệu từ một máy</label>
+<label><input type="radio" name="q1" value="D"> D. Vì mô hình chạy trên máy khác sẽ cho điểm đánh giá khác nhau</label>
+<div class="expl">Đáp án B. Năng lượng không phải thuộc tính của riêng mô hình — nó là kết quả của mô hình × phần cứng × môi trường đo. Đo hai cấu hình trên hai máy khác nhau rồi trừ nhau thì chênh lệch đo được có thể đến từ máy, không phải từ phương pháp.</div></div>
+
+<div class="q" data-answer="C"><h3>Câu 2. Luật Chinchilla nói gì về cách chia ngân sách tính toán?</h3>
+<label><input type="radio" name="q2" value="A"> A. Nên dồn toàn bộ ngân sách vào mô hình càng lớn càng tốt, dữ liệu ít cũng được</label>
+<label><input type="radio" name="q2" value="B"> B. Nên dồn toàn bộ ngân sách vào dữ liệu, mô hình nhỏ cỡ nào cũng được</label>
+<label><input type="radio" name="q2" value="C"> C. Với ngân sách cố định, tối ưu là khoảng 20 token huấn luyện cho mỗi tham số — tăng gấp đôi ngân sách thì tăng gấp đôi cả số tham số và số token</label>
+<label><input type="radio" name="q2" value="D"> D. Ngân sách nên chia đều cho huấn luyện, đánh giá và phục vụ</label>
+<div class="expl">Đáp án C. Chinchilla chạy hơn 400 mô hình và thấy điểm tối ưu nằm ở ~20 token/tham số. GPT-3 (175B tham số, chỉ 300B token ≈ 1,7 token/tham số) bị thiếu dữ liệu, trong khi Chinchilla 70B với 1.400B token thắng trên nhiều bài đánh giá và suy luận rẻ hơn vì mô hình nhỏ hơn.</div></div>
+
+<div class="q" data-answer="A"><h3>Câu 3. Trên biểu đồ Pareto (trục ngang: năng lượng mỗi token, trục dọc: chất lượng), một cấu hình nằm DƯỚI biên Pareto nghĩa là gì?</h3>
+<label><input type="radio" name="q3" value="A"> A. Tồn tại một cấu hình khác vừa rẻ hơn vừa tốt hơn nó — nó bị chi phối và nên loại thẳng</label>
+<label><input type="radio" name="q3" value="B"> B. Nó là cấu hình tiết kiệm năng lượng nhất nên nên chọn nó</label>
+<label><input type="radio" name="q3" value="C"> C. Nó là cấu hình có chất lượng cao nhất trên biểu đồ</label>
+<label><input type="radio" name="q3" value="D"> D. Nó chưa được đo đủ số lần nên tạm thời nằm dưới biên</label>
+<div class="expl">Đáp án A. Điểm dưới biên là điểm bị chi phối (dominated): có điểm khác tốt hơn nó trên cả hai trục. Ví dụ trong bài học, prune 50% vừa tốn năng lượng hơn vừa kém hơn INT8 + prune 30% nên không có lý do gì để chọn nó.</div></div>
+
+<div class="q" data-answer="D"><h3>Câu 4. Theo Green checkpoint, khi nào bạn mới được viết vào báo cáo "phương pháp của tôi tốt hơn baseline"?</h3>
+<label><input type="radio" name="q4" value="A"> A. Khi điểm đánh giá cao hơn baseline, dù chỉ 0,1 điểm</label>
+<label><input type="radio" name="q4" value="B"> B. Khi năng lượng giảm, dù chất lượng có giảm bao nhiêu cũng được</label>
+<label><input type="radio" name="q4" value="C"> C. Khi chạy một lần và kết quả tốt hơn baseline trên cả hai mặt</label>
+<label><input type="radio" name="q4" value="D"> D. Khi cả ba điều kiện đều đạt: chất lượng giảm trong ngưỡng (≤ 2 điểm phần trăm), năng lượng giảm thật trên cùng máy, và kết quả tái lập qua chạy lặp ≥ 3 lần</label>
+<div class="expl">Đáp án D. Green checkpoint có ba cửa, thiếu một là chưa đủ. Một lần chạy tốt có thể là may rủi; chất lượng giảm 6 điểm thì không còn là "tốt hơn" nữa dù có tiết kiệm điện; và đo trên hai máy khác nhau thì chênh lệch năng lượng không đáng tin.</div></div>
+
+<div class="q" data-answer="B"><h3>Câu 5. Baseline đạt 68,0 điểm, biến thể đạt 66,5 điểm (giảm 1,5), năng lượng mỗi token giảm 43%, chạy lặp 3 lần cho 66,4 / 66,6 / 66,5. Kết luận nào đúng theo Green checkpoint?</h3>
+<label><input type="radio" name="q5" value="A"> A. Không đạt, vì chất lượng đã giảm</label>
+<label><input type="radio" name="q5" value="B"> B. Đạt — chất lượng giảm 1,5 điểm (trong ngưỡng 2), năng lượng giảm 43%, ba lần chạy ổn định quanh 66,5</label>
+<label><input type="radio" name="q5" value="C"> C. Không đạt, vì cần chạy ít nhất 10 lần mới đủ tin</label>
+<label><input type="radio" name="q5" value="D"> D. Đạt, nhưng chỉ được tuyên bố "tốt hơn" về năng lượng, không được nhắc đến chất lượng</label>
+<div class="expl">Đáp án B. Cả ba cửa đều qua: giảm 1,5 điểm phần trăm nằm trong ngưỡng 2; năng lượng giảm 43% là giảm rõ rệt; ba lần chạy cho kết quả gần như giống nhau nên không phải may rủi. Đây là ví dụ mẫu của một tuyên bố "tốt hơn" có cơ sở.</div></div>
+
+<div class="q" data-answer="C"><h3>Câu 6. Hai điểm trên biên Pareto chênh nhau 0,3 điểm chất lượng nhưng một điểm tốn gấp đôi năng lượng. Bạn nên nghĩ gì trước khi chọn điểm đắt hơn?</h3>
+<label><input type="radio" name="q6" value="A"> A. Chọn điểm đắt hơn ngay — 0,3 điểm nào cũng đáng giá</label>
+<label><input type="radio" name="q6" value="B"> B. Điểm đắt hơn luôn tốt hơn vì mô hình lớn hơn thì suy luận rẻ hơn</label>
+<label><input type="radio" name="q6" value="C"> C. Chênh lệch 0,3 điểm có thể chỉ là nhiễu đo (nhỏ hơn độ lệch chuẩn giữa các lần chạy) — cần chạy lặp và so khoảng tin cậy trước khi trả gấp đôi tiền điện</label>
+<label><input type="radio" name="q6" value="D"> D. Bỏ qua cả hai điểm, chọn điểm dưới biên vì nó rẻ nhất</label>
+<div class="expl">Đáp án C. Bài Ngày 29 đã chỉ ra: chênh lệch nhỏ hơn độ lệch chuẩn của phép đo thì chưa thể gọi là cải tiến. Trả gấp đôi năng lượng cho 0,3 điểm "có thể là may rủi" là quyết định tồi — trừ khi chạy lặp chứng minh chênh lệch đó là thật và bài toán thật sự cần 0,3 điểm đó.</div></div>
+
+<div class="q" data-answer="A"><h3>Câu 7. Mục nào KHÔNG thuộc bộ hồ sơ capstone hoàn chỉnh?</h3>
+<label><input type="radio" name="q7" value="A"> A. Slide giới thiệu khóa học và ảnh chụp màn hình giao diện chat</label>
+<label><input type="radio" name="q7" value="B"> B. energy.csv — log năng lượng từng lần chạy kèm phần cứng và thời gian</label>
+<label><input type="radio" name="q7" value="C"> C. Model card + data card nêu rõ dữ liệu, giới hạn và metric đo</label>
+<label><input type="radio" name="q7" value="D"> D. Pareto chart ghi rõ điểm được chọn và tiêu chí chọn</label>
+<div class="expl">Đáp án A. Hồ sơ capstone là những thứ giúp người khác tái lập được mọi con số trong báo cáo: config, checkpoint, eval set, energy.csv, Pareto chart, model/data card. Slide giới thiệu và ảnh chụp màn hình không giúp ai chạy lại thí nghiệm nên không thuộc hồ sơ.</div></div>
+
+<div class="q" data-answer="D"><h3>Câu 8. Vì sao một mô hình nhỏ huấn luyện đủ dữ liệu lại là lựa chọn khôn ngoan cho capstone trên máy cá nhân (và cho Phase 2 — Tiny Vietnamese LM)?</h3>
+<label><input type="radio" name="q8" value="A"> A. Vì mô hình nhỏ không cần dữ liệu huấn luyện</label>
+<label><input type="radio" name="q8" value="B"> B. Vì mô hình nhỏ luôn đạt điểm cao hơn mô hình lớn trên mọi bài đánh giá</label>
+<label><input type="radio" name="q8" value="C"> C. Vì mô hình nhỏ không cần đo năng lượng khi báo cáo</label>
+<label><input type="radio" name="q8" value="D"> D. Vì theo luật Chinchilla, mô hình nhỏ + đủ dữ liệu (~20 token/tham số) cho kết quả sạch, đo được và suy luận rẻ — trong khi mô hình to mà đói dữ liệu chỉ cho số liệu nhiễu và hóa đơn điện lớn</label>
+<div class="expl">Đáp án D. Đây là ứng dụng trực tiếp của luật Chinchilla cho ngân sách nhỏ: đừng tham mô hình to. Mô hình vài chục triệu tham số huấn luyện đủ token cho số liệu ổn định, chạy lặp được nhiều lần, và chi phí suy luận rẻ mãi mãi — đúng tinh thần GreenLLM của capstone.</div></div>
+</form>
+<button onclick="grade()">Nộp bài</button>
+<button class="ghost" onclick="copyResult()">Copy kết quả</button>
+<div id="result"></div>
+<div id="copyout" style="display:none"></div>
+<div class="q"><h3>Câu tự luận (không tính điểm trắc nghiệm)</h3>
+<p>Giải thích bằng lời của bạn, trong 2–3 câu: capstone GreenLLM của bạn sẽ chứng minh điều gì? Nêu rõ: baseline là gì, biến thể bạn định thử là gì, metric chất lượng và năng lượng nào bạn sẽ đo, và ngưỡng nào thì bạn coi là "tốt hơn" theo Green checkpoint.</p>
+<textarea rows="4" placeholder="Viết câu trả lời của bạn ở đây, rồi paste cùng kết quả trắc nghiệm vào chat..."></textarea></div>
+<p class="note">Lưu ý: file HTML này không tự gửi kết quả về được. Sau khi bấm "Copy kết quả", hãy paste chuỗi kết quả vào chat để trợ lý ghi điểm cho bạn. Đáp án đúng không hiện trước khi nộp bài — giải thích chỉ mở sau khi bạn chọn và nộp.</p>
+<p><a href="Day30_lesson.html">← Về lại tài liệu bài học</a></p>
+<script>
+let graded = false, answers = [];
+function grade(){
+  const qs = document.querySelectorAll('form .q');
+  let score = 0; answers = [];
+  qs.forEach((q, i) => {
+    const sel = q.querySelector('input:checked');
+    const v = sel ? sel.value : '–';
+    answers.push(v);
+    const expl = q.querySelector('.expl');
+    if (v === q.dataset.answer) { score++; expl.className = 'expl ok'; expl.innerHTML = '✅ Đúng. ' + expl.innerHTML; }
+    else { expl.className = 'expl bad'; expl.innerHTML = '❌ Chưa đúng. ' + expl.innerHTML; }
+  });
+  graded = true;
+  document.getElementById('result').textContent = 'Bạn được ' + score + '/' + qs.length + ' câu.';
+  const out = document.getElementById('copyout');
+  out.style.display = 'block';
+  out.textContent = 'Day30 Quiz: ' + answers.map((a, i) => (i+1) + a).join(' ') + ' — ' + score + '/' + qs.length;
+}
+function copyResult(){
+  if (!graded) { alert('Hãy bấm "Nộp bài" trước đã nhé.'); return; }
+  const t = document.getElementById('copyout').textContent;
+  navigator.clipboard.writeText(t).then(() => alert('Đã copy! Paste vào chat để trợ lý ghi điểm nhé.'));
+}
+</script>
+</div>
+</body>
+</html>
