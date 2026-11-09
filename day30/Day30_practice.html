@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ngày 30 — Buổi tối: Capstone GreenLLM — chứng minh bằng code và số liệu</title>
+<style>
+  :root{--bg:#0f1220;--card:#1a1e33;--line:#2c3357;--txt:#e8eaf6;--mut:#9aa3c7;--acc:#7c5cff;--grn:#2fd08c;--amb:#ffb454;--red:#ff6b6b}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.65;padding:0 0 48px}
+  header{padding:28px 18px 8px;max-width:820px;margin:0 auto}
+  .tag{display:inline-block;background:var(--acc);color:#fff;font-size:12px;font-weight:700;letter-spacing:.08em;padding:4px 10px;border-radius:999px}
+  h1{font-size:24px;line-height:1.3;margin:12px 0 6px}
+  .sub{color:var(--mut);font-size:15px}
+  main{max-width:820px;margin:0 auto;padding:0 18px}
+  section{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin:16px 0}
+  h2{font-size:19px;margin:0 0 10px;color:#cdbfff}
+  h3{font-size:16px;margin:16px 0 6px}
+  p{margin:8px 0}
+  code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13.5px;background:#0b0e1c;padding:1px 6px;border-radius:6px;color:#ffd479}
+  pre{background:#0b0e1c;border:1px solid var(--line);border-radius:10px;padding:14px;overflow-x:auto;font-size:13.5px;line-height:1.55}
+  pre code{background:none;padding:0;color:#d6deff}
+  .hl{color:var(--grn)} .warn{color:var(--amb)} .bad{color:var(--red)}
+  .goal{background:#14231d;border:1px solid #1f4d38;border-radius:10px;padding:12px 14px}
+  .goal b{color:var(--grn)}
+  .step{background:#141830;border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:10px 0}
+  .step b{color:#cdbfff}
+  .check{list-style:none;padding:0}
+  .check li{padding:6px 0;border-bottom:1px dashed var(--line)}
+  .check li:last-child{border-bottom:none}
+  .q{border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:10px 0}
+  .q button{background:var(--acc);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:14px;cursor:pointer;margin-top:8px}
+  .ans{display:none;margin-top:10px;background:#0b0e1c;border-left:3px solid var(--grn);padding:10px 12px;border-radius:0 8px 8px 0}
+  table{width:100%;border-collapse:collapse;font-size:14px;margin:10px 0}
+  th,td{border:1px solid var(--line);padding:8px;text-align:left}
+  th{background:#141830}
+  .trap{border-left:3px solid var(--red);background:#241419;border-radius:0 10px 10px 0;padding:12px 14px;margin:10px 0}
+  .trap b{color:var(--red)}
+  footer{max-width:820px;margin:0 auto;padding:0 18px;color:var(--mut);font-size:13px}
+</style>
+</head>
+<body>
+<header>
+  <span class="tag">NGÀY 30 / 30 · CAPSTONE · BUỔI TỐI</span>
+  <h1>🛠️ Capstone GreenLLM: chứng minh bằng code và số liệu</h1>
+  <p class="sub">Buổi thực hành tổng hợp — khép lại Phase 1. ⏱ Ước lượng: 60–90 phút · Chạy được trên CPU, không cần GPU.</p>
+</header>
+<main>
+
+<section>
+  <h2>🎯 Mục tiêu buổi tối</h2>
+  <div class="goal">
+    <p><b>Sản phẩm cuối buổi:</b> một bảng số liệu capstone hoàn chỉnh — baseline vs biến thể tối ưu — đo trên <b>cùng một máy, cùng một bộ đánh giá</b>, kèm quyết định Green checkpoint có căn cứ.</p>
+    <p>Buổi sáng đã cho khung lý thuyết (7 khâu, luật Chinchilla, Pareto, Green checkpoint). Buổi tối này biến khung đó thành code chạy được. Đây là bài tổng hợp của cả khóa: nếu một khâu nào còn mờ, đó chính là chỗ cần ôn lại trước khi bước sang Phase 2.</p>
+  </div>
+  <p><b>Thứ duy nhất thay đổi là ___</b> — trước mỗi so sánh trong bài này, hãy viết câu đó ra và kiểm tra mọi điều kiện còn lại có bằng nhau không. Đó là thói quen của cả khóa, và là thứ phân biệt một báo cáo đáng tin với một bảng số đẹp.</p>
+</section>
+
+<section>
+  <h2>🧪 Bài tập: chuỗi capstone thu nhỏ trên CPU</h2>
+  <p>Ta làm một capstone thu nhỏ: mô hình ngôn ngữ ký tự (char-level) huấn luyện trên một đoạn văn bản tiếng Việt ngắn. Mọi khâu đều chạy trong vài phút trên CPU — đủ để thực hành đúng quy trình đo, không phải để đạt perplexity đẹp.</p>
+
+  <h3>Bước 0 — Chuẩn bị dữ liệu (khâu 1: Data)</h3>
+  <div class="step">
+    <p><b>Làm:</b> tạo file <code>capstone.py</code>. Dữ liệu: một đoạn văn bản tiếng Việt ~2.000–3.000 ký tự (tự viết hoặc lấy từ Wikipedia tiếng Việt, đoạn ngắn về một chủ đề bạn thích). Chia <b>train / val / test = 80 / 10 / 10</b> theo thứ tự thời gian (không xáo trộn), và ghi rõ số ký tự mỗi tập.</p>
+    <p><b>Gợi ý:</b> dùng <code>text[:n_train]</code>, <code>text[n_train:n_train+n_val]</code>, phần còn lại là test. In ra 3 con số. Nếu tập test lẫn vào tập train thì mọi số đo sau đó đều vô nghĩa — đây là lỗi số 1 của capstone.</p>
+  </div>
+
+  <h3>Bước 1 — Baseline (khâu 2–3: Model + Train)</h3>
+  <div class="step">
+    <p><b>Làm:</b> xây mô hình char-level nhỏ bằng PyTorch: embedding 64 chiều, 1 lớp Transformer encoder (2 head) hoặc 1 lớp LSTM, vocab = tập ký tự xuất hiện trong dữ liệu. Huấn luyện 3 epoch, batch 32, AdamW lr 3e-3, seed cố định <code>torch.manual_seed(42)</code>.</p>
+    <p><b>Gợi ý:</b> sequence length 64, next-token prediction, loss = cross-entropy. In loss train/val sau mỗi epoch. Đây là baseline — đừng tối ưu nó, chỉ cần nó chạy đúng và có thể lặp lại.</p>
+  </div>
+
+  <h3>Bước 2 — Đo baseline (khâu 4 + 6: Eval + Serve)</h3>
+  <div class="step">
+    <p><b>Làm:</b> viết hàm <code>measure(model, data)</code> trả về 2 số: <b>perplexity trên tập test</b> và <b>thời gian sinh 100 token</b> (greedy, đo bằng <code>time.perf_counter()</code>, chạy 3 lần lấy trung bình). Ghi lại cả 2 số vào một dict <code>results = {}</code>.</p>
+    <p><b>Gợi ý:</b> perplexity = <code>exp(mean loss)</code>. Năng lượng ở quy mô này ta ước lượng bằng thời gian × công suất giả định (vd 65 W cho CPU laptop) để ra mWh/token — ghi rõ đây là <b>ước lượng</b>, không phải số đo CodeCarbon thật. Quan trọng là cùng một cách đo cho cả hai biến thể.</p>
+  </div>
+
+  <h3>Bước 3 — Biến thể tối ưu (khâu 5: Optimize)</h3>
+  <div class="step">
+    <p><b>Làm:</b> tạo biến thể từ chính baseline bằng <b>quantization động INT8</b> (<code>torch.quantization.quantize_dynamic(model, {nn.Linear}, dtype=torch.qint8)</code>) — không huấn luyện lại. Đo lại bằng <b>cùng hàm <code>measure()</code>, cùng tập test, cùng máy</b> và ghi vào <code>results</code>.</p>
+    <p><b>Gợi ý:</b> nếu quantization làm perplexity tăng vọt, kiểm tra xem bạn có vô tình đo trên tập train không, hoặc có quên <code>model.eval()</code> không. Biến thể tốt là biến thể vẫn đo bằng cùng một thước.</p>
+  </div>
+
+  <h3>Bước 4 — Luật Chinchilla trên giấy (khâu 3: quyết định ngân sách)</h3>
+  <div class="step">
+    <p><b>Làm:</b> viết hàm <code>chinchilla_split(C_flops)</code>: với ngân sách tính toán <code>C</code> (FLOPs), tính số tham số tối ưu <code>N</code> và số token tối ưu <code>D</code> theo quy tắc thực nghiệm <code>N ≈ D / 20</code> và <code>C ≈ 6·N·D</code>. Thử với <code>C = 1e18</code> FLOPs và <code>C = 1e21</code> FLOPs, in ra <code>N</code>, <code>D</code>.</p>
+    <p><b>Gợi ý:</b> từ hai phương trình suy ra <code>N = sqrt(C / 120)</code>, <code>D = 20·N</code>. So sánh kết quả với GPT-3 (175B tham số / 300B token ≈ 1,7 token/tham số) và tự trả lời: GPT-3 thiếu dữ liệu hay thừa mô hình?</p>
+  </div>
+
+  <h3>Bước 5 — Vẽ Pareto và ra quyết định (khâu 7: Report)</h3>
+  <div class="step">
+    <p><b>Làm:</b> in bảng tổng kết 2 dòng (baseline vs INT8): perplexity, thời gian/100 token, mWh/token ước lượng, % thay đổi. Sau đó áp <b>Green checkpoint</b>: biến thể chỉ được tuyên bố "tốt hơn" nếu <b>(a)</b> perplexity tăng không quá 5% so với baseline <b>và</b> <b>(b)</b> năng lượng/token giảm ít nhất 20%, <b>và</b> <b>(c)</b> kết quả lặp lại được (chạy <code>measure()</code> lần 2, chênh lệch &lt; 3%). Viết kết luận 2–3 dòng: ĐẠT hay KHÔNG ĐẠT, vì sao.</p>
+    <p><b>Gợi ý:</b> nếu biến thể không đạt, đừng "sửa số" — hãy báo cáo đúng như vậy. Một capstone trung thực ghi "không đạt" vẫn hơn một báo cáo đẹp nhưng không lặp lại được.</p>
+  </div>
+
+  <h3>Khung code khởi đầu (điền phần còn thiếu)</h3>
+<pre><code>import time, math, torch, torch.nn as nn
+
+torch.manual_seed(42)
+
+# ---- Bước 0: dữ liệu (bạn tự điền text, ~2000-3000 ký tự) ----
+text = """... đoạn văn bản tiếng Việt của bạn ..."""
+n = len(text)
+n_train, n_val = int(n*0.8), int(n*0.1)
+train, val, test = text[:n_train], text[n_train:n_train+n_val], text[n_train+n_val:]
+print(f"train={len(train)} val={len(val)} test={len(test)}")
+
+chars = sorted(set(text))
+stoi = {c: i for i, c in enumerate(chars)}
+
+# ---- Bước 1: baseline (bạn tự viết model + vòng train) ----
+# Gợi ý: class TinyLM(nn.Module): embedding -> TransformerEncoderLayer -> Linear
+
+# ---- Bước 2: hàm đo (bạn tự viết) ----
+def measure(model, data):
+    """Trả về (perplexity, giây/100 token). Chạy 3 lần lấy trung bình thời gian."""
+    ...
+
+# ---- Bước 4: Chinchilla ----
+def chinchilla_split(C):
+    N = math.sqrt(C / 120)   # từ C = 6*N*D và D = 20*N
+    return N, 20 * N
+
+for C in [1e18, 1e21]:
+    N, D = chinchilla_split(C)
+    print(f"C={C:.0e}: N={N/1e9:.1f}B tham số, D={D/1e9:.1f}B token")</code></pre>
+</section>
+
+<section>
+  <h2>📊 Bảng tổng kết mẫu (điền số của bạn)</h2>
+  <table>
+    <tr><th>Biến thể</th><th>Perplexity (test)</th><th>Giây / 100 token</th><th>mWh / token (ước lượng)</th><th>Kết luận</th></tr>
+    <tr><td>Baseline FP32</td><td>…</td><td>…</td><td>…</td><td>—</td></tr>
+    <tr><td>INT8 dynamic</td><td>… (+…%)</td><td>… (−…%)</td><td>… (−…%)</td><td>ĐẠT / KHÔNG ĐẠT</td></tr>
+  </table>
+</section>
+
+<section>
+  <h2>✅ Tự kiểm tra nhanh (3 câu — bấm để hiện đáp án)</h2>
+
+  <div class="q">
+    <p><b>Câu 1.</b> Vì sao phải đo baseline và biến thể trên cùng một máy, cùng một bộ đánh giá, cùng một hàm <code>measure()</code>?</p>
+    <button onclick="this.nextElementSibling.style.display='block';this.style.display='none'">Hiện đáp án</button>
+    <div class="ans">Vì năng lượng và thời gian phụ thuộc phần cứng, driver, nhiệt độ — đổi máy là đổi cả thước đo. Đo trên hai máy khác nhau rồi so sánh hai con số thì kết luận vô giá trị, dù mỗi con số riêng lẻ đều đúng. Cùng một thước đo là điều kiện tiên quyết của mọi so sánh trong capstone.</div>
+  </div>
+
+  <div class="q">
+    <p><b>Câu 2.</b> Với ngân sách <code>C = 1e21</code> FLOPs, luật Chinchilla cho mô hình tối ưu khoảng bao nhiêu tham số và bao nhiêu token? GPT-3 (175B / 300B token) vi phạm quy tắc này theo hướng nào?</p>
+    <button onclick="this.nextElementSibling.style.display='block';this.style.display='none'">Hiện đáp án</button>
+    <div class="ans">N = √(1e21 / 120) ≈ 9,1e9 → khoảng 9B tham số, D = 20·N ≈ 183B token. GPT-3 có 175B tham số nhưng chỉ 300B token (≈ 1,7 token/tham số) — thừa mô hình, thiếu dữ liệu nghiêm trọng so với mức tối ưu ~20 token/tham số. Chinchilla 70B / 1.400B token thắng GPT-3 trên nhiều bài đánh giá với chi phí suy luận rẻ hơn nhiều.</div>
+  </div>
+
+  <div class="q">
+    <p><b>Câu 3.</b> Biến thể INT8 cho perplexity tăng 8% nhưng năng lượng giảm 40%. Theo Green checkpoint của buổi sáng, có được tuyên bố "tốt hơn" không? Vì sao?</p>
+    <button onclick="this.nextElementSibling.style.display='block';this.style.display='none'">Hiện đáp án</button>
+    <div class="ans">Không. Green checkpoint yêu cầu cả hai điều kiện: chất lượng không giảm ngoài ngưỡng (perplexity tăng ≤ 5%) và năng lượng giảm đáng kể (≥ 20%). Ở đây năng lượng đạt (−40%) nhưng chất lượng vi phạm (+8% &gt; 5%). Kết luận đúng là "rẻ hơn nhưng kém hơn" — phải báo cáo đúng như vậy, hoặc tìm biến thể khác (vd INT8 + fine-tune nhẹ để kéo perplexity về trong ngưỡng).</div>
+  </div>
+</section>
+
+<section>
+  <h2>⚠️ Bẫy thường gặp</h2>
+  <div class="trap">
+    <p><b>1. Đo trên tập train rồi khoe perplexity thấp.</b> Perplexity trên tập train luôn đẹp hơn test vì mô hình đã "thấy" dữ liệu đó. Mọi số trong báo cáo capstone phải đo trên tập test — tập mà mô hình chưa từng thấy trong huấn luyện.</p>
+  </div>
+  <div class="trap">
+    <p><b>2. Quên <code>model.eval()</code> / <code>torch.no_grad()</code> khi đo.</b> Dropout còn bật hoặc gradient còn tính sẽ làm số đo dao động giữa các lần chạy, và thời gian đo sẽ chậm hơn thực tế. Đo xong lần 2 chênh lệch &gt; 3% thì nghi ngờ ngay chỗ này trước.</p>
+  </div>
+  <div class="trap">
+    <p><b>3. So sánh "tốt hơn" chỉ bằng một con số.</b> Một con số đơn lẻ (chỉ perplexity, hoặc chỉ năng lượng) không nói lên điều gì. Capstone yêu cầu cặp số cùng phép đo, cùng điều kiện — và quyết định Green checkpoint phải xét cả chất lượng lẫn năng lượng cùng lúc.</p>
+  </div>
+</section>
+
+<section>
+  <h2>📝 Checklist nộp bài</h2>
+  <ul class="check">
+    <li>☐ File <code>capstone.py</code> chạy được hết, không lỗi</li>
+    <li>☐ Bảng tổng kết 2 dòng đã điền đủ số (perplexity, thời gian, mWh/token)</li>
+    <li>☐ Kết quả Chinchilla cho C = 1e18 và 1e21 FLOPs</li>
+    <li>☐ Kết luận Green checkpoint: ĐẠT / KHÔNG ĐẠT + lý do 2–3 dòng</li>
+    <li>☐ Ghi chú 1 dòng: khái niệm nào trong 30 ngày bạn vẫn thấy mờ nhất (để ôn trước Phase 2)</li>
+  </ul>
+  <p><b>Paste code/kết quả vào chat để được nhận xét chi tiết</b> — kèm bảng tổng kết và kết luận Green checkpoint của bạn.</p>
+  <p class="sub">Ngày mai (Day 31) bắt đầu Phase 2 — vai trò advisor cho đề tài <b>Tiny Vietnamese LM</b>. Buổi tối mai sẽ là research lab đầu tiên: rà soát dữ liệu Wikipedia tiếng Việt và chuẩn bị pipeline BPE.</p>
+</section>
+
+</main>
+<footer>Khóa Trở Thành AI Engineer (LLM) — Ngày 30 · Capstone GreenLLM · Buổi tối thực hành</footer>
+</body>
+</html>
