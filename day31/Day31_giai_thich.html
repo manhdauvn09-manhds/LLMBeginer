@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ngày 31 — Giải thích chi tiết: Thesis Scope Sheet | Tiny Vietnamese LM</title>
+<style>
+:root{--bg:#0a0f1e; --card:#101830; --line:#22305a; --gold:#f5c542; --green:#4ade80;
+ --red:#f87171; --violet:#a78bfa; --cyan:#67e8f9; --text:#e8edf7; --muted:#93a0bd;}
+*{box-sizing:border-box;}
+body{margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.75; font-size:16.5px;}
+.wrap{max-width:820px; margin:0 auto; padding:18px 16px 60px;}
+.kicker{display:inline-block; font-size:13px; letter-spacing:1px; color:var(--gold); font-weight:700; margin-bottom:8px;}
+h1{font-size:28px; line-height:1.3; margin:6px 0 10px;}
+h2{font-size:22px; margin:34px 0 10px; color:var(--cyan);}
+h3{font-size:18px; margin:22px 0 8px; color:var(--gold);}
+.sub{color:var(--muted); font-size:16.5px;}
+.meta{display:flex; gap:8px; flex-wrap:wrap; margin:14px 0 6px;}
+.meta span{font-size:13.5px; background:var(--card); border:1px solid var(--line); border-radius:999px; padding:5px 14px;}
+.card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px; margin:16px 0;}
+.note{border-left:4px solid var(--green); background:#0f2233; border-radius:0 12px 12px 0; padding:12px 16px; margin:14px 0;}
+.warn{border-left:4px solid var(--red); background:#23141a; border-radius:0 12px 12px 0; padding:12px 16px; margin:14px 0;}
+.rq{background:#141d3a; border:1px solid var(--violet); border-radius:10px; padding:12px 16px; margin:10px 0;}
+.rq b{color:var(--violet);}
+code{background:#0a0f1e; border:1px solid var(--line); border-radius:6px; padding:1px 7px; font-size:15px;}
+table{width:100%; border-collapse:collapse; margin:12px 0; font-size:15px;}
+th,td{border:1px solid var(--line); padding:8px 10px; text-align:left;}
+th{background:#141d3a; color:var(--gold);}
+.footer{color:var(--muted); font-size:14px; margin-top:40px; border-top:1px solid var(--line); padding-top:14px;}
+ul li, ol li{margin-bottom:6px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+<span class="kicker">PHASE 2 · NGÀY 31 / 60 · GIẢI THÍCH CHI TIẾT BÀI LAB BUỔI TỐI</span>
+<h1>📖 Ngày 31 — Giải thích: vì sao 1 trang scope sheet quyết định cả 30 ngày nghiên cứu</h1>
+<p class="sub">File này giải thích chi tiết bài lab buổi tối Day 31: thesis scope sheet 1 trang cho đề tài <b>Tiny Vietnamese LM</b>. Đọc file này trước khi điền sheet — mỗi mục dưới đây nói rõ mục đó để làm gì, điền thế nào là đúng, và sai ở đâu thì hỏng cả Phase 2.</p>
+<div class="meta"><span>🎯 Sản phẩm: scope sheet 1 trang, 6 mục</span><span>📄 Đề tài: Tiny Vietnamese LM</span><span>🧭 Vai trò: bản đồ + hợp đồng của 30 ngày tới</span></div>
+
+<h2>1 · Scope sheet là gì, vì sao chỉ 1 trang?</h2>
+<p>Scope sheet là văn bản chốt <b>phạm vi</b> của một đề tài nghiên cứu trước khi bắt tay làm: làm cái gì, hỏi câu gì, đo bằng gì, thế nào là thành công. Nó không phải bài văn giới thiệu — nó là <b>hợp đồng với chính mình</b>: mọi thí nghiệm từ Day 32 đến Day 60 đều phải truy ngược được về một dòng trong trang này.</p>
+<p>Giới hạn 1 trang là có chủ đích. Một trang buộc phải bỏ hết những gì mơ hồ: nếu một ý không viết gọn được trong 2–4 dòng thì ý đó chưa đủ rõ để làm. Ngược lại, một trang cũng đủ: đề tài, 3 câu hỏi, 1 giả thuyết, cách đo, tiêu chí xong — đó là toàn bộ xương sống của một nghiên cứu nhỏ.</p>
+<div class="note">💡 <b>Cách tự kiểm nhanh:</b> đọc xong sheet, một người ngoài ngành phải trả lời được 3 câu — nghiên cứu cái gì, đo bằng số nào, và kết quả thế nào thì coi là thất bại. Thiếu 1 trong 3 là sheet chưa xong.</div>
+
+<h2>2 · Mục 1 + 2 — Đề tài và 3 câu hỏi nghiên cứu</h2>
+<p><b>Mục 1 (đề tài + vấn đề)</b> đã chốt: Tiny Vietnamese LM — mô hình ngôn ngữ nhỏ, chạy được, tiết kiệm năng lượng cho tiếng Việt. Câu hỏi nền của toàn bộ đề tài: một mô hình nhỏ có viết được tiếng Việt mạch lạc không, và cái giá phải trả là bao nhiêu?</p>
+<p><b>Mục 2 (3 câu hỏi nghiên cứu)</b> là nơi nhiều người viết sai nhất. Một câu hỏi nghiên cứu tốt phải <b>đo được bằng số</b> và <b>nói trước được kết quả nào thì giả thuyết sai</b>. "Mô hình nhỏ có tốt không?" không phải câu hỏi nghiên cứu — "tốt" không có đơn vị. Ba câu gợi ý của khóa đều có cấu trúc: <i>một biến thay đổi → một số đo thay đổi</i>:</p>
+<div class="rq"><b>RQ1 — Kích thước vs chất lượng:</b> biến thay đổi là số tham số (khoảng 10–100M); số đo là held-out perplexity trên Wikipedia tiếng Việt. Điểm cần tìm là hình dạng đường cong: perplexity giảm nhanh tới cỡ nào rồi chậm lại?</div>
+<div class="rq"><b>RQ2 — Tokenizer:</b> biến thay đổi là kích thước vocab BPE (8k so với 16k, đều chuẩn hoá NFC); số đo là perplexity và độ dài chuỗi trung bình. Đây là thí nghiệm A/B sạch nhất của đề tài vì chỉ có đúng một thứ thay đổi.</div>
+<div class="rq"><b>RQ3 — Năng lượng:</b> biến thay đổi là kích thước mô hình (nhỏ so với baseline gấp 4 lần tham số); số đo là năng lượng cho mỗi 1.000 token sinh ra, kèm mức giảm perplexity tương ứng. RQ3 nối thẳng Phase 2 với toàn bộ Phase 1 về Green AI.</div>
+<p>Viết lại 3 câu này bằng lời của mình không phải thủ tục: khi tự viết, bạn buộc phải quyết định biến nào thay đổi, số nào đo — và đó chính là thiết kế thí nghiệm ở dạng rút gọn nhất.</p>
+
+<h2>3 · Mục 3 — Giả thuyết kiểm chứng được và điều kiện bác bỏ</h2>
+<p>Giả thuyết của sheet có khuôn cố định: <i>Model [N]M tham số, huấn luyện trên [T]M token, đạt perplexity ≤ [P] trên tập held-out [tên tập], tốt hơn baseline [tên] ít nhất [X]% — không đạt thì giả thuyết bị bác bỏ.</i></p>
+<p>Câu cuối — "không đạt thì bị bác bỏ" — là phần quan trọng nhất. Một giả thuyết không thể sai thì không kiểm chứng được, và một nghiên cứu mà kết quả nào cũng "đúng" thì không cho ra kiến thức gì. Đây là kỷ luật đã học ở Day 29 (đăng ký giả thuyết trước khi chạy) và Day 30 (dám kết luận không đạt khi số liệu nói vậy).</p>
+<div class="warn">⚠️ Trong 5 ô trống của khuôn giả thuyết, tối nay chỉ có <b>N</b> (và suy ra <b>T</b>) là chốt được ngay. <b>P</b> và tên tập held-out phải chờ baseline và chờ chốt dữ liệu — xem mục 5 dưới đây. Điền P bằng số cảm tính là lỗi nặng nhất có thể mắc ở Day 31.</div>
+
+<h2>4 · Chọn N — bài toán Chinchilla trên corpus tiếng Việt</h2>
+<p>Luật Chinchilla cho tỉ lệ tối ưu khoảng <b>20 token huấn luyện cho mỗi tham số</b> khi tính theo ngân sách compute cố định. Corpus chính của đề tài là Wikipedia tiếng Việt, ước khoảng <b>200 triệu token</b> (số thật chờ đo ở Day 34, dao động 150–250 triệu tuỳ tokenizer). Chia ngân sách đó cho các cỡ mô hình:</p>
+<table>
+<tr><th>Cỡ mô hình</th><th>Token cần (×20)</th><th>Số epoch trên ~200M token</th><th>Nhận định</th></tr>
+<tr><td><b>10M</b></td><td>~200M</td><td>~1</td><td>Khớp đúng Chinchilla với chỉ Wikipedia-vi — không cần biện minh thêm</td></tr>
+<tr><td>25M</td><td>~500M</td><td>~2,5</td><td>Phải bảo vệ: nhiều epoch hoặc thêm dữ liệu</td></tr>
+<tr><td>50M</td><td>~1.000M</td><td>~5</td><td>Epoch lặp lại cho hiệu quả giảm dần sau ~4 epoch</td></tr>
+<tr><td>100M</td><td>~2.000M</td><td>~10</td><td>Rất khó bảo vệ chỉ bằng Wikipedia-vi</td></tr>
+</table>
+<p>Chọn lớn hơn 10M không bị cấm — nhưng phải <b>bảo vệ được lựa chọn</b>: hoặc huấn luyện nhiều epoch (chấp nhận hiệu quả giảm dần và nguy cơ thuộc lòng dữ liệu), hoặc bổ sung mẫu CulturaX-vi (chấp nhận dữ liệu ồn hơn, phải lọc kỹ). Chọn 10M thì lập luận đã xong sẵn: đúng tỉ lệ Chinchilla, đúng 1 epoch, sạch và đơn giản. Đây là quyết định thật sự duy nhất của tối nay — và là quyết định mà Q2 trong 5 câu phản biện sẽ xoáy vào.</p>
+
+<h2>5 · P và Y — vì sao phải "chốt sau baseline"</h2>
+<p>Trần perplexity <b>P</b> là con số phân định thành công/thất bại của cả đề tài. Nếu đặt P không có căn cứ, hai chuyện xấu đều có thể xảy ra: đặt quá dễ thì "thành công" vô nghĩa, đặt quá khó thì một mô hình tốt vẫn bị kết luận thất bại. P chỉ có nghĩa khi nó đứng cạnh một <b>baseline đo thật trên cùng tập held-out</b>.</p>
+<p>Baseline rẻ có 2 lựa chọn: (1) mô hình n-gram cổ điển — chạy trong vài phút, cho một mức perplexity sàn rất thô; (2) pilot 10M chạy 1 epoch — tốn hơn nhưng cho con số sát với mô hình thật. Đo xong một trong hai, P được chốt <i>trước</i> lần huấn luyện chính thức, và từ đó không đổi nữa. Mức tiết kiệm năng lượng <b>Y</b> cũng vậy: phải biết baseline tốn bao nhiêu năng lượng cho 1.000 token rồi mới nói "tiết kiệm ít nhất Y%" được.</p>
+<div class="note">💡 Ghi "chốt sau baseline" vào sheet tối nay <b>không phải thiếu sót</b> — đó là ghi đúng quy trình. Sheet nói rõ khi nào số được chốt và chốt bằng cách nào; đó là khác biệt giữa một kế hoạch nghiên cứu và một tờ giấy điền cho đủ ô.</div>
+
+<h2>6 · Mục 4 — Dữ liệu, tokenizer, eval: ba thứ ghi cố định</h2>
+<ul>
+<li><b>Dữ liệu chính:</b> Wikipedia tiếng Việt (bản dump khoảng 1GB). <b>Dự phòng:</b> mẫu CulturaX-vi khi cần thêm đa dạng hoặc thêm lượng. <b>Đã loại:</b> OSCAR-2301 — đang bị tạm đình chỉ truy cập trên Hugging Face, không có ngày mở lại, nên không thể xây kế hoạch trên một nguồn không chắc lấy được.</li>
+<li><b>Tokenizer:</b> byte-level BPE, vocab 8k–16k, chuẩn hoá NFC trước khi train. Chuẩn hoá NFC quan trọng với tiếng Việt vì cùng một chữ có dấu có thể được mã hoá bằng nhiều dãy byte khác nhau; không chuẩn hoá thì tokenizer học trùng lặp vô ích.</li>
+<li><b>Eval:</b> held-out perplexity — một tập held-out cố định, tách ra trước, không đụng vào trong lúc train. Mọi mô hình, mọi lần chạy đều đo trên đúng tập này, cùng tokenizer, cùng cách tính.</li>
+<li><b>Kỷ luật đo năng lượng</b> (kế thừa Day 30): đo xen kẽ A/B từng vòng, lấy trung vị, báo cáo theo năng lượng / 1.000 token; trước mỗi thí nghiệm viết rõ "thứ duy nhất thay đổi là ___".</li>
+</ul>
+
+<h2>7 · Năm câu phản biện — hướng suy nghĩ</h2>
+<p>Năm câu này không kiểm tra trí nhớ, chúng kiểm tra xem các quyết định trong sheet có chịu được chất vấn không. Hướng suy nghĩ cho từng câu:</p>
+<div class="rq"><b>Q1 — Chinchilla có giữ nguyên cho tiếng Việt?</b> Luật được fit trên dữ liệu tiếng Anh. Tiếng Việt khác ở: từ thường ngắn, nhiều dấu thanh mang thông tin, và một "từ" tiếng Việt có thể vỡ thành nhiều token BPE hơn. Nếu tỉ lệ token/từ khác, thì "20 token/tham số" dịch sang tiếng Việt có thể không còn là cùng một lượng thông tin. Trả lời tốt phải nêu được ít nhất một khác biệt cụ thể và hệ quả của nó lên việc chọn N.</div>
+<div class="rq"><b>Q2 — Bảo vệ lựa chọn N.</b> Đây là câu hỏi về chính quyết định của bạn: N bằng bao nhiêu, đánh đổi cái gì. Nếu chọn trên 10M: bảo vệ bằng multi-epoch thì giới hạn là hiệu quả giảm dần sau khoảng 4 epoch; bảo vệ bằng dữ liệu bổ sung thì giới hạn là chất lượng và công lọc của nguồn mới.</div>
+<div class="rq"><b>Q3 — Đo "mạch lạc" ngoài perplexity.</b> Perplexity đo khả năng đoán token tiếp theo, không đo trực tiếp mạch lạc ở cấp câu chuyện. TinyStories dùng GPT-4 chấm điểm ngữ pháp, mạch lạc, sáng tạo trên văn bản sinh ra. Với tiếng Việt có thể dùng một mô hình lớn làm giám khảo, hoặc người đọc chấm trên thang cố định — quan trọng là có tiêu chí viết trước, không chấm theo cảm giác sau khi xem kết quả.</div>
+<div class="rq"><b>Q4 — Wikipedia khác truyện TinyStories ở đâu?</b> Truyện TinyStories dùng từ vựng giới hạn, câu ngắn, cấu trúc đơn giản — được thiết kế để mô hình nhỏ vẫn học được. Wikipedia là văn bản bách khoa thật: câu dài, thuật ngữ, nhiều chủ đề, độ khó không đều. Kết luận "mô hình nhỏ vẫn mạch lạc" của TinyStories vì thế không tự động chuyển sang dữ liệu thật — đó là rủi ro lớn nhất khi mượn kết luận của paper.</div>
+<div class="rq"><b>Q5 — Ba thứ cố định để so perplexity.</b> Cùng tập held-out, cùng tokenizer, cùng cách tính (cùng cách chia tập, cùng chuẩn hoá). Đổi tập held-out giữa hai lần chạy thì hai con số đo trên hai bài kiểm tra khác nhau — so sánh vô nghĩa, dù số có "đẹp hơn" thật.</div>
+
+<h2>8 · Ba bẫy thường gặp</h2>
+<div class="warn">
+<ul>
+<li><b>Bịa số P/Y cho sheet trông đầy đủ:</b> một mục tiêu sai còn tệ hơn một mục tiêu chưa chốt, vì cả 30 ngày sẽ chạy theo nó. Thiếu số thì ghi điều kiện chốt số.</li>
+<li><b>Viết câu hỏi nghiên cứu không đo được:</b> cứ mỗi RQ viết xong, tự hỏi "số nào sẽ trả lời câu này?" — không nêu được số là câu hỏi chưa xong.</li>
+<li><b>Để ngỏ đường lui cho eval:</b> đổi tập held-out, đổi tokenizer hay đổi cách tính giữa chừng đều là tự phá phép so sánh. Ba thứ này ghi cố định vào sheet ngay từ Day 31 chính là để khoá đường lui đó lại.</li>
+</ul>
+</div>
+
+<h2>9 · Ngày mai — Day 32</h2>
+<p>Day 32 làm hai việc: (1) chốt nguồn dữ liệu và viết <b>datasheet</b> cho Wikipedia tiếng Việt (nguồn, giấy phép, kích thước, cách lọc); (2) đọc 2 paper về tokenizer — bài BPE gốc của Sennrich và cộng sự (2016) và bài của Rust và cộng sự (2021) về tokenizer đơn ngữ thắng tokenizer đa ngữ. Mẹo đã ghi trong bài thực hành: viết sẵn 3 quy tắc lọc dữ liệu kèm lý do ngay trong datasheet, để Day 34 bước làm sạch chỉ là chạy code theo quyết định đã viết. Việc tải và làm sạch dữ liệu để dành cho Day 34.</p>
+
+<div class="footer">Khóa Trở Thành AI Engineer (LLM) · Phase 2 — Ngày 31 / 60 · File giải thích chi tiết cho bài lab buổi tối: Thesis Scope Sheet · Đề tài: Tiny Vietnamese LM.</div>
+</div>
+</body>
+</html>
