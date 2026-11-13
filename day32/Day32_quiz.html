@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quiz Ngày 32 — Checklist tự đánh giá | Phase 2 nghiên cứu</title>
+<style>
+:root{--bg:#0a0f1e; --card:#101830; --line:#22305a; --gold:#f5c542; --green:#4ade80;
+ --red:#f87171; --violet:#a78bfa; --cyan:#67e8f9; --text:#e8edf7; --muted:#93a0bd;}
+*{box-sizing:border-box;}
+body{margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.75; font-size:16.5px;}
+.wrap{max-width:820px; margin:0 auto; padding:18px 16px 60px;}
+.kicker{display:inline-block; font-size:13px; letter-spacing:1px; color:var(--gold); font-weight:700; margin-bottom:8px;}
+h1{font-size:28px; line-height:1.3; margin:6px 0 10px;}
+.sub{color:var(--muted); font-size:16.5px;}
+.q{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px; margin:16px 0;}
+.q p{margin:0 0 10px; font-weight:700;}
+label{display:block; padding:8px 10px; border-radius:8px; cursor:pointer;}
+label:hover{background:#141d3a;}
+input{margin-right:8px;}
+.expl{display:none; border-radius:10px; padding:10px 14px; margin-top:10px; font-size:15.5px;}
+.expl.ok{display:block; background:#0f2a1a; border:1px solid var(--green);}
+.expl.bad{display:block; background:#23141a; border:1px solid var(--red);}
+button{background:var(--gold); color:#14100a; font-weight:700; border:none; border-radius:10px; padding:12px 22px; font-size:16px; cursor:pointer; margin:8px 8px 0 0;}
+button.ghost{background:transparent; color:var(--gold); border:2px solid var(--gold);}
+#result{font-size:19px; font-weight:700; margin-top:18px; color:var(--cyan);}
+#copyout{background:#0a0f1e; border:1px dashed var(--gold); border-radius:10px; padding:12px 16px; margin-top:12px; font-size:16px; word-break:break-all;}
+.note{border-left:4px solid var(--green); background:#0f2233; border-radius:0 12px 12px 0; padding:12px 16px; margin:14px 0;}
+.footer{color:var(--muted); font-size:14px; margin-top:40px; border-top:1px solid var(--line); padding-top:14px;}
+a{color:var(--gold);}
+</style>
+</head>
+<body>
+<div class="wrap">
+<span class="kicker">PHASE 2 · NGÀY 32 / 60 · CHECKLIST TỰ ĐÁNH GIÁ</span>
+<h1>Checklist Ngày 32 — Tokenizer + Datasheet dữ liệu</h1>
+<p class="sub">Không phải trắc nghiệm kiến thức — đây là checklist công việc của buổi advisor sáng nay. Mỗi mục: chọn <b>A — Đã hoàn thành</b> nếu bạn làm xong thật, <b>B — Chưa hoàn thành</b> nếu chưa. Điểm số = số mục đã xong / 5. Mục nào chưa xong thì làm nốt trong buổi tối.</p>
+<form>
+<div class="q" data-answer="A">
+<p>1. Đọc xong paper BPE gốc (Sennrich 2016) và trả lời được: tăng merge từ 8k lên 16k thì từ tiếng Việt trung bình còn bao nhiêu mảnh, và cái giá là bao nhiêu tham số embedding.</p>
+<label><input type="radio" name="q1" value="A"> A. Đã hoàn thành — giải thích được cơ chế gộp cặp và tính được chi phí embedding của 8k vs 16k</label>
+<label><input type="radio" name="q1" value="B"> B. Chưa hoàn thành</label>
+<div class="expl">Ý chính cần nắm: BPE gộp dần cặp hay gặp nhất cho tới khi đủ vocab; vocab 8k vs 16k là dừng gộp sớm hay muộn. Với d_model = 256: 8k → 2.048.000 tham số embedding (~20% ngân sách 10M), 16k → 4.096.000 (~41%).</div>
+</div>
+<div class="q" data-answer="A">
+<p>2. Đọc xong paper Rust 2021 và nêu được 1 bằng chứng tokenizer đơn ngữ thắng tokenizer đa ngữ — kèm giới hạn của paper.</p>
+<label><input type="radio" name="q2" value="A"> A. Đã hoàn thành — nêu được bằng chứng và giới hạn (paper làm trên BERT encoder, không phải decoder LM)</label>
+<label><input type="radio" name="q2" value="B"> B. Chưa hoàn thành</label>
+<div class="expl">Điểm mấu chốt: tokenizer chuyên cho một ngôn ngữ cải thiện hiệu năng downstream ở gần như mọi task; ngôn ngữ được đại diện đầy đủ trong vocab thì khoảng cách gần như biến mất. Nhưng con số của BERT không bê nguyên sang decoder LM — chỉ dùng được kết luận về hướng.</div>
+</div>
+<div class="q" data-answer="A">
+<p>3. Đọc cảnh báo Ali 2024 và giải thích được vì sao fertility thấp chưa chắc model tốt hơn — và Day 34 sẽ đo thêm metric nào.</p>
+<label><input type="radio" name="q3" value="A"> A. Đã hoàn thành — nêu được: fertility và parity không phải lúc nào cũng dự báo downstream; chốt tokenizer bằng held-out perplexity trên cùng một tập</label>
+<label><input type="radio" name="q3" value="B"> B. Chưa hoàn thành</label>
+<div class="expl">Nhớ con số: dùng tokenizer thiên về tiếng Anh cho model đa ngữ gây tốn thêm tới 68% chi phí train. Bẫy cần tránh ở Day 34: chốt tokenizer chỉ bằng fertility. Phải đo cả held-out perplexity như RQ2 đã viết.</div>
+</div>
+<div class="q" data-answer="A">
+<p>4. Viết xong datasheet 1 trang cho Wikipedia tiếng Việt, đủ 7 mục, số liệu thật (nguồn, giấy phép, kích thước, cách lọc, held-out, trạng thái truy cập, rủi ro).</p>
+<label><input type="radio" name="q4" value="A"> A. Đã hoàn thành — đủ 7 mục, ghi đúng dump 01/11/2026, 1.165.020.800 byte nén; CulturaX-vi dự phòng (gated); OSCAR-2301 đã loại</label>
+<label><input type="radio" name="q4" value="B"> B. Chưa hoàn thành</label>
+<div class="expl">Kiểm tra nhanh: datasheet có ghi 3 quy tắc lọc kèm lý do không? Có ghi cách tách held-out cố định không? Thiếu mục nào thì bổ sung theo mẫu ở Phần 4 của tài liệu.</div>
+</div>
+<div class="q" data-answer="A">
+<p>5. Trả lời xong 5 câu hỏi định hướng ở Phần 5 bằng lời của mình (mỗi câu 2–4 dòng), trong đó có phép tính embedding của PhoGPT.</p>
+<label><input type="radio" name="q5" value="A"> A. Đã hoàn thành — 5 câu đều trả lời bằng lời mình, tính được 20.480 × 3.072 = 62.914.560 (~63M)</label>
+<label><input type="radio" name="q5" value="B"> B. Chưa hoàn thành</label>
+<div class="expl">Phép tính đáng nhớ: riêng bảng embedding của PhoGPT đã gấp ~6 lần toàn bộ ngân sách ~10M tham số của Tiny LM. Nếu câu 5 (chuẩn hoá NFC) còn lúng túng, đọc lại mục 3 trong tài liệu: cùng một chữ có dấu có thể mã hoá thành nhiều dãy byte khác nhau.</div>
+</div>
+</form>
+<button onclick="grade()">Nộp bài</button>
+<button class="ghost" onclick="copyResult()">Copy kết quả</button>
+<div id="result"></div>
+<div id="copyout" style="display:none"></div>
+<p class="note">Lưu ý: file HTML này không tự gửi kết quả về được. Sau khi bấm "Copy kết quả", hãy paste chuỗi kết quả vào chat để trợ lý ghi điểm cho bạn. Giải thích chỉ mở sau khi bạn chọn và nộp.</p>
+<p><a href="Day32_lesson.html">← Về lại tài liệu bài học</a></p>
+<script>
+let graded = false, answers = [];
+function grade(){
+  const qs = document.querySelectorAll('form .q');
+  let score = 0; answers = [];
+  qs.forEach((q, i) => {
+    const sel = q.querySelector('input:checked');
+    const v = sel ? sel.value : '–';
+    answers.push(v);
+    const expl = q.querySelector('.expl');
+    if (v === q.dataset.answer) { score++; expl.className = 'expl ok'; expl.innerHTML = '✅ Xong. ' + expl.innerHTML; }
+    else { expl.className = 'expl bad'; expl.innerHTML = '⏳ Chưa xong — làm nốt nhé. ' + expl.innerHTML; }
+  });
+  graded = true;
+  document.getElementById('result').textContent = 'Bạn đã hoàn thành ' + score + '/' + qs.length + ' mục.';
+  const out = document.getElementById('copyout');
+  out.style.display = 'block';
+  out.textContent = 'Day32 Quiz: ' + answers.map((a, i) => (i+1) + a).join(' ') + ' — ' + score + '/' + qs.length;
+}
+function copyResult(){
+  if (!graded) { alert('Hãy bấm "Nộp bài" trước đã nhé.'); return; }
+  const t = document.getElementById('copyout').textContent;
+  navigator.clipboard.writeText(t).then(() => alert('Đã copy! Paste vào chat để trợ lý ghi điểm nhé.'));
+}
+</script>
+<div class="footer">Khóa Trở Thành AI Engineer (LLM) · Phase 2 — Ngày 32 / 60 · Checklist tự đánh giá.</div>
+</div>
+</body>
+</html>
