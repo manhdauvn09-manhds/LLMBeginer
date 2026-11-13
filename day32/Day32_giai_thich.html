@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ngày 32 — Giải thích chi tiết: Tokenizer BPE + Datasheet Wikipedia-vi</title>
+<style>
+:root{--bg:#0a0f1e; --card:#101830; --line:#22305a; --gold:#f5c542; --green:#4ade80;
+ --red:#f87171; --violet:#a78bfa; --cyan:#67e8f9; --text:#e8edf7; --muted:#93a0bd;}
+*{box-sizing:border-box;}
+body{margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.75; font-size:16.5px;}
+.wrap{max-width:820px; margin:0 auto; padding:18px 16px 60px;}
+.kicker{display:inline-block; font-size:13px; letter-spacing:1px; color:var(--gold); font-weight:700; margin-bottom:8px;}
+h1{font-size:28px; line-height:1.3; margin:6px 0 10px;}
+h2{font-size:22px; margin:34px 0 10px; color:var(--cyan);}
+h3{font-size:18px; margin:22px 0 8px; color:var(--gold);}
+.sub{color:var(--muted); font-size:16.5px;}
+.meta{display:flex; gap:8px; flex-wrap:wrap; margin:14px 0 6px;}
+.meta span{font-size:13.5px; background:var(--card); border:1px solid var(--line); border-radius:999px; padding:5px 14px;}
+.card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px; margin:16px 0;}
+.note{border-left:4px solid var(--green); background:#0f2233; border-radius:0 12px 12px 0; padding:12px 16px; margin:14px 0;}
+.warn{border-left:4px solid var(--red); background:#23141a; border-radius:0 12px 12px 0; padding:12px 16px; margin:14px 0;}
+.rq{background:#141d3a; border:1px solid var(--violet); border-radius:10px; padding:12px 16px; margin:10px 0;}
+.rq b{color:var(--violet);}
+code{background:#0a0f1e; border:1px solid var(--line); border-radius:6px; padding:1px 7px; font-size:15px;}
+pre{background:#0a0f1e; border:1px solid var(--line); border-radius:10px; padding:14px 16px; overflow-x:auto; font-size:14.5px; line-height:1.6; white-space:pre-wrap;}
+table{width:100%; border-collapse:collapse; margin:12px 0; font-size:15px;}
+th,td{border:1px solid var(--line); padding:8px 10px; text-align:left;}
+th{background:#141d3a; color:var(--gold);}
+.footer{color:var(--muted); font-size:14px; margin-top:40px; border-top:1px solid var(--line); padding-top:14px;}
+ul li, ol li{margin-bottom:6px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<span class="kicker">PHASE 2 · NGÀY 32 / 60 · GIẢI THÍCH CHI TIẾT LAB TỐI · ĐỀ TÀI: TINY VIETNAMESE LM</span>
+<h1>Ngày 32 — Giải thích chi tiết: Tokenizer BPE + Datasheet Wikipedia-vi</h1>
+<p class="sub">File giải thích chi tiết cho bài lab buổi tối Ngày 32: vì sao tokenizer là một quyết định ngân sách ở quy mô tiny, 3 paper buổi sáng nói gì, datasheet dữ liệu viết như thế nào, và những cái bẫy nào đang chờ ở Day 34.</p>
+<div class="meta"><span>📄 Kèm bài lab: Day32_practice.html</span><span>🎯 RQ2: BPE 8k vs 16k</span><span>📊 Dữ liệu: Wikipedia-vi, dump 01/11/2026</span></div>
+
+<h2>1 · Mục tiêu của buổi tối</h2>
+<div class="card">
+<p>Buổi sáng đọc paper, buổi tối <b>viết ra quyết định</b>. Hết tối nay phải có 2 sản phẩm viết tay:</p>
+<ol>
+<li><b>Datasheet dữ liệu 7 mục</b> cho Wikipedia tiếng Việt — "giấy khai sinh" của dữ liệu: nguồn, giấy phép, kích thước, cách lọc, cách tách held-out, trạng thái truy cập, rủi ro đã biết.</li>
+<li><b>Đáp án 5 câu hỏi định hướng</b> — chứng minh đã hiểu 3 paper, không chỉ đọc lướt.</li>
+</ol>
+<p>Thêm một đoạn code kiểm chứng nhỏ để mọi con số trong 2 sản phẩm trên đều là số thật. Nguyên tắc xuyên suốt buổi tối: <b>số nào chưa đo được thì ghi "chưa đo"</b> — không điền số cho đẹp.</p>
+</div>
+
+<h2>2 · BPE là gì — gộp cặp cho tới khi đủ vocab</h2>
+<p>Byte-Pair Encoding không chia từ theo từ điển có sẵn. Nó học cách chia từ dữ liệu: bắt đầu từ từng ký tự riêng lẻ, đếm xem cặp ký tự nào xuất hiện cạnh nhau nhiều nhất, gộp cặp đó thành một token mới — rồi lặp lại cho tới khi đủ số merge đã đặt trước.</p>
+<p>Ví dụ với tiếng Việt, từ "trường học" sau khi chuẩn hoá NFC có thể được BPE học thành các mảnh như "trường" + " học", hoặc nhỏ hơn là "tr" + "ường" + " học" — tuỳ corpus và tuỳ số merge. Cùng một câu, vocab càng lớn thì mỗi từ càng ít mảnh, chuỗi token càng ngắn.</p>
+<div class="card">
+<p style="text-align:center; font-size:19px; letter-spacing:1px;">t r ư ờ n g &nbsp;→&nbsp; tr ư ờ n g &nbsp;→&nbsp; tr ư ờ ng &nbsp;→&nbsp; <b style="color:var(--gold);">trường</b></p>
+<p style="text-align:center; color:var(--muted); font-size:15px;">Mỗi mũi tên = 1 lần gộp cặp hay gặp nhất · Dừng sớm → vocab 8k · Gộp thêm → vocab 16k</p>
+</div>
+<p>Điểm mấu chốt: mỗi token thêm vào đều ăn tham số của bảng embedding. Ở quy mô lớn, chuyện đó không ai để ý. Ở quy mô tiny, đó là tham số lấy đi từ phần transformer.</p>
+
+<h2>3 · Vì sao tokenizer riêng thắng tokenizer đa ngữ</h2>
+<p>Rust et al. (2021) so sánh trực tiếp: cùng một mô hình đa ngữ, chỉ đổi tokenizer — tokenizer chuyên cho một ngôn ngữ cải thiện hiệu năng ở gần như mọi tác vụ và mọi ngôn ngữ được thử. Ngôn ngữ nào được đại diện đầy đủ trong vocab thì khoảng cách hiệu năng gần như biến mất.</p>
+<p>Một tokenizer đa ngữ phải chia vocab cho hàng chục ngôn ngữ, nên tiếng Việt chỉ được một phần nhỏ. Tokenizer riêng thì toàn bộ vocab phục vụ một mình tiếng Việt, nên từng từ tiếng Việt được chia gọn hơn, ít mảnh hơn. Đây là bằng chứng trực tiếp cho RQ2: Tiny LM train BPE riêng trên tiếng Việt, thay vì tái dùng tokenizer đa ngữ có sẵn.</p>
+<div class="warn"><b>Giới hạn phải ghi rõ:</b> Rust làm trên BERT (encoder), không phải decoder LM như Tiny LM. Kết luận về hướng (tokenizer riêng tốt hơn) vẫn dùng được, nhưng con số thì không được bê nguyên sang. Advisor chấm điểm ở chỗ này — người viết datasheet mà bê nguyên con số là người chưa hiểu paper.</div>
+
+<h2>4 · Cảnh báo của Ali 2024 — fertility thấp chưa chắc tốt hơn</h2>
+<p>Ali et al. train 24 mô hình decoder-only 2,6B, mỗi mô hình một tokenizer khác nhau, còn lại giữ nguyên. Kết quả: tokenizer ảnh hưởng rõ rệt tới cả chất lượng lẫn chi phí train. Dùng tokenizer thiên về tiếng Anh cho mô hình đa ngữ gây tốn thêm tới <b>68% chi phí train</b> — chính là con số gây sốc mở đầu video buổi sáng.</p>
+<p>Và phần đáng sợ hơn: hai metric quen thuộc là <b>fertility</b> (số token trung bình trên một từ) và <b>parity</b> không phải lúc nào cũng dự báo được chất lượng thực tế. Fertility thấp chưa chắc mô hình đã tốt hơn.</p>
+<div class="note"><b>Hệ quả cho Day 34:</b> khi so BPE 8k vs 16k, chỉ đo fertility là chưa đủ. Phải đo cả <b>held-out perplexity</b> — eval chính của đề tài — trên cùng một tập held-out đã đóng băng trong datasheet hôm nay. Đừng để Day 34 chốt tokenizer chỉ bằng fertility.</div>
+
+<h2>5 · Bài toán ngân sách vocab ở quy mô tiny</h2>
+<p>Công thức duy nhất cần nhớ cả buổi tối:</p>
+<div class="card" style="text-align:center;">
+<p style="font-size:20px; margin:4px 0;">tham số embedding = <b style="color:var(--gold);">vocab × d_model</b></p>
+</div>
+<p>Tham chiếu quy mô lớn — PhoGPT (VinAI): mô hình tiếng Việt 3,7B tham số, train 102B token tiếng Việt, dùng byte-level BPE riêng cho tiếng Việt, vocab 20.480. Bảng embedding của PhoGPT = 20.480 × 3.072 = 62.914.560 tham số — khoảng 63M. Riêng embedding đã gấp ~6 lần toàn bộ ngân sách ~10M tham số của Tiny LM.</p>
+<table>
+<tr><th>Vocab</th><th>d_model = 256 (Tiny LM)</th><th>Tỉ trọng trong ngân sách ~10M</th></tr>
+<tr><td>8.000</td><td>8.000 × 256 = 2.048.000</td><td><b>~20%</b></td></tr>
+<tr><td>16.000</td><td>16.000 × 256 = 4.096.000</td><td><b>~41%</b></td></tr>
+<tr><td>20.480 (PhoGPT)</td><td>20.480 × 256 = 5.242.880</td><td><b>~52%</b></td></tr>
+</table>
+<p>Đọc bảng này rồi tự hỏi: nếu chọn vocab 16k, gần một nửa ngân sách tham số nằm ở bảng embedding — phần transformer còn lại có đủ sức học ngữ pháp tiếng Việt không? Đó là câu hỏi RQ2 phải trả lời bằng số đo, không phải bằng cảm giác. PhoGPT là tham chiếu quy mô lớn, không phải mục tiêu để bắt chước — Tiny LM chọn vocab nhỏ vì ngân sách tham số nhỏ.</p>
+
+<h2>6 · Chuẩn hoá NFC — chi tiết nhỏ, hậu quả lớn</h2>
+<p>Cùng một chữ có dấu trong tiếng Việt có thể được mã hoá bằng nhiều dãy byte khác nhau: dấu tổ hợp (NFD) so với ký tự dựng sẵn (NFC). Không chuẩn hoá NFC trước khi train tokenizer, BPE sẽ học trùng lặp một cách vô ích — cùng một âm tiết mà thành hai token khác nhau.</p>
+<p>Ví dụ: chữ "ệ" ở dạng NFC là một codepoint duy nhất, còn ở dạng NFD là chữ "e" cộng thêm dấu mũ và dấu nặng rời. Một corpus lẫn lộn hai dạng sẽ khiến BPE tốn vocab vào những token trùng nghĩa — và fertility đo ra cũng sai. Vì vậy RQ2 ghi rõ: <b>BPE 8k–16k + NFC</b>. NFC phải nằm trong quy tắc lọc của datasheet, không phải ghi chú bên lề.</p>
+<pre>import unicodedata
+# "trường" o dang NFC (dung san) vs NFD (dau to hop)
+a = unicodedata.normalize("NFC", "trường")
+b = unicodedata.normalize("NFD", "trường")
+print(a == b)          # False: hai dang khac nhau
+print(len(a), len(b))  # do dai khac nhau -> BPE se hoc trung lap</pre>
+
+<h2>7 · Datasheet dữ liệu — 7 mục bắt buộc</h2>
+<p>Datasheet là "giấy khai sinh" của dữ liệu: ai đọc cũng biết dữ liệu từ đâu, bao nhiêu, lọc thế nào, và tập đánh giá tách ra ra sao. Viết xong datasheet hôm nay, Day 34 chỉ còn việc chạy code theo quyết định đã viết.</p>
+<p><b>Số liệu đã kiểm chứng (tối 10/11/2026):</b></p>
+<ul>
+<li><b>Nguồn chính:</b> Wikipedia tiếng Việt — trang dump vẫn sống: <code>dumps.wikimedia.org/viwiki/latest/</code>. File dùng cho Day 34: <code>viwiki-latest-pages-articles.xml.bz2</code>, bản dump 01/11/2026, <b>1.165.020.800 byte (~1,11 GiB nén)</b>. Chỉ lấy bản hiện tại của bài viết, không lấy lịch sử sửa đổi, không lấy trang thảo luận.</li>
+<li><b>Dự phòng:</b> mẫu CulturaX-vi — chỉ lấy mẫu vài trăm MB khi cần đa dạng; dataset này gated (cần đồng ý điều khoản trên Hugging Face), không tải toàn bộ.</li>
+<li><b>Đã loại:</b> OSCAR-2301 — tạm đình chỉ truy cập trên Hugging Face (kiểm chứng 09/11/2026, chưa có ngày mở lại). Không tốn thời gian xin quyền ở Day 32/34.</li>
+</ul>
+<p><b>7 mục bắt buộc:</b> (1) nguồn + URL + ngày dump; (2) giấy phép từng nguồn — Wikipedia CC BY-SA, CulturaX theo điều khoản Hugging Face; (3) kích thước — nén 1.165.020.800 byte, sau giải nén đo thật ở Day 34; (4) cách lọc dự kiến — chuẩn hoá NFC → dedup → bỏ dòng quá ngắn / spam / chứa quá nhiều ký tự lạ, kèm lý do từng quy tắc; (5) cách tách held-out — tách cố định từ trước, không trùng train, không đổi giữa các lần chạy; (6) trạng thái truy cập — Wikipedia sống, CulturaX gated, OSCAR tạm đình chỉ; (7) rủi ro đã biết — bài chất lượng không đều, có thể lẫn bản dịch máy, ghi cách xử lý.</p>
+<div class="note"><b>Quy tắc vàng của thí nghiệm:</b> thứ duy nhất thay đổi giữa các lần đo ở Day 34 là số merge của BPE — corpus, cách lọc, cách tách held-out, d_model và mọi siêu tham số khác đều giữ nguyên. Vì vậy cách lọc và cách tách held-out phải được <b>đóng băng trong datasheet hôm nay</b>. Sửa luật sau khi thấy kết quả là đổi đáp án sau khi xem bài — mọi so sánh sau đó đều mất giá trị.</div>
+
+<h2>8 · Góc tiết kiệm năng lượng</h2>
+<p>Tokenizer không chỉ là chuyện chất lượng ngôn ngữ — nó là chuyện năng lượng. Chuỗi token càng dài thì mỗi bước train càng tốn FLOPs; vocab 8k chia từ thành nhiều mảnh hơn 16k, nghĩa là cùng một câu cần nhiều token hơn, train tốn hơn. Nhưng vocab 16k lại tốn thêm ~2M tham số embedding — tham số cũng phải train, cũng tốn năng lượng.</p>
+<p>Nói cách khác, RQ2 không chỉ hỏi "tokenizer nào tốt hơn" mà còn hỏi "tokenizer nào <b>rẻ hơn trên mỗi điểm perplexity</b>". Ở Day 34, khi có số thật, hãy tính thêm chi phí trên mỗi điểm perplexity cải thiện — đó mới là câu trả lời mà một đề tài về tiết kiệm năng lượng cần.</p>
+
+<h2>9 · Bẫy thường gặp</h2>
+<div class="warn">
+<p><b>🪤 Bẫy 1 — Bê nguyên con số từ paper sang đề tài của mình.</b> Rust đo trên BERT, Ali đo trên model 2,6B — con số của họ không phải con số của Tiny LM 10M. Dùng hướng kết luận, không dùng con số.</p>
+<p><b>🪤 Bẫy 2 — Viết datasheet bằng số "nghe quen".</b> "Wikipedia khoảng 1 GB" là số ước tính cũ — số đã kiểm chứng là 1.165.020.800 byte, dump 01/11/2026. Số nào chưa đo thì ghi "chưa đo".</p>
+<p><b>🪤 Bẫy 3 — Quên chuẩn hoá NFC.</b> Cùng một chữ có dấu mà thành hai token khác nhau thì vocab bị lãng phí vào trùng lặp — và fertility đo ra cũng sai.</p>
+<p><b>🪤 Bẫy 4 — Chốt tokenizer chỉ bằng fertility.</b> Fertility thấp chưa chắc mô hình tốt hơn (Ali 2024). Day 34 phải đo cả held-out perplexity trên cùng tập.</p>
+</div>
+
+<h2>10 · Ngày mai (Day 33) đi đâu từ đây</h2>
+<p>Tải dump Wikipedia-vi về và đo thật: kích thước sau giải nén, số bài viết, số token thô sau khi lọc NFC + dedup. Từ con số thật đó, ước lượng tổng số token của corpus để kiểm chứng giả định "~200M token" đứng sau quyết định N ≈ 10M. Nếu corpus thực tế lệch xa 200M token, N phải tính lại — và đó chính là lúc quyết định P (ngưỡng perplexity) bắt đầu có cơ sở để đo baseline.</p>
+
+<div class="footer">Ngày 32 — Giải thích chi tiết lab tối · Phase 2 · Đề tài: Tiny Vietnamese LM · RQ2: BPE 8k vs 16k · Dữ liệu: Wikipedia-vi (dump 01/11/2026, 1.165.020.800 byte) · Nguồn paper: Sennrich 2016 (arXiv:1508.07909), Rust 2021 (arXiv:2012.15613), Ali 2024 (arXiv:2310.08754), PhoGPT (arXiv:2311.02945).</div>
+</div>
+</body>
+</html>
