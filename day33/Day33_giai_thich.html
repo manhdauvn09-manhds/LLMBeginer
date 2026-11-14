@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ngày 33 — Giải thích chi tiết: Prototype khử trùng lặp + token hiệu quả D′</title>
+<style>
+:root{--bg:#0a0f1e; --card:#101830; --line:#22305a; --gold:#f5c542; --green:#4ade80;
+ --red:#f87171; --violet:#a78bfa; --cyan:#67e8f9; --text:#e8edf7; --muted:#93a0bd;}
+*{box-sizing:border-box;}
+body{margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.75; font-size:16.5px;}
+.wrap{max-width:820px; margin:0 auto; padding:18px 16px 60px;}
+.kicker{display:inline-block; font-size:13px; letter-spacing:1px; color:var(--gold); font-weight:700; margin-bottom:8px;}
+h1{font-size:28px; line-height:1.3; margin:6px 0 10px;}
+h2{font-size:22px; margin:34px 0 10px; color:var(--cyan);}
+h3{font-size:18px; margin:22px 0 8px; color:var(--gold);}
+.sub{color:var(--muted); font-size:16.5px;}
+.meta{display:flex; gap:8px; flex-wrap:wrap; margin:14px 0 6px;}
+.meta span{font-size:13.5px; background:var(--card); border:1px solid var(--line); border-radius:999px; padding:5px 14px;}
+.card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px; margin:16px 0;}
+.note{border-left:4px solid var(--green); background:#0f2233; border-radius:0 12px 12px 0; padding:12px 16px; margin:14px 0;}
+.warn{border-left:4px solid var(--red); background:#23141a; border-radius:0 12px 12px 0; padding:12px 16px; margin:14px 0;}
+.rq{background:#141d3a; border:1px solid var(--violet); border-radius:10px; padding:12px 16px; margin:10px 0;}
+.rq b{color:var(--violet);}
+code{background:#0a0f1e; border:1px solid var(--line); border-radius:6px; padding:1px 7px; font-size:15px;}
+pre{background:#0a0f1e; border:1px solid var(--line); border-radius:10px; padding:14px 16px; overflow-x:auto; font-size:14.5px; line-height:1.6; white-space:pre-wrap;}
+table{width:100%; border-collapse:collapse; margin:12px 0; font-size:15px;}
+th,td{border:1px solid var(--line); padding:8px 10px; text-align:left;}
+th{background:#141d3a; color:var(--gold);}
+.footer{color:var(--muted); font-size:14px; margin-top:40px; border-top:1px solid var(--line); padding-top:14px;}
+.formula{background:#0a1428; border:1px solid var(--line); border-radius:10px; padding:12px 16px; font-family:"SF Mono",Consolas,Menlo,monospace; font-size:16px; text-align:center; margin:14px 0; color:var(--cyan);}
+ul li, ol li{margin-bottom:6px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<span class="kicker">PHASE 2 · NGÀY 33 / 60 · GIẢI THÍCH CHI TIẾT LAB TỐI · ĐỀ TÀI: TINY VIETNAMESE LM</span>
+<h1>Ngày 33 — Giải thích chi tiết: Prototype khử trùng lặp + token hiệu quả D′</h1>
+<p class="sub">File giải thích chi tiết cho bài lab buổi tối Ngày 33: vì sao dữ liệu trùng lặp là cái bẫy vô hình, hai công cụ ExactSubstr và NearDup bổ sung cho nhau ra sao, công thức token hiệu quả D′ nói gì về số epoch, và những cái bẫy nào đang chờ ở Day 34 khi chạy pipeline trên dump thật.</p>
+<div class="meta"><span>📄 Kèm bài lab: Day33_practice.html</span><span>🎯 RQ: dữ liệu sạch cho Tiny LM</span><span>📊 Dữ liệu: Wikipedia-vi, dump 01/11/2026</span></div>
+
+<h2>1 · Mục tiêu của buổi tối</h2>
+<div class="card">
+<p>Buổi sáng đọc paper, buổi tối <b>chạy thử bằng code</b>. Hết tối nay phải có 3 sản phẩm viết tay:</p>
+<ol>
+<li><b>Prototype dedup chạy được</b> — ExactSubstr thu nhỏ (cửa sổ 10 từ) + NearDup thu nhỏ (shingle Jaccard) trên mẫu 6 đoạn văn bản tiếng Việt, đo thật mỗi công cụ bắt được gì và để lọt gì.</li>
+<li><b>Bảng token hiệu quả D′</b> — tính bằng công thức Muennighoff et al. cho U<sub>D</sub> = 200M token, chốt vùng epoch an toàn 3–4.</li>
+<li><b>Datasheet Day 32 đã cập nhật</b> — bổ sung 2 mục: quy trình khử trùng lặp và số epoch tối đa cho phép, kèm quy tắc đóng băng cách tách held-out.</li>
+</ol>
+<p>Nguyên tắc xuyên suốt buổi tối: <b>mọi con số đều gắn với giả định của nó</b> — U<sub>D</sub> = 200M tối nay vẫn là giả định, số thật chỉ có sau khi Day 34 chạy pipeline trên dump. Số nào chưa đo được thì ghi "chưa đo".</p>
+</div>
+
+<h2>2 · Vì sao trùng lặp lại nguy hiểm — đọc lại Lee et al. (2022) bằng con số</h2>
+<p>Lee và cộng sự không nói "trùng lặp là xấu" một cách chung chung — họ đo. Ba con số cần nhớ:</p>
+<table>
+<tr><th>Hiện tượng</th><th>Con số đo được</th><th>Vì sao quan trọng với Tiny LM</th></tr>
+<tr><td>Một câu 61 từ lặp nguyên văn</td><td>Hơn <b>60.000 lần</b> trong C4</td><td>Corpus nhỏ thì mỗi token trùng ăn mất chỗ của token mới</td></tr>
+<tr><td>Model nhả lại văn bản thuộc lòng</td><td>Hơn <b>1% token</b> sinh ra không có prompt là copy verbatim</td><td>Model 10M tham số học thuộc thay vì học khái quát</td></tr>
+<tr><td>Validation trùng train</td><td>Hơn <b>4% tập validation</b></td><td>Perplexity đẹp giả tạo — eval mất ý nghĩa</td></tr>
+</table>
+<p>Điểm mấu chốt mà nhiều người bỏ qua: khử trùng xong, perplexity <b>không hề tệ đi</b> mà memorization giảm 10 lần và train nhanh hơn. Nghĩa là dữ liệu trùng <b>không đóng góp gì cho chất lượng</b> — nó chỉ tốn điện và làm sai số đo. Với Tiny LM, dedup không phải là bước "dọn dẹp cho đẹp" mà là biện pháp tiết kiệm năng lượng trực tiếp nhất: mỗi token trùng bị loại là một token model không phải tính forward/backward.</p>
+<div class="note"><b>Ví dụ cho tiếng Việt:</b> cùng một bài về "Hà Nội" có thể xuất hiện 3 lần — 1 lần trên Wikipedia, 1 lần trên trang copy nội dung Wikipedia, 1 lần trong bản lưu trữ cũ. Bài về địa danh, năm sinh, và các trang danh sách là những nơi mẫu câu lặp lại nhiều nhất, vì chúng dùng chung khung câu chỉ đổi tên riêng và con số.</div>
+
+<h2>3 · Hai công cụ bổ sung cho nhau — ExactSubstr và NearDup</h2>
+<p>Lee et al. đưa ra hai công cụ, và điểm quan trọng là <b>chúng bắt hai loại trùng khác nhau</b>:</p>
+<ul>
+<li><b>ExactSubstr — khử chuỗi con chính xác:</b> tìm mọi chuỗi con dài (ngưỡng 50 token trong đặc tả) xuất hiện nhiều lần, chỉ giữ 1 bản. Dùng suffix array nên chạy được trên hàng trăm GB. Bắt được câu 61 từ lặp 60.000 lần. <b>Để lọt:</b> văn bản gần giống nhưng khác vài từ — vì chỉ một từ đổi thôi thì chuỗi con đã không còn "chính xác" nữa.</li>
+<li><b>NearDup — khử văn bản gần trùng (MinHash):</b> băm mỗi văn bản thành "dấu vân tay" ngắn, văn bản nào có dấu vân tay gần giống nhau thì gom cụm, chỉ giữ 1 đại diện. Bắt được bài copy đã sửa tiêu đề, đổi vài từ nối. <b>Để lọt:</b> chuỗi con ngắn lặp lại nằm bên trong hai văn bản khác nhau phần lớn — vì toàn văn bản vẫn khác nhau đủ nhiều để MinHash coi là khác.</li>
+</ul>
+<p>Prototype tối nay thu nhỏ cả hai về mức chạy được bằng Python thuần: ExactSubstr thành cửa sổ trượt 10 từ (thay cho 50 token) với ngưỡng loại &gt; 80% cửa sổ trùng, NearDup thành shingle 5 từ + độ tương tự Jaccard với ngưỡng 0,5 trên mẫu nhỏ (thay cho MinHash). Thu nhỏ nhưng giữ nguyên bản chất: một công cụ so sánh <b>chuỗi con</b>, một công cụ so sánh <b>toàn văn bản</b>. Kết quả mong đợi — và cũng là bài học chính của buổi tối — là <b>mỗi công cụ đều để lọt một loại trùng mà công cụ kia bắt được</b>: văn bản gần giống (đổi vài từ) có 67% cửa sổ trùng nên lọt qua ExactSubstr ở ngưỡng 80%, nhưng Jaccard 0,69 nên bị NearDup bắt; ngược lại, đoạn mở đầu giống hệt nhau nằm trong hai văn bản khác nhau phần lớn thì ExactSubstr bắt được qua cửa sổ trùng còn Jaccard toàn văn bản có thể tụt dưới ngưỡng. Nếu code của bạn bắt được 100% mọi trường hợp thì mẫu thử quá dễ: thêm trường hợp khó hơn (đoạn mở đầu giống hệt nhưng thân bài khác hẳn, hoặc bài copy đổi 30% từ).</p>
+<div class="warn"><b>⚠️ Cái bẫy về ngưỡng:</b> ngưỡng 50 token của ExactSubstr và ngưỡng tương tự Jaccard của NearDup (ví dụ 0,8 cho pipeline thật; mẫu nhỏ tối nay dùng 0,5 để minh hoạ cơ chế) phải được <b>chọn trước và ghi vào datasheet</b>, không được chỉnh sau khi thấy kết quả. Chỉnh ngưỡng sau khi thấy perplexity xấu cũng là đổi luật sau khi xem đáp án — giống hệt lỗi sửa cách tách held-out.</div>
+
+<h2>4 · Công thức token hiệu quả D′ — đọc Muennighoff et al. (2023) bằng lời</h2>
+<p>Wikipedia tiếng Việt chỉ có khoảng 200 triệu token sau khi làm sạch, trong khi theo Chinchilla, model ~10 triệu tham số "ăn" tối ưu khoảng 200 triệu token — tức là <b>đúng 1 epoch là hết dữ liệu mới</b>. Muốn train lâu hơn thì chỉ còn cách đọc lại dữ liệu cũ. Muennighoff và cộng sự chạy hơn 400 model (10 triệu tới 9 tỉ tham số, tới 900 tỉ token) và tổng kết thành công thức:</p>
+<div class="formula">D′ = U<sub>D</sub> + U<sub>D</sub> · R*<sub>D</sub> · (1 − e<sup>−R<sub>D</sub>/R*<sub>D</sub></sup>) &nbsp;&nbsp;·&nbsp;&nbsp; R*<sub>D</sub> ≈ 15</div>
+<p>Đọc công thức bằng lời, từng phần:</p>
+<ul>
+<li><b>U<sub>D</sub></b> — số token duy nhất có được (sau dedup). Đây là "vốn" thật của bạn.</li>
+<li><b>R<sub>D</sub></b> — số vòng lặp lại (số epoch). Vòng lặp đầu gần như cho trọn 1 lần giá trị của dữ liệu mới; càng lặp nhiều, mỗi vòng cho càng ít.</li>
+<li><b>R*<sub>D</sub> ≈ 15</b> — hằng số bão hoà: tới khoảng 15 vòng thì giá trị của token lặp gần như về 0.</li>
+<li><b>D′</b> — số "token hiệu quả": lượng dữ liệu mới tương đương mà chừng đó vòng lặp mang lại.</li>
+</ul>
+<table>
+<tr><th>Số epoch</th><th>D′ (U = 200M)</th><th>Ý nghĩa thực tế</th></tr>
+<tr><td>1</td><td>~393M</td><td>Vòng đầu gần như cho trọn giá trị dữ liệu mới</td></tr>
+<tr><td>3</td><td>~744M</td><td>Vùng an toàn — gấp 3,7 lần nhu cầu Chinchilla 200M</td></tr>
+<tr><td>4</td><td>~902M</td><td>Cuối vùng an toàn (loss chỉ cao hơn ~0,5% so với dữ liệu mới)</td></tr>
+<tr><td>8</td><td>~1.440M</td><td>Bắt đầu thua xa 1.600M token mới tương ứng</td></tr>
+<tr><td>16</td><td>~2.168M</td><td>Chỉ bằng 68% của 3.200M token mới — bão hoà, đốt điện vô ích</td></tr>
+</table>
+<p>Hai hệ quả cho đề tài. <b>Thứ nhất:</b> 3–4 epoch cho ra 744–902 triệu token hiệu quả — gấp 3,7–4,5 lần nhu cầu của model 10M tham số. Nghĩa là <b>không thiếu dữ liệu</b>, chỉ cần lặp đúng cách. <b>Thứ hai:</b> epoch là một <b>biến thí nghiệm hợp lệ</b>, không phải lỗi phương pháp — ablation so sánh 1 epoch vs 3 epoch ở Day 45–53 sẽ là một thí nghiệm sạch, đúng kỷ luật Phase 1 (chỉ đổi 1 biến, ngưỡng viết trước).</p>
+<div class="note"><b>Cảnh báo về giả định:</b> mọi con số trong bảng trên tính trên giả định U<sub>D</sub> = 200M. Nếu Day 34 đo ra U<sub>D</sub> thật chỉ còn 150M thì D′ ở 3 epoch chỉ còn ~558M, ở 4 epoch ~677M — vẫn đủ cho model 10M (cần 200M), nhưng phần dự phòng mỏng đi rõ rệt. Lúc đó 3 lựa chọn phải cân nhắc: giảm N, tăng epoch, hay bổ sung mẫu CulturaX-vi — mỗi lựa chọn đánh đổi một thứ khác nhau, và không có lựa chọn nào được chốt bằng cảm giác.</div>
+
+<h2>5 · Thứ tự dedup → tách test — lỗi dễ mắc nhất cả pipeline</h2>
+<p>Trong 6 bước pipeline buổi sáng, bước 5 là bước dễ sai nhất mà không phát hiện được bằng mắt thường: <b>tách 1% làm tập test SAU bước khử trùng, không tách trước</b>. Vì sao? Nếu tách test trước rồi mới dedup, test sẽ chứa bản sao của train — Lee et al. đo được hơn 4% validation trùng train trong trường hợp này, và perplexity đo ra sẽ đẹp một cách giả tạo. Model không giỏi hơn — nó chỉ đang "nhớ" đáp án từ train.</p>
+<p>Cách kiểm tra sau này: đối chiếu overlap giữa train và test bằng chính prototype tối nay (cửa sổ n-gram chung). Nếu overlap &gt; 0 thì thứ tự đã sai ở đâu đó. Đây cũng là lý do datasheet phải <b>đóng băng</b> cách tách held-out (1%, sau dedup, seed cố định): tách lại test sau khi thấy perplexity xấu là đổi luật sau khi xem đáp án.</p>
+
+<h2>6 · Các bước chính của buổi tối — tóm tắt làm gì, theo thứ tự nào</h2>
+<ol>
+<li><b>Prototype ExactSubstr thu nhỏ:</b> cửa sổ trượt 10 từ → băm → đếm cửa sổ trùng → loại văn bản có &gt; 50% cửa sổ đã thấy. Ghi rõ văn bản gần giống có bị bắt không.</li>
+<li><b>Prototype NearDup thu nhỏ:</b> shingle 5 từ → Jaccard → gom cụm ≥ 0,5 (mẫu nhỏ) → giữ 1 đại diện. So sánh với kết quả Bài 1: cặp nào công cụ này bắt được mà công cụ kia bỏ lọt.</li>
+<li><b>Tính đường cong D′:</b> chạy code Phần B cho epoch 1–16, đối chiếu bảng (3 epoch ≈ 744M, 4 epoch ≈ 902M), tính thêm trường hợp U = 150M.</li>
+<li><b>Trả lời 5 câu hỏi định hướng</b> buổi sáng bằng lời của mình, dùng kết quả code làm bằng chứng.</li>
+<li><b>Cập nhật datasheet:</b> bổ sung 2 mục (quy trình dedup + số epoch tối đa), đóng băng cách tách held-out.</li>
+</ol>
+
+<h2>7 · Bẫy thường gặp — nhắc lại để không mắc ở Day 34</h2>
+<div class="warn">
+<p><b>🪤 Bẫy 1 — Tách test trước, dedup sau.</b> Perplexity đẹp giả tạo, chỉ lộ khi đối chiếu overlap. Thứ tự là một phần của phương pháp: <b>dedup trước, tách test sau</b>.</p>
+<p><b>🪤 Bẫy 2 — Lấy số D′ của paper làm số của mình.</b> 744M gắn với giả định U<sub>D</sub> = 200M. Day 34 đo U<sub>D</sub> thật rồi tính lại — không bê số tối nay sang báo cáo.</p>
+<p><b>🪤 Bẫy 3 — Chỉ dùng một công cụ dedup rồi kết luận "đã sạch".</b> Mỗi công cụ để lọt một nửa rác. Prototype phải cho thấy cả hai loại lọt lưới.</p>
+<p><b>🪤 Bẫy 4 — Bê nguyên con số từ paper sang đề tài của mình.</b> "60.000 lần", "4 epoch", "0,5% loss" là con số của C4 và model 8,7B — dùng hướng kết luận, không dùng con số. Ghi rõ giới hạn vào đáp án.</p>
+</div>
+
+<h2>8 · Hướng cải tiến cho ngày mai (Day 34)</h2>
+<div class="rq"><b>Ngày mai:</b> chạy pipeline làm sạch thật trên dump Wikipedia-vi — đo <b>U<sub>D</sub> thật</b> (số token còn lại sau NFC + lọc thô + ExactSubstr + NearDup), tính lại D′ bằng con số thật, và <b>đóng băng tập held-out 1%</b> tách sau dedup. Từ U<sub>D</sub> thật, kiểm chứng lại quyết định N ≈ 10M — và đó là lúc ngưỡng perplexity P bắt đầu có cơ sở để đo baseline. Mang theo prototype tối nay: nó là khung code cho pipeline thật ngày mai, chỉ cần thay mẫu nhỏ bằng dump thật và ngưỡng 10 từ bằng 50 token.</div>
+
+<div class="footer">Ngày 33 — Buổi tối · Phase 2 · Đề tài: Tiny Vietnamese LM · Tài liệu tham khảo: Lee et al. 2022 (arXiv:2107.06499) · Muennighoff et al. 2023 (arXiv:2305.16264) · Kèm bài lab: Day33_practice.html · Ngày mai (Day 34): chạy pipeline thật, đo U<sub>D</sub>, đóng băng held-out.</div>
+</div>
+</body>
+</html>
