@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ngày 34 — Luật scaling Chinchilla: chọn mô hình bao nhiêu tham số cho 200 triệu token</title>
+<style>
+:root{--bg:#0a0f1e;--card:#101830;--line:#22305a;--gold:#f5c542;--green:#4ade80;--red:#f87171;--violet:#a78bfa;--cyan:#67e8f9;--text:#e8edf7;--muted:#93a0bd;}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;line-height:1.75;font-size:16.5px;}
+.wrap{max-width:860px;margin:0 auto;padding:18px 16px 60px;}
+.kicker{display:inline-block;font-size:13px;letter-spacing:1px;color:var(--gold);font-weight:700;margin-bottom:8px;}
+h1{font-size:29px;line-height:1.3;margin:6px 0 10px;}
+.sub{color:var(--muted);font-size:16.5px;}
+h2{color:var(--gold);font-size:22px;margin:34px 0 10px;border-bottom:1px solid var(--line);padding-bottom:6px;}
+h3{color:var(--cyan);font-size:18px;margin:22px 0 8px;}
+p{margin:10px 0;}
+ul,ol{margin:8px 0 8px 22px;padding:0;}
+li{margin:6px 0;}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 20px;margin:16px 0;}
+.note{border-left:4px solid var(--green);background:#0f2233;border-radius:0 12px 12px 0;padding:12px 16px;margin:16px 0;}
+.warn{border-left:4px solid var(--red);background:#2a1218;border-radius:0 12px 12px 0;padding:12px 16px;margin:16px 0;}
+.formula{background:#0a1428;border:1px solid var(--line);border-radius:10px;padding:12px 16px;font-family:"SF Mono",Consolas,Menlo,monospace;font-size:16px;text-align:center;margin:14px 0;color:var(--cyan);}
+table{width:100%;border-collapse:collapse;margin:14px 0;font-size:15.5px;}
+th,td{border:1px solid var(--line);padding:9px 12px;text-align:left;}
+th{background:#141d3a;color:var(--gold);}
+.diagram{background:#0a1428;border:1px solid var(--line);border-radius:12px;padding:10px;margin:14px 0;}
+.diagram svg{display:block;margin:0 auto;max-width:100%;height:auto;}
+.diagram .cap{text-align:center;color:var(--muted);font-size:14px;margin-top:6px;}
+.tag{display:inline-block;background:#1a2447;border:1px solid var(--line);border-radius:20px;padding:2px 12px;font-size:13.5px;color:var(--cyan);margin:2px 4px 2px 0;}
+a{color:var(--gold);}
+.btn{display:inline-block;background:var(--gold);color:#14100a;font-weight:700;border-radius:10px;padding:12px 22px;text-decoration:none;margin:8px 8px 0 0;}
+.btn.ghost{background:transparent;color:var(--gold);border:2px solid var(--gold);}
+.footer{color:var(--muted);font-size:14px;margin-top:40px;border-top:1px solid var(--line);padding-top:14px;}
+b.hl{color:var(--gold);}
+code{background:#1a2447;padding:1px 6px;border-radius:5px;font-size:15px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+<span class="kicker">PHASE 2 · NGÀY 34 / 60 · ADVISOR SEMINAR · ĐỀ TÀI: TINY VIETNAMESE LM</span>
+<h1>Ngày 34 — Luật scaling Chinchilla: chọn mô hình bao nhiêu tham số cho 200 triệu token</h1>
+<p class="sub">Day 33 đã chốt pipeline làm sạch và vùng an toàn tới 4 epoch. Hôm nay chốt <b>quyết định N</b> — mô hình Tiny Vietnamese LM nên có bao nhiêu tham số — bằng hai paper nền tảng của luật scaling: Kaplan 2020 nói "cứ to lên là khôn lên", Chinchilla 2022 chứng minh điều đó <b>chỉ đúng một nửa</b>: to mà thiếu dữ liệu thì phí điện. Đây là một trong hai quyết định còn mở của đề tài (cùng với ngưỡng perplexity P).</p>
+
+<div class="card">
+<h3 style="margin-top:0">🎯 Mục tiêu buổi sáng (ước lượng ~90 phút)</h3>
+<ul>
+<li><b>30 phút:</b> Đọc paper Kaplan 2020 — luật scaling đầu tiên: loss giảm theo hàm lũy thừa của N, D, C.</li>
+<li><b>30 phút:</b> Đọc paper Chinchilla 2022 — vì sao "20 token cho mỗi tham số" lật ngược kết luận của Kaplan, và Chinchilla 70B thắng Gopher 280B.</li>
+<li><b>30 phút:</b> Tính bảng 3 cấu hình cho Tiny Vietnamese LM (N = 10M / 25M / 37M) từ ngân sách token Day 33, chọn 1 cấu hình chính + 1 dự phòng, ghi vào scope sheet Day 31.</li>
+</ul>
+</div>
+
+<div class="note"><b>📌 Nhắc nhẹ về Day 33:</b> dữ liệu sạch cho ra 3 con số dùng ngay hôm nay — U<sub>D</sub> ≈ 200 triệu token duy nhất, D′ ≈ 744 triệu token ở 3 epoch, D′ ≈ 902 triệu token ở 4 epoch. Mọi tính toán của buổi sáng nay đều dùng 3 con số này; nếu chưa có datasheet Day 32/33 thì hoàn thiện trước khi tính bảng ở Phần 3.</div>
+
+<h2>Nhiệm vụ hôm nay</h2>
+<ol>
+<li><b>Đọc paper 1 — Kaplan et al. (2020), "Scaling Laws for Neural Language Models"</b> (<a href="https://arxiv.org/abs/2001.08361">arXiv:2001.08361</a>). Nắm 3 luật lũy thừa và kết luận "ưu tiên tăng N" khi ngân sách tính toán tăng.</li>
+<li><b>Đọc paper 2 — Hoffmann et al. (2022), "Training Compute-Optimal Large Language Models" (Chinchilla)</b> (<a href="https://arxiv.org/abs/2203.15556">arXiv:2203.15556</a>). Nắm công thức L(N, D), tỉ lệ 20 token/tham số, và bằng chứng thực nghiệm 70B thắng 280B.</li>
+<li><b>Tính bảng 3 cấu hình</b> theo mẫu ở Phần 3 — đủ N, D, số epoch, FLOPs và thời gian train ước tính. Chọn 1 cấu hình chính + 1 dự phòng, kèm lý do bằng số.</li>
+<li><b>Cập nhật scope sheet Day 31</b>: điền quyết định N vào mục còn mở (ghi rõ "N ≈ 10M nếu 1 epoch; N ≈ 37M nếu 3 epoch" hoặc con số bạn chọn).</li>
+<li><b>Trả lời 5 câu hỏi định hướng</b> ở Phần 5 — bằng lời của mình, mỗi câu 2–4 dòng.</li>
+</ol>
+
+<h2>1 · Kaplan 2020 — luật scaling đầu tiên: to lên là khôn lên</h2>
+<p>Kaplan và cộng sự train hàng chục model với N từ vài triệu tới hàng tỉ tham số, đo loss trên tập held-out, rồi khớp đường cong. Kết quả là 3 luật lũy thừa rất sạch:</p>
+<div class="formula">L(N) ∝ N<sup>−0,076</sup> &nbsp;·&nbsp; L(D) ∝ D<sup>−0,095</sup> &nbsp;·&nbsp; L(C) ∝ C<sup>−0,050</sup></div>
+<p>Nghĩa là: loss giảm đều đặn khi tăng tham số N, tăng dữ liệu D, hoặc tăng ngân sách tính toán C — trên thang log-log, cả ba đều là đường thẳng. Kết luận thực hành của Kaplan: <b>khi ngân sách tính toán tăng gấp 10 lần, nên dồn phần lớn vào tăng N</b> (tăng model lên ~5,5 lần, dữ liệu chỉ tăng ~1,8 lần). Các model khổng lồ sau đó — GPT-3 175B train trên 300 tỉ token, Gopher 280B trên 300 tỉ token — đều đi theo lời khuyên này: <b>model càng to, dữ liệu chỉ tăng vừa phải</b>.</p>
+<p>Vấn đề: Kaplan khớp mỗi luật <b>riêng rẽ</b> — khi đo L(N) thì giữ D cố định và ngược lại. Chưa ai hỏi: với một ngân sách tính toán C cố định, chia bao nhiêu cho N và bao nhiêu cho D thì loss thấp nhất? Chinchilla trả lời đúng câu đó — và đáp án đảo ngược cả ngành.</p>
+<div class="warn"><b>⚠️ Lỗi thường gặp:</b> đọc Kaplan rồi kết luận "model to hơn luôn tốt hơn". Với Tiny Vietnamese LM, corpus chỉ ~200 triệu token duy nhất — nếu làm model 100M tham số mà chỉ có 200M token, tỉ lệ D/N = 2 token/tham số, model sẽ <b>học thuộc lòng</b> thay vì học khái quát. Đó chính là bài học Day 33 về trùng lặp, nhưng ở quy mô toàn bộ corpus.</div>
+
+<h2>2 · Chinchilla 2022 — 20 token cho mỗi tham số, và 70B thắng 280B</h2>
+<p>Hoffmann và cộng sự train <b>hơn 400 model</b> với N từ 70M tới 16B, quét đủ mọi cặp (N, D) ở từng mức ngân sách C, rồi khớp một công thức duy nhất mô tả cả hai biến cùng lúc:</p>
+<div class="formula">L(N, D) = E + A / N<sup>α</sup> + B / D<sup>β</sup> &nbsp;&nbsp;·&nbsp;&nbsp; α ≈ 0,34 &nbsp;·&nbsp; β ≈ 0,28 &nbsp;·&nbsp; E ≈ 1,69</div>
+<p>Với C = 6·N·D (FLOPs train xấp xỉ 6 lần N nhân D), giải bài toán tối ưu cho ra luật phân bổ tối ưu:</p>
+<div class="formula">N<sub>tối ưu</sub> ∝ C<sup>0,46</sup> &nbsp;&nbsp;·&nbsp;&nbsp; D<sub>tối ưu</sub> ∝ C<sup>0,54</sup> &nbsp;&nbsp;·&nbsp;&nbsp; D / N ≈ 20 token / tham số</div>
+<p>N và D phải tăng <b>gần như ngang nhau</b> — không dồn hết vào model như Kaplan khuyên. Bằng chứng quyết định: <b>Chinchilla 70B</b> train trên 1,4 nghìn tỉ token (D/N = 20) <b>thắng Gopher 280B</b> train trên 300 tỉ token (D/N ≈ 1) trên gần như mọi benchmark, dù nhỏ hơn 4 lần và tốn cùng ngân sách tính toán. Gopher đã bị "đói dữ liệu": 280 tỉ tham số mà chỉ ăn 300 tỉ token thì mỗi tham số chưa được học đủ.</p>
+<div class="diagram">
+<svg viewBox="0 0 760 340" xmlns="http://www.w3.org/2000/svg" font-family="sans-serif">
+<rect x="0" y="0" width="760" height="340" fill="#0a1428"/>
+<text x="380" y="28" fill="#f5c542" font-size="17" font-weight="bold" text-anchor="middle">Loss giảm khi tăng N — nhưng chỉ khi D tăng theo</text>
+<line x1="70" y1="290" x2="720" y2="290" stroke="#22305a" stroke-width="2"/>
+<line x1="70" y1="290" x2="70" y2="50" stroke="#22305a" stroke-width="2"/>
+<text x="390" y="322" fill="#93a0bd" font-size="14" text-anchor="middle">Số tham số N (thang log) →</text>
+<text x="24" y="170" fill="#93a0bd" font-size="14" text-anchor="middle" transform="rotate(-90 24 170)">Loss (thấp hơn = tốt hơn)</text>
+<path d="M 90 260 Q 300 190 700 110" stroke="#4ade80" stroke-width="3" fill="none"/>
+<text x="640" y="95" fill="#4ade80" font-size="14" font-weight="bold">Kaplan: L(N) ↓</text>
+<path d="M 90 260 Q 300 190 480 155" stroke="#f87171" stroke-width="3" fill="none" stroke-dasharray="8 6"/>
+<path d="M 480 155 L 700 148" stroke="#f87171" stroke-width="3" fill="none"/>
+<text x="500" y="140" fill="#f87171" font-size="14" font-weight="bold">D cố định: bão hòa</text>
+<circle cx="480" cy="155" r="6" fill="#f5c542"/>
+<text x="470" y="185" fill="#f5c542" font-size="13" font-weight="bold" text-anchor="middle">Điểm bão hòa:</text>
+<text x="470" y="203" fill="#f5c542" font-size="13" text-anchor="middle">D/N ≈ 1 (Gopher)</text>
+<circle cx="640" cy="118" r="6" fill="#67e8f9"/>
+<text x="640" y="75" fill="#67e8f9" font-size="13" font-weight="bold" text-anchor="middle">Chinchilla:</text>
+<text x="640" y="60" fill="#67e8f9" font-size="13" text-anchor="middle">D/N = 20</text>
+</svg>
+<div class="cap">Hình 1 — Đường xanh: loss giảm theo N khi dữ liệu đủ. Đường đỏ đứt nét: dữ liệu cố định thì tăng N tới một điểm là bão hòa — model to thêm cũng không khôn thêm.</div>
+</div>
+<p>Bài học cho đề tài: <b>quyết định N không thể tách khỏi quyết định D</b>. Day 33 cho D′ (token hiệu quả sau lặp lại) — hôm nay D′ đó sẽ quyết định N. Nếu chỉ dùng 200 triệu token duy nhất (1 epoch), N tối ưu ≈ 10M. Nếu chấp nhận 3 epoch như Day 33 đã chứng minh là an toàn, D′ ≈ 744 triệu token, N tối ưu ≈ 37M. Cùng một corpus, hai đáp án khác nhau gần 4 lần — chỉ vì chính sách epoch.</p>
+
+<h2>3 · Bảng 3 cấu hình cho Tiny Vietnamese LM</h2>
+<p>Công thức dùng để tính: C = 6·N·D (FLOPs train), thời gian ước tính trên 1 GPU RTX 4090 với hiệu suất thực tế MFU ≈ 30% (~25 nghìn tỉ phép/giây). Đây là ước tính bậc độ lớn để so sánh, không phải số đo thực tế — số đo thực tế sẽ có ở buổi lab tối nay.</p>
+<table>
+<tr><th>Cấu hình</th><th>N (tham số)</th><th>D (token)</th><th>Epoch</th><th>D/N</th><th>FLOPs (C = 6ND)</th><th>Train ước tính*</th></tr>
+<tr><td><b>A — Baseline rẻ</b></td><td>10M</td><td>200M</td><td>1</td><td>20 ✓</td><td>1,2×10¹⁶</td><td>~8 phút</td></tr>
+<tr><td><b>B — Cân bằng</b></td><td>25M</td><td>500M</td><td>2,5</td><td>20 ✓</td><td>7,5×10¹⁶</td><td>~50 phút</td></tr>
+<tr><td><b>C — Chinchilla-tối ưu</b></td><td>37M</td><td>744M</td><td>3</td><td>20 ✓</td><td>1,65×10¹⁷</td><td>~110 phút</td></tr>
+</table>
+<p style="font-size:14.5px;color:var(--muted)">* Ước tính trên 1 GPU RTX 4090, MFU 30%. Train thật có overhead dataloader, checkpoint, eval — cộng thêm 20–30%.</p>
+<div class="diagram">
+<svg viewBox="0 0 760 300" xmlns="http://www.w3.org/2000/svg" font-family="sans-serif">
+<rect x="0" y="0" width="760" height="300" fill="#0a1428"/>
+<text x="380" y="28" fill="#f5c542" font-size="17" font-weight="bold" text-anchor="middle">3 cấu hình đều giữ D/N = 20 — khác nhau ở ngân sách tính toán</text>
+<line x1="70" y1="250" x2="720" y2="250" stroke="#22305a" stroke-width="2"/>
+<line x1="70" y1="250" x2="70" y2="50" stroke="#22305a" stroke-width="2"/>
+<rect x="110" y="190" width="70" height="60" fill="#4ade80" opacity="0.85"/>
+<text x="145" y="275" fill="#e8edf7" font-size="13" font-weight="bold" text-anchor="middle">A · 10M</text>
+<rect x="300" y="140" width="70" height="110" fill="#67e8f9" opacity="0.85"/>
+<text x="335" y="275" fill="#e8edf7" font-size="13" font-weight="bold" text-anchor="middle">B · 25M</text>
+<rect x="490" y="80" width="70" height="170" fill="#a78bfa" opacity="0.85"/>
+<text x="525" y="275" fill="#e8edf7" font-size="13" font-weight="bold" text-anchor="middle">C · 37M</text>
+<text x="145" y="175" fill="#4ade80" font-size="13" font-weight="bold" text-anchor="middle">8 phút</text>
+<text x="335" y="125" fill="#67e8f9" font-size="13" font-weight="bold" text-anchor="middle">50 phút</text>
+<text x="525" y="65" fill="#a78bfa" font-size="13" font-weight="bold" text-anchor="middle">110 phút</text>
+<text x="640" y="110" fill="#f5c542" font-size="13" font-weight="bold">Cả 3 đều</text>
+<text x="640" y="128" fill="#f5c542" font-size="13" font-weight="bold">đạt chuẩn</text>
+<text x="640" y="146" fill="#f5c542" font-size="13" font-weight="bold">Chinchilla</text>
+</svg>
+<div class="cap">Hình 2 — Cột càng cao = model càng lớn và train càng lâu, nhưng cả 3 cấu hình đều giữ tỉ lệ D/N = 20, tức đều "ăn đủ" theo chuẩn Chinchilla.</div>
+</div>
+<p><b>Gợi ý chọn:</b> cấu hình A là baseline bắt buộc — rẻ, train trong 8 phút, dùng để đo perplexity nền cho ngưỡng P (quyết định còn lại). Cấu hình C là ứng viên chính cho báo cáo cuối kỳ: tận dụng tối đa vùng an toàn 3 epoch của Day 33. Cấu hình B là dự phòng nếu C train quá lâu hoặc hết GPU. <b>Quy tắc advisor:</b> không chọn bằng cảm tính — buổi tối nay chạy cấu hình A thật, đo perplexity thật, rồi mới khóa quyết định N bằng số liệu.</p>
+<div class="note"><b>📌 Ghi chú cho RQ của đề tài:</b> bảng này chính là phần "phương pháp: chọn mô hình" trong báo cáo cuối kỳ. Khi viết, phải nêu rõ: (1) công thức C = 6ND, (2) giả định MFU 30%, (3) D′ lấy từ Day 33 — để người đọc tái tạo được mọi con số. Một con số không tái tạo được là một con số không có giá trị khoa học.</div>
+
+<h2>4 · Áp dụng nhanh: kiểm tra tỉ lệ D/N của chính bạn</h2>
+<p>Trước khi khóa quyết định, tự kiểm tra 3 tình huống sau — mỗi tình huống chỉ cần 1 phép chia:</p>
+<ul>
+<li><b>Chỉ có 200M token, muốn model 50M:</b> D/N = 4 — quá đói dữ liệu theo Chinchilla. Hoặc giảm N xuống 10M, hoặc lặp 3 epoch để D′ lên 744M (D/N ≈ 15, gần chuẩn).</li>
+<li><b>Thêm dữ liệu CulturaX-vi (dự phòng Day 32):</b> nếu U<sub>D</sub> tăng lên 400M thì N tối ưu tăng lên ~20M ở 1 epoch — quyết định N phải viết lại, không giữ số cũ.</li>
+<li><b>Muốn model 100M:</b> cần D ≈ 2 tỉ token (D/N = 20) — gấp 10 lần corpus hiện có, không khả thi trong Phase 2. Đây là lý do đề tài chốt ở quy mô "tiny": 10–40M, không phải 100M.</li>
+</ul>
+
+<h2>5 · Câu hỏi định hướng khi đọc paper</h2>
+<ol>
+<li>Kaplan khớp 3 luật riêng rẽ, Chinchilla khớp 1 công thức chung L(N, D). Vì sao cách làm của Chinchilla cho đáp án phân bổ ngân sách khác hẳn — và cách nào đáng tin hơn cho đề tài của bạn?</li>
+<li>Chinchilla 70B thắng Gopher 280B dù nhỏ hơn 4 lần. Nếu chỉ nhìn số tham số, bạn sẽ kết luận sai điều gì về "model nào mạnh hơn"?</li>
+<li>Tỉ lệ D/N = 20 có phải luật tự nhiên không, hay chỉ là kết quả khớp đường cong trên dữ liệu của DeepMind? Điều gì xảy ra nếu áp nó cho tiếng Việt — ngôn ngữ ít dữ liệu hơn tiếng Anh rất nhiều?</li>
+<li>Với corpus Wikipedia tiếng Việt, vì sao quyết định N lại phụ thuộc vào chính sách epoch của Day 33 — và điều đó có nghĩa là 2 quyết định (epoch, N) không độc lập?</li>
+<li>Nếu buổi tối nay đo được perplexity của cấu hình A tệ hơn dự kiến, bạn sẽ đổi N, đổi D, hay đổi cả hai — và bằng chứng nào sẽ cho bạn biết nên đổi cái nào?</li>
+</ol>
+
+<h2>⚡ Góc tiết kiệm năng lượng</h2>
+<p>Chinchilla là paper tiết kiệm năng lượng nhất trong lịch sử LLM — không phải vì nó nói về điện, mà vì nó chứng minh <b>phần lớn điện train model lớn đã bị đốt vô ích</b>: Gopher 280B tốn cùng ngân sách tính toán với Chinchilla 70B nhưng cho kết quả tệ hơn, tức mỗi điểm benchmark của Gopher "đắt điện" hơn. Với Tiny Vietnamese LM, chọn đúng N theo D′ còn tiết kiệm hơn nữa: cấu hình A train trong ~8 phút trên 1 GPU tiêu thụ ~0,06 kWh — ít hơn một lần đun ấm nước. Bài học cho báo cáo cuối kỳ: <b>hiệu quả năng lượng không bắt đầu ở GPU, mà bắt đầu ở quyết định N trên giấy</b> — quyết định sai, train lại bao nhiêu lần cũng không gỡ được.</p>
+
+<h2>Tóm tắt</h2>
+<ul>
+<li><b>Kaplan 2020:</b> loss giảm theo hàm lũy thừa của N, D, C — khuyên dồn ngân sách vào tăng model.</li>
+<li><b>Chinchilla 2022:</b> L(N, D) = E + A/N<sup>α</sup> + B/D<sup>β</sup>; tối ưu khi N ∝ C<sup>0,46</sup>, D ∝ C<sup>0,54</sup>, tức D/N ≈ 20 token/tham số.</li>
+<li><b>Bằng chứng:</b> Chinchilla 70B / 1,4 nghìn tỉ token thắng Gopher 280B / 300 tỉ token.</li>
+<li><b>Áp dụng:</b> 200M token duy nhất → N ≈ 10M; 3 epoch (D′ ≈ 744M) → N ≈ 37M; cả 3 cấu hình A/B/C đều giữ D/N = 20.</li>
+<li><b>Việc tiếp theo:</b> tối nay chạy cấu hình A thật, đo perplexity thật, rồi mới khóa quyết định N.</li>
+</ul>
+
+<a class="btn" href="Day34_quiz.html">📝 Làm checklist Ngày 34</a>
+<a class="btn ghost" href="Day34_video.mp4">🎬 Xem video giới thiệu</a>
+<div class="footer">Khóa "Trở thành AI Engineer (LLM)" · Phase 2 · Ngày 34/60 · Đề tài: Tiny Vietnamese LM · Tài liệu tham khảo: Kaplan et al. 2020 (arXiv:2001.08361) · Hoffmann et al. 2022 (arXiv:2203.15556)</div>
+</div>
+</body>
+</html>
