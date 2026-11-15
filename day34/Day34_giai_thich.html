@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ngày 34 — Giải thích chi tiết: Chạy cấu hình A thật + đo perplexity nền</title>
+<style>
+:root{--bg:#0a0f1e; --card:#101830; --line:#22305a; --gold:#f5c542; --green:#4ade80;
+ --red:#f87171; --violet:#a78bfa; --cyan:#67e8f9; --text:#e8edf7; --muted:#93a0bd;}
+*{box-sizing:border-box;}
+body{margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.75; font-size:16.5px;}
+.wrap{max-width:820px; margin:0 auto; padding:18px 16px 60px;}
+.kicker{display:inline-block; font-size:13px; letter-spacing:1px; color:var(--gold); font-weight:700; margin-bottom:8px;}
+h1{font-size:28px; line-height:1.3; margin:6px 0 10px;}
+h2{font-size:22px; margin:34px 0 10px; color:var(--cyan);}
+h3{font-size:18px; margin:22px 0 8px; color:var(--gold);}
+.sub{color:var(--muted); font-size:16.5px;}
+.meta{display:flex; gap:8px; flex-wrap:wrap; margin:14px 0 6px;}
+.meta span{font-size:13.5px; background:var(--card); border:1px solid var(--line); border-radius:999px; padding:5px 14px;}
+.card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px; margin:16px 0;}
+.note{border-left:4px solid var(--green); background:#0f2233; border-radius:0 12px 12px 0; padding:12px 16px; margin:14px 0;}
+.warn{border-left:4px solid var(--red); background:#23141a; border-radius:0 12px 12px 0; padding:12px 16px; margin:14px 0;}
+.rq{background:#141d3a; border:1px solid var(--violet); border-radius:10px; padding:12px 16px; margin:10px 0;}
+.rq b{color:var(--violet);}
+code{background:#0a0f1e; border:1px solid var(--line); border-radius:6px; padding:1px 7px; font-size:15px;}
+pre{background:#0a0f1e; border:1px solid var(--line); border-radius:10px; padding:14px 16px; overflow-x:auto; font-size:14.5px; line-height:1.6; white-space:pre-wrap;}
+table{width:100%; border-collapse:collapse; margin:12px 0; font-size:15px;}
+th,td{border:1px solid var(--line); padding:8px 10px; text-align:left;}
+th{background:#141d3a; color:var(--gold);}
+.footer{color:var(--muted); font-size:14px; margin-top:40px; border-top:1px solid var(--line); padding-top:14px;}
+.formula{background:#0a1428; border:1px solid var(--line); border-radius:10px; padding:12px 16px; font-family:"SF Mono",Consolas,Menlo,monospace; font-size:16px; text-align:center; margin:14px 0; color:var(--cyan);}
+ul li, ol li{margin-bottom:6px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<span class="kicker">PHASE 2 · NGÀY 34 / 60 · GIẢI THÍCH CHI TIẾT LAB TỐI · ĐỀ TÀI: TINY VIETNAMESE LM</span>
+<h1>Ngày 34 — Giải thích chi tiết: Chạy cấu hình A thật + đo perplexity nền</h1>
+<p class="sub">File giải thích chi tiết cho bài lab buổi tối Ngày 34: vì sao Kaplan và Chinchilla không mâu thuẫn nhau, con số 9,94 triệu tham số của cấu hình A tính ra như thế nào, công thức 6ND và MFU dùng để kiểm chứng bảng ước tính buổi sáng ra sao, và perplexity nền đo tối nay có ý nghĩa gì cho ngưỡng P của đề tài.</p>
+<div class="meta"><span>📄 Kèm bài lab: Day34_practice.html</span><span>🎯 RQ: chọn N theo luật Chinchilla</span><span>📊 Dữ liệu: Wikipedia-vi, dump 01/11/2026</span></div>
+
+<h2>1 · Mục tiêu của buổi tối</h2>
+<div class="card">
+<p>Buổi sáng tính trên giấy, buổi tối <b>chạy thử bằng code</b>. Hết tối nay phải có 3 sản phẩm viết tay:</p>
+<ol>
+<li><b>Model cấu hình A chạy được</b> — decoder-only transformer ~10 triệu tham số (tied embeddings), in ra số tham số thật để đối chiếu với 9,94M tính tay.</li>
+<li><b>Hai số đo thật</b> — tốc độ train (tokens/giây, suy ra MFU thực tế) và perplexity nền trên tập held-out đã đóng băng, kèm điều kiện đo (GPU, batch, số token đã train).</li>
+<li><b>Scope sheet Day 31 đã điền quyết định N</b> — cấu hình chính + dự phòng + điều kiện kích hoạt, bằng số đo tối nay, không bằng cảm tính.</li>
+</ol>
+<p>Nguyên tắc xuyên suốt buổi tối: <b>mọi con số đều gắn với giả định của nó</b> — U<sub>D</sub> = 200M tối nay vẫn là giả định, MFU 30% buổi sáng vẫn là giả định, số thật chỉ có sau khi đo trên máy của bạn. Số nào chưa đo được thì ghi "chưa đo".</p>
+</div>
+
+<h2>2 · Kaplan và Chinchilla không mâu thuẫn — chúng hỏi hai câu khác nhau</h2>
+<p>Câu phản biện 1 tối nay hỏi thẳng: hai paper có mâu thuẫn không? Câu trả lời ngắn: <b>không — vì chúng tối ưu hai thứ khác nhau</b>.</p>
+<ul>
+<li><b>Kaplan 2020</b> hỏi: "Với mỗi biến riêng lẻ (N, D, C), loss giảm theo luật nào?" — và trả lời bằng 3 đường cong riêng rẽ. Khi đo L(N), họ giữ D cố định ở mức đủ lớn; khi đo L(D), họ giữ N cố định. Kết luận "ưu tiên tăng N" chỉ đúng <b>khi dữ liệu luôn đủ</b> — một giả định ẩn mà chính paper không nhấn mạnh.</li>
+<li><b>Chinchilla 2022</b> hỏi: "Với ngân sách tính toán C cố định, chia bao nhiêu cho N và bao nhiêu cho D thì loss thấp nhất?" — và trả lời bằng 1 công thức chung L(N, D) khớp đồng thời cả hai biến trên 400+ model. Đây mới là câu hỏi người train thật sự cần: ngân sách thì hữu hạn, chia sai là phí.</li>
+</ul>
+<p>Vì sao Chinchilla đáng tin hơn cho đề tài? Vì nó khớp <b>đường biên tối ưu</b> (Pareto frontier) chứ không khớp từng biến riêng lẻ — đúng kỷ luật "audit trước, ablation sau" của Phase 1: đo cái cần quyết (phân bổ ngân sách), không đo cái dễ đo. Và bằng chứng thực nghiệm là quyết định: Chinchilla 70B thắng Gopher 280B với cùng ngân sách tính toán, điều mà luật Kaplan riêng rẽ không dự đoán được.</p>
+<div class="note"><b>Ví dụ cho tiếng Việt:</b> Kaplan nói "model to hơn thì khôn hơn" — nhưng với corpus Wikipedia tiếng Việt chỉ ~200 triệu token, model 100M tham số có D/N = 2, tức mỗi tham số chỉ thấy 2 token trong cả quá trình train. Đó không phải model khôn, đó là model học thuộc lòng 2 token đó rồi hết dữ liệu. Chinchilla sửa đúng chỗ này: to phải đi kèm đủ dữ liệu, không thì đừng to.</div>
+
+<h2>3 · Con số 9,94 triệu tham số tính ra như thế nào</h2>
+<p>Cấu hình A đề xuất: vocab 8.000 (BPE Day 32) · d_model = 320 · n_layer = 6 · n_head = 4 · MLP 4× · tied embeddings. Đếm từng phần:</p>
+<table>
+<tr><th>Thành phần</th><th>Công thức</th><th>Tham số</th></tr>
+<tr><td>Embedding (tied — dùng chung cho đầu vào và đầu ra)</td><td>8.000 × 320</td><td>2.560.000</td></tr>
+<tr><td>Positional embedding (ctx 512)</td><td>512 × 320</td><td>163.840</td></tr>
+<tr><td>Mỗi layer: attention (Q, K, V, O)</td><td>4 × 320²</td><td>409.600</td></tr>
+<tr><td>Mỗi layer: MLP (up + down, 4×)</td><td>2 × 320 × 1.280</td><td>819.200</td></tr>
+<tr><td>Mỗi layer: 2 LayerNorm</td><td>2 × 2 × 320</td><td>1.280</td></tr>
+<tr><td><b>Tổng (6 layer)</b></td><td>2.560.000 + 163.840 + 6 × 1.230.080</td><td><b>≈ 9,94 triệu</b></td></tr>
+</table>
+<p>Hai điểm cần nhớ. <b>Thứ nhất:</b> tied embeddings tiết kiệm đúng 1 ma trận vocab × d = 2,56 triệu tham số (từ ~12,5M xuống ~9,94M) — không phải cắt xén, vì đầu vào và đầu ra cùng làm việc trên một không gian từ vựng. <b>Thứ hai:</b> embedding chiếm ~26% tổng tham số ở quy mô tiny — ở model lớn (vocab 50k, d 4.096) tỉ lệ này nhỏ hơn nhiều, nhưng ở Tiny LM nó là phần không thể bỏ qua khi đếm N. Đếm sai N thì tỉ lệ D/N sai theo, và quyết định Chinchilla sai theo.</p>
+<div class="formula">C = 6 · N · D &nbsp;&nbsp;·&nbsp;&nbsp; t = C / (MFU × peak_FLOPs)</div>
+<p>Công thức C = 6ND: mỗi token đi qua model tốn ~2N phép cho forward và ~4N phép cho backward (tổng 6N), nhân với D token. Với cấu hình A: 6 × 10M × 200M = 1,2×10¹⁶ FLOPs. RTX 4090 peak FP16 ~82,6 nghìn tỉ phép/giây, MFU 30% → ~24,8 nghìn tỉ phép/giây hiệu dụng → 1,2×10¹⁶ / 2,48×10¹³ ≈ 480 giây ≈ <b>8 phút</b>. Tối nay đo tokens/s thật rồi tính ngược MFU thật — nếu MFU chỉ 10% thì thời gian thật là ~24 phút, và bảng buổi sáng phải sửa, không được giữ số 8 phút cho đẹp.</p>
+
+<h2>4 · Perplexity nền — đo cái gì, và chưa phải là ngưỡng P</h2>
+<p>Perplexity (PPL) = exp(loss trung bình trên held-out) — số càng thấp càng tốt, và nó chỉ có nghĩa khi đi kèm 3 thông tin: <b>tập test nào</b> (held-out 1% đã đóng băng, tách sau dedup, seed cố định), <b>tokenizer nào</b> (BPE 8k Day 32), và <b>đã train bao nhiêu token</b>. Thiếu 1 trong 3 thì con số không so sánh được với bất kỳ ai, kể cả với chính bạn tuần sau.</p>
+<p>Điểm neo cần đo tối nay: <b>PPL của model chưa train</b> (khởi tạo ngẫu nhiên). Với vocab 8.000, model đoán bừa sẽ cho PPL khoảng ~4.000 (một nửa vocab, vì cross-entropy khởi tạo ≈ ln(vocab) ≈ 9, loss ≈ 8,3 → PPL ≈ e<sup>8,3</sup> ≈ 4.000). PPL nền sau 2–5 triệu token train thử phải thấp hơn con số này <b>hàng chục lần</b> mới chứng tỏ train đang học thật — nếu chỉ thấp hơn 2–3 lần thì hoặc learning rate sai, hoặc dữ liệu chưa qua dedup đúng cách, hoặc mask attention bị lỗi. Đây là phép kiểm tra rẻ nhất buổi tối: 1 lần eval trước train, 1 lần sau train thử.</p>
+<div class="warn"><b>⚠️ Cái bẫy về ngưỡng P:</b> PPL nền tối nay KHÔNG phải ngưỡng P của đề tài — nó mới là PPL sau 2–5 triệu token, tức ~1–2% chặng đường của cấu hình A đầy đủ. Ngưỡng P chỉ chốt sau khi train xong A đầy đủ 200M token, khi đã có đường cong loss hoàn chỉnh để thấy PPL bão hòa ở đâu. Chốt P tối nay là chốt bằng 2% dữ liệu.</div>
+
+<h2>5 · D/N = 20 có phải luật tự nhiên không</h2>
+<p>Câu hỏi định hướng 3 buổi sáng — và câu phản biện 2 tối nay — đều xoáy vào điểm này, vì nó quyết định cả đề tài có đứng vững không. Câu trả lời thẳng: <b>không phải luật tự nhiên, mà là kết quả khớp đường cong</b> — và điều đó không làm nó vô dụng, nhưng đặt ra 3 giới hạn phải ghi vào báo cáo:</p>
+<ul>
+<li><b>Giới hạn 1 — dữ liệu khớp:</b> 20 token/tham số được khớp trên dữ liệu tiếng Anh của DeepMind (MassiveText, ~1,4 nghìn tỉ token). Tiếng Việt khác tiếng Anh ở 3 điểm: ít dữ liệu hơn nhiều, từ ghép và thanh điệu làm tokenizer BPE 8k nén kém hơn, và Wikipedia-vi có tỉ lệ bài stub cao. Cả 3 đều có thể dịch chuyển tỉ lệ tối ưu — có thể 20 vẫn đúng, có thể 15 hay 25 mới đúng cho tiếng Việt. Không ai biết cho tới khi đo.</li>
+<li><b>Giới hạn 2 — nó là tỉ lệ, không phải số tuyệt đối:</b> D/N = 20 không nói "model 10M là tốt nhất", nó nói "với ngân sách C của bạn, chia sao cho N và D tăng ngang nhau". Nếu U<sub>D</sub> thật đo ra chỉ 150M thay vì 200M, N tối ưu ở 1 epoch tụt xuống ~7,5M — quyết định N phải viết lại, không giữ số cũ.</li>
+<li><b>Giới hạn 3 — epoch làm nó trượt:</b> tỉ lệ 20 gắn với D là token <b>đã train</b>, không phải token duy nhất. Lặp 3 epoch biến D = 200M thành D′ ≈ 744M hiệu quả — nhưng D′ là khái niệm của Muennighoff, không phải của Chinchilla. Hai paper dùng hai định nghĩa D khác nhau, và báo cáo cuối kỳ phải nêu rõ đang dùng định nghĩa nào ở chỗ nào.</li>
+</ul>
+<p>Vì 3 giới hạn này, buổi tối nay không "áp dụng Chinchilla" mà <b>kiểm chứng Chinchilla trên tiếng Việt</b>: đo PPL của A (D/N = 20) rồi Day 35–36 đo thêm 1 cấu hình lệch tỉ lệ (vd D/N = 10) để xem PPL có tệ đi như Chinchilla dự đoán không. Một thí nghiệm so sánh như vậy đáng giá hơn mọi lời trích dẫn paper.</p>
+
+<h2>6 · Các bước chính của buổi tối — tóm tắt làm gì, theo thứ tự nào</h2>
+<ol>
+<li><b>Viết model cấu hình A:</b> d_model 320, 6 layer, tied embeddings → in số tham số, đối chiếu ~9,94M; viết hàm loss + perplexity.</li>
+<li><b>Chuẩn bị lát dữ liệu:</b> mẫu ~5M token Wikipedia-vi → dedup bằng prototype Day 33 → tách held-out 1% sau dedup, seed cố định → tokenize BPE Day 32.</li>
+<li><b>Train thử + đo:</b> train 2–5M token, đo tokens/s sau ít nhất 20 step ổn định → ngoại suy thời gian A đầy đủ → tính MFU thật → eval PPL nền trên held-out + PPL model chưa train.</li>
+<li><b>Trả lời 5 câu hỏi định hướng</b> buổi sáng bằng lời của mình, dùng số đo tối nay làm bằng chứng.</li>
+<li><b>Điền scope sheet:</b> cấu hình chính + dự phòng + điều kiện kích hoạt; P ghi rõ "chưa chốt, chờ baseline đầy đủ".</li>
+</ol>
+
+<h2>7 · Bẫy thường gặp — nhắc lại để không mắc ở Day 35</h2>
+<div class="warn">
+<p><b>🪤 Bẫy 1 — So sánh PPL của 2 model trên 2 tập test khác nhau.</b> Held-out đã đóng băng là cùng một tập cho mọi cấu hình — A đo trên tập này, C cũng đo trên tập này, không tách lại.</p>
+<p><b>🪤 Bẫy 2 — Ngoại suy thời gian từ 1 step đầu tiên.</b> Step đầu có warmup CUDA, compile, load dữ liệu — tokens/s lúc đó thấp giả tạo. Đo sau ít nhất 20 step ổn định, lấy trung bình 50 step tiếp theo.</p>
+<p><b>🪤 Bẫy 3 — Đổi N mà quên đổi D theo tỉ lệ 20.</b> Tăng model lên 37M mà vẫn train 200M token thì D/N = 5,4 — lặp lại đúng lỗi của Gopher ở quy mô nhỏ. Quyết định N luôn đi kèm quyết định D.</p>
+<p><b>🪤 Bẫy 4 — Chốt ngưỡng P bằng PPL sau 2–5 triệu token.</b> PPL nền tối nay là điểm xuất phát, không phải đích. Chốt P khi đã train xong A đầy đủ và thấy đường cong loss bão hòa.</p>
+</div>
+
+<h2>8 · Hướng cải tiến cho ngày mai (Day 35)</h2>
+<div class="rq"><b>Ngày mai:</b> chạy cấu hình A đầy đủ 200M token (1 epoch) trên dữ liệu đã dedup thật — đo đường cong loss hoàn chỉnh, chốt <b>perplexity nền P</b> làm ngưỡng của đề tài, và kiểm chứng thời gian train thật có khớp ~8 phút ngoại suy tối nay không. Mang theo 2 thứ tối nay: code train đã chạy được + held-out đã đóng băng. Nếu A đầy đủ cho PPL tốt hơn dự kiến, cân nhắc khóa luôn cấu hình C cho báo cáo cuối kỳ — và chạy thêm 1 cấu hình lệch tỉ lệ D/N = 10 để kiểm chứng Chinchilla trên tiếng Việt.</div>
+
+<div class="footer">Ngày 34 — Buổi tối · Phase 2 · Đề tài: Tiny Vietnamese LM · Tài liệu tham khảo: Kaplan et al. 2020 (arXiv:2001.08361) · Hoffmann et al. 2022 (arXiv:2203.15556) · Kèm bài lab: Day34_practice.html · Ngày mai (Day 35): chạy A đầy đủ 200M token, chốt ngưỡng perplexity P.</div>
+</div>
+</body>
+</html>
