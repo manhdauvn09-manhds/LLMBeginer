@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ngày 35 — Buổi tối: Lab nghiên cứu — Train đầy đủ cấu hình A (200M token), chốt trần perplexity P</title>
+<style>
+:root{--bg:#0a0f1e; --card:#101830; --line:#22305a; --gold:#f5c542; --green:#4ade80;
+ --red:#f87171; --violet:#a78bfa; --cyan:#67e8f9; --text:#e8edf7; --muted:#93a0bd;}
+*{box-sizing:border-box;}
+body{margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.75; font-size:16.5px;}
+.wrap{max-width:820px; margin:0 auto; padding:18px 16px 60px;}
+.kicker{display:inline-block; font-size:13px; letter-spacing:1px; color:var(--gold); font-weight:700; margin-bottom:8px;}
+h1{font-size:28px; line-height:1.3; margin:6px 0 10px;}
+h2{font-size:22px; margin:34px 0 10px; color:var(--cyan);}
+h3{font-size:18px; margin:22px 0 8px; color:var(--gold);}
+.sub{color:var(--muted); font-size:16.5px;}
+.meta{display:flex; gap:8px; flex-wrap:wrap; margin:14px 0 6px;}
+.meta span{font-size:13.5px; background:var(--card); border:1px solid var(--line); border-radius:999px; padding:5px 14px;}
+.card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px; margin:16px 0;}
+.note{border-left:4px solid var(--green); background:#0f2233; border-radius:0 12px 12px 0; padding:12px 16px; margin:14px 0;}
+.warn{border-left:4px solid var(--red); background:#23141a; border-radius:0 12px 12px 0; padding:12px 16px; margin:14px 0;}
+.rq{background:#141d3a; border:1px solid var(--violet); border-radius:10px; padding:12px 16px; margin:10px 0;}
+.rq b{color:var(--violet);}
+.check{list-style:none; padding-left:0;}
+.check li{padding-left:28px; position:relative; margin-bottom:8px;}
+.check li::before{content:"☐"; position:absolute; left:0; color:var(--gold); font-size:17px;}
+.check li.done::before{content:"☑"; color:var(--green);}
+.check li input{position:absolute; left:0; top:4px; width:18px; height:18px; opacity:0; cursor:pointer;}
+.check li.done{color:var(--muted); text-decoration:line-through;}
+code{background:#0a0f1e; border:1px solid var(--line); border-radius:6px; padding:1px 7px; font-size:15px;}
+pre{background:#0a0f1e; border:1px solid var(--line); border-radius:10px; padding:14px 16px; overflow-x:auto; font-size:14.5px; line-height:1.6; white-space:pre-wrap;}
+table{width:100%; border-collapse:collapse; margin:12px 0; font-size:15px;}
+th,td{border:1px solid var(--line); padding:8px 10px; text-align:left;}
+th{background:#141d3a; color:var(--gold);}
+.qa{margin:14px 0;}
+.qa button{background:var(--gold); color:#14100a; font-weight:700; border:none; border-radius:10px; padding:10px 18px; cursor:pointer; font-size:15px;}
+.qa .ans{display:none; margin-top:10px; border-left:4px solid var(--green); background:#0f2233; border-radius:0 12px 12px 0; padding:12px 16px;}
+.qa .ans.show{display:block;}
+.footer{color:var(--muted); font-size:14px; margin-top:40px; border-top:1px solid var(--line); padding-top:14px;}
+.formula{background:#0a1428; border:1px solid var(--line); border-radius:10px; padding:12px 16px; font-family:"SF Mono",Consolas,Menlo,monospace; font-size:16px; text-align:center; margin:14px 0; color:var(--cyan);}
+ul li, ol li{margin-bottom:6px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<span class="kicker">PHASE 2 · NGÀY 35 / 60 · RESEARCH LAB · ĐỀ TÀI: TINY VIETNAMESE LM</span>
+<h1>Ngày 35 — Buổi tối: Lab nghiên cứu — Train đầy đủ cấu hình A (200M token), chốt trần perplexity P</h1>
+<p class="sub">Tối qua bạn mới đi được <b>~1–2% chặng đường của A</b> (2–5 triệu token train thử) — PPL nền đó chỉ là điểm xuất phát, chưa phải đích đến. Tối nay <b>chạy A đến hết 200 triệu token</b>: vẽ đường cong loss hoàn chỉnh, xem loss bão hòa ở đâu, và <b>chốt trần perplexity P</b> — ngưỡng thành công của cả đề tài — bằng số đo thật, không bằng cảm tính.</p>
+<div class="meta"><span>⏱️ Ước lượng ~120 phút</span><span>📄 Sản phẩm: đường cong loss + PPL cuối + trần P đã chốt + scope sheet</span><span>🎯 RQ: train vượt Chinchilla — model nhỏ train lâu có thắng?</span></div>
+
+<h2>1 · Tóm tắt nhiệm vụ buổi sáng</h2>
+<div class="card">
+<p>Sáng nay (Day 35) đã làm 3 việc:</p>
+<ol>
+<li><b>Đọc paper 1 — Sardana &amp; Frankle (2024), "Beyond Chinchilla-Optimal: Accounting for Inference in Language Model Scaling Laws"</b> (arXiv:2401.00448): Chinchilla chỉ tối ưu chi phí train. Khi cộng thêm chi phí phục vụ (inference), điểm tối ưu <b>trượt về model nhỏ</b> — vì train trả 1 lần, inference trả mãi. Công thức tổng chi phí: <b>C<sub>tổng</sub> = 6ND + 2N · D<sub>inf</sub></b>.</li>
+<li><b>Đọc paper 2 — Besiroglu et al. (2024), "Chinchilla Scaling: A Replication Attempt"</b> (arXiv:2404.10102): thử nhân bản lại Chinchilla, phát hiện luật scaling <b>nhạy với cách khớp đường cong và dữ liệu</b> hơn báo cáo gốc thể hiện — tỉ lệ D/N = 20 vẫn dùng được để lập kế hoạch, nhưng phải kiểm chứng bằng số đo của chính mình.</li>
+<li><b>Tính bảng tổng chi phí</b> cho 3 cấu hình với giả định D<sub>inf</sub> = 10 tỉ token phục vụ: A = 2,12×10<sup>17</sup>, B = 5,75×10<sup>17</sup>, C = 9,05×10<sup>17</sup> FLOPs — <b>A rẻ hơn C ~4,3 lần</b>, chi phí inference chiếm hơn 90% tổng chi phí của cả ba. Kết luận sáng: A là ứng viên mạnh nhất cho đề tài tiết kiệm năng lượng; C chỉ thắng khi inference ít.</li>
+</ol>
+<p><b>Tối nay kiểm chứng bằng code:</b> A train đầy đủ 200M token mất bao lâu thật (đối chiếu ~8 phút ngoại suy tối qua), loss bão hòa ở mức nào, và trần P chốt bằng con số nào.</p>
+<div class="note">📌 <b>Nếu tối qua chưa nộp số đo Day 34</b> (tokens/s, MFU, PPL nền — mẫu đã gửi 12:53 hôm nay): nộp kèm luôn trong lần này. Số tối qua là điểm xuất phát của đường cong tối nay — thiếu nó, đường cong mất gốc.</div>
+</div>
+
+<h2>2 · Nhiệm vụ tối nay — 5 phần việc</h2>
+
+<h3>Phần A — Chuẩn bị lại code + dữ liệu Day 34 (20 phút)</h3>
+<p>Không viết lại từ đầu — tái dùng đúng thứ đã chạy được tối qua, chỉ thay phần "train thử" bằng "train đầy đủ":</p>
+<div class="card">
+<ol>
+<li>Lấy lại model cấu hình A tối qua (vocab 8.000 · d_model = 320 · n_layer = 6 · n_head = 4 · tied embeddings, ~9,94M tham số) + tokenizer BPE Day 32.</li>
+<li>Lấy lại <b>held-out đã đóng băng tối qua (1%, tách sau dedup, seed cố định)</b> — cùng một tập đo cho mọi cấu hình, không tách lại.</li>
+<li>Chuẩn bị dữ liệu train đầy đủ 200M token: chạy pipeline dedup Day 33 (ExactSubstr + NearDup) trên toàn bộ lát dữ liệu dùng cho A — <b>200M token = 1 epoch duy nhất trên U<sub>D</sub> ≈ 200M</b>, không lặp lại dữ liệu. Ghi tỉ lệ trùng đo được trên toàn bộ (đối chiếu với tỉ lệ trên lát mẫu tối qua).</li>
+<li>Quyết định trước <b>điểm dừng sớm</b>: nếu loss trên held-out không giảm sau 2 lần eval liên tiếp (mỗi lần cách 25M token), dừng train và ghi rõ "dừng sớm ở X token" — đừng train mù đến hết 200M chỉ vì đã hẹn.</li>
+</ol>
+<p><b>Kỷ luật đo:</b> mọi con số tối nay kèm điều kiện đo — GPU nào, batch bao nhiêu, bao nhiêu token đã train. Một con số không kèm điều kiện đo là một con số không tái tạo được.</p>
+</div>
+
+<h3>Phần B — Script train đầy đủ + đường cong loss (60 phút, sản phẩm chính)</h3>
+<p>Viết <code>train_full_a.py</code> — train A trên toàn bộ 200M token, eval định kỳ, lưu checkpoint và log:</p>
+<div class="card">
+<pre>import math, time, torch, torch.nn.functional as F
+
+# Sieu tham so GIU NGUYEN nhu toi qua (thu duy nhat thay doi la D: 5M -> 200M)
+CTX, BATCH = 512, 32
+TOTAL_TOKENS = 200_000_000
+EVAL_EVERY = 25_000_000          # eval moi 25M token -> 8 diem tren duong cong
+LR, WARMUP = 3e-4, 2000          # cosine decay ve 10% LR, warmup 2000 step
+
+# TODO 1: vong train chinh — moi step: forward + backward + step,
+#          log train loss moi 100 step; dem tokens/s SAU 20 step on dinh
+# TODO 2: moi EVAL_EVERY token: eval PPL tren held-out DONG BANG,
+#          luu checkpoint (model + optimizer + step + tokens_seen),
+#          ghi 1 dong vao loss_curve.csv: tokens, train_loss, heldout_ppl
+# TODO 3: do thoi gian train THUC TE cho 200M token, doi chieu voi
+#          ~8 phut ngoai suy toi qua; tinh MFU thuc te:
+#          MFU = 6*N*D / (t * peak_FLOPs_GPU), RTX 4090 peak FP16 ~82,6 TFLOPs
+# TODO 4: tinh nang luong: kWh = cong suat GPU thuc te (W) * thoi gian (h) / 1000
+#          — ghi vao scope sheet, doi chieu voi uoc tinh buoi sang</pre>
+<p><b>Bảng đối chiếu — điền số đo thật của bạn vào cột cuối:</b></p>
+<table>
+<tr><th>Đại lượng</th><th>Tối qua / sáng nay ước tính</th><th>Tối nay đo thật</th></tr>
+<tr><td>Thời gian train A (200M tok)</td><td>~8 phút (ngoại suy)</td><td>… phút (đo thật)</td></tr>
+<tr><td>Tokens/s ổn định</td><td>… (tối qua)</td><td>… tok/s</td></tr>
+<tr><td>MFU trên RTX 4090</td><td>30% (giả định)</td><td>… %</td></tr>
+<tr><td>PPL nền sau 2–5M token</td><td>… (tối qua)</td><td>điểm xuất phát</td></tr>
+<tr><td>PPL cuối sau 200M token</td><td>chưa có</td><td>… (điểm bão hòa)</td></tr>
+<tr><td>Năng lượng train A</td><td>chưa có</td><td>… kWh</td></tr>
+</table>
+</div>
+<div class="note">💡 <b>Thứ duy nhất thay đổi</b> so với tối qua là D (5M → 200M token). Tokenizer, dữ liệu, siêu tham số, held-out — tất cả giữ nguyên. Đó là điều kiện để đường cong loss tối nay nối tiếp đúng điểm tối qua dừng lại, và để so sánh A vs B vs C sau này là thí nghiệm sạch.</div>
+
+<h3>Phần C — Đọc đường cong loss + chốt trần P (20 phút)</h3>
+<p>Đường cong loss điển hình giảm rất nhanh lúc đầu rồi bão hòa — càng về cuối càng dốc ít đi. Chính điểm bão hòa đó mới cho biết model này "khôn được tới đâu":</p>
+<div class="card">
+<p><b>Quy tắc chốt P (buổi sáng đã định):</b></p>
+<div class="formula">P = PPL tại điểm bão hòa × (1 + biên an toàn 10–15%)</div>
+<ol>
+<li><b>Vẽ đường cong:</b> 8 điểm eval (mỗi 25M token) — train loss + held-out PPL trên cùng một đồ thị. Đánh dấu điểm PPL nền tối qua (2–5M token) làm gốc.</li>
+<li><b>Tìm điểm bão hòa:</b> khoảng 25M token cuối, PPL giảm dưới 2% thì coi là bão hòa. Nếu chưa bão hòa ở 200M token — ghi rõ "A chưa bão hòa, P là ước tính thấp" và cân nhắc train thêm (xem Phần E).</li>
+<li><b>Chốt P:</b> P = PPL bão hòa + biên 10–15%. Biên này để P là <b>mục tiêu đạt được</b>, không phải kỷ lục may mắn của một checkpoint. Ghi P vào scope sheet kèm công thức tính và số checkpoint đã dùng.</li>
+<li><b>Kiểm tra ngược:</b> PPL cuối có thấp hơn PPL nền tối qua bao nhiêu lần? Nếu cải thiện dưới 2 lần sau 40 lần dữ liệu — đó là tín hiệu model đã chạm trần dung lượng, không phải dữ liệu thiếu.</li>
+</ol>
+<p><b>Ví dụ minh họa (không phải số thật — thay bằng số đo của bạn):</b> PPL nền 120 → PPL cuối 38, bão hòa từ ~150M token → P = 38 × 1,15 ≈ <b>44</b>. Từ nay mọi cấu hình sau (B, C) đều phải đạt PPL ≤ 44 mới được coi là "đạt", và A là baseline mọi so sánh sau này đều đối chiếu vào.</p>
+</div>
+
+<h3>Phần D — Trả lời 5 câu hỏi định hướng buổi sáng (10 phút)</h3>
+<p>Trả lời bằng lời của mình, mỗi câu 2–4 dòng — dùng kết quả đo tối nay làm bằng chứng:</p>
+<div class="card">
+<ol>
+<li><b>Q1:</b> Vì sao tối ưu chi phí train và tối ưu tổng chi phí (train + inference) lại cho đáp án khác nhau về kích thước model — và đáp án nào quan trọng hơn với đề tài của bạn?</li>
+<li><b>Q2:</b> D<sub>inf</sub> của Tiny Vietnamese LM thực tế ước tính thế nào — ai sẽ dùng model này, mỗi người bao nhiêu lượt, và tổng cộng khoảng bao nhiêu token trong cả đời model?</li>
+<li><b>Q3:</b> Besiroglu refit thay đổi kết luận Day 34 ở điểm nào, và điểm nào giữ nguyên — tỉ lệ 20 token/tham số còn đáng tin để lập kế hoạch không?</li>
+<li><b>Q4:</b> Overtraining trên dữ liệu lặp lại (2,5–3 epoch như cấu hình B/C) khác gì overtraining trên dữ liệu mới (như Llama 3 70B train 15 nghìn tỉ token) — cái nào rủi ro hơn, và vì sao Day 33 vẫn cho phép tới 3–4 epoch?</li>
+<li><b>Q5:</b> Bằng chứng nào — số đo nào tối nay (tokens/s, MFU, PPL nền, đường cong loss) — sẽ khiến bạn đổi từ A sang C?</li>
+</ol>
+</div>
+
+<h3>Phần E — Cập nhật scope sheet Day 31: N + P đã chốt (10 phút)</h3>
+<p>Mở scope sheet Day 31, điền 2 quyết định bằng số đo tối nay:</p>
+<div class="card">
+<ul>
+<li><b>Cấu hình chính:</b> A (10M, 1 epoch, 200M token) — ghi thời gian train thật + PPL cuối + kWh đo được. Nếu PPL cuối chưa đạt kỳ vọng, ghi rõ "A làm baseline, chưa khóa làm cấu hình cuối".</li>
+<li><b>Trần P:</b> P = … (PPL bão hòa × 1,10–1,15) — ghi công thức + checkpoint dùng để chốt + điều kiện "P chỉ có giá trị trên đúng held-out đã đóng băng".</li>
+<li><b>Cấu hình dự phòng B:</b> kích hoạt khi nào — vd: "nếu PPL cuối của A cao hơn P kỳ vọng, hoặc nếu đường cong chưa bão hòa ở 200M token".</li>
+<li><b>Giả định còn mở:</b> U<sub>D</sub> thật (đã đo trên toàn bộ dump tối nay — ghi số thật, thay số ước tính), D<sub>inf</sub> thật (câu Q2 — ghi ước tính đầu tiên, sẽ chỉnh sau).</li>
+</ul>
+</div>
+
+<h2>3 · Checklist tự đánh giá</h2>
+<ul class="check">
+<li><input type="checkbox" onclick="this.parentElement.classList.toggle('done')"> Dữ liệu 200M token đã qua dedup đầy đủ (không lặp lại) + held-out 1% đóng băng từ tối qua, không tách lại</li>
+<li><input type="checkbox" onclick="this.parentElement.classList.toggle('done')"> Train xong A đầy đủ 200M token (hoặc dừng sớm có lý do ghi rõ), checkpoint + loss_curve.csv đầy đủ 8 điểm eval</li>
+<li><input type="checkbox" onclick="this.parentElement.classList.toggle('done')"> Đo được thời gian train thật + tokens/s + MFU, đối chiếu ~8 phút ngoại suy tối qua</li>
+<li><input type="checkbox" onclick="this.parentElement.classList.toggle('done')"> Vẽ được đường cong loss, xác định được điểm bão hòa (hoặc ghi rõ "chưa bão hòa")</li>
+<li><input type="checkbox" onclick="this.parentElement.classList.toggle('done')"> Chốt được trần P = PPL bão hòa × 1,10–1,15, kèm công thức + checkpoint đã dùng</li>
+<li><input type="checkbox" onclick="this.parentElement.classList.toggle('done')"> Tính được năng lượng train A (kWh) và ghi vào scope sheet</li>
+<li><input type="checkbox" onclick="this.parentElement.classList.toggle('done')"> Trả lời đủ 5 câu hỏi định hướng, mỗi câu 2–4 dòng, có bằng chứng từ số đo</li>
+<li><input type="checkbox" onclick="this.parentElement.classList.toggle('done')"> Scope sheet đã cập nhật: N + P + dự phòng B + điều kiện kích hoạt; không con số nào là số bịa</li>
+</ul>
+
+<h2>4 · Tự kiểm tra nhanh</h2>
+<div class="qa">
+<p><b>Câu 1.</b> Vì sao trần P phải chốt bằng PPL tại điểm bão hòa, cộng biên an toàn — mà không chốt bằng PPL tốt nhất đo được ở bất kỳ checkpoint nào?</p>
+<button onclick="this.nextElementSibling.classList.toggle('show')">Hiện đáp án</button>
+<div class="ans">PPL tốt nhất ở một checkpoint có thể là may mắn (nhiễu eval, một batch dễ) — chốt bằng nó thì P thành kỷ lục khó lặp lại. PPL bão hòa là mức model đạt <b>ổn định</b> sau khi train đủ, cộng biên 10–15% để P là mục tiêu đạt được chắc chắn, không phải con số may mắn.</div>
+</div>
+<div class="qa">
+<p><b>Câu 2.</b> Train thêm từ 150M lên 200M token mà PPL chỉ giảm 1%: nên train tiếp lên 300M token hay dừng lại?</p>
+<button onclick="this.nextElementSibling.classList.toggle('show')">Hiện đáp án</button>
+<div class="ans">Dừng lại — đó chính là bão hòa: mỗi token thêm vào cho lợi ích gần như bằng không mà vẫn tốn điện. Train tiếp chỉ hợp lý khi bạn đổi thứ khác (tăng N, thêm dữ liệu mới), không phải khi lặp lại cùng một công thức đã bão hòa.</div>
+</div>
+<div class="qa">
+<p><b>Câu 3.</b> A rẻ hơn C ~4,3 lần ở D<sub>inf</sub> = 10 tỉ token. Nếu D<sub>inf</sub> thật chỉ là 100 triệu token thì thứ tự A/B/C có đổi không — vì sao?</p>
+<button onclick="this.nextElementSibling.classList.toggle('show')">Hiện đáp án</button>
+<div class="ans">Có thể đổi. Khi D<sub>inf</sub> nhỏ, chi phí inference (2N·D<sub>inf</sub>) không còn áp đảo chi phí train (6ND) nữa — lợi thế "model nhỏ" của A thu hẹp, và C có thể thắng nhờ chất lượng cao hơn với chi phí tổng chênh lệch không đáng kể. Đó là lý do Q2 bắt bạn ước tính D<sub>inf</sub> thật trước khi khóa quyết định.</div>
+</div>
+
+<h2>5 · Câu hỏi phản biện — trả lời trong chat</h2>
+<p>Trả lời 5 câu dưới đây trong chat (ngắn gọn, mỗi câu 2–4 dòng). Đây là phần advisor chấm — trả lời thật, không trả lời cho "đúng ý thầy":</p>
+<div class="card">
+<ol>
+<li><b>Phản biện 1:</b> "200M token train trong 8 phút — một buổi tối chạy xong cả A. Vậy thì đề tài này dễ quá, đâu còn gì để nghiên cứu? Bạn đang làm luận văn hay làm bài tập lớn?"</li>
+<li><b>Phản biện 2:</b> "Bạn chốt P bằng PPL của chính model bạn train — tự đặt thước rồi tự đo, tự chấm mình đạt. Đó không phải là tiêu chí khoa học, đó là tự sướng. Phản biện lại đi."</li>
+<li><b>Phản biện 3:</b> "Besiroglu đã chứng minh luật Chinchilla không vững như tưởng. Toàn bộ bảng A/B/C của bạn dựng trên D/N = 20 — nếu tỉ lệ đó sai, cả đề tài sụp. Bạn dựa vào đâu mà vẫn tin nó?"</li>
+<li><b>Phản biện 4:</b> "Loss bão hòa có thể chỉ vì learning rate đã decay về gần 0 (cosine schedule), chứ không phải model đã học hết dữ liệu. Đường cong của bạn đo 'bão hòa' hay đo 'hết xăng'?"</li>
+<li><b>Phản biện 5:</b> "A rẻ hơn C 4,3 lần — nhưng rẻ hơn không có nghĩa là tốt hơn. Một model 10M tham số tiếng Việt liệu có đủ 'khôn' để dùng thật không, hay chỉ là đồ chơi đo PPL cho đẹp báo cáo?"</li>
+</ol>
+</div>
+
+<h2>6 · Bẫy thường gặp</h2>
+<div class="warn">
+<p><b>🪤 Bẫy 1 — Chốt P bằng PPL đo trên train set.</b> PPL trên dữ liệu đã train luôn thấp giả tạo (model đã "thấy" đáp án). P chỉ có nghĩa khi đo trên held-out đóng băng — cùng một tập cho mọi cấu hình.</p>
+<p><b>🪤 Bẫy 2 — Lấy PPL tốt nhất của 1 checkpoint may mắn làm P.</b> Một checkpoint có thể "trúng" batch eval dễ. P phải lấy ở điểm bão hòa ổn định (2 lần eval liên tiếp chênh dưới 2%), cộng biên an toàn.</p>
+<p><b>🪤 Bẫy 3 — Nhầm bão hòa do learning rate decay với bão hòa do hết dung lượng.</b> Cosine decay về 0 làm loss ngừng giảm dù model còn học được. Muốn phân biệt: giữ LR cố định ở mức nhỏ trong 10M token cuối — nếu PPL vẫn đứng yên thì mới là bão hòa thật.</p>
+<p><b>🪤 Bẫy 4 — So sánh A vs C khi D<sub>inf</sub> chưa ước tính.</b> Chưa biết model sẽ được dùng bao nhiêu thì mọi bảng tổng chi phí chỉ là giả định minh họa. Khóa N trước khi trả lời Q2 là khóa quyết định bằng số giả định.</p>
+</div>
+
+<h2>7 · Hướng cải tiến cho ngày mai (Day 36)</h2>
+<div class="rq"><b>Ngày mai:</b> P đã chốt thì A trở thành <b>baseline chính thức</b> — mọi thí nghiệm sau đều đối chiếu vào P. Hướng đi: chạy cấu hình B (25M / 500M token / 2,5 epoch) để có điểm so sánh thứ hai trên đường cong scaling — kiểm chứng xem tăng N có cải thiện PPL đủ để bù chi phí inference gấp ~2,7 lần không. Mang theo 3 thứ tối nay: code train_full_a.py đã chạy được, loss_curve.csv + checkpoint cuối của A, và scope sheet đã có P. Nếu A chưa bão hòa ở 200M token: ngày mai train tiếp A thêm 50M token dữ liệu mới (không lặp) thay vì chạy B.</div>
+
+<h2>8 · Checklist nộp bài</h2>
+<p>Paste vào chat để được nhận xét chi tiết:</p>
+<ul class="check">
+<li><input type="checkbox" onclick="this.parentElement.classList.toggle('done')"> Số đo Day 34 (nếu chưa nộp): tokens/s + MFU + PPL nền (kèm GPU/batch đã dùng)</li>
+<li><input type="checkbox" onclick="this.parentElement.classList.toggle('done')"> loss_curve.csv (8 điểm eval) + thời gian train thật + tokens/s + MFU + kWh</li>
+<li><input type="checkbox" onclick="this.parentElement.classList.toggle('done')"> PPL cuối + điểm bão hòa + trần P đã chốt (kèm công thức và checkpoint dùng để chốt)</li>
+<li><input type="checkbox" onclick="this.parentElement.classList.toggle('done')"> Đáp án 5 câu hỏi định hướng (Q1–Q5)</li>
+<li><input type="checkbox" onclick="this.parentElement.classList.toggle('done')"> Trả lời 5 câu hỏi phản biện (mục 5)</li>
+<li><input type="checkbox" onclick="this.parentElement.classList.toggle('done')"> Scope sheet đã cập nhật N + P (chính + dự phòng B + điều kiện kích hoạt)</li>
+</ul>
+
+<div class="footer">Ngày 35 — Buổi tối · Phase 2 · Đề tài: Tiny Vietnamese LM · RQ: train vượt Chinchilla (Sardana &amp; Frankle 2024 + Besiroglu et al. 2024) · Dữ liệu: Wikipedia-vi (dump 01/11/2026) · Ngày mai (Day 36): chạy cấu hình B làm điểm so sánh thứ hai — hoặc train tiếp A nếu chưa bão hòa.</div>
+</div>
+<script>
+document.querySelectorAll('.check li input').forEach(function(cb){
+  cb.addEventListener('change', function(){ this.parentElement.classList.toggle('done', this.checked); });
+});
+</script>
+</body>
+</html>
