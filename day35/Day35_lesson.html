@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ngày 35 — Train vượt Chinchilla: mô hình nhỏ train lâu có thắng mô hình lớn?</title>
+<style>
+:root{--bg:#0a0f1e;--card:#101830;--line:#22305a;--gold:#f5c542;--green:#4ade80;--red:#f87171;--violet:#a78bfa;--cyan:#67e8f9;--text:#e8edf7;--muted:#93a0bd;}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;line-height:1.75;font-size:16.5px;}
+.wrap{max-width:860px;margin:0 auto;padding:18px 16px 60px;}
+.kicker{display:inline-block;font-size:13px;letter-spacing:1px;color:var(--gold);font-weight:700;margin-bottom:8px;}
+h1{font-size:29px;line-height:1.3;margin:6px 0 10px;}
+.sub{color:var(--muted);font-size:16.5px;}
+h2{color:var(--gold);font-size:22px;margin:34px 0 10px;border-bottom:1px solid var(--line);padding-bottom:6px;}
+h3{color:var(--cyan);font-size:18px;margin:22px 0 8px;}
+p{margin:10px 0;}
+ul,ol{margin:8px 0 8px 22px;padding:0;}
+li{margin:6px 0;}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 20px;margin:16px 0;}
+.note{border-left:4px solid var(--green);background:#0f2233;border-radius:0 12px 12px 0;padding:12px 16px;margin:16px 0;}
+.warn{border-left:4px solid var(--red);background:#2a1218;border-radius:0 12px 12px 0;padding:12px 16px;margin:16px 0;}
+.formula{background:#0a1428;border:1px solid var(--line);border-radius:10px;padding:12px 16px;font-family:"SF Mono",Consolas,Menlo,monospace;font-size:16px;text-align:center;margin:14px 0;color:var(--cyan);}
+table{width:100%;border-collapse:collapse;margin:14px 0;font-size:15.5px;}
+th,td{border:1px solid var(--line);padding:9px 12px;text-align:left;}
+th{background:#141d3a;color:var(--gold);}
+.diagram{background:#0a1428;border:1px solid var(--line);border-radius:12px;padding:10px;margin:14px 0;}
+.diagram svg{display:block;margin:0 auto;max-width:100%;height:auto;}
+.diagram .cap{text-align:center;color:var(--muted);font-size:14px;margin-top:6px;}
+.diagram img{display:block;margin:0 auto;max-width:100%;height:auto;border-radius:10px;}
+.tag{display:inline-block;background:#1a2447;border:1px solid var(--line);border-radius:20px;padding:2px 12px;font-size:13.5px;color:var(--cyan);margin:2px 4px 2px 0;}
+a{color:var(--gold);}
+.btn{display:inline-block;background:var(--gold);color:#14100a;font-weight:700;border-radius:10px;padding:12px 22px;text-decoration:none;margin:8px 8px 0 0;}
+.btn.ghost{background:transparent;color:var(--gold);border:2px solid var(--gold);}
+.footer{color:var(--muted);font-size:14px;margin-top:40px;border-top:1px solid var(--line);padding-top:14px;}
+b.hl{color:var(--gold);}
+code{background:#1a2447;padding:1px 6px;border-radius:5px;font-size:15px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+<span class="kicker">PHASE 2 · NGÀY 35 / 60 · ADVISOR SEMINAR · ĐỀ TÀI: TINY VIETNAMESE LM</span>
+<h1>Ngày 35 — Train vượt Chinchilla: mô hình nhỏ train lâu có thắng mô hình lớn?</h1>
+<p class="sub">Hôm qua (Day 34) ta chốt: giữ tỉ lệ D/N = 20 thì model càng to càng cần train càng lâu — và 3 cấu hình A/B/C đều đạt chuẩn Chinchilla. Nhưng Chinchilla chỉ trả lời câu "train thế nào cho rẻ". Câu hỏi hôm nay khó hơn một bậc: <b>train rẻ chưa chắc dùng rẻ</b>. Một model nhỏ train rất lâu có thể thắng model lớn khi tính cả chi phí phục vụ cả đời — và chính điều đó sẽ quyết định ta chọn A, B hay C cho đề tài tiết kiệm năng lượng này.</p>
+
+<div class="diagram">
+<img src="img/hero35.webp" alt="Minh họa: một mô hình ngôn ngữ nhỏ gọn nhưng được train rất lâu, đối đầu với một mô hình khổng lồ — cán cân chi phí nghiêng về phía model nhỏ khi phục vụ nhiều lượt">
+<div class="cap">Hình minh họa — Model nhỏ train lâu hay model lớn train vừa đủ: đáp án đổi khi tính cả chi phí phục vụ.</div>
+</div>
+
+<div class="note"><b>📌 Nhắc nhẹ về Day 34:</b> cả 3 cấu hình đều giữ <b>D/N = 20</b> — A: 10M tham số / 200M token / 1 epoch, B: 25M / 500M / 2,5 epoch, C: 37M / 744M / 3 epoch. Mọi tính toán hôm nay đều xây trên 3 cấu hình này; nếu chưa chốt bảng Day 34 thì hoàn thiện trước khi đọc Phần 3.</div>
+
+<h2>Nhiệm vụ hôm nay</h2>
+<ol>
+<li><b>Đọc 2 paper:</b> Sardana &amp; Frankle (2024), "Beyond Chinchilla-Optimal: Accounting for Inference in Language Model Scaling Laws" (<a href="https://arxiv.org/abs/2401.00448">arXiv:2401.00448</a>) và Besiroglu et al. (2024), "Chinchilla Scaling: A Replication Attempt" (<a href="https://arxiv.org/abs/2404.10102">arXiv:2404.10102</a>). Trả lời: với đề tài tiết kiệm năng lượng, cấu hình nào đáng chọn và vì sao.</li>
+<li><b>Nộp số đo lab tối Day 34</b> (tokens/s, MFU, PPL nền của cấu hình A) vào session tối để chốt trần perplexity P — xem quy trình ở Phần 4.</li>
+<li><b>Khoanh 1 cấu hình chính + 1 dự phòng vào scope sheet Day 31</b> (chọn trong A/B/C) kèm 1 câu lý do bằng số.</li>
+</ol>
+
+<h2>Mục tiêu buổi học</h2>
+<p>Sau buổi sáng nay, bạn sẽ (1) viết được công thức tổng chi phí train + inference và giải thích vì sao điểm tối ưu trượt về model nhỏ khi phục vụ nhiều; (2) đánh giá được độ tin cậy của luật scaling sau nỗ lực nhân bản của Besiroglu et al.; (3) chọn được cấu hình chính cho Tiny Vietnamese LM bằng số liệu tổng chi phí — và biết khi nào cần chốt trần perplexity P.</p>
+
+<h2>1 · Chinchilla chỉ tối ưu chi phí train — chưa tính chi phí dùng</h2>
+<p><b>Định nghĩa ngắn:</b> <b>tổng chi phí vòng đời</b> của một model là chi phí train một lần cộng với chi phí phục vụ (inference) cho mọi token model sẽ sinh ra trong cả đời nó. Gọi D<sub>inf</sub> là số token phục vụ trong cả đời model, ta có:</p>
+<div class="formula">C<sub>tổng</sub> = 6ND + 2N · D<sub>inf</sub></div>
+<p>Số hạng đầu, <b>6ND</b>, là chi phí train — quen thuộc từ Day 34 (6 FLOPs cho mỗi tham số, mỗi token: 2 cho forward, 4 cho backward). Số hạng sau, <b>2N·D<sub>inf</sub></b>, là chi phí inference: mỗi token sinh ra tốn khoảng <b>2N FLOPs</b> (chỉ forward, không backward), nhân với tổng số token sẽ phục vụ. Chinchilla tối ưu chỉ số hạng đầu — tức giả định ngầm D<sub>inf</sub> = 0, model train xong rồi… cất tủ.</p>
+<p><b>Ví dụ cụ thể:</b> Sardana &amp; Frankle (2024) chỉ ra rằng khi D<sub>inf</sub> lớn, số hạng inference lấn át chi phí train, và điểm tối ưu <b>trượt về model NHỎ train NHIỀU token hơn mức Chinchilla</b> — vì model nhỏ thì mỗi lần dùng rẻ hơn, và khoản tiết kiệm đó nhân lên theo từng token phục vụ. Bằng chứng thực tế: <b>Llama 3 70B train ~15 nghìn tỉ token</b> — hàng trăm token cho mỗi tham số, vượt xa tỉ lệ Chinchilla 20 — một lựa chọn <b>overtraining có chủ đích</b>: trả thêm chi phí train một lần để mỗi lần dùng sau này rẻ hơn. SmolLM đi cùng hướng. Kết luận của phần này, ghi nhớ bằng một câu: <b>"Chinchilla trả lời 'train rẻ nhất', không trả lời 'dùng rẻ nhất'."</b></p>
+<div class="diagram">
+<svg viewBox="0 0 760 340" xmlns="http://www.w3.org/2000/svg" font-family="sans-serif">
+<rect x="0" y="0" width="760" height="340" fill="#0a1428"/>
+<text x="380" y="28" fill="#f5c542" font-size="17" font-weight="bold" text-anchor="middle">Tổng chi phí = chi phí train (1 lần) + chi phí inference (nhân theo D_inf)</text>
+<text x="90" y="70" fill="#e8edf7" font-size="15" font-weight="bold">Model lớn (C · 37M)</text>
+<rect x="90" y="78" width="150" height="34" fill="#a78bfa"/>
+<text x="246" y="100" fill="#a78bfa" font-size="13">train: 1,65×10¹⁷</text>
+<rect x="90" y="118" width="470" height="34" fill="#f87171"/>
+<text x="566" y="140" fill="#f87171" font-size="13">inference: 7,4×10¹⁷</text>
+<text x="90" y="185" fill="#e8edf7" font-size="15" font-weight="bold">Model nhỏ (A · 10M)</text>
+<rect x="90" y="193" width="41" height="34" fill="#4ade80"/>
+<text x="137" y="215" fill="#4ade80" font-size="13">train: 1,2×10¹⁶</text>
+<rect x="90" y="233" width="127" height="34" fill="#67e8f9"/>
+<text x="223" y="255" fill="#67e8f9" font-size="13">inference: 2,0×10¹⁷</text>
+<text x="90" y="305" fill="#93a0bd" font-size="13.5">Với D_inf = 10 tỉ token (giả định minh họa): thanh đỏ của model lớn dài gấp ~4 lần tổng chi phí của model nhỏ.</text>
+</svg>
+<div class="cap">Hình 1 — Chi phí train của model lớn chỉ là phần nhỏ; chi phí inference (thanh đỏ) mới là phần chi phối tổng chi phí khi model được dùng nhiều.</div>
+</div>
+<div class="warn"><b>⚠️ Lỗi thường gặp:</b> so sánh A/B/C chỉ bằng FLOPs train rồi kết luận "C mạnh nhất, A rẻ nhất" mà quên D<sub>inf</sub>. Nếu model sẽ phục vụ hàng tỉ token, thứ tự "rẻ" có thể đảo ngược hoàn toàn — xem bảng ở Phần 3.</div>
+
+<h2>2 · Besiroglu 2024 — thử nhân bản lại Chinchilla và bài học về độ tin cậy</h2>
+<p><b>Định nghĩa ngắn:</b> <b>nhân bản (replication)</b> là chạy lại thí nghiệm của người khác — cùng phương pháp, dữ liệu khác hoặc cùng dữ liệu — để kiểm tra kết luận có đứng vững không. Besiroglu et al. (2024) thử tái tạo <b>Approach 3</b> của Chinchilla, một trong 3 cách ước lượng luật scaling mà Hoffmann et al. dùng.</p>
+<p>Chinchilla ước lượng luật scaling bằng <b>3 cách</b>: Approach 1 — khớp đường cong loss theo N ở từng mức ngân sách rồi ngoại suy; Approach 2 — khớp loss theo C cho từng N rồi tìm điểm tối ưu; Approach 3 — khớp trực tiếp một công thức dạng L(N, D) = E + A/N<sup>α</sup> + B/D<sup>β</sup> trên toàn bộ các lần chạy. Besiroglu et al. phát hiện: <b>các hằng số công bố của Approach 3 KHÔNG nhất quán với Approach 1 và 2</b> — cùng một dữ liệu mà ba cách cho ba đáp án khác nhau về hằng số. Khi họ khớp lại (refit) công thức trên dữ liệu của chính Chinchilla, họ thu được:</p>
+<div class="formula">E = 1,8172 &nbsp;·&nbsp; A = 482,01 &nbsp;·&nbsp; B = 2085,43 &nbsp;·&nbsp; α = 0,3478 &nbsp;·&nbsp; β = 0,3658</div>
+<p><b>Ví dụ cụ thể:</b> hằng số thay đổi, nhưng <b>tỉ lệ tối ưu sau refit vẫn gần 20 token/tham số</b> — kết luận thực hành của Day 34 (D/N = 20, bảng A/B/C) vì vậy vẫn đứng vững. Điều thay đổi là độ tin cậy: con số 20 không phải hằng số vật lý, mà là <b>ước lượng có khoảng tin cậy</b>, phụ thuộc vào dữ liệu và cách khớp. Bài học cho đề tài: <b>dùng luật scaling để lập kế hoạch, quyết định cuối bằng số đo thật của mình</b> — đúng như buổi tối nay sẽ làm với cấu hình A.</p>
+<div class="note"><b>📌 Ghi chú cho RQ của đề tài:</b> trong báo cáo cuối kỳ, khi trích luật scaling phải nêu cả hai mặt: tỉ lệ 20 token/tham số (Chinchilla 2022) <b>và</b> cảnh báo về độ nhất quán từ Besiroglu et al. (2024). Một nghiên cứu tốt không giấu điểm yếu của nền tảng mình đứng trên — nó ghi rõ điểm yếu đó và bù bằng số đo của chính mình.</div>
+
+<h2>3 · Áp dụng cho Tiny Vietnamese LM: A, B hay C?</h2>
+<p>Áp công thức C<sub>tổng</sub> = 6ND + 2N·D<sub>inf</sub> vào đúng 3 cấu hình Day 34, với <b>giả định minh họa D<sub>inf</sub> = 10 tỉ token phục vụ</b> (ghi rõ: đây là giả định để so sánh, con số thật tùy lượng dùng thực tế của model sau này):</p>
+<table>
+<tr><th>Cấu hình</th><th>N</th><th>D</th><th>Epoch</th><th>C<sub>train</sub> = 6ND</th><th>C<sub>inference</sub> (D<sub>inf</sub>=10B)</th><th>C<sub>tổng</sub></th><th>Ghi chú</th></tr>
+<tr><td><b>A — Nhỏ, train lâu</b></td><td>10M</td><td>200M</td><td>1</td><td>1,2×10¹⁶</td><td>2,0×10¹⁷</td><td><b>2,12×10¹⁷</b></td><td>Rẻ nhất khi dùng nhiều</td></tr>
+<tr><td><b>B — Cân bằng</b></td><td>25M</td><td>500M</td><td>2,5</td><td>7,5×10¹⁶</td><td>5,0×10¹⁷</td><td><b>5,75×10¹⁷</b></td><td>Dự phòng cân bằng</td></tr>
+<tr><td><b>C — Lớn, Chinchilla-tối ưu</b></td><td>37M</td><td>744M</td><td>3</td><td>1,65×10¹⁷</td><td>7,4×10¹⁷</td><td><b>9,05×10¹⁷</b></td><td>Chỉ thắng khi inference ít</td></tr>
+</table>
+<p>Cách đọc bảng: khi D<sub>inf</sub> = 0 (chỉ train, không dùng), C đắt nhất nhưng loss thấp nhất theo Chinchilla — vì lúc đó chỉ còn số hạng train, và C train lâu nhất trên nhiều dữ liệu nhất. Nhưng với D<sub>inf</sub> = 10 tỉ token, <b>A rẻ hơn C ~4,3 lần tổng chi phí</b> (9,05×10¹⁷ ÷ 2,12×10¹⁷ ≈ 4,3). Chi phí inference chiếm hơn 90% tổng chi phí của cả ba cấu hình — phần train gần như không đáng kể khi model được dùng nhiều.</p>
+<div class="diagram">
+<img src="img/overtrain.webp" alt="Minh họa: đường cong chi phí tổng thể hình chữ U — điểm tối ưu trượt về phía model nhỏ hơn khi tính cả chi phí inference">
+<div class="cap">Hình minh họa — Khi tính cả inference, đáy của đường cong chi phí trượt về phía model nhỏ.</div>
+</div>
+<div class="diagram">
+<svg viewBox="0 0 760 320" xmlns="http://www.w3.org/2000/svg" font-family="sans-serif">
+<rect x="0" y="0" width="760" height="320" fill="#0a1428"/>
+<text x="380" y="28" fill="#f5c542" font-size="17" font-weight="bold" text-anchor="middle">Điểm tối ưu trượt về model nhỏ khi tính cả inference</text>
+<line x1="70" y1="270" x2="720" y2="270" stroke="#22305a" stroke-width="2"/>
+<line x1="70" y1="270" x2="70" y2="50" stroke="#22305a" stroke-width="2"/>
+<text x="390" y="302" fill="#93a0bd" font-size="14" text-anchor="middle">Kích thước model N →</text>
+<text x="24" y="160" fill="#93a0bd" font-size="14" text-anchor="middle" transform="rotate(-90 24 160)">Tổng chi phí</text>
+<path d="M 100 110 Q 380 250 700 120" stroke="#4ade80" stroke-width="3" fill="none"/>
+<text x="620" y="100" fill="#4ade80" font-size="13" font-weight="bold">Chỉ tính train:</text>
+<text x="620" y="118" fill="#4ade80" font-size="13" font-weight="bold">tối ưu ở C</text>
+<path d="M 100 220 Q 260 110 700 260" stroke="#f87171" stroke-width="3" fill="none"/>
+<text x="200" y="90" fill="#f87171" font-size="13" font-weight="bold">Tính cả inference (D_inf lớn):</text>
+<text x="200" y="108" fill="#f87171" font-size="13" font-weight="bold">tối ưu trượt về A</text>
+<circle cx="380" cy="212" r="6" fill="#4ade80"/>
+<circle cx="250" cy="118" r="6" fill="#f87171"/>
+<text x="250" y="150" fill="#f5c542" font-size="13" font-weight="bold" text-anchor="middle">Đáy mới: A</text>
+<text x="380" y="240" fill="#f5c542" font-size="13" font-weight="bold" text-anchor="middle">Đáy cũ: C</text>
+</svg>
+<div class="cap">Hình 2 — Đường xanh: tổng chi phí khi chỉ tính train, đáy ở model lớn (C). Đường đỏ: tính cả inference, đáy trượt về model nhỏ (A).</div>
+</div>
+<p><b>Kết luận:</b> với đề tài tiết kiệm năng lượng và một model sẽ được dùng nhiều, <b>A là ứng viên mạnh nhất</b> — train dài (200M token, 1 epoch), rẻ khi dùng (mỗi token phục vụ chỉ tốn 2×10M FLOPs). <b>C chỉ thắng khi inference ít</b> — tức model train xong chủ yếu để đo benchmark rồi cất, không phục vụ thật. <b>B là dự phòng cân bằng</b> nếu A đo ra loss chưa đủ tốt. Lưu ý: D<sub>inf</sub> = 10 tỉ token chỉ là giả định minh họa — nếu lượng dùng thực tế nhỏ hơn nhiều, thứ tự A/B/C có thể đổi; đó là lý do Câu hỏi định hướng Q2 yêu cầu bạn ước tính D<sub>inf</sub> thật của đề tài.</p>
+
+<h2>4 · Đọc đường cong loss của cấu hình A để chốt trần P</h2>
+<p><b>Định nghĩa ngắn:</b> <b>PPL (perplexity)</b> = exp(loss trung bình trên tập held-out) — loss càng thấp, PPL càng thấp, model càng "chắc chắn" khi dự đoán token tiếp theo. <b>Trần P</b> là ngưỡng perplexity mà đề tài đặt ra làm tiêu chí thành công: model đạt PPL ≤ P thì coi như đạt. PPL của model chưa train ≈ 4000 (vocab/2, với vocab 8k) — đó là mức "đoán bừa" khi chưa học gì.</p>
+<p><b>Ví dụ cụ thể:</b> PPL nền đo tối Day 34 chỉ là sau <b>2–5 triệu token train thử</b> — tức mới đi được <b>~1–2% chặng đường của A</b> (200M token). Đó là <b>điểm xuất phát</b> của đường cong loss, không phải đích đến. Đường cong loss điển hình giảm rất nhanh lúc đầu rồi <b>bão hòa</b> — càng về cuối càng dốc ít đi, và chính điểm bão hòa đó mới cho biết model này "khôn được tới đâu".</p>
+<div class="diagram">
+<svg viewBox="0 0 760 320" xmlns="http://www.w3.org/2000/svg" font-family="sans-serif">
+<rect x="0" y="0" width="760" height="320" fill="#0a1428"/>
+<text x="380" y="28" fill="#f5c542" font-size="17" font-weight="bold" text-anchor="middle">Đường cong loss của cấu hình A: giảm nhanh rồi bão hòa</text>
+<line x1="70" y1="270" x2="720" y2="270" stroke="#22305a" stroke-width="2"/>
+<line x1="70" y1="270" x2="70" y2="50" stroke="#22305a" stroke-width="2"/>
+<text x="390" y="302" fill="#93a0bd" font-size="14" text-anchor="middle">Token đã train →</text>
+<text x="24" y="160" fill="#93a0bd" font-size="14" text-anchor="middle" transform="rotate(-90 24 160)">Loss (thấp hơn = tốt hơn)</text>
+<path d="M 90 90 Q 160 200 300 235 Q 500 255 690 260" stroke="#67e8f9" stroke-width="3" fill="none"/>
+<circle cx="110" cy="140" r="6" fill="#f87171"/>
+<text x="110" y="115" fill="#f87171" font-size="13" font-weight="bold" text-anchor="middle">PPL nền</text>
+<text x="110" y="100" fill="#f87171" font-size="13" text-anchor="middle">2–5M token</text>
+<circle cx="660" cy="258" r="6" fill="#4ade80"/>
+<text x="620" y="240" fill="#4ade80" font-size="13" font-weight="bold" text-anchor="middle">Bão hòa → chốt P</text>
+<text x="620" y="222" fill="#4ade80" font-size="13" text-anchor="middle">200M token</text>
+<text x="330" y="195" fill="#93a0bd" font-size="13">Vùng giảm nhanh</text>
+<text x="540" y="285" fill="#93a0bd" font-size="13" text-anchor="middle"></text>
+</svg>
+<div class="cap">Hình 3 — Chấm đỏ: PPL nền sau 2–5M token chỉ là điểm xuất phát. Chấm xanh: sau 200M token đầy đủ, loss bão hòa — đó mới là nơi chốt trần P.</div>
+</div>
+<p><b>Quy trình chốt P (ghi nhớ 3 bước):</b></p>
+<ol>
+<li>Train xong cấu hình A đầy đủ 200M token (buổi tối nay và các buổi tiếp theo).</li>
+<li>Xem loss bão hòa ở đâu trên tập held-out — điểm mà train thêm cũng không giảm nữa.</li>
+<li>P = PPL tại điểm bão hòa, cộng một biên an toàn nhỏ (để P là mục tiêu đạt được, không phải kỷ lục may mắn).</li>
+</ol>
+<div class="warn"><b>⚠️ Cảnh báo — KHÔNG chốt P bằng PPL nền:</b> chốt P bằng PPL nền là chốt bằng <b>2% dữ liệu</b> — sai phương pháp. Tương tự, nếu loss không giảm sau 5M token thì <b>đừng vội kết luận model tệ</b> — kiểm tra learning rate và dữ liệu trước (Day 33 đã dạy: dữ liệu bẩn làm loss đứng yên dù model tốt).</div>
+
+<h2>5 · Câu hỏi định hướng khi đọc paper</h2>
+<ol>
+<li><b>Q1:</b> Vì sao tối ưu chi phí train và tối ưu tổng chi phí (train + inference) lại cho đáp án khác nhau về kích thước model — và đáp án nào quan trọng hơn với đề tài của bạn?</li>
+<li><b>Q2:</b> D<sub>inf</sub> của Tiny Vietnamese LM thực tế ước tính thế nào — ai sẽ dùng model này, mỗi người bao nhiêu lượt, và tổng cộng khoảng bao nhiêu token trong cả đời model?</li>
+<li><b>Q3:</b> Besiroglu refit thay đổi kết luận Day 34 ở điểm nào, và điểm nào giữ nguyên — tỉ lệ 20 token/tham số còn đáng tin để lập kế hoạch không?</li>
+<li><b>Q4:</b> Overtraining trên dữ liệu lặp lại (2,5–3 epoch như cấu hình B/C) khác gì overtraining trên dữ liệu mới (như Llama 3 70B train 15 nghìn tỉ token) — cái nào rủi ro hơn, và vì sao Day 33 vẫn cho phép tới 3–4 epoch?</li>
+<li><b>Q5:</b> Bằng chứng nào — số đo nào tối nay (tokens/s, MFU, PPL nền, đường cong loss) — sẽ khiến bạn đổi từ A sang C?</li>
+</ol>
+
+<h2>⚡ Góc tiết kiệm năng lượng</h2>
+<p>Chi phí train trả một lần, chi phí inference trả <b>mỗi lần dùng</b> — và trong vòng đời của một model được phục vụ thật, <b>inference chiếm phần lớn năng lượng</b>. Model nhỏ train lâu nghĩa là: mỗi lần dùng tốn ít điện hơn, nhân với hàng tỉ lượt dùng thì khoản tiết kiệm là rất lớn. Chọn A là chọn tiết kiệm năng lượng <b>lúc phục vụ</b>, đúng tinh thần đề tài — và đó cũng là lý do ngành đang dịch chuyển sang overtraining: Llama 3 70B, SmolLM đều chấp nhận train lâu hơn để phục vụ rẻ hơn. Với Tiny Vietnamese LM, quyết định này còn rẻ để thử: train A chỉ ~8 phút trên 1 GPU RTX 4090 (MFU ~30% — chỉ là ước tính, số đo thật từ lab tối Day 34), nên đo thử cả A lẫn C rồi so bằng số thật cũng không tốn bao nhiêu điện.</p>
+
+<h2>Tóm tắt</h2>
+<ul>
+<li><b>Tổng chi phí:</b> C<sub>tổng</sub> = 6ND + 2N·D<sub>inf</sub> — inference tốn 2N FLOPs mỗi token, và khi D<sub>inf</sub> lớn, điểm tối ưu trượt về model nhỏ train nhiều token hơn mức Chinchilla.</li>
+<li><b>Bằng chứng overtraining:</b> Llama 3 70B train ~15 nghìn tỉ token (hàng trăm token/tham số) — trả thêm chi phí train một lần để dùng rẻ hơn cả đời.</li>
+<li><b>Besiroglu 2024:</b> hằng số Approach 3 công bố không nhất quán với Approach 1 &amp; 2; refit cho E=1,8172, A=482,01, B=2085,43, α=0,3478, β=0,3658 — nhưng tỉ lệ tối ưu vẫn gần 20 token/tham số.</li>
+<li><b>A/B/C với D<sub>inf</sub>=10B (giả định minh họa):</b> C<sub>tổng</sub> A = 2,12×10¹⁷, B = 5,75×10¹⁷, C = 9,05×10¹⁷ — A rẻ hơn C ~4,3 lần; A là ứng viên mạnh nhất, B dự phòng, C chỉ thắng khi inference ít.</li>
+<li><b>Trần P:</b> chỉ chốt SAU khi train xong A đầy đủ 200M token và thấy loss bão hòa — KHÔNG chốt bằng PPL nền sau 2–5M token (mới ~1–2% chặng đường).</li>
+</ul>
+
+<a class="btn" href="Day35_quiz.html">📝 Làm checklist Ngày 35</a>
+<a class="btn ghost" href="Day35_video.mp4">🎬 Xem video giới thiệu</a>
+<div class="footer">Khóa "Trở thành AI Engineer (LLM)" · Phase 2 · Ngày 35/60 · Đề tài: Tiny Vietnamese LM · Tài liệu tham khảo: Sardana &amp; Frankle 2024 (arXiv:2401.00448) · Besiroglu et al. 2024 (arXiv:2404.10102)</div>
+</div>
+</body>
+</html>
