@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ngày 36 — Giải thích chi tiết: Đánh giá checkpoint A — PPL held-out vs VMLU mẫu</title>
+<style>
+:root{--bg:#0a0f1e; --card:#101830; --line:#22305a; --gold:#f5c542; --green:#4ade80;
+ --red:#f87171; --violet:#a78bfa; --cyan:#67e8f9; --text:#e8edf7; --muted:#93a0bd;}
+*{box-sizing:border-box;}
+body{margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.75; font-size:16.5px;}
+.wrap{max-width:820px; margin:0 auto; padding:18px 16px 60px;}
+.kicker{display:inline-block; font-size:13px; letter-spacing:1px; color:var(--gold); font-weight:700; margin-bottom:8px;}
+h1{font-size:28px; line-height:1.3; margin:6px 0 10px;}
+h2{font-size:22px; margin:34px 0 10px; color:var(--cyan);}
+h3{font-size:18px; margin:22px 0 8px; color:var(--gold);}
+.sub{color:var(--muted); font-size:16.5px;}
+.meta{display:flex; gap:8px; flex-wrap:wrap; margin:14px 0 6px;}
+.meta span{font-size:13.5px; background:var(--card); border:1px solid var(--line); border-radius:999px; padding:5px 14px;}
+.card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px; margin:16px 0;}
+.note{border-left:4px solid var(--green); background:#0f2233; border-radius:0 12px 12px 0; padding:12px 16px; margin:14px 0;}
+.warn{border-left:4px solid var(--red); background:#23141a; border-radius:0 12px 12px 0; padding:12px 16px; margin:14px 0;}
+.rq{background:#141d3a; border:1px solid var(--violet); border-radius:10px; padding:12px 16px; margin:10px 0;}
+.rq b{color:var(--violet);}
+code{background:#0a0f1e; border:1px solid var(--line); border-radius:6px; padding:1px 7px; font-size:15px;}
+pre{background:#0a0f1e; border:1px solid var(--line); border-radius:10px; padding:14px 16px; overflow-x:auto; font-size:14.5px; line-height:1.6; white-space:pre-wrap;}
+table{width:100%; border-collapse:collapse; margin:12px 0; font-size:15px;}
+th,td{border:1px solid var(--line); padding:8px 10px; text-align:left;}
+th{background:#141d3a; color:var(--gold);}
+.footer{color:var(--muted); font-size:14px; margin-top:40px; border-top:1px solid var(--line); padding-top:14px;}
+.formula{background:#0a1428; border:1px solid var(--line); border-radius:10px; padding:12px 16px; font-family:"SF Mono",Consolas,Menlo,monospace; font-size:16px; text-align:center; margin:14px 0; color:var(--cyan);}
+ul li, ol li{margin-bottom:6px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<span class="kicker">PHASE 2 · NGÀY 36 / 60 · GIẢI THÍCH CHI TIẾT · ĐỀ TÀI: TINY VIETNAMESE LM</span>
+<h1>Ngày 36 — Giải thích chi tiết: Đánh giá checkpoint A — PPL held-out vs VMLU mẫu</h1>
+<p class="sub">Tối qua bạn train xong cấu hình A trên trọn 200 triệu token. Sáng nay chưa vội kết luận A tốt hay tệ — vì trước khi đọc bất kỳ con số nào, ta cần một giao thức đo đạc tử tế. Tối nay chạy giao thức đó: đo PPL trên tập held-out đã đóng băng, rồi đo kiến thức thật bằng VMLU mẫu 200 câu, và xem hai con số có kể cùng một câu chuyện không.</p>
+<div class="meta"><span>⏱️ Ước lượng ~120 phút</span><span>📄 Sản phẩm: eval_protocol.md + eval_ppl.py + điểm VMLU mẫu</span><span>🎯 RQ: PPL có phản ánh đúng năng lực thật của model nhỏ?</span></div>
+
+<h2>1 · Mục tiêu của buổi tối</h2>
+<p>Sau buổi tối nay, bạn sẽ:</p>
+<ul>
+<li>Viết xong <code>eval_protocol.md</code> — giao thức đánh giá 3 lớp, ghi rõ tập đo, tokenizer, prompt, seed cố định và quy tắc chọn checkpoint.</li>
+<li>Viết xong <code>eval_ppl.py</code> và đo được PPL held-out của checkpoint A (train trọn 200M token), kèm 4 điều kiện đo.</li>
+<li>Chạy VMLU mẫu 200 câu Vi-MQA trên checkpoint A bằng log-likelihood scoring, 0-shot — có accuracy tổng và theo nhóm môn (STEM / xã hội / nhân văn).</li>
+<li>Đối chiếu hai con số trong sổ lab và trả lời: chúng có kể cùng một câu chuyện không — nếu không, vì sao?</li>
+</ul>
+<div class="note">📌 <b>Vì sao tối nay quan trọng:</b> trần P chỉ có giá trị khi nó đo được bằng một thước đo đáng tin. Nếu PPL của A đẹp mà VMLU ngang đoán mò, thì P bạn chốt tối qua chỉ là một con số đẹp trên giấy — và cả đề tài sẽ xây trên nền cát. Tối nay là phép kiểm tra trung thực đầu tiên của đề tài.</div>
+
+<h2>2 · Perplexity đo cái gì — và nó lừa ta ở đâu?</h2>
+<p>Perplexity (PPL) là thước đo mặc định của mọi lab pretrain, vì nó rẻ, liên tục và so sánh được: chỉ cần cho mô hình đọc một đoạn văn chưa từng thấy và hỏi "mày đoán token tiếp theo giỏi cỡ nào?".</p>
+<div class="formula">PPL = exp( − (1/N) · Σ log p(x<sub>i</sub> | x<sub>&lt;i</sub>) )</div>
+<p>PPL càng thấp càng tốt: PPL = 10 nghĩa là trung bình mô hình phân vân giữa 10 token ứng viên; PPL = 100 nghĩa là phân vân giữa 100 token. Nhưng hãy nhớ: <b>PPL chỉ đo khả năng dự đoán token tiếp theo trên đúng phân phối dữ liệu đó</b>. Nó không đo kiến thức, không đo suy luận, không đo khả năng trả lời đúng một câu hỏi.</p>
+<p>Cùng một mô hình — hai con số PPL khác nhau hoàn toàn: trên tập held-out Wikipedia-vi, PPL có thể ≈ 12 (văn bản giống dữ liệu train); trên văn bản luật / y khoa, PPL có thể ≈ 45 (miền khác hẳn dữ liệu train). Mô hình không thay đổi — chỉ đổi tập đo là số nhảy vọt. <b>PPL không có ý nghĩa nếu không ghi rõ: đo trên tập nào, tokenizer nào.</b></p>
+<h3>Ba cách PPL lừa người làm nghiên cứu</h3>
+<ul>
+<li><b>Lừa 1 — Đo trên tập đã thấy:</b> nếu tập held-out lẫn một đoạn từng xuất hiện trong dữ liệu train (do khử trùng lặp chưa sạch — bài Day 33), PPL đo được thấp giả tạo. Đó là lý do tập held-out của đề tài phải đóng băng từ Day 32 và không bao giờ đưa vào train.</li>
+<li><b>Lừa 2 — PPL thấp nhưng trả lời sai:</b> một mô hình có thể dự đoán rất giỏi văn phong Wikipedia nhưng trả lời sai câu hỏi trắc nghiệm kiến thức, vì "viết giống Wikipedia" và "biết đáp án đúng" là hai kỹ năng khác nhau.</li>
+<li><b>Lừa 3 — So sánh lệch tokenizer:</b> PPL tính theo token. Tokenizer 8k và tokenizer 16k chia cùng một câu thành số token khác nhau, nên PPL của hai mô hình dùng hai tokenizer khác nhau không so được trực tiếp. Muốn so, phải quy về cùng một đơn vị — ví dụ bits-per-byte hoặc cùng một tokenizer khi đo.</li>
+</ul>
+<div class="warn">⚠️ <b>Định luật Goodhart:</b> "Khi một thước đo trở thành mục tiêu, nó không còn là thước đo tốt nữa." Nếu ta chỉ tối ưu PPL, ta sẽ nhận được mô hình giỏi… tối ưu PPL — chưa chắc giỏi làm việc thật. PPL là thước đo rẻ để theo dõi trong lúc train, không phải là phán quyết cuối cùng.</div>
+
+<h2>3 · HELM — đánh giá toàn diện thay vì một con số</h2>
+<p><b>Paper:</b> Liang và cộng sự (2022), <i>Holistic Evaluation of Language Models</i> (HELM), arXiv:2211.09110, đăng trên TMLR 2023. Nhóm Stanford đánh giá 30 mô hình trên 42 kịch bản — và kết luận lớn nhất không phải "mô hình nào thắng", mà là: <b>một con số accuracy không bao giờ đủ</b>.</p>
+<p>HELM tổ chức đánh giá thành một ma trận: <b>16 kịch bản cốt lõi × 7 thước đo</b>. Mỗi ô trong ma trận đều được đo khi có thể (đạt 87,5% số ô). 7 thước đo:</p>
+<table>
+<tr><th>Thước đo</th><th>Hỏi điều gì?</th><th>Ví dụ cho Tiny Vietnamese LM</th></tr>
+<tr><td>Accuracy</td><td>Trả lời đúng bao nhiêu?</td><td>Tỉ lệ đúng trên VMLU</td></tr>
+<tr><td>Calibration</td><td>Mô hình có biết mình không chắc không?</td><td>Khi nói "chắc chắn", có đúng thật không?</td></tr>
+<tr><td>Robustness</td><td>Đổi cách hỏi nhẹ, đáp án có đổi không?</td><td>Xáo trộn thứ tự đáp án A/B/C/D</td></tr>
+<tr><td>Fairness</td><td>Kết quả có lệch theo nhóm đối tượng?</td><td>Giọng văn miền Bắc / miền Nam</td></tr>
+<tr><td>Bias</td><td>Có định kiến trong câu trả lời?</td><td>Gán nghề theo giới tính</td></tr>
+<tr><td>Toxicity</td><td>Có sinh nội dung độc hại?</td><td>Tỉ lệ câu sinh ra bị gắn cờ</td></tr>
+<tr><td>Efficiency</td><td>Tốn bao nhiêu để chạy?</td><td>tokens/s, watt, thời gian suy luận</td></tr>
+</table>
+<h3>Ba bài học của HELM áp thẳng vào đề tài</h3>
+<ul>
+<li><b>Benchmark thể hiện giá trị.</b> Chọn đo cái gì chính là chọn coi trọng cái gì. Đề tài "tiết kiệm năng lượng" mà chỉ đo accuracy thì tự mâu thuẫn — <b>efficiency phải là một cột trong bảng kết quả</b>, ngang hàng với accuracy.</li>
+<li><b>Đa thước đo phơi bày trade-off.</b> Mô hình A có thể thắng B về accuracy nhưng thua về robustness và efficiency. Bảng nhiều cột buộc ta nhìn thấy cái giá phải trả, thay vì giấu nó sau một con số.</li>
+<li><b>Chuẩn hóa cách đo.</b> HELM dùng 5-shot prompting với 3 seed ngẫu nhiên cho mọi mô hình, vì kết quả nhảy rất mạnh theo prompt. Bài học: mọi mô hình A/B/C trong đề tài phải đo bằng đúng một giao thức — cùng prompt, cùng seed, cùng tập đo — nếu không, chênh lệch đo được có thể chỉ là chênh lệch prompt.</li>
+</ul>
+<p>💡 <b>Áp dụng thực tế:</b> ta không cần cả 42 kịch bản của HELM — mô hình 10M tham số chưa đủ sức cho hầu hết chúng. Ta mượn <b>tư duy ma trận</b> của HELM: mỗi mô hình được báo cáo trên vài hàng (kịch bản) × vài cột (thước đo), và mọi con số đều ghi kèm điều kiện đo.</p>
+
+<h2>4 · VMLU — benchmark tiếng Việt cho mô hình nhỏ</h2>
+<p><b>Paper:</b> ZaloAI và JAIST (2025), <i>A Vietnamese Multitask Language Understanding Benchmark Suite</i> (VMLU), vmlu.ai. Đây là bộ benchmark trắc nghiệm tiếng Việt lớn nhất hiện có: <b>10.880 câu hỏi trắc nghiệm, 58 môn học</b>, từ tiểu học đến chuyên ngành (luật, y, dược lâm sàng…), gồm 4 bộ dữ liệu: Vi-MQA (kiến thức tổng quát nhiều môn), Vi-SQuAD (đọc hiểu), Vi-DROP (suy luận rời rạc), Vi-Dialog (hội thoại nhiều lượt).</p>
+<h3>Vì sao VMLU hợp với mô hình nhỏ 10M tham số?</h3>
+<ul>
+<li><b>Đo bằng log-likelihood, không cần sinh văn bản dài.</b> Với mỗi câu trắc nghiệm, ta cho mô hình chấm điểm 4 đáp án và chọn đáp án có xác suất cao nhất. Mô hình nhỏ chưa viết được đoạn văn trôi chảy vẫn đo được kiến thức — điểm số có ý nghĩa ngay cả khi còn thấp.</li>
+<li><b>Điểm gần mức đoán mò vẫn là tín hiệu.</b> Trắc nghiệm 4 lựa chọn thì đoán mò được 25%. Nếu cấu hình A đạt 28–30% trên Vi-MQA thì đó là baseline thật: mô hình đã học được chút ít, chưa phải con số 0. Điều quan trọng là <b>xu hướng tăng khi đi từ A → B → C</b>, không phải con số tuyệt đối.</li>
+<li><b>Chia theo môn → biết mình yếu ở đâu.</b> Nếu mô hình làm tốt môn lịch sử (văn bản kể chuyện giống Wikipedia) mà kém toán (đòi hỏi suy luận), ta biết giới hạn nằm ở suy luận chứ không phải ở tiếng Việt.</li>
+</ul>
+<div class="warn">⚠️ <b>Cảnh báo:</b> đừng chạy toàn bộ 10.880 câu cho mọi checkpoint — vừa tốn điện, vừa không cần thiết. Giao thức ở mục 5 dùng mẫu nhỏ cố định để theo dõi trong quá trình train, chỉ chạy đủ bộ khi chốt mô hình cuối.</div>
+
+<h2>5 · Giao thức đánh giá 3 lớp cho Tiny Vietnamese LM</h2>
+<p>Đây là sản phẩm chính của buổi sáng — viết nó thành file <code>eval_protocol.md</code> trong repo đề tài, rồi lab tối nay chạy theo đúng giao thức này.</p>
+<table>
+<tr><th>Lớp</th><th>Đo gì</th><th>Khi nào</th><th>Chi phí</th></tr>
+<tr><td><b>Lớp 1 — Perplexity</b></td><td>PPL trên tập held-out Wikipedia-vi đã đóng băng, cùng tokenizer</td><td>Mỗi checkpoint</td><td>Rẻ, chạy nhanh</td></tr>
+<tr><td><b>Lớp 2 — VMLU mẫu</b></td><td>Vi-MQA 200 câu mẫu cố định, log-likelihood, 0-shot, seed cố định</td><td>Mỗi mốc lớn (cuối mỗi epoch)</td><td>Vừa phải</td></tr>
+<tr><td><b>Lớp 3 — Mẫu sinh + kiểm tra tay</b></td><td>20 prompt mở, đọc 20 đoạn sinh ra, ghi lỗi lặp từ / lạc đề / độc hại</td><td>Chỉ mô hình cuối</td><td>Đắt (tay)</td></tr>
+</table>
+<p>Lớp trong rẻ nên đo thường xuyên; lớp ngoài đắt nên chỉ đo khi cần quyết định.</p>
+<h3>Quy tắc chọn checkpoint và chốt trần P</h3>
+<ul>
+<li>Chọn checkpoint theo lớp 1 + lớp 2, không theo cảm tính: checkpoint tốt nhất là checkpoint có PPL held-out thấp nhất <b>đồng thời không tụt điểm VMLU mẫu</b>. Nếu PPL giảm mà điểm VMLU đứng yên, đó là dấu hiệu mô hình chỉ học thuộc văn phong — ghi lại, không vội mừng.</li>
+<li>Chốt trần P sau khi có số liệu cấu hình A đầy đủ: P là mức PPL mà mọi cấu hình sau phải đánh bại để được coi là "đủ tốt". <b>P chỉ được chốt từ PPL held-out đo trên checkpoint A sau khi train trọn 200M token</b> — không chốt từ PPL đo giữa chừng, không chốt từ cảm giác.</li>
+<li>Mọi con số báo cáo phải kèm 4 điều kiện: <b>tập đo nào, tokenizer nào, prompt/shot nào, seed nào</b>. Thiếu một trong bốn thì con số đó không tái tạo được — và trong nghiên cứu, số không tái tạo được coi như chưa có.</li>
+</ul>
+<div class="note">⚡ <b>Góc tiết kiệm năng lượng:</b> đánh giá cũng tốn điện — hãy đo ít mà chắc. Chạy full VMLU 10.880 câu trên GPU cho mỗi checkpoint là lãng phí: phần lớn thông tin nằm ở 200 câu mẫu cố định. Quy tắc: lớp 1 đo thường xuyên, lớp 2 đo theo mốc, lớp 3 đo một lần cuối. Mỗi lần đo thừa là một lần đốt điện mà không thêm quyết định nào. Trong báo cáo cuối, hãy ghi cả chi phí đánh giá (GPU-giờ) bên cạnh chi phí train — đó chính là tinh thần "Green" của đề tài.</div>
+
+<h2>6 · Cách chấm VMLU bằng log-likelihood — chi tiết kỹ thuật</h2>
+<p>Với mỗi câu trắc nghiệm, ta ghép câu hỏi + một đáp án thành một chuỗi, cho model tính log-likelihood của <b>phần đáp án</b> (chỉ tính token của đáp án, không tính token câu hỏi — vì token câu hỏi giống nhau ở cả 4 đáp án, cộng vào chỉ làm nhiễu). Chọn đáp án có điểm cao nhất.</p>
+<pre># score(chuoi) = sum(log p(token dap an)) / so_token_dap_an
+# Chia cho so token: dap an dai hon co tong log-prob thap hon mot cach tu nhien.
+# Khong chuan hoa -> model thien ve chon dap an ngan nhat, khong phai dap an dung nhat.</pre>
+<p><b>0-shot</b> nghĩa là không cho ví dụ mẫu trước câu hỏi — model trả lời "trần trụi" bằng kiến thức đã học trong pretrain. Đây là phép đo khắc nghiệt nhất với model 10M tham số, nhưng cũng là phép đo trung thực nhất: không có few-shot nào che đi sự yếu kém.</p>
+<p><b>Seed cố định</b> nghĩa là 200 câu mẫu được chọn một lần, ghi seed vào <code>eval_protocol.md</code>, và không đổi cho đến khi chốt model cuối. Mẫu thay đổi thì điểm số không so được giữa các checkpoint — và mọi đường cong so sánh A/B/C mất hiệu lực.</p>
+
+<h2>7 · Hai con số có kể cùng một câu chuyện không?</h2>
+<p>Bốn kịch bản có thể xảy ra tối nay — và mỗi kịch bản là một kết luận nghiên cứu khác nhau:</p>
+<table>
+<tr><th>Kịch bản</th><th>PPL held-out</th><th>VMLU mẫu</th><th>Kết luận</th></tr>
+<tr><td>1 — Cả hai tốt</td><td>Thấp, đúng bão hòa</td><td>&gt; 30%, tăng đều theo môn</td><td>A học được cả văn phong lẫn kiến thức. P chốt được, tin được.</td></tr>
+<tr><td>2 — PPL tốt, VMLU tệ</td><td>Thấp</td><td>≈ 25% (ngang đoán mò)</td><td>A chỉ học thuộc văn phong. PPL đẹp nhưng rỗng — P chốt từ PPL này vẫn dùng được làm ngưỡng kỹ thuật, nhưng phải ghi rõ: nó không bảo chứng kiến thức.</td></tr>
+<tr><td>3 — PPL tệ, VMLU tốt</td><td>Cao bất thường</td><td>&gt; 35%</td><td>Nghi bug trước tiên: kiểm tra cách chấm VMLU (chuẩn hóa độ dài?) và tập held-out (có lẫn dữ liệu lạ?). Đừng vội mừng.</td></tr>
+<tr><td>4 — Cả hai tệ</td><td>Cao</td><td>≈ 25%</td><td>A chưa học được gì đáng kể — quay lại Day 33 kiểm tra dữ liệu, hoặc Day 32 kiểm tra tokenizer, trước khi đốt điện train B.</td></tr>
+</table>
+<p>Kịch bản 2 là kịch bản có giá trị nghiên cứu cao nhất: nó chứng minh bằng số đo rằng <b>PPL không phải phán quyết cuối cùng</b> — đúng luận điểm buổi sáng, và nó sẽ là một đoạn mạnh trong phần "kết quả" của báo cáo cuối kỳ.</p>
+
+<h2>8 · Bẫy thường gặp</h2>
+<ul>
+<li><b>Đo PPL trên tập đã lẫn dữ liệu train:</b> held-out tách sau dedup Day 33 mới sạch. Kiểm tra bằng ExactSubstr: held-out không được trùng bất kỳ đoạn 50 token nào với train.</li>
+<li><b>Chấm VMLU bằng tổng log-prob thô:</b> không chuẩn hóa độ dài đáp án → model chọn đáp án ngắn nhất. Luôn chia cho số token của đáp án.</li>
+<li><b>Chọn lại 200 câu mẫu mỗi lần chạy:</b> mẫu cố định + seed cố định, ghi vào eval_protocol.md, không đổi cho đến khi chốt model cuối.</li>
+<li><b>Đo PPL bằng tokenizer khác với lúc train:</b> PPL tính theo token — đổi tokenizer là đổi thước. Mọi lần đo dùng đúng tokenizer BPE Day 32.</li>
+<li><b>Chạy full VMLU 10.880 câu cho mọi checkpoint:</b> lãng phí điện. Mẫu 200 câu cố định là đủ để theo dõi xu hướng; chạy đủ bộ chỉ khi chốt model cuối.</li>
+</ul>
+
+<h2>9 · Câu hỏi định hướng để tự trả lời cuối ngày</h2>
+<div class="rq"><b>(1)</b> Nếu PPL của A rất tốt nhưng điểm VMLU chỉ ngang đoán mò, ta kết luận gì về mô hình?</div>
+<div class="rq"><b>(2)</b> Giữa "PPL thấp hơn 1 điểm" và "VMLU cao hơn 3%", cái nào đáng tin hơn để chọn giữa B và C — và vì sao?</div>
+<div class="rq"><b>(3)</b> Điều kiện đo nào, nếu đổi, sẽ làm đảo ngược thứ hạng A/B/C?</div>
+<p><b>Tài liệu tham khảo:</b> Liang và cộng sự, <i>Holistic Evaluation of Language Models</i>, arXiv:2211.09110 (TMLR 2023) • ZaloAI &amp; JAIST, <i>VMLU Benchmark Suite</i>, 2025, vmlu.ai • Strathern, Goodhart's law.</p>
+
+<div class="footer">Khóa "Trở thành AI Engineer (LLM)" — Phase 2 · Ngày 36/60 · Đề tài: Tiny Vietnamese LM · File giải thích chi tiết buổi tối.</div>
+</div>
+</body>
+</html>
