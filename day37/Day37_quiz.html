@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quiz Ngày 37 — Checklist tự đánh giá | Phase 2 nghiên cứu</title>
+<style>
+:root{--bg:#0a0f1e; --card:#101830; --line:#22305a; --gold:#f5c542; --green:#4ade80;
+ --red:#f87171; --violet:#a78bfa; --cyan:#67e8f9; --text:#e8edf7; --muted:#93a0bd;}
+*{box-sizing:border-box;}
+body{margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.75; font-size:16.5px;}
+.wrap{max-width:820px; margin:0 auto; padding:18px 16px 60px;}
+.kicker{display:inline-block; font-size:13px; letter-spacing:1px; color:var(--gold); font-weight:700; margin-bottom:8px;}
+h1{font-size:28px; line-height:1.3; margin:6px 0 10px;}
+.sub{color:var(--muted); font-size:16.5px;}
+.q{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px; margin:16px 0;}
+.q p{margin:0 0 10px; font-weight:700;}
+label{display:block; padding:8px 10px; border-radius:8px; cursor:pointer;}
+label:hover{background:#141d3a;}
+input{margin-right:8px;}
+.expl{display:none; border-radius:10px; padding:10px 14px; margin-top:10px; font-size:15.5px;}
+.expl.ok{display:block; background:#0f2a1a; border:1px solid var(--green);}
+.expl.bad{display:block; background:#23141a; border:1px solid var(--red);}
+button{background:var(--gold); color:#14100a; font-weight:700; border:none; border-radius:10px; padding:12px 22px; font-size:16px; cursor:pointer; margin:8px 8px 0 0;}
+button.ghost{background:#1a2447; color:var(--text); border:1px solid var(--line);}
+#result{font-weight:700; margin-top:14px; font-size:17px;}
+#copyout{background:#0a1428; border:1px solid var(--line); border-radius:10px; padding:12px 16px; margin-top:10px; font-family:Consolas,Menlo,monospace; word-break:break-all;}
+.note{border-left:4px solid var(--green); background:#0f2233; border-radius:0 12px 12px 0; padding:12px 16px; margin:16px 0;}
+.checklist{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px; margin:20px 0;}
+.checklist h2{color:var(--gold); font-size:20px; margin:0 0 6px;}
+.footer{color:var(--muted); font-size:14px; margin-top:28px; border-top:1px solid var(--line); padding-top:12px;}
+a{color:var(--gold);}
+</style>
+</head>
+<body>
+<div class="wrap">
+<form onsubmit="return false">
+<span class="kicker">PHASE 2 — ĐỀ TÀI: TINY VIETNAMESE LM &nbsp;•&nbsp; NGÀY 37</span>
+<h1>Quiz Ngày 37 — Tổng kết tổng quan tài liệu: từ 6 ngày đọc paper tới câu hỏi nghiên cứu và đề cương</h1>
+<p class="sub">5 câu kiểm tra hiểu bài + checklist nhiệm vụ nghiên cứu hôm nay. Chọn đáp án rồi bấm "Nộp bài" — giải thích hiện ngay trong file.</p>
+
+<div class="q" data-answer="B">
+<p>1. Bản đồ tài liệu 6 ngày (Day 32–37) có mạch logic nào?</p>
+<label><input type="radio" name="q1" value="A"> A. Xếp paper theo thứ tự bảng chữ cái của tên tác giả</label>
+<label><input type="radio" name="q1" value="B"> B. Dữ liệu (32–33) → kích thước (34–35) → đo đạc (36) → công thức tổng hợp (37)</label>
+<label><input type="radio" name="q1" value="C"> C. Xếp paper theo số trích dẫn giảm dần, không cần mạch nối</label>
+<label><input type="radio" name="q1" value="D"> D. Chỉ liệt kê paper của năm 2024 trở về sau</label>
+<div class="expl">Đúng: mỗi tầng dựa trên tầng trước — không thể bàn scaling nếu dữ liệu chưa sạch, không thể chốt trần P nếu chưa có giao thức đo. Tổng quan tốt viết theo mạch câu hỏi ("muốn train mô hình nhỏ tiếng Việt thì cần gì?"), mỗi paper là một câu trả lời trong chuỗi đó, chứ không phải danh sách liệt kê.</div>
+</div>
+<div class="q" data-answer="C">
+<p>2. TinyLlama (Zhang và cộng sự, 2024) chứng minh điều gì quan trọng nhất cho đề tài?</p>
+<label><input type="radio" name="q2" value="A"> A. Mô hình nhỏ cần kiến trúc hoàn toàn mới thì mới train được</label>
+<label><input type="radio" name="q2" value="B"> B. Mô hình 1,1B tham số nên là mục tiêu quy mô của Tiny Vietnamese LM</label>
+<label><input type="radio" name="q2" value="C"> C. Kiến trúc chuẩn (Llama) + train lâu trên dữ liệu lặp có giới hạn + mở toàn bộ quá trình để tái tạo được</label>
+<label><input type="radio" name="q2" value="D"> D. Chỉ cần thật nhiều token là đủ, không cần quan tâm dữ liệu sạch hay bẩn</label>
+<div class="expl">Đúng: TinyLlama dùng đúng kiến trúc Llama (RoPE, SwiGLU, GQA) ở quy mô 1,1B tham số, pretrain 3 nghìn tỉ token (3 epoch) và mở toàn bộ code, dữ liệu, checkpoint. Ta học công thức và phương pháp, không lấy điểm benchmark của mô hình 1,1B làm mục tiêu cho mô hình 10–37M.</div>
+</div>
+<div class="q" data-answer="A">
+<p>3. Thông điệp chính của Phi — "Textbooks Are All You Need" (Microsoft, 2023) — là gì?</p>
+<label><input type="radio" name="q3" value="A"> A. Dữ liệu chất lượng cao dạng sách giáo khoa ("textbook-quality") có thể thắng quy mô: một token tốt dạy nhiều hơn một token lộn xộn</label>
+<label><input type="radio" name="q3" value="B"> B. Muốn mô hình giỏi thì chỉ cần vét càng nhiều dữ liệu web thô càng tốt</label>
+<label><input type="radio" name="q3" value="C"> C. Phi-1 thắng nhờ kiến trúc hoàn toàn mới, không liên quan dữ liệu</label>
+<label><input type="radio" name="q3" value="D"> D. Dữ liệu tổng hợp luôn kém dữ liệu web thật nên không nên dùng</label>
+<div class="expl">Đúng: Phi-1 (1,3B tham số) đạt điểm benchmark ngang mô hình lớn gấp nhiều lần nhờ dữ liệu dạng sách giáo khoa được tổng hợp và lọc kỹ. Wikipedia-vi của ta đã là nguồn "textbook-quality" sẵn có — văn bản bách khoa rõ ràng, có cấu trúc — và bước khử trùng lặp ở Day 33 chính là bước lọc theo chất lượng.</div>
+</div>
+<div class="q" data-answer="D">
+<p>4. Khoảng trống nghiên cứu mà Tiny Vietnamese LM sẽ lấp nằm ở giao điểm của ba điều nào?</p>
+<label><input type="radio" name="q4" value="A"> A. Mô hình càng lớn càng tốt, dữ liệu càng nhiều càng tốt, train càng lâu càng tốt</label>
+<label><input type="radio" name="q4" value="B"> B. Chỉ cần một GPU mạnh hơn RTX 4090 là xong</label>
+<label><input type="radio" name="q4" value="C"> C. Chỉ thiếu một benchmark tiếng Việt mới, còn lại đã có đủ</label>
+<label><input type="radio" name="q4" value="D"> D. Mô hình rất nhỏ (10–37M) cho tiếng Việt + dữ liệu Wikipedia-vi vài trăm triệu token + đánh giá đa thước đo kèm chi phí năng lượng — chưa ai làm cả ba cùng lúc</label>
+<div class="expl">Đúng: TinyLlama dừng ở 1,1B, Phi dừng ở 1,3B; chưa ai đo đường cong scaling ở tầm 10–37M tham số cho tiếng Việt; và chưa có nghiên cứu nào báo cáo đồng thời perplexity, VMLU và chi phí năng lượng cho mô hình nhỏ tiếng Việt. Ba câu hỏi RQ1/RQ2/RQ3 được chốt từ chính khoảng trống này.</div>
+</div>
+<div class="q" data-answer="B">
+<p>5. Theo giao thức đánh giá 3 lớp (Day 36), vì sao trần perplexity P vẫn CHƯA được chốt ở Day 37?</p>
+<label><input type="radio" name="q5" value="A"> A. Vì P sẽ được ước lượng từ PPL nền đo giữa chừng của cấu hình A</label>
+<label><input type="radio" name="q5" value="B"> B. Vì số liệu lab Day 34/35 (tokens/s, MFU, PPL nền, loss curve) chưa được nộp — P chỉ chốt từ PPL held-out của A sau khi train trọn 200M token</label>
+<label><input type="radio" name="q5" value="C"> C. Vì P không cần thiết cho đề cương Day 38</label>
+<label><input type="radio" name="q5" value="D"> D. Vì P được lấy từ điểm benchmark của TinyLlama 1,1B</label>
+<div class="expl">Đúng: P chỉ được chốt từ PPL held-out đo trên checkpoint A sau khi train trọn 200M token — không chốt từ PPL đo giữa chừng, không bịa số. Số liệu lab Day 34/35 vẫn chưa nộp nên ô "Trần P = …" trong đề cương Day 38 cứ để trống và điền sau; việc viết đề cương không bị chặn.</div>
+</div>
+<button type="button" onclick="grade()">Nộp bài</button>
+<button type="button" class="ghost" onclick="copyResult()">Copy kết quả</button>
+<div id="result"></div>
+<div id="copyout" style="display:none"></div>
+<p class="note">Lưu ý: file HTML này không tự gửi kết quả về được. Sau khi bấm "Copy kết quả", hãy paste chuỗi kết quả vào chat để trợ lý ghi điểm cho bạn. Giải thích chỉ mở sau khi bạn chọn và nộp.</p>
+
+<div class="checklist">
+<h2>✅ Checklist tự đánh giá hôm nay</h2>
+<p style="margin-top:0;color:var(--muted);font-size:15.5px;">Tick vào từng mục khi làm xong — khối này không chấm điểm, chỉ để tự theo dõi nhiệm vụ buổi sáng.</p>
+<label><input type="checkbox"> Đã đọc 2 paper (TinyLlama — Zhang và cộng sự 2024; Phi — Microsoft 2023)</label>
+<label><input type="checkbox"> Đã viết literature_review.md (1 trang, theo mạch câu hỏi, dùng bảng tổng hợp làm khung xương)</label>
+<label><input type="checkbox"> Đã viết model_comparison.md (TinyLlama — Phi — Tiny Vietnamese LM: quy mô, dữ liệu, kiến trúc, điểm học được)</label>
+<label><input type="checkbox"> Đã chốt RQ1/RQ2/RQ3 + giả thuyết H1/H2/H3 vào research_questions.md, mỗi giả thuyết ghi rõ điều kiện bác bỏ</label>
+<label><input type="checkbox"> Đã chuẩn bị dàn ý đề cương Day 38 (5 phần), để trống ô "Trần PPL P = …" chờ số liệu lab Day 34/35</label>
+<label><input type="checkbox"> Đã trả lời 3 câu hỏi định hướng ở cuối bài học (mạch câu hỏi; bài học quan trọng nhất của TinyLlama; vì sao RQ2 vẫn cần thí nghiệm)</label>
+<label><input type="checkbox"> Đã nộp số liệu lab Day 34/35 còn thiếu (tokens/s, MFU, PPL nền, loss curve) nếu chưa nộp</label>
+</div>
+
+<p><a href="Day37_lesson.html">← Quay lại bài học Ngày 37</a></p>
+<div class="footer">Khóa "Trở thành AI Engineer (LLM)" · Phase 2 · Ngày 37/60 · Đề tài: Tiny Vietnamese LM</div>
+</form>
+<script>
+function grade(){
+  const qs = document.querySelectorAll('.q');
+  let score = 0; const answers = [];
+  qs.forEach((q, i) => {
+    const sel = q.querySelector('input:checked');
+    const ans = sel ? sel.value : '-';
+    answers.push(ans);
+    const expl = q.querySelector('.expl');
+    if (ans === q.dataset.answer) { score++; expl.className = 'expl ok'; }
+    else { expl.className = 'expl bad'; }
+  });
+  document.getElementById('result').textContent = 'Bạn đã trả lời đúng ' + score + '/' + qs.length + ' câu.';
+  const out = document.getElementById('copyout');
+  out.style.display = 'block';
+  out.textContent = 'Day37 Quiz: ' + answers.map((a, i) => (i+1) + a).join(' ') + ' — ' + score + '/' + qs.length;
+}
+function copyResult(){
+  const t = document.getElementById('copyout').textContent;
+  if (!t) { alert('Hãy bấm "Nộp bài" trước.'); return; }
+  navigator.clipboard.writeText(t).then(() => alert('Đã copy kết quả! Hãy paste vào chat.'));
+}
+</script>
+</div>
+</body>
+</html>
