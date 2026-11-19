@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 39 Quiz — Viết đề cương chi tiết</title>
+<style>
+:root{--bg:#0a0f1e;--card:#101830;--line:#22305a;--gold:#f5c542;--green:#4ade80;--red:#f87171;--cyan:#67e8f9;--text:#e8edf7;--muted:#93a0bd;}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;line-height:1.7;font-size:16.5px;}
+.wrap{max-width:760px;margin:0 auto;padding:18px 16px 60px;}
+h1{font-size:26px;line-height:1.3;margin:6px 0 8px;}
+.sub{color:var(--muted);}
+.q{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin:18px 0;}
+.q h3{margin:0 0 10px;font-size:17px;color:var(--gold);}
+label{display:block;padding:8px 10px;border-radius:8px;cursor:pointer;margin:4px 0;}
+label:hover{background:#1a2447;}
+input{margin-right:8px;}
+.expl{display:none;margin-top:10px;padding:10px 14px;border-left:4px solid var(--green);background:#0f2233;border-radius:0 10px 10px 0;font-size:15.5px;}
+.expl.wrong{border-left-color:var(--red);background:#2a1218;}
+.btn{display:inline-block;background:var(--gold);color:#14100a;font-weight:700;border-radius:10px;padding:12px 22px;border:none;font-size:16px;cursor:pointer;margin:8px 8px 0 0;}
+.btn2{display:inline-block;background:#1a2447;color:var(--text);border:1px solid var(--line);font-weight:700;border-radius:10px;padding:12px 22px;border:none;font-size:16px;cursor:pointer;margin:8px 8px 0 0;}
+#result{font-size:19px;font-weight:700;margin:18px 0;}
+#copyBox{width:100%;background:#0a1428;color:var(--cyan);border:1px solid var(--line);border-radius:10px;padding:12px;font-size:15px;margin-top:10px;}
+.note{color:var(--muted);font-size:14.5px;margin-top:16px;}
+a{color:var(--gold);}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>📝 Day 39 Quiz — Viết đề cương chi tiết</h1>
+<p class="sub">5 câu trắc nghiệm • Chọn đáp án rồi bấm "Nộp bài" để chấm điểm ngay trong file. File HTML này không tự gửi kết quả về được — làm xong bấm "Copy kết quả" rồi paste vào chat để trợ lý ghi điểm.</p>
+
+<div class="q" id="q1">
+<h3>Câu 1. Mục tiêu nghiên cứu viết trong đề cương phải có đủ yếu tố nào?</h3>
+<label><input type="radio" name="q1" value="A"> A. Cái gì được đo, trên cái gì, so với cái gì</label>
+<label><input type="radio" name="q1" value="B"> B. Tên đề tài và tên tác giả</label>
+<label><input type="radio" name="q1" value="C"> C. Số trang dự kiến của báo cáo</label>
+<label><input type="radio" name="q1" value="D"> D. Danh sách tài liệu tham khảo</label>
+<div class="expl" id="e1">Đúng là A. Mục tiêu phải nêu được cái gì được đo, trên cái gì, so với cái gì — ví dụ "tìm cấu hình cho PPL thấp nhất trên mỗi GPU-giờ, với dữ liệu Wikipedia-vi đã khử trùng lặp". Thiếu một trong ba yếu tố thì mục tiêu chỉ còn là chủ đề chung chung.</div>
+</div>
+
+<div class="q" id="q2">
+<h3>Câu 2. Một giả thuyết falsifiable (có thể bác bỏ) bắt buộc phải có gì?</h3>
+<label><input type="radio" name="q2" value="A"> A. Một câu khẳng định chắc chắn đúng</label>
+<label><input type="radio" name="q2" value="B"> B. Ngưỡng số cụ thể để chấp nhận hoặc bác bỏ</label>
+<label><input type="radio" name="q2" value="C"> C. Trích dẫn ít nhất 3 paper</label>
+<label><input type="radio" name="q2" value="D"> D. Một công thức toán học</label>
+<div class="expl" id="e2">Đúng là B. Giả thuyết phải kèm ngưỡng số và điều kiện bác bỏ — ví dụ "chấp nhận H1 nếu A đạt PPL ≤ P với &lt; ½ GPU-giờ của C". Không có ngưỡng thì kết quả nào cũng bẻ cong thành "đúng" được.</div>
+</div>
+
+<div class="q" id="q3">
+<h3>Câu 3. Trần PPL (trần P) trong đề cương hôm nay nên xử lý thế nào khi số lab Day 34/35 chưa nộp?</h3>
+<label><input type="radio" name="q3" value="A"> A. Ước lượng một con số hợp lý để lấp chỗ trống</label>
+<label><input type="radio" name="q3" value="B"> B. Để trống và ghi rõ [chờ số liệu lab Day 35]</label>
+<label><input type="radio" name="q3" value="C"> C. Lấy PPL nền sau vài triệu token làm trần P</label>
+<label><input type="radio" name="q3" value="D"> D. Bỏ hẳn trần P khỏi đề cương</label>
+<div class="expl" id="e3">Đúng là B. P chỉ chốt sau khi train xong cấu hình A đủ 200M token. Ô trống có ghi nguồn chờ là ô tốt; bịa số để lấp chỗ trống là lỗi khoa học, và PPL nền sau vài triệu token không bao giờ được dùng làm trần P.</div>
+</div>
+
+<div class="q" id="q4">
+<h3>Câu 4. Thứ tự chạy thí nghiệm đúng theo nguyên tắc "chạy rẻ trước" là gì?</h3>
+<label><input type="radio" name="q4" value="A"> A. E4 → E3 → E1 → E0 (đắt trước để có kết quả chính sớm)</label>
+<label><input type="radio" name="q4" value="B"> B. E0 → E1 → E2 → E5 → E3 → E4</label>
+<label><input type="radio" name="q4" value="C"> C. Chạy E1–E5 cùng lúc để tiết kiệm thời gian chờ</label>
+<label><input type="radio" name="q4" value="D"> D. Chỉ chạy E1 và E4, bỏ qua các thí nghiệm còn lại</label>
+<div class="expl" id="e4">Đúng là B. E0–E2 + E5 tốn ~20 phút GPU nhưng khóa được pipeline, baseline chính và sai số đo. Chạy thẳng E4 mà chưa qua E0–E2 thì mỗi lỗi nhỏ đều phải trả bằng một lần chạy lại 110 phút.</div>
+</div>
+
+<div class="q" id="q5">
+<h3>Câu 5. Vì sao phần phương pháp phải viết đủ chi tiết để người lạ tái hiện mà không cần hỏi thêm?</h3>
+<label><input type="radio" name="q5" value="A"> A. Để báo cáo dài hơn, trông chuyên nghiệp hơn</label>
+<label><input type="radio" name="q5" value="B"> B. Vì phương pháp là hợp đồng: thí nghiệm lệch khỏi đó phải ghi lý do, không được sửa âm thầm</label>
+<label><input type="radio" name="q5" value="C"> C. Vì hội đồng chấm chỉ đọc phần phương pháp</label>
+<label><input type="radio" name="q5" value="D"> D. Để tránh phải viết phần kết quả</label>
+<div class="expl" id="e5">Đúng là B. Viết phương pháp trước thí nghiệm thì nó là hợp đồng — thí nghiệm nào lệch khỏi hợp đồng phải ghi lý do. Viết sau khi chạy xong, ta sẽ vô thức chỉ ghi những gì đã làm đúng và bỏ qua những gì đã làm sai.</div>
+</div>
+
+<button class="btn" onclick="grade()">Nộp bài</button>
+<button class="btn2" onclick="copyResult()">📋 Copy kết quả</button>
+<div id="result"></div>
+<textarea id="copyBox" rows="2" readonly placeholder="Kết quả sẽ hiện ở đây sau khi nộp bài — bấm Copy kết quả rồi paste vào chat."></textarea>
+<p class="note">📌 Lưu ý: file HTML tĩnh không tự gửi kết quả về được. Bạn paste chuỗi kết quả vào chat, trợ lý sẽ ghi điểm vào tiến độ học của bạn.</p>
+<p><a href="Day39_lesson.html">← Quay lại bài học Day 39</a></p>
+
+<script>
+const answers = {q1:"A", q2:"B", q3:"B", q4:"B", q5:"B"};
+let resultStr = "";
+function grade(){
+  let score = 0; const letters = [];
+  for(let i=1;i<=5;i++){
+    const sel = document.querySelector('input[name="q'+i+'"]:checked');
+    const expl = document.getElementById('e'+i);
+    const letter = sel ? sel.value : "?";
+    letters.push(letter);
+    if(sel && sel.value === answers["q"+i]){ score++; expl.classList.remove("wrong"); }
+    else if(sel){ expl.classList.add("wrong"); }
+    expl.style.display = "block";
+  }
+  resultStr = "Day39 Quiz: " + letters.map((l,i)=>(i+1)+l).join(" ") + " — " + score + "/5";
+  document.getElementById("result").textContent = "🎯 Bạn được " + score + "/5 câu đúng." + (score<4 ? " Dưới 70% — xem lại phần tương ứng trong bài học rồi làm lại nhé." : " Đạt! Sẵn sàng sang Day 40.");
+  document.getElementById("copyBox").value = resultStr;
+}
+function copyResult(){
+  const box = document.getElementById("copyBox");
+  if(!resultStr){ alert("Bạn chưa nộp bài — hãy chọn đáp án và bấm Nộp bài trước."); return; }
+  box.select();
+  if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(resultStr); }
+  else { document.execCommand("copy"); }
+  alert("Đã copy: " + resultStr);
+}
+</script>
+</div>
+</body>
+</html>
