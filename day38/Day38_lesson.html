@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ngày 38 — Đề cương nghiên cứu: khung báo cáo 5 phần + thiết kế baseline</title>
+<style>
+:root{--bg:#0a0f1e;--card:#101830;--line:#22305a;--gold:#f5c542;--green:#4ade80;--red:#f87171;--violet:#a78bfa;--cyan:#67e8f9;--text:#e8edf7;--muted:#93a0bd;}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;line-height:1.75;font-size:16.5px;}
+.wrap{max-width:860px;margin:0 auto;padding:18px 16px 60px;}
+.kicker{display:inline-block;font-size:13px;letter-spacing:1px;color:var(--gold);font-weight:700;margin-bottom:8px;}
+h1{font-size:29px;line-height:1.3;margin:6px 0 10px;}
+.sub{color:var(--muted);font-size:16.5px;}
+h2{color:var(--gold);font-size:22px;margin:34px 0 10px;border-bottom:1px solid var(--line);padding-bottom:6px;}
+h3{color:var(--cyan);font-size:18px;margin:22px 0 8px;}
+p{margin:10px 0;}
+ul,ol{margin:8px 0 8px 22px;padding:0;}
+li{margin:6px 0;}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 20px;margin:16px 0;}
+.note{border-left:4px solid var(--green);background:#0f2233;border-radius:0 12px 12px 0;padding:12px 16px;margin:16px 0;}
+.warn{border-left:4px solid var(--red);background:#2a1218;border-radius:0 12px 12px 0;padding:12px 16px;margin:16px 0;}
+.formula{background:#0a1428;border:1px solid var(--line);border-radius:10px;padding:12px 16px;font-family:"SF Mono",Consolas,Menlo,monospace;font-size:16px;text-align:center;margin:14px 0;color:var(--cyan);}
+table{width:100%;border-collapse:collapse;margin:14px 0;font-size:15.5px;}
+th,td{border:1px solid var(--line);padding:9px 12px;text-align:left;}
+th{background:#141d3a;color:var(--gold);}
+.diagram{background:#0a1428;border:1px solid var(--line);border-radius:12px;padding:10px;margin:14px 0;}
+.diagram svg{display:block;margin:0 auto;max-width:100%;height:auto;}
+.diagram .cap{text-align:center;color:var(--muted);font-size:14px;margin-top:6px;}
+.diagram img{display:block;margin:0 auto;max-width:100%;height:auto;border-radius:10px;}
+.tag{display:inline-block;background:#1a2447;border:1px solid var(--line);border-radius:20px;padding:2px 12px;font-size:13.5px;color:var(--cyan);margin:2px 4px 2px 0;}
+a{color:var(--gold);}
+.btn{display:inline-block;background:var(--gold);color:#14100a;font-weight:700;border-radius:10px;padding:12px 22px;text-decoration:none;margin:8px 8px 0 0;}
+.btn2{display:inline-block;background:#1a2447;color:var(--text);border:1px solid var(--line);font-weight:700;border-radius:10px;padding:12px 22px;text-decoration:none;margin:8px 8px 0 0;}
+code{background:#1a2447;padding:2px 7px;border-radius:6px;font-size:15px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+<span class="kicker">PHASE 2 — ĐỀ TÀI: TINY VIETNAMESE LM &nbsp;•&nbsp; NGÀY 38 &nbsp;•&nbsp; ADVISOR SEMINAR</span>
+<h1>Ngày 38 — Đề cương nghiên cứu: khung báo cáo 5 phần + thiết kế baseline</h1>
+<p class="sub">Hôm qua (Day 37) ta đã chốt 3 câu hỏi nghiên cứu RQ1/RQ2/RQ3 cùng giả thuyết H1/H2/H3 — sẵn sàng bước sang giai đoạn đề cương + baseline (Ngày 38–44). Sáng nay làm 2 việc nền tảng: vẽ khung báo cáo 5 phần cho toàn bộ đề tài, và thiết kế các baseline — những điểm so sánh mà mọi kết quả thí nghiệm sau này đều phải đối chiếu. Không có baseline, một con số PPL dù đẹp cũng không nói lên được điều gì.</p>
+<p><span class="tag">⏱ ~25 phút đọc</span> <span class="tag">🎯 3 khái niệm chính</span> <span class="tag">📄 2 tài liệu cần viết</span></p>
+<div class="diagram"><img src="img/hero38.webp" alt="Phòng lab nghiên cứu AI: màn hình hiện đường biểu đồ với đỉnh được khoanh đỏ"><div class="cap">Hình 0 — Một con số PPL dù đẹp cũng vô nghĩa nếu không có baseline để so sánh.</div></div>
+
+<h2>🎯 Mục tiêu buổi sáng</h2>
+<ul>
+<li>Vẽ được <strong>khung báo cáo 5 phần</strong>: mỗi phần viết gì, lấy từ ngày nào, và phần nào còn để trống chờ số liệu.</li>
+<li>Hiểu <strong>baseline là gì</strong> và vì sao đề tài cần tới 3 baseline khác nhau — không phải 1.</li>
+<li>Lập được <strong>ma trận thí nghiệm</strong> cho RQ1/RQ2/RQ3 theo nguyên tắc "thứ duy nhất thay đổi là ___".</li>
+<li>Cuối buổi: viết xong <strong>outline.md</strong> (khung 5 phần) + <strong>baseline_plan.md</strong>.</li>
+</ul>
+
+<h2>1. Đề cương là gì — và vì sao viết trước khi bật GPU (~7 phút)</h2>
+<p>Đề cương (outline) là <strong>bản đồ của báo cáo cuối cùng, viết trước khi chạy thí nghiệm</strong>. Nó liệt kê: báo cáo có mấy phần, mỗi phần trả lời câu hỏi nào, cần số liệu gì để điền vào — và số liệu nào chưa có thì để trống, chờ thí nghiệm về.</p>
+<p>Người mới thường làm ngược: chạy thí nghiệm trước, viết báo cáo sau. Hậu quả quen thuộc: train xong 3 cấu hình rồi mới phát hiện ra quên đo GPU-giờ, quên lưu checkpoint giữa chừng, hoặc hai lần chạy dùng hai bộ dữ liệu khác nhau mà không ghi lại — lúc đó mọi so sánh đều mất giá trị, phải chạy lại từ đầu.</p>
+<div class="card">
+<p><strong>Ba việc đề cương làm thay cho ta:</strong></p>
+<ul>
+<li><strong>Khóa câu hỏi trước khi có đáp án.</strong> RQ1/RQ2/RQ3 đã chốt ở Day 37 — đề cương ghi chúng vào đúng chương thí nghiệm, để không ai được đổi câu hỏi sau khi thấy kết quả. Đổi câu hỏi sau khi biết đáp án là gian lận khoa học, dù vô tình.</li>
+<li><strong>Liệt kê số liệu cần đo trước khi đo.</strong> Mỗi ô trong đề cương là một số đo phải có: PPL held-out, điểm VMLU mẫu, GPU-giờ, kWh. Viết trước thì khi chạy thí nghiệm mới nhớ bật đồng hồ đo — đo sau thì không đo được nữa.</li>
+<li><strong>Biến báo cáo thành checklist.</strong> Giai đoạn thí nghiệm (Ngày 45–53) chỉ còn là việc điền từng ô đã vẽ sẵn — không còn phải nghĩ "hôm nay chạy cái gì".</li>
+</ul>
+</div>
+<div class="note">💡 <strong>Quy tắc vàng của advisor:</strong> một đề cương tốt có các ô TRỐNG rõ ràng. Ô trống không phải là thiếu sót — nó là lời hứa: "số liệu này sẽ được đo bằng thí nghiệm X, vào ngày Y". Ô trống đáng sợ nhất là ô không có tên thí nghiệm nào đứng sau nó.</div>
+
+<h2>2. Khung báo cáo 5 phần — từ RQ tới chương thí nghiệm (~8 phút)</h2>
+<p>Báo cáo cuối cùng của Tiny Vietnamese LM có 5 phần. Mỗi phần đã có sẵn nguyên liệu từ các ngày trước — chỉ còn 2 phần chờ số liệu thí nghiệm.</p>
+
+<div class="diagram">
+<svg viewBox="0 0 760 300" xmlns="http://www.w3.org/2000/svg" font-family="sans-serif">
+<rect x="10" y="20" width="140" height="90" rx="12" fill="#141d3a" stroke="#f5c542" stroke-width="2"/>
+<text x="80" y="52" fill="#f5c542" font-size="15" font-weight="bold" text-anchor="middle">1. Giới thiệu</text>
+<text x="80" y="76" fill="#e8edf7" font-size="12.5" text-anchor="middle">Vấn đề + khoảng trống</text>
+<text x="80" y="94" fill="#93a0bd" font-size="12" text-anchor="middle">Day 31 • đã có</text>
+<rect x="165" y="20" width="140" height="90" rx="12" fill="#141d3a" stroke="#f5c542" stroke-width="2"/>
+<text x="235" y="52" fill="#f5c542" font-size="15" font-weight="bold" text-anchor="middle">2. Tổng quan</text>
+<text x="235" y="76" fill="#e8edf7" font-size="12.5" text-anchor="middle">Bản đồ tài liệu 6 ngày</text>
+<text x="235" y="94" fill="#93a0bd" font-size="12" text-anchor="middle">Day 32–37 • đã có</text>
+<rect x="320" y="20" width="140" height="90" rx="12" fill="#141d3a" stroke="#67e8f9" stroke-width="2"/>
+<text x="390" y="52" fill="#67e8f9" font-size="15" font-weight="bold" text-anchor="middle">3. Phương pháp</text>
+<text x="390" y="76" fill="#e8edf7" font-size="12.5" text-anchor="middle">Dữ liệu + kiến trúc</text>
+<text x="390" y="94" fill="#93a0bd" font-size="12" text-anchor="middle">Day 38–44 • hôm nay</text>
+<rect x="475" y="20" width="140" height="90" rx="12" fill="#141d3a" stroke="#67e8f9" stroke-width="2"/>
+<text x="545" y="52" fill="#67e8f9" font-size="15" font-weight="bold" text-anchor="middle">4. Thí nghiệm</text>
+<text x="545" y="76" fill="#e8edf7" font-size="12.5" text-anchor="middle">RQ1/RQ2/RQ3 + baseline</text>
+<text x="545" y="94" fill="#93a0bd" font-size="12" text-anchor="middle">Day 45–53 • chưa có</text>
+<rect x="630" y="20" width="120" height="90" rx="12" fill="#141d3a" stroke="#4ade80" stroke-width="2"/>
+<text x="690" y="52" fill="#4ade80" font-size="15" font-weight="bold" text-anchor="middle">5. Kết luận</text>
+<text x="690" y="76" fill="#e8edf7" font-size="12.5" text-anchor="middle">Trả lời RQ + hạn chế</text>
+<text x="690" y="94" fill="#93a0bd" font-size="12" text-anchor="middle">Day 54–60 • chưa có</text>
+<path d="M150 65 H163 M305 65 H318 M460 65 H473 M615 65 H628" stroke="#f5c542" stroke-width="2" marker-end="url(#arr)"/>
+<defs><marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#f5c542"/></marker></defs>
+<rect x="10" y="150" width="740" height="120" rx="12" fill="#0f2233" stroke="#22305a" stroke-width="1.5"/>
+<text x="30" y="180" fill="#f5c542" font-size="14" font-weight="bold">Mạch logic xuyên suốt 5 phần:</text>
+<text x="30" y="206" fill="#e8edf7" font-size="14">Vấn đề (1) → đã biết gì (2) → ta làm thế nào (3) → đo được gì (4) → kết luận gì (5)</text>
+<text x="30" y="232" fill="#e8edf7" font-size="14">Mỗi chương sau phải trả lời đúng câu hỏi chương trước để lại — giống như mạch của bản đồ tài liệu Day 37.</text>
+<text x="30" y="256" fill="#f87171" font-size="14">Ô trống cần nhớ: Trần PPL P = … (chờ số liệu lab Day 34/35 — KHÔNG bịa số, KHÔNG ước lượng).</text>
+</svg>
+<div class="cap">Hình 1 — Khung báo cáo 5 phần: 2 phần đầu đã có, phần 3 bắt đầu hôm nay, phần 4–5 chờ thí nghiệm.</div>
+</div>
+
+<table>
+<tr><th>Phần</th><th>Viết gì (1–2 câu)</th><th>Nguyên liệu đã có</th><th>Trạng thái</th></tr>
+<tr><td><strong>1. Giới thiệu</strong></td><td>Mô hình lớn tốn điện; mô hình nhỏ tiếng Việt chưa ai đo kỹ trade-off quy mô – dữ liệu – năng lượng.</td><td>Đề tài chốt Day 31; khoảng trống Day 37</td><td>✅ Viết được</td></tr>
+<tr><td><strong>2. Tổng quan</strong></td><td>Bản đồ tài liệu theo mạch câu hỏi: dữ liệu → kích thước → đo đạc → công thức.</td><td>literature_review.md (Day 37)</td><td>✅ Viết được</td></tr>
+<tr><td><strong>3. Phương pháp</strong></td><td>Dữ liệu Wikipedia-vi đã lọc; tokenizer BPE 8k/16k; kiến trúc A/B/C; giao thức đánh giá 3 lớp; baseline (mục 3).</td><td>Day 32–36</td><td>🔨 Hôm nay</td></tr>
+<tr><td><strong>4. Thí nghiệm</strong></td><td>Ma trận A/B/C × lọc/chưa lọc; kết quả PPL + VMLU + GPU-giờ/kWh cho từng RQ.</td><td>Chưa có</td><td>⏳ Day 45–53</td></tr>
+<tr><td><strong>5. Kết luận</strong></td><td>Trả lời từng RQ (chấp nhận/bác bỏ H1/H2/H3); hạn chế; hướng tiếp theo.</td><td>Chưa có</td><td>⏳ Day 54–60</td></tr>
+</table>
+
+<p><strong>Bài học từ Day 37 áp thẳng vào đây:</strong> chương tổng quan viết theo mạch câu hỏi, không liệt kê paper. Tương tự, chương thí nghiệm viết theo mạch câu hỏi nghiên cứu — mỗi RQ là một mục, mỗi mục có đúng một thí nghiệm chính trả lời nó, kèm baseline để đối chiếu. Người đọc không phải tự đoán "con số này chứng minh điều gì" — tiêu đề mục đã nói trước.</p>
+<div class="warn">⚠️ <strong>Lỗi thường gặp khi viết đề cương:</strong> viết phần 4 như một danh sách thí nghiệm rời rạc ("train A, train B, đo VMLU…") mà không gắn mỗi thí nghiệm với một RQ. Cách chữa: trước mỗi thí nghiệm trong đề cương, viết một dòng "Thí nghiệm này trả lời RQ__". Không gắn được với RQ nào thì bỏ thí nghiệm đó — nó chỉ tốn GPU-giờ.</div>
+
+<h2>3. Baseline là gì — và 3 baseline của đề tài (~8 phút)</h2>
+<p><strong>Baseline</strong> là một điểm so sánh tối thiểu, đơn giản, đã biết trước kết quả đại khái — để khi mô hình mới đạt một con số, ta biết con số đó tốt hay dở. Ví dụ: mô hình đạt PPL 25 nghe có vẻ tốt — nhưng nếu baseline đơn giản nhất cũng đạt PPL 28 thì cải thiện chỉ là 3 điểm; còn nếu baseline đạt 60 thì 25 là một bước nhảy lớn. Không có baseline, mọi con số đều mồ côi.</p>
+<p>Một baseline tốt có 3 tính chất: <strong>đơn giản</strong> (ai cũng hiểu nó làm gì), <strong>rẻ</strong> (chạy nhanh, tốn ít tài nguyên) và <strong>công bằng</strong> (cùng dữ liệu, cùng cách đo với mô hình chính — chỉ khác đúng một thứ ta muốn kiểm tra).</p>
+<div class="diagram"><img src="img/baseline38.webp" alt="Bàn cân vàng trong phòng lab: một bên là mô hình robot nhỏ, một bên trống"><div class="cap">Hình 3 — Baseline là bàn cân: mô hình mới chỉ có ý nghĩa khi đặt lên bàn cân cùng một thước đo.</div></div>
+
+<div class="diagram">
+<svg viewBox="0 0 760 260" xmlns="http://www.w3.org/2000/svg" font-family="sans-serif">
+<rect x="10" y="20" width="235" height="200" rx="12" fill="#141d3a" stroke="#f5c542" stroke-width="2"/>
+<text x="127" y="50" fill="#f5c542" font-size="15" font-weight="bold" text-anchor="middle">Baseline sàn</text>
+<text x="127" y="72" fill="#e8edf7" font-size="13" text-anchor="middle">Mô hình n-gram / ngẫu nhiên</text>
+<text x="127" y="98" fill="#93a0bd" font-size="12.5" text-anchor="middle">Kiểm tra pipeline có chạy đúng</text>
+<text x="127" y="118" fill="#93a0bd" font-size="12.5" text-anchor="middle">không: nếu transformer thua</text>
+<text x="127" y="138" fill="#93a0bd" font-size="12.5" text-anchor="middle">n-gram thì code có bug.</text>
+<text x="127" y="168" fill="#4ade80" font-size="13" text-anchor="middle">Chạy trong vài phút</text>
+<text x="127" y="190" fill="#e8edf7" font-size="13" text-anchor="middle">Trả lời: "sàn" ở đâu?</text>
+<rect x="262" y="20" width="235" height="200" rx="12" fill="#141d3a" stroke="#67e8f9" stroke-width="2"/>
+<text x="380" y="50" fill="#67e8f9" font-size="15" font-weight="bold" text-anchor="middle">Baseline chính — A</text>
+<text x="380" y="72" fill="#e8edf7" font-size="13" text-anchor="middle">Cấu hình A: 10M / 200M token</text>
+<text x="380" y="98" fill="#93a0bd" font-size="12.5" text-anchor="middle">Train trọn 200M token trên dữ</text>
+<text x="380" y="118" fill="#93a0bd" font-size="12.5" text-anchor="middle">liệu đã lọc. Mọi cấu hình B/C</text>
+<text x="380" y="138" fill="#93a0bd" font-size="12.5" text-anchor="middle">so với A, không so với nhau.</text>
+<text x="380" y="168" fill="#4ade80" font-size="13" text-anchor="middle">~8 phút GPU (Day 34)</text>
+<text x="380" y="190" fill="#e8edf7" font-size="13" text-anchor="middle">Trả lời RQ1 + RQ3</text>
+<rect x="515" y="20" width="235" height="200" rx="12" fill="#141d3a" stroke="#a78bfa" stroke-width="2"/>
+<text x="632" y="50" fill="#a78bfa" font-size="15" font-weight="bold" text-anchor="middle">Baseline dữ liệu thô</text>
+<text x="632" y="72" fill="#e8edf7" font-size="13" text-anchor="middle">Cấu hình A trên dữ liệu</text>
+<text x="632" y="92" fill="#e8edf7" font-size="13" text-anchor="middle">chưa lọc (trước Day 33)</text>
+<text x="632" y="118" fill="#93a0bd" font-size="12.5" text-anchor="middle">Cùng A, cùng 200M token — chỉ</text>
+<text x="632" y="138" fill="#93a0bd" font-size="12.5" text-anchor="middle">khác dữ liệu. Chênh lệch PPL</text>
+<text x="632" y="158" fill="#93a0bd" font-size="12.5" text-anchor="middle">chính là giá trị của bước lọc.</text>
+<text x="632" y="190" fill="#e8edf7" font-size="13" text-anchor="middle">Trả lời RQ2</text>
+<text x="380" y="248" fill="#f5c542" font-size="14" font-weight="bold" text-anchor="middle">Nguyên tắc chung: thứ duy nhất thay đổi là ___ — mọi thứ khác giữ nguyên.</text>
+</svg>
+<div class="cap">Hình 2 — Ba baseline của Tiny Vietnamese LM: sàn, chính (A), và dữ liệu thô — mỗi baseline trả lời một RQ.</div>
+</div>
+
+<p><strong>Vì sao cần cả 3, không phải 1?</strong> Vì mỗi RQ hỏi một thứ khác nhau. RQ1 hỏi "cấu hình nào tốt nhất trên mỗi watt" — cần baseline chính A để B/C so vào. RQ2 hỏi "lọc dữ liệu có ích không" — cần baseline dữ liệu thô, cùng A, chỉ khác dữ liệu. Còn baseline sàn n-gram thì không trả lời RQ nào cả — nó là "còi báo động": nếu một transformer 10M tham số mà thua n-gram, thì lỗi nằm ở code, không nằm ở lý thuyết. Chạy baseline sàn trước mọi thí nghiệm khác, chỉ tốn vài phút nhưng cứu được hàng giờ debug.</p>
+
+<h3>Nguyên tắc "thứ duy nhất thay đổi là ___" (nhắc lại từ Day 29)</h3>
+<p>Trước mỗi thí nghiệm, viết ra một câu: <em>"Thứ duy nhất thay đổi là ___"</em>, rồi kiểm tra mọi điều kiện còn lại có bằng nhau không: cùng tokenizer, cùng tập held-out, cùng seed, cùng số token, cùng cách đo. Nếu hai lần chạy khác nhau ở hai thứ cùng lúc — ví dụ vừa đổi cấu hình vừa đổi dữ liệu — thì kết quả chênh lệch không quy được cho thứ nào cả, thí nghiệm đó coi như bỏ.</p>
+<div class="formula">So sánh hợp lệ ⟺ Δ(kết quả) = f(Δ(thứ duy nhất thay đổi))<br>So sánh vô nghĩa ⟺ 2 thứ thay đổi cùng lúc</div>
+
+<h2>4. Ma trận thí nghiệm — từ đề cương tới lịch chạy (~7 phút)</h2>
+<p>Gộp 3 baseline với 3 cấu hình A/B/C, ta có ma trận thí nghiệm cho cả giai đoạn 45–53. Viết ma trận ngay trong đề cương để biết trước tổng chi phí — và để cắt bớt trước khi chạy, chứ không phải sau khi đã tốn GPU-giờ.</p>
+<table>
+<tr><th>Thí nghiệm</th><th>Cấu hình</th><th>Dữ liệu</th><th>Trả lời</th><th>Chi phí ước tính</th></tr>
+<tr><td>E0 — sàn</td><td>n-gram</td><td>Wikipedia-vi đã lọc</td><td>Kiểm tra pipeline</td><td>Vài phút</td></tr>
+<tr><td>E1 — baseline chính</td><td>A (10M)</td><td>Đã lọc, 200M token</td><td>RQ1, RQ3</td><td>~8 phút</td></tr>
+<tr><td>E2 — dữ liệu thô</td><td>A (10M)</td><td>Chưa lọc, 200M token</td><td>RQ2</td><td>~8 phút</td></tr>
+<tr><td>E3</td><td>B (25M)</td><td>Đã lọc, 500M token</td><td>RQ1, RQ3</td><td>~50 phút</td></tr>
+<tr><td>E4</td><td>C (37M)</td><td>Đã lọc, 744M token</td><td>RQ1, RQ3</td><td>~110 phút</td></tr>
+<tr><td>E5 — lặp seed</td><td>A (10M), seed khác</td><td>Đã lọc, 200M token</td><td>Sai số đo cho H2</td><td>~8 phút</td></tr>
+</table>
+<p><strong>Thứ tự chạy bắt buộc: E0 → E1 → E2 → E5 → E3 → E4.</strong> Chạy rẻ trước, đắt sau: E0–E2 xác nhận pipeline và baseline xong trong ~20 phút; nếu E1 cho PPL bất thường thì dừng ngay, sửa rồi mới chạy tiếp — đừng đợi E4 chạy 110 phút mới phát hiện lỗi ở E1. E5 (lặp seed) chạy ngay sau E1 để có sai số đo sớm, vì H2 chỉ được chấp nhận khi chênh lệch vượt sai số đo.</p>
+<p><strong>Bảng ghi kết quả</strong> (điền vào đề cương, mỗi thí nghiệm một dòng): cấu hình | dữ liệu | seed | PPL held-out | VMLU mẫu (200 câu) | GPU-giờ | kWh | checkpoint. Ghi đủ 7 cột này cho mọi lần chạy — thiếu một cột là mất khả năng tái tạo, và phần 4 của báo cáo sẽ có một ô không điền được.</p>
+<div class="note">💡 <strong>Mẹo advisor:</strong> đừng chạy E3/E4 chỉ vì "đã lên lịch". Sau E1–E2, nếu PPL của A đã gần trần P (khi P được chốt từ lab Day 35) thì B/C có thể không còn đáng chạy — đề cương cho phép cắt thí nghiệm bằng một dòng lý do, còn chạy mù thì không lấy lại được GPU-giờ.</div>
+
+<h2>⚡ Góc tiết kiệm năng lượng</h2>
+<p>Đề cương và baseline là hai quyết định tiết kiệm năng lượng rẻ nhất của cả đề tài — vì chúng tiết kiệm trước khi GPU bật lên.</p>
+<ul>
+<li><strong>Baseline rẻ chạy trước:</strong> E0–E2 tốn tổng cộng ~20 phút GPU nhưng khóa được pipeline, baseline chính và sai số đo. Một lỗi pipeline phát hiện ở E0 tiết kiệm cả buổi chạy E4 (~110 phút) vô ích.</li>
+<li><strong>Ma trận viết trước, cắt trước:</strong> tổng ma trận E0–E5 khoảng 3 GPU-giờ. Nếu không có ma trận, người ta thường chạy thêm vài biến thể "cho chắc" — mỗi biến thể là một lần chạy C (~110 phút) không trả lời thêm RQ nào.</li>
+<li><strong>Một lần đo, dùng cho 3 RQ:</strong> cùng một lần chạy A (E1) vừa làm baseline cho RQ1, vừa làm điểm so cho RQ3, vừa làm mốc cho trần P. Thiết kế thí nghiệm tốt là thiết kế mà mỗi GPU-giờ trả lời được nhiều câu hỏi nhất.</li>
+</ul>
+
+<h2>📋 Tóm tắt</h2>
+<ul>
+<li><strong>Đề cương</strong> = bản đồ báo cáo viết trước thí nghiệm: khóa câu hỏi, liệt kê số liệu cần đo, biến giai đoạn thí nghiệm thành checklist điền ô trống.</li>
+<li><strong>Khung 5 phần:</strong> giới thiệu → tổng quan → phương pháp → thí nghiệm → kết luận; phần 1–2 đã có, phần 3 bắt đầu hôm nay, phần 4–5 chờ số liệu Day 45–53.</li>
+<li><strong>Baseline:</strong> điểm so sánh tối thiểu, đơn giản, rẻ, công bằng. Đề tài có 3 baseline: sàn (n-gram), chính (cấu hình A), dữ liệu thô (cùng A, chưa lọc) — mỗi baseline trả lời một RQ.</li>
+<li><strong>Nguyên tắc so sánh:</strong> thứ duy nhất thay đổi là ___; hai thứ đổi cùng lúc thì kết quả vô nghĩa.</li>
+<li><strong>Ma trận E0–E5:</strong> chạy rẻ trước đắt sau (E0 → E1 → E2 → E5 → E3 → E4), tổng ~3 GPU-giờ; ghi đủ 7 cột kết quả cho mọi lần chạy.</li>
+<li><strong>Ô trống nhớ điền sau:</strong> trần PPL P = … — chỉ chốt từ PPL held-out của A sau khi train trọn 200M token (lab Day 35), không bịa số.</li>
+</ul>
+
+<h2>📋 Nhiệm vụ nghiên cứu hôm nay (Day 38)</h2>
+<ol>
+<li>Viết <strong>outline.md</strong>: khung báo cáo 5 phần theo bảng mục 2 — mỗi phần 3–5 gạch đầu dòng (viết gì, số liệu nào, nguồn từ ngày nào), để trống ô "Trần PPL P = …" kèm ghi chú "chờ lab Day 34/35".</li>
+<li>Viết <strong>baseline_plan.md</strong>: 3 baseline (mục 3) + ma trận E0–E5 (mục 4) + câu "thứ duy nhất thay đổi là ___" cho từng thí nghiệm + bảng ghi kết quả 7 cột.</li>
+<li>Chuẩn bị script train baseline: kiểm tra lại code train cấu hình A từ lab Day 34/35 chạy được trọn 200M token, và viết script n-gram baseline E0 (vài phút) để chạy đầu tiên.</li>
+<li>Câu hỏi định hướng để tự trả lời cuối ngày: (1) Vì sao đề cương phải viết trước khi chạy thí nghiệm — điều gì mất đi nếu chạy trước viết sau? (2) Nếu transformer 10M thua n-gram baseline thì kết luận gì — về mô hình hay về code? (3) Thí nghiệm nào trong ma trận có thể cắt mà không mất câu trả lời cho RQ nào?</li>
+</ol>
+
+<p style="margin-top:28px;">
+<a class="btn" href="Day38_quiz.html">📝 Làm quiz Ngày 38 →</a>
+<a class="btn2" href="Day38_video.mp4">🎬 Xem video giới thiệu →</a>
+</p>
+</div>
+</body>
+</html>
