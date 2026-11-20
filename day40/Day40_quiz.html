@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 40 Quiz — Thiết kế và chạy baseline</title>
+<style>
+:root{--bg:#0a0f1e;--card:#101830;--line:#22305a;--gold:#f5c542;--green:#4ade80;--red:#f87171;--cyan:#67e8f9;--text:#e8edf7;--muted:#93a0bd;}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;line-height:1.7;font-size:16.5px;}
+.wrap{max-width:760px;margin:0 auto;padding:18px 16px 60px;}
+h1{font-size:26px;line-height:1.3;margin:6px 0 8px;}
+.sub{color:var(--muted);}
+.q{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin:18px 0;}
+.q h3{margin:0 0 10px;font-size:17px;color:var(--gold);}
+label{display:block;padding:8px 10px;border-radius:8px;cursor:pointer;margin:4px 0;}
+label:hover{background:#1a2447;}
+input{margin-right:8px;}
+.expl{display:none;margin-top:10px;padding:10px 14px;border-left:4px solid var(--green);background:#0f2233;border-radius:0 10px 10px 0;font-size:15.5px;}
+.expl.wrong{border-left-color:var(--red);background:#2a1218;}
+.btn{display:inline-block;background:var(--gold);color:#14100a;font-weight:700;border-radius:10px;padding:12px 22px;border:none;font-size:16px;cursor:pointer;margin:8px 8px 0 0;}
+.btn2{display:inline-block;background:#1a2447;color:var(--text);border:1px solid var(--line);font-weight:700;border-radius:10px;padding:12px 22px;border:none;font-size:16px;cursor:pointer;margin:8px 8px 0 0;}
+#result{font-size:19px;font-weight:700;margin:18px 0;}
+#copyBox{width:100%;background:#0a1428;color:var(--cyan);border:1px solid var(--line);border-radius:10px;padding:12px;font-size:15px;margin-top:10px;}
+.note{color:var(--muted);font-size:14.5px;margin-top:16px;}
+a{color:var(--gold);}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>📝 Day 40 Quiz — Thiết kế và chạy baseline</h1>
+<p class="sub">5 câu trắc nghiệm • Chọn đáp án rồi bấm "Nộp bài" để chấm điểm ngay trong file. File HTML này không tự gửi kết quả về được — làm xong bấm "Copy kết quả" rồi paste vào chat để trợ lý ghi điểm.</p>
+
+<div class="q" id="q1">
+<h3>Câu 1. Vì sao một mô hình đạt PPL 7,78 trên tập held-out vẫn chưa thể kết luận là tốt hay dở?</h3>
+<label><input type="radio" name="q1" value="A"> A. Vì 7,78 là số quá lớn, mô hình nào cũng phải dưới 5 mới tốt</label>
+<label><input type="radio" name="q1" value="B"> B. Vì chưa có baseline để so: chưa biết sàn n-gram là bao nhiêu</label>
+<label><input type="radio" name="q1" value="C"> C. Vì PPL chỉ đo được trên tập train, không đo được trên held-out</label>
+<label><input type="radio" name="q1" value="D"> D. Vì PPL 7,78 luôn là tốt, không cần so sánh gì thêm</label>
+<div class="expl" id="e1">Đúng là B. Không có baseline thì con số PPL đứng một mình không có nghĩa: PPL 7,78 là xuất sắc nếu sàn n-gram là 40, nhưng là tệ nếu sàn chỉ 8,2. Baseline là cái thước — mọi "cải tiến" đều phải đo bằng thước đó.</div>
+</div>
+
+<div class="q" id="q2">
+<h3>Câu 2. Sàn n-gram trong đề tài này là gì, và vì sao nó rẻ?</h3>
+<label><input type="radio" name="q2" value="A"> A. Mô hình neural 10M tham số, train 8 phút trên GPU</label>
+<label><input type="radio" name="q2" value="B"> B. Trigram + smoothing, chỉ đếm tần suất trên CPU trong vài phút, 0 GPU-giờ</label>
+<label><input type="radio" name="q2" value="C"> C. Mô hình 37M tham số train 3 epoch trên dữ liệu thô</label>
+<label><input type="radio" name="q2" value="D"> D. Một bảng tra cứu PPL của các paper khác</label>
+<div class="expl" id="e2">Đúng là B. N-gram chỉ đếm tần suất cụm từ trong dữ liệu huấn luyện rồi tính xác suất có điều kiện — không có tham số neural, không cần GPU, chạy vài phút trên CPU. Smoothing (Kneser-Ney) chia xác suất cho những cụm chưa từng thấy để không ra xác suất 0.</div>
+</div>
+
+<div class="q" id="q3">
+<h3>Câu 3. Vì sao cấu hình A (10M / 200M token / 1 epoch) được chọn làm baseline chính, thay vì C (37M)?</h3>
+<label><input type="radio" name="q3" value="A"> A. Vì A đã được chốt làm kích thước mô hình cuối cùng của đề tài</label>
+<label><input type="radio" name="q3" value="B"> B. Vì A rẻ nhất (~8 phút) nên lặp lại được, và đủ mạnh để làm thước so sánh</label>
+<label><input type="radio" name="q3" value="C"> C. Vì A có PPL thấp nhất trong ba cấu hình</label>
+<label><input type="radio" name="q3" value="D"> D. Vì C chưa train được trên GPU RTX 4090</label>
+<div class="expl" id="e3">Đúng là B. Baseline phải rẻ để dám chạy lại mỗi khi sửa pipeline — A chỉ ~8 phút, còn C ~110 phút. Và A đủ mạnh (10M tham số, học được cấu trúc tiếng Việt thật) nên không phải baseline yếu tạo "cải tiến ảo". Lưu ý: chạy A trong lab KHÔNG phải chốt A làm N cuối — N chỉ chốt sau khi so A, B, C.</div>
+</div>
+
+<div class="q" id="q4">
+<h3>Câu 4. Thứ tự đúng khi chuẩn bị dữ liệu để PPL trên tập test không bị thấp giả tạo là gì?</h3>
+<label><input type="radio" name="q4" value="A"> A. Tách train/val/test trước, rồi mới khử trùng lặp từng phần riêng</label>
+<label><input type="radio" name="q4" value="B"> B. Khử trùng lặp trước, tách sau, rồi khóa tập test lại chỉ mở khi báo cáo cuối</label>
+<label><input type="radio" name="q4" value="C"> C. Dùng tập test để chọn mô hình, rồi báo cáo kết quả trên chính tập test đó</label>
+<label><input type="radio" name="q4" value="D"> D. Không cần tách test riêng, đo trên tập val là đủ</label>
+<div class="expl" id="e4">Đúng là B. Khử trùng lặp trước rồi mới tách: nếu tách trước, các bản sao của cùng một đoạn văn có thể rơi vào cả train lẫn test, test bị "nhiễm" và PPL thấp giả tạo. Tập test là két sắt — chỉ mở khi báo cáo kết quả cuối, dùng test để chọn mô hình rồi báo cáo trên đó là rò rỉ đánh giá.</div>
+</div>
+
+<div class="q" id="q5">
+<h3>Câu 5. Một lần chạy chỉ được tính là "đã đo" khi ghi đủ những con số nào?</h3>
+<label><input type="radio" name="q5" value="A"> A. Chỉ cần PPL held-out là đủ, các số khác là tùy chọn</label>
+<label><input type="radio" name="q5" value="B"> B. PPL held-out, tokens/s, MFU và năng lượng (kWh) — cùng seed, cùng phần cứng, chỉ đổi một thứ</label>
+<label><input type="radio" name="q5" value="C"> C. Thời gian chạy và số epoch là đủ để so sánh</label>
+<label><input type="radio" name="q5" value="D"> D. PPL trên tập train và số tham số của mô hình</label>
+<div class="expl" id="e5">Đúng là B. Bốn con số — PPL held-out, tokens/s, MFU, năng lượng — trên cùng tập held-out, cùng seed, cùng phần cứng. Thiếu năng lượng thì đề tài tiết kiệm năng lượng không có gì để đo; thiếu tokens/s và MFU thì không biết chi phí GPU-giờ; đổi nhiều thứ cùng lúc thì không quy kết quả cho nguyên nhân nào được.</div>
+</div>
+
+<button class="btn" onclick="grade()">Nộp bài</button>
+<button class="btn2" onclick="copyResult()">📋 Copy kết quả</button>
+<div id="result"></div>
+<textarea id="copyBox" rows="2" readonly placeholder="Kết quả sẽ hiện ở đây sau khi nộp bài — bấm Copy kết quả rồi paste vào chat."></textarea>
+<p class="note">📌 Lưu ý: file HTML tĩnh không tự gửi kết quả về được. Bạn paste chuỗi kết quả vào chat, trợ lý sẽ ghi điểm vào tiến độ học của bạn.</p>
+<p><a href="Day40_lesson.html">← Quay lại bài học Day 40</a></p>
+
+<script>
+const answers = {q1:"B", q2:"B", q3:"B", q4:"B", q5:"B"};
+let resultStr = "";
+function grade(){
+  let score = 0; const letters = [];
+  for(let i=1;i<=5;i++){
+    const sel = document.querySelector('input[name="q'+i+'"]:checked');
+    const expl = document.getElementById('e'+i);
+    const letter = sel ? sel.value : "?";
+    letters.push(letter);
+    if(sel && sel.value === answers["q"+i]){ score++; expl.classList.remove("wrong"); }
+    else if(sel){ expl.classList.add("wrong"); }
+    expl.style.display = "block";
+  }
+  resultStr = "Day40 Quiz: " + letters.map((l,i)=>(i+1)+l).join(" ") + " — " + score + "/5";
+  document.getElementById("result").textContent = "🎯 Bạn được " + score + "/5 câu đúng." + (score<4 ? " Dưới 70% — xem lại phần tương ứng trong bài học rồi làm lại nhé." : " Đạt! Sẵn sàng sang Day 41.");
+  document.getElementById("copyBox").value = resultStr;
+}
+function copyResult(){
+  const box = document.getElementById("copyBox");
+  if(!resultStr){ alert("Bạn chưa nộp bài — hãy chọn đáp án và bấm Nộp bài trước."); return; }
+  box.select();
+  if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(resultStr); }
+  else { document.execCommand("copy"); }
+  alert("Đã copy: " + resultStr);
+}
+</script>
+</div>
+</body>
+</html>
