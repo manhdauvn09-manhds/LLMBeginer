@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 41 Quiz — Đọc kết quả baseline và chốt ma trận thí nghiệm</title>
+<style>
+:root{--bg:#0a0f1e;--card:#101830;--line:#22305a;--gold:#f5c542;--green:#4ade80;--red:#f87171;--cyan:#67e8f9;--text:#e8edf7;--muted:#93a0bd;}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;line-height:1.7;font-size:16.5px;}
+.wrap{max-width:760px;margin:0 auto;padding:18px 16px 60px;}
+h1{font-size:26px;line-height:1.3;margin:6px 0 8px;}
+.sub{color:var(--muted);}
+.q{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin:18px 0;}
+.q h3{margin:0 0 10px;font-size:17px;color:var(--gold);}
+label{display:block;padding:8px 10px;border-radius:8px;cursor:pointer;margin:4px 0;}
+label:hover{background:#1a2447;}
+input{margin-right:8px;}
+.expl{display:none;margin-top:10px;padding:10px 14px;border-left:4px solid var(--green);background:#0f2233;border-radius:0 10px 10px 0;font-size:15.5px;}
+.expl.wrong{border-left-color:var(--red);background:#2a1218;}
+.btn{display:inline-block;background:var(--gold);color:#14100a;font-weight:700;border-radius:10px;padding:12px 22px;border:none;font-size:16px;cursor:pointer;margin:8px 8px 0 0;}
+.btn2{display:inline-block;background:#1a2447;color:var(--text);border:1px solid var(--line);font-weight:700;border-radius:10px;padding:12px 22px;border:none;font-size:16px;cursor:pointer;margin:8px 8px 0 0;}
+#result{font-size:19px;font-weight:700;margin:18px 0;}
+#copyBox{width:100%;background:#0a1428;color:var(--cyan);border:1px solid var(--line);border-radius:10px;padding:12px;font-size:15px;margin-top:10px;}
+.note{color:var(--muted);font-size:14.5px;margin-top:16px;}
+a{color:var(--gold);}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>📝 Day 41 Quiz — Đọc kết quả baseline và chốt ma trận thí nghiệm</h1>
+<p class="sub">5 câu trắc nghiệm • Chọn đáp án rồi bấm "Nộp bài" để chấm điểm ngay trong file. File HTML này không tự gửi kết quả về được — làm xong bấm "Copy kết quả" rồi paste vào chat để trợ lý ghi điểm.</p>
+
+<div class="q" id="q1">
+<h3>Câu 1. Train loss giảm đều nhưng val loss quay đầu tăng sau một thời gian — đó là dạng đường cong nào, xử lý ra sao?</h3>
+<label><input type="radio" name="q1" value="A"> A. Hội tụ tốt — để chạy hết, không cần làm gì</label>
+<label><input type="radio" name="q1" value="B"> B. Diverge — giảm learning rate và chạy lại từ đầu</label>
+<label><input type="radio" name="q1" value="C"> C. Overfit — dừng ở checkpoint có val loss thấp nhất, xem lại dữ liệu / số epoch</label>
+<label><input type="radio" name="q1" value="D"> D. Plateau sớm — tăng learning rate lên gấp đôi</label>
+<div class="expl" id="e1">Đúng là C. Train giảm mà val tăng nghĩa là mô hình đang học thuộc lòng dữ liệu train, không khái quát được. Xử lý: lấy checkpoint ở điểm val thấp nhất, rồi xem lại tỉ lệ dữ liệu và số epoch (Day 33). Chỉ nhìn train loss thì sẽ tưởng mọi thứ vẫn tốt — bẫy kinh điển.</div>
+</div>
+
+<div class="q" id="q2">
+<h3>Câu 2. Cấu hình A và B chênh nhau 0,2 PPL, trong khi chạy lại A với seed khác nhau đã dao động ±0,3. Kết luận đúng là gì?</h3>
+<label><input type="radio" name="q2" value="A"> A. B tốt hơn A 0,2 PPL — ghi vào báo cáo là B cải tiến hơn</label>
+<label><input type="radio" name="q2" value="B"> B. Chưa kết luận được — chênh lệch nhỏ hơn dao động seed nên có thể chỉ là nhiễu; cần chạy thêm seed</label>
+<label><input type="radio" name="q2" value="C"> C. A tốt hơn B vì dao động seed của A nhỏ hơn</label>
+<label><input type="radio" name="q2" value="D"> D. Cả hai đều sai — phải chạy lại cả A lẫn B với dữ liệu khác</label>
+<div class="expl" id="e2">Đúng là B. Quy tắc vàng: chênh lệch PPL nhỏ hơn dao động seed thì là nhiễu, không phải cải tiến. Không có thanh sai số (± dao động seed) thì mọi tuyên bố cải tiến đều là kể chuyện — hội đồng sẽ hỏi câu này đầu tiên.</div>
+</div>
+
+<div class="q" id="q3">
+<h3>Câu 3. Vì sao E0 — smoke test chạy rút gọn vài trăm bước — phải chạy trước mọi thí nghiệm khác trong ma trận?</h3>
+<label><input type="radio" name="q3" value="A"> A. Vì E0 cho ra PPL cuối cùng để báo cáo</label>
+<label><input type="radio" name="q3" value="B"> B. Vì E0 rẻ nhất và bắt lỗi pipeline sớm: loss có giảm không, code có chạy được không — trước khi đốt GPU-giờ cho các ô đắt</label>
+<label><input type="radio" name="q3" value="C"> C. Vì E0 thay thế được E5 — không cần chạy lại seed nữa</label>
+<label><input type="radio" name="q3" value="D"> D. Vì E0 train mô hình cuối cùng của đề tài</label>
+<div class="expl" id="e3">Đúng là B. Smoke test chỉ tốn vài phút nhưng trả lời hai câu hỏi sống còn: pipeline có chạy được không, loss có giảm không. Một lỗi pipeline phát hiện ở E0 chỉ tốn vài phút; phát hiện ở E4 (cấu hình C, ~110 phút) thì đốt gấp hàng chục lần cho một kết quả đã biết trước.</div>
+</div>
+
+<div class="q" id="q4">
+<h3>Câu 4. Trong ma trận E0–E5, thí nghiệm nào sau đây vi phạm quy tắc "mỗi lần chỉ đổi một thứ"?</h3>
+<label><input type="radio" name="q4" value="A"> A. E2: chỉ đổi tokenizer từ BPE 8k sang 16k, giữ nguyên dữ liệu, seed, phần cứng</label>
+<label><input type="radio" name="q4" value="B"> B. E1: chỉ bật/tắt khử trùng lặp, mọi thứ khác giữ nguyên</label>
+<label><input type="radio" name="q4" value="C"> C. Một lần chạy vừa đổi tokenizer sang 16k, vừa tăng learning rate, vừa train thêm 1 epoch rồi so PPL với A</label>
+<label><input type="radio" name="q4" value="D"> D. E5: chỉ đổi seed, chạy lại đúng cấu hình A</label>
+<div class="expl" id="e4">Đúng là C. Đổi ba thứ cùng lúc thì kết quả không gán được cho thứ nào: PPL cải thiện là nhờ tokenizer, nhờ learning rate, hay nhờ thêm epoch? Trước mỗi thí nghiệm phải viết ra câu "thứ duy nhất thay đổi là ___" và kiểm tra mọi điều kiện còn lại có bằng nhau không.</div>
+</div>
+
+<div class="q" id="q5">
+<h3>Câu 5. Khi nào thì nên dừng sớm (kill) một lần chạy đang dở, theo tiêu chí của đề tài?</h3>
+<label><input type="radio" name="q5" value="A"> A. Khi loss phẳng lì (plateau) nhiều bước liền, hoặc loss vọt lên / dao động mạnh (diverge) — vì kết quả đã đoán được, chạy tiếp chỉ đốt GPU</label>
+<label><input type="radio" name="q5" value="B"> B. Khi train loss giảm chậm lại — vì mô hình đã học xong</label>
+<label><input type="radio" name="q5" value="C"> C. Không bao giờ dừng sớm — mọi lần chạy đều phải chạy hết mới có số để báo cáo</label>
+<label><input type="radio" name="q5" value="D"> D. Chỉ dừng khi GPU hết bộ nhớ — còn lại cứ để chạy</label>
+<div class="expl" id="e5">Đúng là A. Tiêu chí dừng phải viết trước khi chạy: loss diverge (vọt lên, dao động mạnh, NaN) thì dừng ngay; plateau dài thì cắt để khỏi đốt GPU vô ích. Nhưng train loss giảm chậm dần (dốc thoải) là hội tụ tốt — không phải lý do dừng. Kỷ luật dừng sớm là biện pháp tiết kiệm năng lượng rẻ nhất của đề tài.</div>
+</div>
+
+<button class="btn" onclick="grade()">Nộp bài</button>
+<button class="btn2" onclick="copyResult()">📋 Copy kết quả</button>
+<div id="result"></div>
+<textarea id="copyBox" rows="2" readonly placeholder="Kết quả sẽ hiện ở đây sau khi nộp bài — bấm Copy kết quả rồi paste vào chat."></textarea>
+<p class="note">📌 Lưu ý: file HTML tĩnh không tự gửi kết quả về được. Bạn paste chuỗi kết quả vào chat, trợ lý sẽ ghi điểm vào tiến độ học của bạn.</p>
+<p><a href="Day41_lesson.html">← Quay lại bài học Day 41</a></p>
+
+<script>
+const answers = {q1:"C", q2:"B", q3:"B", q4:"C", q5:"A"};
+let resultStr = "";
+function grade(){
+  let score = 0; const letters = [];
+  for(let i=1;i<=5;i++){
+    const sel = document.querySelector('input[name="q'+i+'"]:checked');
+    const expl = document.getElementById('e'+i);
+    const letter = sel ? sel.value : "?";
+    letters.push(letter);
+    if(sel && sel.value === answers["q"+i]){ score++; expl.classList.remove("wrong"); }
+    else if(sel){ expl.classList.add("wrong"); }
+    expl.style.display = "block";
+  }
+  resultStr = "Day41 Quiz: " + letters.map((l,i)=>(i+1)+l).join(" ") + " — " + score + "/5";
+  document.getElementById("result").textContent = "🎯 Bạn được " + score + "/5 câu đúng." + (score<4 ? " Dưới 70% — xem lại phần tương ứng trong bài học rồi làm lại nhé." : " Đạt! Sẵn sàng sang Day 42.");
+  document.getElementById("copyBox").value = resultStr;
+}
+function copyResult(){
+  const box = document.getElementById("copyBox");
+  if(!resultStr){ alert("Bạn chưa nộp bài — hãy chọn đáp án và bấm Nộp bài trước."); return; }
+  box.select();
+  if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(resultStr); }
+  else { document.execCommand("copy"); }
+  alert("Đã copy: " + resultStr);
+}
+</script>
+</div>
+</body>
+</html>
