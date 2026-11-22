@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ngày 42 — Chạy E0: smoke test, kiểm chứng pipeline trước khi đốt GPU</title>
+<style>
+:root{--bg:#0a0f1e;--card:#101830;--line:#22305a;--gold:#f5c542;--green:#4ade80;--red:#f87171;--cyan:#67e8f9;--text:#e8edf7;--muted:#93a0bd;}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;line-height:1.75;font-size:16.5px;}
+.wrap{max-width:780px;margin:0 auto;padding:18px 16px 60px;}
+h1{font-size:27px;line-height:1.3;margin:8px 0 6px;}
+h2{font-size:21px;color:var(--gold);margin:34px 0 10px;border-bottom:1px solid var(--line);padding-bottom:6px;}
+h3{font-size:18px;color:var(--cyan);margin:22px 0 6px;}
+p{margin:10px 0;}
+.sub{color:var(--muted);}
+.hero{width:100%;border-radius:14px;border:1px solid var(--line);margin:14px 0 6px;}
+.cap{color:var(--muted);font-size:14px;text-align:center;margin:0 0 14px;}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin:16px 0;}
+.card.energy{border-left:5px solid var(--gold);background:#1a1607;}
+.warn{border-left:5px solid var(--red);background:#2a1218;}
+.good{border-left:5px solid var(--green);background:#0f2233;}
+.formula{background:#0a1428;border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin:12px 0;text-align:center;font-size:19px;overflow-x:auto;}
+.formula small{display:block;font-size:14px;color:var(--muted);margin-top:6px;}
+table{width:100%;border-collapse:collapse;margin:12px 0;font-size:15px;}
+th,td{border:1px solid var(--line);padding:9px 10px;text-align:left;vertical-align:top;}
+th{background:#16224a;color:var(--gold);}
+ul,ol{margin:8px 0 8px 22px;padding:0;}
+li{margin:6px 0;}
+code{background:#1a2447;padding:2px 7px;border-radius:6px;font-size:15px;}
+a{color:var(--cyan);}
+.btn{display:inline-block;background:var(--gold);color:#14100a;font-weight:700;border-radius:10px;padding:12px 22px;text-decoration:none;margin:10px 8px 0 0;}
+.tag{display:inline-block;background:#1a2447;border:1px solid var(--line);border-radius:20px;padding:3px 12px;font-size:13.5px;color:var(--muted);margin:2px 4px 2px 0;}
+</style>
+</head>
+<body>
+<div class="wrap">
+<p class="sub">Phase 2 — Đề tài Tiny Vietnamese LM &nbsp;•&nbsp; Ngày 42 / 60 &nbsp;•&nbsp; Nhóm ngày 38–44: đề cương + baseline</p>
+<h1>Ngày 42 — Chạy E0: smoke test, kiểm chứng pipeline trước khi đốt GPU</h1>
+<p class="sub">Advisor buổi sáng — đọc ~15 phút, nhiệm vụ chạy E0 thật vào buổi lab tối nay. Ma trận E0–E5 đã khóa xong hôm qua (Day 41); hôm nay thực hiện ô rẻ nhất: E0. Không phải để ra kết quả khoa học, mà để trả lời một câu duy nhất — <b>pipeline có chạy được không, loss có giảm không?</b></p>
+<img class="hero" src="img/hero42.webp" alt="Minh họa: đường loss giảm đều trong một lần chạy thử ngắn, đèn xanh báo pipeline thông">
+<p class="cap">E0 là lần chạy thử vài phút: loss giảm đều, không NaN, checkpoint lưu được — pipeline thông, lúc đó mới tính tới E1–E5.</p>
+
+<h2>🎯 Mục tiêu buổi học</h2>
+<ul>
+<li>Hiểu <b>E0 — smoke test</b> là gì và vì sao nó chạy <b>đầu tiên</b>, trước mọi thí nghiệm "thật" trong ma trận.</li>
+<li>Soát xong <b>checklist 5 mục</b> trước khi bấm chạy: dữ liệu, tokenizer, cấu hình A, tập held-out, giao thức đo.</li>
+<li>Thiết kế E0 đúng chuẩn: cấu hình A <b>rút gọn vài trăm bước</b>, giữ nguyên mọi thứ khác.</li>
+<li>Đọc kết quả E0: <b>4 dấu hiệu PASS / 4 dấu hiệu FAIL</b> và cách sửa từng lỗi — trước khi đốt GPU cho E1.</li>
+<li>Ra được quyết định <b>go / no-go</b> cho E1 bằng bảng ghi kết quả E0, không bằng cảm giác.</li>
+</ul>
+<p class="sub">⏱️ Ước lượng: §1 E0 là gì ~3 phút • §2 checklist trước khi chạy ~4 phút • §3 thiết kế E0 ~4 phút • §4 đọc kết quả ~4 phút • §5 quyết định go/no-go + nhiệm vụ ~2 phút.</p>
+
+<h2>1. E0 là gì — và vì sao nó chạy đầu tiên</h2>
+<p><b>Smoke test</b> là khái niệm mượn từ kỹ thuật phần mềm: sau khi lắp ráp xong một hệ thống, cắm điện và xem nó có "bốc khói" không — trước khi kiểm tra bất kỳ tính năng nào. Trong đề tài này, E0 là lần chạy huấn luyện <b>rút gọn</b> của cấu hình A (Day 34): vài trăm bước, dữ liệu ít, cùng một seed, cùng một giao thức đo — chỉ để hỏi: <i>mọi thứ có nối với nhau được không?</i></p>
+<p>E0 <b>không</b> trả lời câu hỏi khoa học nào. Nó không nói dữ liệu sạch có tốt hơn không (E1), vocab 16k có đáng tiền không (E2), hay điểm tối ưu là A, B hay C (E4). Nó chỉ trả lời: <i>pipeline sống hay chết</i>. Một E0 thất bại mà phát hiện ở phút thứ 5 thì rẻ; cùng lỗi đó phát hiện ở giữa E4 — sau 110 phút GPU — thì đắt gấp hàng chục lần.</p>
+<div class="card">
+<h3>Ba lý do E0 đứng đầu ma trận</h3>
+<ol>
+<li><b>Rẻ nhất.</b> Vài phút, một phần nhỏ dữ liệu, GPU nhàn. Trong ma trận Day 41, E0 là ô duy nhất có chi phí tính bằng phút, không phải GPU-giờ.</li>
+<li><b>Bắt lỗi hệ thống, không phải lỗi khoa học.</b> Lỗi đường dẫn dữ liệu, tokenizer load sai vocab, checkpoint không lưu được, tập held-out bị lẫn vào train — tất cả đều lộ ra ở E0, trước khi chúng làm hỏng một thí nghiệm "thật" và cho ra con số trông có vẻ hợp lý nhưng sai.</li>
+<li><b>Cho ra đường loss tham chiếu.</b> E0 cho bạn một đường loss curve ngắn để so sánh: khi E1–E5 chạy, nếu đường cong của chúng lệch hẳn khỏi dạng của E0 thì biết ngay có gì đó đổi ngoài ý muốn — chứ không phải đợi tới lúc đọc PPL cuối mới nghi ngờ.</li>
+</ol>
+</div>
+<div class="warn card"><b>Bẫy kinh điển:</b> bỏ qua E0 vì "pipeline Day 34/35 đã chạy được rồi". Pipeline đã chạy được <i>lúc đó</i>, trên <i>máy đó</i>, với <i>code đó</i>. Từ đó tới nay đã có: dữ liệu khử trùng lặp (Day 33), tokenizer chốt lại (Day 32), giao thức đo 4 con số (Day 40). Mỗi thay đổi là một cơ hội để một mắt xích tuột ra — E0 là cách kiểm tra lại toàn bộ chuỗi nối sau mọi thay đổi, chỉ trong vài phút.</div>
+
+<h2>2. Checklist trước khi chạy E0 — 5 mục, không mục nào được bỏ</h2>
+<p>E0 chỉ có giá trị khi nó chạy <b>đúng cấu hình sẽ dùng cho E1–E5</b>. Chạy E0 bằng một config khác rồi kết luận "pipeline ổn" là tự lừa mình. Soát 5 mục sau, ghi rõ "đạt / chưa đạt" từng mục:</p>
+<table>
+<tr><th>#</th><th>Mục kiểm tra</th><th>Đạt khi nào?</th></tr>
+<tr><td>1</td><td><b>Dữ liệu vào</b></td><td>File dữ liệu sạch (Day 33) mở được, số token đếm được khớp với con số trong datasheet Day 32; một batch mẫu in ra đọc được bằng tiếng Việt, không phải rác ký tự.</td></tr>
+<tr><td>2</td><td><b>Tokenizer</b></td><td>BPE 8k load đúng vocab đã chốt (Day 32); encode → decode một câu mẫu trả về đúng câu đó; ký tự tiếng Việt đã qua NFC, không bị tách dấu.</td></tr>
+<tr><td>3</td><td><b>Cấu hình A</b></td><td>Đúng cấu hình baseline Day 34: ~10M tham số, tied embeddings, d=320, 6 layer; learning rate và batch size đúng như Day 40 đã ghi trong giao thức đo.</td></tr>
+<tr><td>4</td><td><b>Tập held-out</b></td><td>Tập held-out <b>đóng băng</b> từ Day 34, không lẫn một mẫu nào với dữ liệu train của E0; eval trên tập này chạy được từ đầu, không đợi tới cuối buổi train mới thử.</td></tr>
+<tr><td>5</td><td><b>Giao thức đo</b></td><td>4 con số Day 40 đều ghi log được: train loss, val loss (→ PPL), tokens/s, MFU — cộng thêm thời gian chạy và checkpoint lưu được đúng chỗ.</td></tr>
+</table>
+<p><b>Quy tắc:</b> mục nào chưa đạt thì sửa mục đó <i>trước</i> khi chạy E0. Chạy E0 để kiểm tra pipeline — không phải để kiểm tra checklist. Nếu tokenizer còn lỗi mà vẫn bấm chạy, E0 sẽ fail, và bạn không biết lỗi nằm ở tokenizer hay ở pipeline — mất đúng thứ E0 sinh ra để tiết kiệm.</p>
+
+<h2>3. Thiết kế E0 — rút gọn cái gì, giữ nguyên cái gì</h2>
+<p>Câu hỏi thiết kế duy nhất của E0: <b>"thứ duy nhất thay đổi là ___?"</b> — câu hỏi vàng từ Day 41. Trả lời: <i>thứ duy nhất thay đổi là quy mô chạy</i> (ít bước hơn, ít dữ liệu hơn). Mọi thứ khác — cấu hình, dữ liệu, tokenizer, seed, tập held-out, cách đo — <b>giữ nguyên y hệt</b> như lần chạy A đầy đủ.</p>
+<table>
+<tr><th>Tham số</th><th>Chạy A đầy đủ (Day 34/35)</th><th>E0 — smoke test</th><th>Vì sao</th></tr>
+<tr><td>Số bước</td><td>Đủ 200M token, 1 epoch</td><td>Vài trăm bước (~1–2M token)</td><td>Đủ để thấy loss giảm, đủ ngắn để rẻ</td></tr>
+<tr><td>Dữ liệu</td><td>Toàn bộ dữ liệu sạch</td><td>Cùng nguồn, lấy lát đầu tiên</td><td>Cùng phân phối, không lấy dữ liệu khác</td></tr>
+<tr><td>Tokenizer</td><td>BPE 8k</td><td>BPE 8k — giữ nguyên</td><td>Đổi tokenizer là đổi thí nghiệm, không phải smoke test</td></tr>
+<tr><td>Cấu hình</td><td>A: ~10M, d=320, 6 layer</td><td>A — giữ nguyên</td><td>E0 kiểm tra chính cấu hình này</td></tr>
+<tr><td>Learning rate</td><td>Như Day 40</td><td>Như Day 40 — giữ nguyên</td><td>LR khác là thí nghiệm khác (thuộc E4)</td></tr>
+<tr><td>Seed</td><td>Seed đã ghi</td><td>Cùng seed — giữ nguyên</td><td>Để đường loss E0 so sánh được với A</td></tr>
+<tr><td>Tập held-out</td><td>Đóng băng</td><td>Đóng băng — giữ nguyên</td><td>Eval phải đo trên cùng một thước</td></tr>
+</table>
+<p><b>Log những gì trong E0?</b> Ít nhất 5 dòng số liệu, ghi theo thời gian: loss mỗi ~50 bước (đủ vẽ đường cong ngắn), tokens/s trung bình, thời gian mỗi bước, bộ nhớ GPU dùng, và một lần eval held-out ở cuối E0 (PPL sơ bộ — <b>không phải</b> con số chính thức, chỉ để kiểm tra eval chạy được). Thêm một dòng xác nhận: checkpoint đã lưu và load lại được. Nếu checkpoint lưu mà load không được, E0 vẫn tính là FAIL — vì E4 sẽ cần checkpoint đó.</p>
+<div class="formula">Thứ duy nhất thay đổi là quy mô chạy — mọi thứ khác giữ nguyên<small>Nếu E0 đổi cả dữ liệu lẫn LR cùng lúc, kết quả E0 không gán được cho thứ nào — vi phạm quy tắc một biến của Day 41.</small></div>
+
+<h2>4. Đọc kết quả E0 — PASS hay FAIL, và sửa thế nào</h2>
+<p>E0 chỉ có hai kết luận: <b>PASS</b> (đi tiếp E1) hoặc <b>FAIL</b> (sửa rồi chạy lại E0). Không có "PASS một nửa". Bốn dấu hiệu PASS phải có <b>đủ cả bốn</b>:</p>
+<div class="good card">
+<h3>✅ PASS — đủ 4 dấu hiệu mới được đi tiếp</h3>
+<ol>
+<li><b>Loss giảm đều.</b> Train loss giảm rõ trong vài trăm bước, đường cong có dạng hội tụ tốt (Day 41) — không phẳng lì, không vọt lên.</li>
+<li><b>Không NaN, không diverge.</b> Không một giá trị loss nào là NaN hay Inf; loss không vọt lên gấp nhiều lần rồi dao động.</li>
+<li><b>Tốc độ đúng kỳ vọng.</b> Tokens/s gần với số đo nền của A (lab Day 34). Chậm hơn hẳn nghĩa là có bottleneck — dataloader, tokenizer, hay GPU chưa dùng hết.</li>
+<li><b>Checkpoint + eval sống.</b> Checkpoint lưu được, load lại được, eval held-out chạy xong và ra một con số PPL (dù sơ bộ).</li>
+</ol>
+</div>
+<div class="warn card">
+<h3>❌ FAIL — 4 lỗi thường gặp và cách sửa</h3>
+<table>
+<tr><th>Dấu hiệu</th><th>Nguyên nhân hay gặp nhất</th><th>Sửa thế nào</th></tr>
+<tr><td>Loss phẳng lì, không giảm</td><td>Learning rate quá thấp; hoặc dữ liệu vào toàn token lặp / token rác</td><td>Kiểm tra LR đúng Day 40 chưa; in vài batch mẫu xem dữ liệu có đọc được không (checklist mục 1)</td></tr>
+<tr><td>Loss vọt lên / NaN</td><td>Learning rate quá cao; hoặc dữ liệu có giá trị bất thường (token id ngoài vocab)</td><td>Giảm LR, chạy lại E0; kiểm tra tokenizer encode có ra id lạ không (checklist mục 2)</td></tr>
+<tr><td>Chạy được nhưng tokens/s quá chậm</td><td>Dataloader là bottleneck; batch size nhỏ quá; GPU chờ dữ liệu</td><td>Đo thời gian từng khâu, tăng batch size nếu còn bộ nhớ — ghi lại số mới, đừng đoán</td></tr>
+<tr><td>Checkpoint lỗi / eval không chạy</td><td>Đường dẫn lưu sai; tập held-out lẫn vào train; code eval chưa thử bao giờ</td><td>Sửa đường dẫn, kiểm tra lại tập held-out đóng băng (checklist mục 4); chạy eval tay một lần trước khi chạy lại E0</td></tr>
+</table>
+<p><b>Quy tắc vàng:</b> E0 FAIL thì sửa đúng chỗ lỗi, rồi <b>chạy lại E0 từ đầu</b> — không sửa giữa chừng rồi chạy tiếp, vì lúc đó bạn không còn biết phần nào của đường cong thuộc về bản sửa nào. E0 rẻ, chạy lại không tiếc. Chạy lại E0 ba lần vẫn rẻ hơn một lần E4 hỏng giữa chừng.</p>
+</div>
+
+<h2>5. Sau E0 — quyết định go / no-go cho E1</h2>
+<p>E0 PASS xong, điền bảng dưới đây — đây là <b>bằng chứng</b> để buổi lab tối nay quyết định có chạy E1 hay không. Bảng này cũng là trang đầu tiên trong phụ lục thí nghiệm của báo cáo đề tài (Day 54–60 sẽ cần lại).</p>
+<table>
+<tr><th>Mục ghi</th><th>Điền gì</th></tr>
+<tr><td>Ngày chạy E0</td><td>23/11/2026 — buổi lab tối Day 42</td></tr>
+<tr><td>Số bước / số token</td><td>Ví dụ: 300 bước / ~1,5M token (ghi số thật đo được)</td></tr>
+<tr><td>Loss đầu → loss cuối</td><td>Ví dụ: 9,8 → 7,4 (ghi số thật, không làm tròn đẹp)</td></tr>
+<tr><td>Tokens/s + MFU</td><td>Số đo thật, so với số nền của A (Day 34)</td></tr>
+<tr><td>PPL sơ bộ trên held-out</td><td>Số thật — ghi rõ "sơ bộ, vài trăm bước, không phải PPL chính thức"</td></tr>
+<tr><td>Checkpoint</td><td>Đã lưu + load lại được? (có / không)</td></tr>
+<tr><td>Kết luận</td><td>PASS → go E1 &nbsp;|&nbsp; FAIL → sửa ___ rồi chạy lại E0</td></tr>
+</table>
+<p><b>Trần P vẫn để trống.</b> PPL sơ bộ của E0 — train vài trăm bước — không phải PPL chính thức của A, càng không phải trần P. P chỉ chốt khi A train xong đủ 200M token (lab Day 35). Đừng lấy số E0 điền vào chỗ của P trong đề cương Day 39.</p>
+<p>Thứ tự sau E0 PASS: <b>E1 (dữ liệu) → E2 (tokenizer) → E5 (seed) → E3 (kiến trúc) → E4 (huấn luyện)</b> — rẻ trước đắt sau, như ma trận Day 41 đã khóa. E5 chạy trước E4 vì không có dao động seed thì E4 không kết luận được gì.</p>
+
+<div class="card energy">
+<h2 style="border:none;margin:0 0 8px;">⚡ Góc tiết kiệm năng lượng</h2>
+<p>E0 là biện pháp tiết kiệm năng lượng <b>rẻ nhất</b> trong cả ma trận — rẻ hơn cả việc đọc loss curve sớm (Day 41), vì nó ngăn lỗi <i>trước khi</i> có đường cong để đọc. Một E0 vài phút bắt được lỗi tokenizer thì cứu cả một lần chạy E1 (~8 phút × 2) khỏi cho ra số sai; bắt được lỗi checkpoint thì cứu cả E4 (~110 phút) khỏi chạy xong mới phát hiện không lưu được gì.</p>
+<p>Tính theo ngân sách 3 GPU-giờ của ma trận: mỗi lần chạy lại một thí nghiệm vì lỗi pipeline là đốt lại toàn bộ chi phí của ô đó — mà lỗi pipeline thì không cho ra kiến thức nào, chỉ cho ra bài học "lẽ ra phải chạy E0". Kỷ luật ở đây rất cụ thể: <b>không chạy thí nghiệm nào mà chưa có E0 PASS mới nhất</b> — cứ mỗi lần đổi dữ liệu, đổi tokenizer hay đổi code, E0 chạy lại một lần, vài phút.</p>
+</div>
+
+<h2>📌 Tóm tắt</h2>
+<ul>
+<li><b>E0 = smoke test:</b> chạy A rút gọn vài trăm bước, chỉ hỏi pipeline có chạy được không, loss có giảm không — không trả lời câu hỏi khoa học nào.</li>
+<li><b>Checklist 5 mục</b> trước khi chạy: dữ liệu, tokenizer, cấu hình A, tập held-out đóng băng, giao thức đo 4 số. Mục nào chưa đạt thì sửa trước, đừng bấm chạy.</li>
+<li><b>Thiết kế E0:</b> thứ duy nhất thay đổi là quy mô chạy; mọi thứ khác giữ nguyên y hệt lần chạy A đầy đủ.</li>
+<li><b>PASS cần đủ 4 dấu hiệu:</b> loss giảm đều, không NaN, tokens/s đúng kỳ vọng, checkpoint + eval sống. Thiếu một dấu hiệu là FAIL — sửa đúng chỗ rồi chạy lại E0 từ đầu.</li>
+<li><b>Sau E0 PASS:</b> điền bảng kết quả, quyết định go E1, giữ đúng thứ tự E1 → E2 → E5 → E3 → E4.</li>
+<li><b>Trần P vẫn trống</b> — PPL sơ bộ của E0 không phải PPL chính thức, không điền vào đề cương.</li>
+</ul>
+
+<h2>📝 Nhiệm vụ nghiên cứu hôm nay (buổi lab tối nay)</h2>
+<ol>
+<li><b>Soát checklist 5 mục</b> (§2) và ghi "đạt / chưa đạt" từng mục; mục nào chưa đạt thì sửa trước khi chạy.</li>
+<li><b>Chạy E0 thật</b> trên máy: cấu hình A rút gọn vài trăm bước, cùng seed, cùng tập held-out đóng băng; log loss mỗi ~50 bước, tokens/s, MFU, thời gian chạy.</li>
+<li><b>Đọc kết quả E0</b> theo §4: đủ 4 dấu hiệu PASS hay rơi vào 1 trong 4 lỗi FAIL? Ghi rõ dấu hiệu nào, bằng chứng số nào.</li>
+<li><b>Điền bảng kết quả E0</b> (§5) và viết một câu quyết định: "go E1" hay "sửa ___ rồi chạy lại E0". Nếu FAIL, sửa đúng chỗ lỗi rồi chạy lại E0 — không chạy tiếp E1.</li>
+<li><b>Lưu checkpoint E0</b> và kiểm tra load lại được — đây là bằng chứng pipeline sống, để trong phụ lục thí nghiệm của đề cương.</li>
+</ol>
+
+<p style="margin-top:26px;"><a class="btn" href="Day42_quiz.html">📝 Làm quiz tự đánh giá — Day 42</a> <a class="btn" href="Day42_video.mp4">🎬 Xem video giải thích</a></p>
+<p class="sub">Ngày mai (Day 43): chạy E1 — dữ liệu khử trùng lặp có giúp PPL thật sự, hay chỉ làm số đẹp?</p>
+</div>
+</body>
+</html>

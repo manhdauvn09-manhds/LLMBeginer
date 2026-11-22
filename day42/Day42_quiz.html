@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 42 Quiz — Chạy E0: smoke test, kiểm chứng pipeline</title>
+<style>
+:root{--bg:#0a0f1e;--card:#101830;--line:#22305a;--gold:#f5c542;--green:#4ade80;--red:#f87171;--cyan:#67e8f9;--text:#e8edf7;--muted:#93a0bd;}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;line-height:1.7;font-size:16.5px;}
+.wrap{max-width:760px;margin:0 auto;padding:18px 16px 60px;}
+h1{font-size:26px;line-height:1.3;margin:6px 0 8px;}
+.sub{color:var(--muted);}
+.q{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin:18px 0;}
+.q h3{margin:0 0 10px;font-size:17px;color:var(--gold);}
+label{display:block;padding:8px 10px;border-radius:8px;cursor:pointer;margin:4px 0;}
+label:hover{background:#1a2447;}
+input{margin-right:8px;}
+.expl{display:none;margin-top:10px;padding:10px 14px;border-left:4px solid var(--green);background:#0f2233;border-radius:0 10px 10px 0;font-size:15.5px;}
+.expl.wrong{border-left-color:var(--red);background:#2a1218;}
+.btn{display:inline-block;background:var(--gold);color:#14100a;font-weight:700;border-radius:10px;padding:12px 22px;border:none;font-size:16px;cursor:pointer;margin:8px 8px 0 0;}
+.btn2{display:inline-block;background:#1a2447;color:var(--text);border:1px solid var(--line);border-radius:10px;padding:12px 22px;font-size:16px;cursor:pointer;margin:8px 8px 0 0;}
+#result{font-size:18px;font-weight:700;margin:16px 0 6px;}
+#copyBox{width:100%;background:#0a1428;color:var(--text);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:15px;margin-top:8px;}
+.note{color:var(--muted);font-size:14.5px;margin-top:14px;}
+a{color:var(--cyan);}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>📝 Day 42 Quiz — Chạy E0: smoke test, kiểm chứng pipeline</h1>
+<p class="sub">5 câu trắc nghiệm • Chọn đáp án rồi bấm "Nộp bài" để chấm điểm ngay trong file. File HTML này không tự gửi kết quả về được — làm xong bấm "Copy kết quả" rồi paste vào chat để trợ lý ghi điểm.</p>
+
+<div class="q" id="q1">
+<h3>Câu 1. E0 — smoke test trả lời câu hỏi nào, và KHÔNG trả lời câu hỏi nào?</h3>
+<label><input type="radio" name="q1" value="A"> A. Trả lời: pipeline có chạy được không, loss có giảm không — Không trả lời: dữ liệu sạch có tốt hơn không, vocab 16k có đáng tiền không</label>
+<label><input type="radio" name="q1" value="B"> B. Trả lời: điểm tối ưu là A, B hay C — Không trả lời: pipeline có chạy được không</label>
+<label><input type="radio" name="q1" value="C"> C. Trả lời: PPL chính thức của mô hình và trần P của đề tài — Không trả lời: tốc độ train</label>
+<label><input type="radio" name="q1" value="D"> D. Trả lời mọi câu hỏi của ma trận E0–E5 trong một lần chạy duy nhất</label>
+<div class="expl" id="e1">Đúng là A. E0 chỉ hỏi "pipeline sống hay chết" — loss có giảm không, code có chạy được không. Các câu hỏi khoa học (dedupe, vocab, kiến trúc, epoch) thuộc về E1–E5. Lấy PPL sơ bộ của E0 làm PPL chính thức hay trần P là sai nghiêm trọng — P chỉ chốt khi A train xong đủ 200M token.</div>
+</div>
+
+<div class="q" id="q2">
+<h3>Câu 2. Trước khi bấm chạy E0, bạn phát hiện tokenizer load sai vocab (không phải BPE 8k đã chốt). Làm gì đúng nhất?</h3>
+<label><input type="radio" name="q2" value="A"> A. Cứ chạy E0 đã — E0 sẽ tự phát hiện ra lỗi tokenizer</label>
+<label><input type="radio" name="q2" value="B"> B. Sửa tokenizer cho đúng vocab đã chốt trước, rồi mới chạy E0</label>
+<label><input type="radio" name="q2" value="C"> C. Đổi sang BPE 16k luôn cho tiện, E0 chạy với vocab nào cũng được</label>
+<label><input type="radio" name="q2" value="D"> D. Bỏ qua mục tokenizer trong checklist, vì E0 chỉ kiểm tra loss</label>
+<div class="expl" id="e2">Đúng là B. Checklist 5 mục phải soát trước khi chạy: mục nào chưa đạt thì sửa trước. Chạy E0 với tokenizer sai thì E0 fail, mà bạn không biết lỗi nằm ở tokenizer hay ở pipeline — mất đúng thứ E0 sinh ra để tiết kiệm. Đổi vocab trong lúc chạy E0 thì E0 không còn là smoke test của cấu hình A nữa.</div>
+</div>
+
+<div class="q" id="q3">
+<h3>Câu 3. Trong thiết kế E0, "thứ duy nhất thay đổi là ___?" — điền đúng nhất:</h3>
+<label><input type="radio" name="q3" value="A"> A. Quy mô chạy: ít bước hơn, ít dữ liệu hơn — mọi thứ khác (cấu hình A, tokenizer, seed, tập held-out, cách đo) giữ nguyên y hệt lần chạy A đầy đủ</label>
+<label><input type="radio" name="q3" value="B"> B. Learning rate và tokenizer — vì E0 cần chạy nhanh nên phải tăng tốc và đổi vocab nhẹ hơn</label>
+<label><input type="radio" name="q3" value="C"> C. Dữ liệu và seed — vì E0 chỉ cần dữ liệu mẫu nào cũng được, seed nào cũng được</label>
+<label><input type="radio" name="q3" value="D"> D. Tập held-out — vì E0 chạy ngắn nên dùng tập eval nhỏ hơn cho nhanh</label>
+<div class="expl" id="e3">Đúng là A. E0 chỉ rút gọn quy mô: vài trăm bước trên lát dữ liệu đầu tiên cùng nguồn. Đổi LR là thí nghiệm khác (thuộc E4), đổi tokenizer là E2, đổi tập held-out thì eval không còn đo trên cùng một thước. E0 chỉ có giá trị khi nó chạy đúng cấu hình sẽ dùng cho E1–E5.</div>
+</div>
+
+<div class="q" id="q4">
+<h3>Câu 4. Lần chạy E0: loss giảm đều, không NaN, tokens/s đúng kỳ vọng — nhưng checkpoint lưu xong load lại không được. Kết luận nào đúng?</h3>
+<label><input type="radio" name="q4" value="A"> A. PASS — loss giảm đều là đủ, checkpoint chỉ là chi tiết lưu trữ</label>
+<label><input type="radio" name="q4" value="B"> B. PASS một nửa — cứ chạy E1, checkpoint sửa sau cũng được</label>
+<label><input type="radio" name="q4" value="C"> C. FAIL — PASS cần đủ 4 dấu hiệu, checkpoint load không được nghĩa là E4 sẽ chạy xong mà không lưu được gì; sửa đường dẫn rồi chạy lại E0 từ đầu</label>
+<label><input type="radio" name="q4" value="D"> D. FAIL vì loss giảm chưa đủ nhanh — tăng learning rate rồi chạy lại</label>
+<div class="expl" id="e4">Đúng là C. PASS cần đủ cả 4 dấu hiệu: loss giảm đều, không NaN, tokens/s đúng kỳ vọng, checkpoint + eval sống. Checkpoint lưu mà load không được thì E4 sẽ đốt ~110 phút rồi trắng tay. Sửa đúng chỗ lỗi (đường dẫn, quyền ghi) rồi chạy lại E0 từ đầu — không sửa giữa chừng rồi chạy tiếp.</div>
+</div>
+
+<div class="q" id="q5">
+<h3>Câu 5. E0 FAIL vì loss vọt lên rồi thành NaN. Bạn kiểm tra và thấy learning rate đang để gấp đôi con số Day 40 đã ghi. Xử lý đúng là gì?</h3>
+<label><input type="radio" name="q5" value="A"> A. Giảm LR về đúng con số Day 40, chạy lại E0 từ đầu, xem loss có giảm đều không</label>
+<label><input type="radio" name="q5" value="B"> B. Giữ nguyên LR, chạy tiếp E1 — vì E1 đổi dữ liệu có thể tự sửa được lỗi LR</label>
+<label><input type="radio" name="q5" value="C"> C. Giảm LR một nửa so với Day 40 để "chắc ăn", rồi chạy thẳng E4</label>
+<label><input type="radio" name="q5" value="D"> D. Đổi seed và chạy lại — NaN có thể chỉ do seed xui</label>
+<div class="expl" id="e5">Đúng là A. Loss vọt lên / NaN với LR quá cao là lỗi kinh điển (Day 41: dạng diverge). Sửa đúng chỗ — LR về đúng giao thức Day 40 — rồi chạy lại E0 từ đầu. Đổi seed không sửa được LR sai; đổi LR khác với Day 40 thì E0 không còn kiểm tra đúng cấu hình A nữa; chạy tiếp E1 khi E0 đang FAIL là đốt GPU cho một thí nghiệm sẽ cho số sai.</div>
+</div>
+
+<button class="btn" onclick="grade()">Nộp bài</button>
+<button class="btn2" onclick="copyResult()">📋 Copy kết quả</button>
+<div id="result"></div>
+<textarea id="copyBox" rows="2" readonly placeholder="Kết quả sẽ hiện ở đây sau khi nộp bài — bấm Copy kết quả rồi paste vào chat."></textarea>
+<p class="note">📌 Lưu ý: file HTML tĩnh không tự gửi kết quả về được. Bạn paste chuỗi kết quả vào chat, trợ lý sẽ ghi điểm vào tiến độ học của bạn.</p>
+<p><a href="Day42_lesson.html">← Quay lại bài học Day 42</a></p>
+
+<script>
+const answers = {q1:"A", q2:"B", q3:"A", q4:"C", q5:"A"};
+let resultStr = "";
+function grade(){
+  let score = 0; const letters = [];
+  for(let i=1;i<=5;i++){
+    const sel = document.querySelector('input[name="q'+i+'"]:checked');
+    const expl = document.getElementById('e'+i);
+    const letter = sel ? sel.value : "?";
+    letters.push(letter);
+    if(sel && sel.value === answers["q"+i]){ score++; expl.classList.remove("wrong"); }
+    else if(sel){ expl.classList.add("wrong"); }
+    expl.style.display = "block";
+  }
+  resultStr = "Day42 Quiz: " + letters.map((l,i)=>(i+1)+l).join(" ") + " — " + score + "/5";
+  document.getElementById("result").textContent = "🎯 Bạn được " + score + "/5 câu đúng." + (score<4 ? " Dưới 70% — xem lại phần tương ứng trong bài học rồi làm lại nhé." : " Đạt! Sẵn sàng sang Day 43.");
+  document.getElementById("copyBox").value = resultStr;
+}
+function copyResult(){
+  const box = document.getElementById("copyBox");
+  if(!resultStr){ alert("Bạn chưa nộp bài — hãy chọn đáp án và bấm Nộp bài trước."); return; }
+  box.select();
+  if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(resultStr); }
+  else { document.execCommand("copy"); }
+  alert("Đã copy: " + resultStr);
+}
+</script>
+</div>
+</body>
+</html>
