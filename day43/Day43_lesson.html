@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ngày 43 — Chạy E1: khử trùng lặp có giúp PPL thật sự, hay chỉ làm số đẹp?</title>
+<style>
+:root{--bg:#0a0f1e;--card:#101830;--line:#22305a;--gold:#f5c542;--green:#4ade80;--red:#f87171;--cyan:#67e8f9;--text:#e8edf7;--muted:#93a0bd;}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;line-height:1.75;font-size:16.5px;}
+.wrap{max-width:780px;margin:0 auto;padding:18px 16px 60px;}
+h1{font-size:27px;line-height:1.3;margin:8px 0 6px;}
+h2{font-size:21px;color:var(--gold);margin:34px 0 10px;border-bottom:1px solid var(--line);padding-bottom:6px;}
+h3{font-size:18px;color:var(--cyan);margin:22px 0 6px;}
+p{margin:10px 0;}
+.sub{color:var(--muted);}
+.hero{width:100%;border-radius:14px;border:1px solid var(--line);margin:14px 0 6px;}
+.cap{color:var(--muted);font-size:14px;text-align:center;margin:0 0 14px;}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin:16px 0;}
+.card.energy{border-left:5px solid var(--gold);background:#1a1607;}
+.warn{border-left:5px solid var(--red);background:#2a1218;}
+.good{border-left:5px solid var(--green);background:#0f2233;}
+.formula{background:#0a1428;border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin:12px 0;text-align:center;font-size:19px;overflow-x:auto;}
+.formula small{display:block;font-size:14px;color:var(--muted);margin-top:6px;}
+table{width:100%;border-collapse:collapse;margin:12px 0;font-size:15px;}
+th,td{border:1px solid var(--line);padding:9px 10px;text-align:left;vertical-align:top;}
+th{background:#16224a;color:var(--gold);}
+ul,ol{margin:8px 0 8px 22px;padding:0;}
+li{margin:6px 0;}
+code{background:#1a2447;padding:2px 7px;border-radius:6px;font-size:15px;}
+a{color:var(--cyan);}
+.btn{display:inline-block;background:var(--gold);color:#14100a;font-weight:700;border-radius:10px;padding:12px 22px;text-decoration:none;margin:10px 8px 0 0;}
+.tag{display:inline-block;background:#1a2447;border:1px solid var(--line);border-radius:20px;padding:3px 12px;font-size:13.5px;color:var(--muted);margin:2px 4px 2px 0;}
+svg{display:block;margin:14px auto;max-width:100%;}
+</style>
+</head>
+<body>
+<div class="wrap">
+<p class="sub">Phase 2 — Đề tài Tiny Vietnamese LM &nbsp;•&nbsp; Ngày 43 / 60 &nbsp;•&nbsp; Nhóm ngày 38–44: đề cương + baseline</p>
+<h1>Ngày 43 — Chạy E1: khử trùng lặp có giúp PPL thật sự, hay chỉ làm số đẹp?</h1>
+<p class="sub">Advisor buổi sáng — đọc ~15 phút, nhiệm vụ chạy E1 thật vào buổi lab tối nay. E0 đã PASS hôm qua (Day 42) — pipeline sống, loss giảm, checkpoint lưu được. Hôm nay chạy ô đầu tiên trả lời câu hỏi khoa học thật sự: <b>dữ liệu khử trùng lặp có làm mô hình tốt hơn thật không — hay chỉ làm con số PPL trông đẹp hơn?</b></p>
+<img class="hero" src="img/hero43.webp" alt="Minh họa: hai chồng tài liệu tiếng Việt — một chồng đầy bản sao trùng lặp tô đỏ, một chồng sạch duy nhất tô xanh">
+<p class="cap">E1 so hai lần chạy giống hệt nhau, chỉ khác một thứ: dữ liệu đã khử trùng lặp hay chưa. Cái gì khác nhau trong kết quả thì gán được đúng cho dữ liệu.</p>
+
+<h2>🎯 Mục tiêu buổi học</h2>
+<ul>
+<li>Hiểu <b>E1 — thí nghiệm dữ liệu</b>: thứ duy nhất thay đổi là <b>khử trùng lặp bật / tắt</b>, mọi thứ khác giữ nguyên y hệt cấu hình A.</li>
+<li>Hiểu vì sao dữ liệu trùng lặp làm <b>PPL đẹp giả</b>: mô hình học thuộc lòng thay vì học tiếng Việt, và tập val bị rò rỉ.</li>
+<li>Biết thiết kế E1 <b>công bằng</b>: so sánh theo <b>số token đã thấy</b>, không so theo số epoch — vì hai bộ dữ liệu có kích thước khác nhau.</li>
+<li>Đọc được kết quả E1 theo <b>3 kịch bản</b> và ngưỡng dao động seed: chênh lệch nhỏ hơn dao động seed thì là nhiễu, không phải cải tiến.</li>
+</ul>
+<p>⏱️ Ước lượng: §1 E1 là gì ~4 phút • §2 vì sao trùng lặp làm số đẹp giả ~4 phút • §3 thiết kế công bằng ~4 phút • §4 đọc kết quả + nhiệm vụ ~3 phút.</p>
+
+<h2>1. E1 là gì — biến duy nhất là dữ liệu</h2>
+<p><b>Định nghĩa ngắn:</b> E1 là ô đầu tiên của ma trận thí nghiệm (Day 41) trả lời một câu hỏi khoa học: <b>dữ liệu sạch — đã khử trùng lặp — có giúp mô hình tốt hơn thật không?</b> Cách trả lời: chạy cấu hình A hai lần, giống hệt nhau mọi thứ, chỉ khác bộ dữ liệu đầu vào.</p>
+<div class="card">
+<p style="margin:0"><b>Thứ duy nhất thay đổi là dữ liệu.</b> Viết ra trước khi chạy, theo quy tắc vàng của ma trận (Day 41):</p>
+<p style="margin:8px 0 0">Chạy 1 — <b>A + dữ liệu thô</b>: Wikipedia tiếng Việt chưa khử trùng lặp, giữ nguyên mọi bản sao.<br>
+Chạy 2 — <b>A + dữ liệu sạch</b>: cùng nguồn Wikipedia, đã qua khử trùng lặp ExactSubstr + NearDup (Day 33).</p>
+<p style="margin:8px 0 0">Mọi thứ còn lại <b>bằng nhau tuyệt đối</b>: tokenizer BPE 8k, cấu hình A (10M tham số, tied embeddings, d = 320, 6 layer), learning rate, seed, tập held-out đóng băng, cùng một máy. Một thứ đổi theo mà không kiểm soát được — ví dụ learning rate khác — thì kết quả không gán được cho dữ liệu nữa.</p>
+</div>
+<p><b>Nhắc lại kiến thức nền (Day 33):</b> dữ liệu Wikipedia tiếng Việt chứa nhiều bản sao — cùng một đoạn văn xuất hiện ở nhiều bài viết khác nhau (mẫu tin, trích dẫn lặp, bài sao chép). Khử trùng lặp có hai tầng: <b>ExactSubstr</b> — xóa các đoạn văn giống hệt nhau, và <b>NearDup</b> — xóa các đoạn gần giống nhau (chỉ khác vài từ). Sau khi khử trùng, số token hiệu dụng của bộ dữ liệu giảm: 3 epoch ≈ 744M token, 4 epoch ≈ 902M token — nghĩa là dữ liệu sạch <i>ít token hơn</i> dữ liệu thô, nhưng mỗi token mang thông tin mới nhiều hơn.</p>
+<p><b>Chi phí:</b> mỗi lần chạy A khoảng 8 phút, tổng E1 ≈ 8 phút × 2 — ô rẻ thứ hai trong ma trận sau E0. Rẻ nên chạy đầu tiên, trước cả E2 (tokenizer) và E3 (kiến trúc).</p>
+
+<h2>2. Vì sao trùng lặp làm số đẹp giả</h2>
+<p>Trùng lặp gây hại theo hai đường khác nhau — một đường làm mô hình kém đi, một đường làm con số đo lừa mình. Hiểu cả hai mới thấy E1 đáng chạy.</p>
+<h3>Đường 1 — mô hình học thuộc lòng thay vì học tiếng Việt</h3>
+<p>Một đoạn văn xuất hiện 20 lần trong dữ liệu train thì mô hình gặp nó 20 lần trong mỗi epoch. Gradient từ đoạn đó chiếm tỉ trọng gấp 20 lần một đoạn chỉ xuất hiện một lần. Kết quả: mô hình dành dung lượng quý giá (chỉ 10M tham số) để <b>ghi nhớ nguyên văn</b> những đoạn lặp lại, thay vì học quy luật chung của tiếng Việt. Đó là overfit ở cấp độ dữ liệu — không phải do mô hình quá lớn, mà do dữ liệu cho nó học thuộc lòng.</p>
+<svg width="700" height="230" viewBox="0 0 700 230" xmlns="http://www.w3.org/2000/svg">
+<rect x="0" y="0" width="700" height="230" rx="12" fill="#101830"/>
+<text x="350" y="28" text-anchor="middle" fill="#f5c542" font-size="16" font-weight="bold">Cùng một đoạn văn, lặp 20 lần — mô hình nhớ, không học</text>
+<rect x="40" y="55" width="180" height="34" rx="6" fill="#2a1218" stroke="#f87171"/>
+<text x="130" y="77" text-anchor="middle" fill="#f87171" font-size="14">Đoạn A — lần 1</text>
+<rect x="40" y="100" width="180" height="34" rx="6" fill="#2a1218" stroke="#f87171"/>
+<text x="130" y="122" text-anchor="middle" fill="#f87171" font-size="14">Đoạn A — lần 2</text>
+<rect x="40" y="145" width="180" height="34" rx="6" fill="#2a1218" stroke="#f87171"/>
+<text x="130" y="167" text-anchor="middle" fill="#f87171" font-size="14">Đoạn A — lần 20</text>
+<text x="255" y="122" text-anchor="middle" fill="#93a0bd" font-size="22">→</text>
+<rect x="290" y="95" width="170" height="50" rx="6" fill="#1a1607" stroke="#f5c542"/>
+<text x="375" y="114" text-anchor="middle" fill="#f5c542" font-size="14">Gradient × 20 lần</text>
+<text x="375" y="134" text-anchor="middle" fill="#e8edf7" font-size="13">nhớ nguyên văn</text>
+<text x="495" y="122" text-anchor="middle" fill="#93a0bd" font-size="22">→</text>
+<rect x="530" y="95" width="140" height="50" rx="6" fill="#0f2233" stroke="#4ade80"/>
+<text x="600" y="114" text-anchor="middle" fill="#4ade80" font-size="14">Dữ liệu sạch</text>
+<text x="600" y="134" text-anchor="middle" fill="#e8edf7" font-size="13">học quy luật</text>
+<text x="350" y="208" text-anchor="middle" fill="#93a0bd" font-size="13">Dedupe: mỗi đoạn chỉ xuất hiện 1 lần — gradient chia đều cho mọi đoạn</text>
+</svg>
+<h3>Đường 2 — tập val bị rò rỉ, PPL thấp giả tạo</h3>
+<p>Nguy hiểm hơn: nếu cùng một đoạn văn xuất hiện cả trong train lẫn trong tập held-out, thì mô hình đã <i>thấy</i> đáp án trước khi được kiểm tra. PPL đo được lúc đó thấp giả — không phải vì mô hình giỏi tiếng Việt, mà vì nó nhớ đáp án. Đây chính là lỗi rò rỉ đánh giá đã cảnh báo ở Day 40–41: <b>chọn checkpoint bằng val, mở test một lần duy nhất</b> — và val phải sạch trùng lặp với train, nếu không mọi con số đều vô nghĩa.</p>
+<div class="card warn">
+<p style="margin:0"><b>⚠️ Bẫy kinh điển:</b> chạy A trên dữ liệu thô, thấy PPL đẹp, kết luận mô hình giỏi — trong khi một phần PPL đẹp đó là nhờ val chứa đoạn văn đã xuất hiện trong train. Sau khi khử trùng lặp, PPL có thể <i>tăng lên</i> — và đó là tin tốt: con số lúc này mới trung thực. Đừng hoảng khi số sạch xấu hơn số bẩn.</p>
+</div>
+<p><b>Ví dụ trực quan:</b> giả sử 10% tập held-out trùng với train. Mô hình nhớ đúng 10% đó gần như hoàn hảo (loss ≈ 0 trên phần đó), PPL tổng thể bị kéo xuống đáng kể — trong khi khả năng thật trên văn bản chưa từng thấy không đổi. E1 tồn tại để đo đúng phần này: chạy hai lần, val giống nhau, chỉ khác dữ liệu train — chênh lệch PPL là phần thật của dedupe.</p>
+
+<h2>3. Thiết kế E1 — so sánh công bằng theo số token đã thấy</h2>
+<p>Đây là phần dễ làm sai nhất của E1. Hai bộ dữ liệu có <b>kích thước khác nhau</b> — dữ liệu sạch ít token hơn dữ liệu thô — nên so sánh theo epoch là so sánh lệch.</p>
+<div class="formula">
+So sánh đúng: cùng số token đã thấy (cùng compute), không cùng số epoch
+<small>1 epoch dữ liệu thô ≠ 1 epoch dữ liệu sạch, vì dữ liệu sạch ít token hơn mỗi epoch</small>
+</div>
+<p><b>Ví dụ cụ thể:</b> dữ liệu thô 1 epoch = 300M token; dữ liệu sạch 1 epoch = 248M token (đã trừ trùng lặp). Chạy cả hai đủ 1 epoch rồi so PPL thì lần chạy sạch đã thấy <i>ít token hơn</i> — nó thua không phải vì dữ liệu sạch kém, mà vì nó học ít hơn. So sánh công bằng: cả hai chạy đủ <b>200M token</b> (ngân sách của cấu hình A, Day 34) rồi mới so PPL trên cùng tập held-out đóng băng.</p>
+<table>
+<tr><th>Hạng mục</th><th>Chạy 1 — dữ liệu thô</th><th>Chạy 2 — dữ liệu sạch</th></tr>
+<tr><td>Dữ liệu</td><td>Wikipedia-vi, chưa khử trùng lặp</td><td>Cùng nguồn, ExactSubstr + NearDup (Day 33)</td></tr>
+<tr><td>Ngân sách train</td><td>200M token</td><td>200M token — bằng nhau</td></tr>
+<tr><td>Tokenizer</td><td>BPE 8k</td><td>BPE 8k — bằng nhau</td></tr>
+<tr><td>Cấu hình</td><td>A: 10M, d = 320, 6 layer, tied embeddings</td><td>Giống hệt</td></tr>
+<tr><td>Learning rate, seed</td><td>Như Day 40 đã ghi</td><td>Giống hệt</td></tr>
+<tr><td>Đánh giá</td><td>PPL trên held-out đóng băng (Day 34)</td><td>Cùng tập held-out — bằng nhau</td></tr>
+<tr><td>Chi phí</td><td>~8 phút</td><td>~8 phút</td></tr>
+</table>
+<p><b>Tiêu chí dừng viết trước khi chạy</b> (Day 41, §3): dừng một lần chạy nếu loss diverge hoặc NaN trong 200 bước đầu; dừng cả E1 nếu E0 PASS đã hết hạn — tức là code hoặc dữ liệu đã đổi sau E0 mà chưa chạy lại smoke test. E0 chạy lại vài phút mỗi lần đổi dữ liệu — rẻ hơn nhiều so với chạy lại E1.</p>
+<div class="card">
+<p style="margin:0"><b>📋 Câu kiểm tra trước mỗi lần chạy (prompt 03):</b> viết ra một dòng — <i>“thứ duy nhất thay đổi là dữ liệu: khử trùng lặp bật / tắt”</i> — rồi kiểm tra từng mục trong bảng trên có bằng nhau không. Hai thứ đổi cùng lúc thì kết quả không gán được cho thứ nào.</p>
+</div>
+
+<h2>4. Đọc kết quả E1 — ba kịch bản, một ngưỡng</h2>
+<p>Sau hai lần chạy, có ba kịch bản có thể xảy ra. Mỗi kịch bản có một quyết định khác nhau — và một sai lầm khác nhau cần tránh.</p>
+<svg width="700" height="250" viewBox="0 0 700 250" xmlns="http://www.w3.org/2000/svg">
+<rect x="0" y="0" width="700" height="250" rx="12" fill="#101830"/>
+<text x="350" y="28" text-anchor="middle" fill="#f5c542" font-size="16" font-weight="bold">Hai đường val loss — cùng 200M token, chỉ khác dữ liệu</text>
+<line x1="70" y1="210" x2="660" y2="210" stroke="#22305a" stroke-width="2"/>
+<line x1="70" y1="210" x2="70" y2="45" stroke="#22305a" stroke-width="2"/>
+<text x="365" y="238" text-anchor="middle" fill="#93a0bd" font-size="13">số token đã thấy →</text>
+<text x="30" y="130" text-anchor="middle" fill="#93a0bd" font-size="13" transform="rotate(-90 30 130)">val loss ↓</text>
+<path d="M 80 70 Q 300 110 650 150" stroke="#f87171" stroke-width="3" fill="none"/>
+<path d="M 80 70 Q 300 95 650 125" stroke="#4ade80" stroke-width="3" fill="none"/>
+<circle cx="650" cy="150" r="5" fill="#f87171"/>
+<circle cx="650" cy="125" r="5" fill="#4ade80"/>
+<text x="560" y="105" fill="#4ade80" font-size="14">sạch (dedupe)</text>
+<text x="560" y="172" fill="#f87171" font-size="14">thô (chưa dedupe)</text>
+<text x="350" y="200" text-anchor="middle" fill="#93a0bd" font-size="12">Khoảng cách cuối = hiệu quả thật của dedupe — nếu lớn hơn dao động seed</text>
+</svg>
+<table>
+<tr><th>Kịch bản</th><th>Dấu hiệu</th><th>Kết luận &amp; quyết định</th></tr>
+<tr><td><b>1. Dedupe thắng rõ</b></td><td>PPL sạch thấp hơn PPL thô một khoảng <b>lớn hơn dao động seed</b> (Day 41: chênh &lt; dao động seed = nhiễu)</td><td>Dedupe giúp thật. <b>Giữ dữ liệu sạch</b> làm dữ liệu chuẩn cho E2–E5. Ghi khoảng cách PPL vào báo cáo kèm ± dao động seed.</td></tr>
+<tr><td><b>2. Không khác biệt</b></td><td>Chênh lệch PPL nhỏ hơn dao động seed — hai đường loss gần như chồng lên nhau</td><td>Không kết luận được dedupe giúp hay không. <b>Vẫn giữ dữ liệu sạch</b> — vì dữ liệu sạch đúng về mặt phương pháp (không rò rỉ, không học thuộc lòng), và chi phí dedupe đã trả một lần ở Day 33. Ghi rõ “không khác biệt có ý nghĩa” thay vì “dedupe vô dụng”.</td></tr>
+<tr><td><b>3. Dedupe thua rõ</b></td><td>PPL sạch cao hơn PPL thô vượt ngưỡng seed</td><td>Đừng vội kết luận “trùng lặp tốt”. Kiểm tra trước: <b>NearDup có quá gắt</b>, xóa nhầm cả dữ liệu tốt (văn bản mẫu hợp pháp, công thức lặp)? So sánh số token hai bộ dữ liệu — nếu dữ liệu sạch mất quá nhiều token thì ngưỡng NearDup cần nới ra, rồi chạy lại E1. Đây là lỗi thiết kế, không phải lỗi ý tưởng.</td></tr>
+</table>
+<p><b>Ngưỡng dao động seed (nhắc lại Day 41):</b> chạy lại đúng cấu hình A với 2–3 seed khác nhau, PPL dao động một chút — ví dụ ±0,3. Chênh lệch PPL giữa hai lần chạy E1 mà nhỏ hơn con số này thì chưa kết luận được gì. Nếu chưa có dao động seed đo thật (E5 chạy sau), dùng ngưỡng tạm từ Day 41 và ghi rõ “chưa có E5, ngưỡng này là ước tính” — không bịa số chắc chắn.</p>
+<div class="card good">
+<p style="margin:0"><b>✅ Quy tắc báo cáo:</b> trong báo cáo, mỗi con số PPL của E1 phải đi kèm 3 thứ: (1) số token đã thấy (200M), (2) ± dao động seed, (3) ghi rõ tập held-out đã đóng băng từ Day 34. Thiếu một trong ba, hội đồng sẽ hỏi lại — và câu trả lời “không nhớ” thì không được tính điểm.</p>
+</div>
+
+<h2>⚡ Góc tiết kiệm năng lượng</h2>
+<div class="card energy">
+<p style="margin:0">E1 là thí nghiệm <b>rẻ nhất cho ra kiến thức thật</b> trong ma trận: 16 phút GPU cho một quyết định khóa dữ liệu chuẩn của cả đề tài. Nếu dedupe giúp thật mà không chạy E1, mọi thí nghiệm E2–E5 sau này đều chạy trên dữ liệu bẩn — kết quả nào cũng phải chạy lại một lần nữa trên dữ liệu sạch, đốt gấp đôi ngân sách 3 GPU-giờ. Ngược lại, nếu dedupe không giúp mà cứ giữ vì “nghe nói dữ liệu sạch tốt hơn”, thì mỗi lần chạy sau đều trả thêm chi phí tiền xử lý mà không được gì. Và điều tiết kiệm nhất: <b>so sánh theo token đã thấy</b> — một lần so lệch theo epoch có thể cho kết luận sai, mà kết luận sai về dữ liệu thì phải chạy lại cả ma trận.</p>
+</div>
+
+<h2>📌 Tóm tắt</h2>
+<ul>
+<li>E1: hai lần chạy A giống hệt nhau, <b>chỉ khác dữ liệu</b> — khử trùng lặp bật / tắt (ExactSubstr + NearDup, Day 33).</li>
+<li>Trùng lặp hại hai đường: mô hình <b>học thuộc lòng</b> thay vì học quy luật, và val bị <b>rò rỉ</b> làm PPL đẹp giả.</li>
+<li>So sánh công bằng theo <b>số token đã thấy (200M)</b>, không theo epoch — vì dữ liệu sạch ít token hơn mỗi epoch.</li>
+<li>Ba kịch bản: thắng rõ → giữ dữ liệu sạch; không khác biệt → vẫn giữ (đúng phương pháp); thua rõ → kiểm tra ngưỡng NearDup quá gắt trước khi kết luận.</li>
+<li>Chênh lệch nhỏ hơn <b>dao động seed</b> thì là nhiễu — không phải cải tiến. Trần P vẫn để trống cho đến khi A train xong đủ 200M token.</li>
+</ul>
+
+<h2>📝 Nhiệm vụ nghiên cứu hôm nay (buổi lab tối nay)</h2>
+<ol>
+<li><b>Chạy E1 thật trên máy:</b> hai lần cấu hình A, mỗi lần 200M token — một lần dữ liệu thô, một lần dữ liệu sạch (ExactSubstr + NearDup). Cùng seed, cùng LR, cùng tập held-out đóng băng. Log val loss mỗi ~50 bước, tokens/s, MFU.</li>
+<li><b>Điền bảng kết quả E1:</b> PPL thô, PPL sạch, chênh lệch, dao động seed (nếu đã có từ E5 — chưa có thì ghi “ước tính ±0,3, chờ E5”), số token đã thấy của mỗi lần chạy.</li>
+<li><b>Viết một câu quyết định:</b> “giữ dữ liệu sạch / giữ dữ liệu thô / chạy lại với ngưỡng NearDup nới ra vì ___” — kèm bằng chứng số, không viết theo cảm tính.</li>
+<li><b>Lưu bảng E1</b> vào phụ lục thí nghiệm của đề cương (Day 39) — E2 ngày mai sẽ chạy trên dữ liệu mà E1 vừa chốt.</li>
+</ol>
+<p><a class="btn" href="Day43_quiz.html">📝 Làm quiz tự đánh giá — Day 43</a>
+<a class="btn" href="Day43_video.mp4">🎬 Xem video giải thích</a></p>
+<p class="sub">Phase 2 — Tiny Vietnamese LM • Ngày mai (Day 44): chạy E2 — tokenizer BPE 8k so với 16k, vocab lớn hơn có đáng chi phí embedding?</p>
+</div>
+</body>
+</html>

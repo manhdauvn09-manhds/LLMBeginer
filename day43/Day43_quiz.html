@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 43 Quiz — Chạy E1: khử trùng lặp có giúp PPL thật sự?</title>
+<style>
+:root{--bg:#0a0f1e;--card:#101830;--line:#22305a;--gold:#f5c542;--green:#4ade80;--red:#f87171;--cyan:#67e8f9;--text:#e8edf7;--muted:#93a0bd;}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;line-height:1.7;font-size:16.5px;}
+.wrap{max-width:760px;margin:0 auto;padding:18px 16px 60px;}
+h1{font-size:26px;line-height:1.3;margin:6px 0 8px;}
+.sub{color:var(--muted);}
+.q{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin:18px 0;}
+.q h3{margin:0 0 10px;font-size:17px;color:var(--gold);}
+label{display:block;padding:8px 10px;border-radius:8px;cursor:pointer;margin:4px 0;}
+label:hover{background:#1a2447;}
+input{margin-right:8px;}
+.expl{display:none;margin-top:10px;padding:10px 14px;border-left:4px solid var(--green);background:#0f2233;border-radius:0 10px 10px 0;font-size:15.5px;}
+.expl.wrong{border-left-color:var(--red);background:#2a1218;}
+.btn{display:inline-block;background:var(--gold);color:#14100a;font-weight:700;border-radius:10px;padding:12px 22px;border:none;font-size:16px;cursor:pointer;margin:8px 8px 0 0;}
+.btn2{display:inline-block;background:#1a2447;color:var(--text);border:1px solid var(--line);border-radius:10px;padding:12px 22px;font-size:16px;cursor:pointer;margin:8px 8px 0 0;}
+#result{font-size:18px;font-weight:700;margin:16px 0 6px;}
+#copyBox{width:100%;background:#0a1428;color:var(--text);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:15px;margin-top:8px;}
+.note{color:var(--muted);font-size:14.5px;margin-top:14px;}
+a{color:var(--cyan);}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>📝 Day 43 Quiz — Chạy E1: khử trùng lặp có giúp PPL thật sự?</h1>
+<p class="sub">5 câu trắc nghiệm • Chọn đáp án rồi bấm "Nộp bài" để chấm điểm ngay trong file. File HTML này không tự gửi kết quả về được — làm xong bấm "Copy kết quả" rồi paste vào chat để trợ lý ghi điểm.</p>
+
+<div class="q" id="q1">
+<h3>Câu 1. Trong E1, "thứ duy nhất thay đổi là ___"? Điền đúng vào chỗ trống.</h3>
+<label><input type="radio" name="q1" value="A"> A. Dữ liệu: khử trùng lặp bật / tắt — mọi thứ khác (tokenizer, cấu hình A, LR, seed, held-out) giữ nguyên</label>
+<label><input type="radio" name="q1" value="B"> B. Learning rate: chạy thô dùng LR cao, chạy sạch dùng LR thấp để bù dữ liệu ít hơn</label>
+<label><input type="radio" name="q1" value="C"> C. Tokenizer: chạy thô dùng BPE 8k, chạy sạch dùng BPE 16k</label>
+<label><input type="radio" name="q1" value="D"> D. Số epoch: chạy thô 1 epoch, chạy sạch 3 epoch để bù số token bị xóa</label>
+<div class="expl" id="e1"><b>Đúng: A.</b> E1 là thí nghiệm dữ liệu — chỉ dữ liệu đổi, còn lại bằng nhau tuyệt đối. Đổi thêm LR hay tokenizer thì kết quả không gán được cho dữ liệu nữa (Day 41: mỗi ô một biến).</div>
+</div>
+
+<div class="q" id="q2">
+<h3>Câu 2. Vì sao dữ liệu trùng lặp có thể làm PPL đo được thấp giả tạo?</h3>
+<label><input type="radio" name="q2" value="A"> A. Vì mô hình train nhanh hơn trên dữ liệu lặp lại nên loss giảm sâu hơn</label>
+<label><input type="radio" name="q2" value="B"> B. Vì cùng một đoạn văn xuất hiện cả trong train lẫn tập held-out — mô hình đã thấy đáp án trước khi được kiểm tra</label>
+<label><input type="radio" name="q2" value="C"> C. Vì dữ liệu trùng lặp làm vocab BPE nhỏ lại nên PPL tự động thấp xuống</label>
+<label><input type="radio" name="q2" value="D"> D. Vì trùng lặp làm tăng số token mỗi epoch nên mô hình thấy nhiều dữ liệu hơn</label>
+<div class="expl" id="e2"><b>Đúng: B.</b> Đây là rò rỉ đánh giá: đoạn văn trong val đã có mặt trong train thì mô hình nhớ đáp án, PPL thấp giả. Val phải sạch trùng lặp với train thì con số mới trung thực.</div>
+</div>
+
+<div class="q" id="q3">
+<h3>Câu 3. Hai lần chạy E1 nên so sánh theo tiêu chí nào mới công bằng?</h3>
+<label><input type="radio" name="q3" value="A"> A. Cùng số epoch — vì epoch là đơn vị chuẩn của mọi lần train</label>
+<label><input type="radio" name="q3" value="B"> B. Cùng số token đã thấy (200M) — vì dữ liệu sạch ít token hơn mỗi epoch, so theo epoch là so lệch</label>
+<label><input type="radio" name="q3" value="C"> C. Cùng thời gian chạy — vì hai lần chạy tốn cùng 8 phút GPU</label>
+<label><input type="radio" name="q3" value="D"> D. Cùng số bước tối ưu — vì số bước quyết định chất lượng mô hình</label>
+<div class="expl" id="e3"><b>Đúng: B.</b> Dữ liệu sạch ít token hơn mỗi epoch (3 epoch ≈ 744M token hiệu dụng), nên 1 epoch sạch &lt; 1 epoch thô. So theo số token đã thấy (200M) mới là cùng lượng compute, cùng lượng học.</div>
+</div>
+
+<div class="q" id="q4">
+<h3>Câu 4. E1 cho PPL sạch thấp hơn PPL thô 0,15, trong khi dao động seed đo được là ±0,3. Kết luận đúng là gì?</h3>
+<label><input type="radio" name="q4" value="A"> A. Dedupe giúp thật — PPL thấp hơn là thắng, ghi vào báo cáo ngay</label>
+<label><input type="radio" name="q4" value="B"> B. Chưa kết luận được — chênh lệch nhỏ hơn dao động seed thì là nhiễu, cần chạy thêm seed hoặc chấp nhận "không khác biệt"</label>
+<label><input type="radio" name="q4" value="C"> C. Dedupe vô dụng — bỏ khử trùng lặp, dùng lại dữ liệu thô cho E2–E5</label>
+<label><input type="radio" name="q4" value="D"> D. Chạy lại E1 với learning rate khác để khuếch đại chênh lệch cho rõ</label>
+<div class="expl" id="e4"><b>Đúng: B.</b> Quy tắc vàng Day 41: chênh lệch PPL &lt; dao động seed → nhiễu, không phải cải tiến. Không có thanh sai số thì mọi tuyên bố cải tiến đều là kể chuyện.</div>
+</div>
+
+<div class="q" id="q5">
+<h3>Câu 5. E1 cho PPL sạch cao hơn PPL thô một khoảng rõ rệt, vượt ngưỡng seed. Bước kiểm tra đầu tiên nên làm gì?</h3>
+<label><input type="radio" name="q5" value="A"> A. Kết luận ngay "trùng lặp tốt cho mô hình" và bỏ khử trùng lặp khỏi pipeline</label>
+<label><input type="radio" name="q5" value="B"> B. Kiểm tra ngưỡng NearDup có quá gắt, xóa nhầm cả dữ liệu tốt — và so số token hai bộ dữ liệu trước khi kết luận</label>
+<label><input type="radio" name="q5" value="C"> C. Tăng số epoch của lần chạy sạch lên gấp đôi để bù số token đã mất</label>
+<label><input type="radio" name="q5" value="D"> D. Đổi sang tokenizer BPE 16k rồi chạy lại E1 từ đầu</label>
+<div class="expl" id="e5"><b>Đúng: B.</b> Dedupe thua rõ thường là lỗi thiết kế — NearDup quá gắt xóa nhầm dữ liệu tốt — chứ chưa phải lỗi ý tưởng. Kiểm tra ngưỡng và số token mất đi trước, nới ngưỡng rồi chạy lại E1. Đổi tokenizer là việc của E2, không trộn vào E1.</div>
+</div>
+
+<button class="btn" onclick="grade()">Nộp bài</button>
+<button class="btn2" onclick="copyResult()">Copy kết quả</button>
+<div id="result"></div>
+<input id="copyBox" readonly value="Chưa có kết quả — hãy bấm Nộp bài trước.">
+<p class="note">💡 File HTML này không tự gửi kết quả về được. Sau khi bấm "Copy kết quả", paste chuỗi "Day43 Quiz: 1A 2B … — s/5" vào chat để trợ lý ghi điểm. Điểm dưới 70% (dưới 4/5) — xem lại phần tương ứng trong bài học rồi làm lại nhé.</p>
+<p><a href="Day43_lesson.html">← Quay lại bài học Ngày 43</a></p>
+
+<script>
+const answers = {q1:"A", q2:"B", q3:"B", q4:"B", q5:"B"};
+let resultStr = "";
+function grade(){
+  let score = 0; const letters = [];
+  for(let i=1;i<=5;i++){
+    const sel = document.querySelector('input[name="q'+i+'"]:checked');
+    const expl = document.getElementById('e'+i);
+    const letter = sel ? sel.value : "?";
+    letters.push(letter);
+    if(sel && sel.value === answers["q"+i]){ score++; expl.classList.remove("wrong"); }
+    else if(sel){ expl.classList.add("wrong"); }
+    expl.style.display = "block";
+  }
+  resultStr = "Day43 Quiz: " + letters.map((l,i)=>(i+1)+l).join(" ") + " — " + score + "/5";
+  document.getElementById("result").textContent = "🎯 Bạn được " + score + "/5 câu đúng." + (score<4 ? " Dưới 70% — xem lại phần tương ứng trong bài học rồi làm lại nhé." : " Đạt! Sẵn sàng sang Day 44.");
+  document.getElementById("copyBox").value = resultStr;
+}
+function copyResult(){
+  const box = document.getElementById("copyBox");
+  if(!resultStr){ alert("Bạn chưa nộp bài — hãy chọn đáp án và bấm Nộp bài trước."); return; }
+  box.select();
+  if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(resultStr); }
+  else { document.execCommand("copy"); }
+  alert("Đã copy: " + resultStr);
+}
+</script>
+</div>
+</body>
+</html>
