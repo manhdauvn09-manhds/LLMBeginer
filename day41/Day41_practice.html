@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ngày 41 — Buổi tối: Lab nghiên cứu — Đọc loss curve, so hai baseline, khóa ma trận E0–E5</title>
+<style>
+:root{--bg:#0a0f1e; --card:#101830; --line:#22305a; --gold:#f5c542; --green:#4ade80;
+ --red:#f87171; --violet:#a78bfa; --cyan:#67e8f9; --text:#e8edf7; --muted:#93a0bd;}
+*{box-sizing:border-box;}
+body{margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.75; font-size:16.5px;}
+.wrap{max-width:820px; margin:0 auto; padding:18px 16px 60px;}
+.kicker{display:inline-block; font-size:13px; letter-spacing:1px; color:var(--gold); font-weight:700; margin-bottom:8px;}
+h1{font-size:28px; line-height:1.3; margin:6px 0 10px;}
+h2{font-size:22px; margin:34px 0 10px; color:var(--cyan);}
+h3{font-size:18px; margin:22px 0 8px; color:var(--gold);}
+.sub{color:var(--muted); font-size:16.5px;}
+.meta{display:flex; gap:8px; flex-wrap:wrap; margin:14px 0 6px;}
+.meta span{font-size:13.5px; background:var(--card); border:1px solid var(--line); border-radius:999px; padding:5px 14px;}
+.card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px; margin:16px 0;}
+.note{border-left:4px solid var(--green); background:#0f2233; border-radius:0 12px 12px 0; padding:12px 16px; margin:14px 0;}
+.warn{border-left:4px solid var(--red); background:#23141a; border-radius:0 12px 12px 0; padding:12px 16px; margin:14px 0;}
+.rq{background:#141d3a; border:1px solid var(--violet); border-radius:10px; padding:12px 16px; margin:10px 0;}
+.rq b{color:var(--violet);}
+.check{list-style:none; padding-left:0;}
+.check li{padding-left:28px; position:relative; margin-bottom:8px;}
+.check li::before{content:"☐"; position:absolute; left:0; color:var(--gold); font-size:17px;}
+.check li.done::before{content:"☑"; color:var(--green);}
+.check li input{position:absolute; left:0; top:4px; width:18px; height:18px; opacity:0; cursor:pointer;}
+.check li.done{color:var(--muted); text-decoration:line-through;}
+code{background:#0a0f1e; border:1px solid var(--line); border-radius:6px; padding:1px 7px; font-size:15px;}
+pre{background:#0a0f1e; border:1px solid var(--line); border-radius:10px; padding:14px 16px; overflow-x:auto; font-size:14.5px; line-height:1.6; white-space:pre-wrap;}
+table{width:100%; border-collapse:collapse; margin:12px 0; font-size:15px;}
+th,td{border:1px solid var(--line); padding:8px 10px; text-align:left;}
+th{background:#141d3a; color:var(--gold);}
+.qa{margin:14px 0;}
+.qa button{background:var(--gold); color:#14100a; font-weight:700; border:none; border-radius:10px; padding:10px 18px; cursor:pointer; font-size:15px;}
+.qa .ans{display:none; margin-top:10px; border-left:4px solid var(--green); background:#0f2233; border-radius:0 12px 12px 0; padding:12px 16px;}
+.qa .ans.show{display:block;}
+.footer{color:var(--muted); font-size:14px; margin-top:40px; border-top:1px solid var(--line); padding-top:14px;}
+.formula{background:#0a1428; border:1px solid var(--line); border-radius:10px; padding:12px 16px; font-family:"SF Mono",Consolas,Menlo,monospace; font-size:16px; text-align:center; margin:14px 0; color:var(--cyan);}
+ul li, ol li{margin-bottom:6px;}
+</style>
+<script>
+function toggleAns(id){document.getElementById(id).classList.toggle('show');}
+function toggleCheck(el){el.classList.toggle('done');}
+</script>
+</head>
+<body>
+<div class="wrap">
+
+<span class="kicker">PHASE 2 · NGÀY 41 / 60 · RESEARCH LAB · ĐỀ TÀI: TINY VIETNAMESE LM</span>
+<h1>Ngày 41 — Buổi tối: Lab nghiên cứu — Đọc loss curve, so hai baseline, khóa ma trận E0–E5</h1>
+<p class="sub">Sáng nay đã học cách <b>đọc</b> kết quả baseline: 4 dạng loss curve, quy tắc vàng về dao động seed, và ma trận thí nghiệm E0–E5. Tối nay không học thêm lý thuyết mới — <b>làm thật cả 4 nhiệm vụ sáng giao</b>: phân loại loss curve của baseline A bằng code, lập bảng so sánh hai baseline bằng số đo thật, khóa ma trận E0–E5 thành file máy kiểm tra được, và chạy E5 (seed thứ hai) <b>trước</b> E4. Đêm nay là đêm đọc thước: từ mai, E1–E5 chạy theo đúng bảng đã khóa tối nay, không sửa thước giữa chừng.</p>
+<div class="meta"><span>⏱️ Ước lượng ~150 phút</span><span>📄 Sản phẩm: classify_curve.py + compare_baselines.py + matrix_E0_E5.csv + check_matrix.py + baseline_reading.md</span><span>🎯 RQ: RQ1 · RQ2 · RQ3 — đọc baseline trước khi chạy E1–E5</span></div>
+
+<h2>1 · Tóm tắt nhiệm vụ buổi sáng</h2>
+<p>Sáng nay (Day 41) đã làm 4 việc để biến hai lần chạy baseline (sàn n-gram + cấu hình A) thành quyết định có căn cứ:</p>
+<ul>
+<li><b>Loss curve có 4 dạng:</b> (1) hội tụ tốt — giảm đều, dốc chậm dần, để chạy hết; (2) plateau sớm — phẳng lì từ sớm, tăng LR hoặc xem lại dữ liệu; (3) diverge/spike — vọt lên, dao động mạnh, <b>dừng ngay</b>; (4) overfit — train giảm, val tăng, dừng ở checkpoint val thấp nhất. Luôn đọc <b>cả train lẫn val</b> — chỉ nhìn train loss là bẫy kinh điển.</li>
+<li><b>Hai phép so sánh:</b> khoảng cách n-gram ↔ A đo "giá trị của neural"; dao động seed đo ngưỡng ý nghĩa. Quy tắc vàng: <b>chênh lệch PPL &lt; dao động seed → nhiễu, không phải cải tiến</b>. Và một phép so sánh <b>không được làm</b>: chọn checkpoint bằng tập test rồi báo cáo PPL trên chính tập đó.</li>
+<li><b>Ma trận E0–E5:</b> mỗi ô chỉ đổi một thứ, chạy rẻ trước đắt sau (E0 → E1 → E2 → E5 → E3 → E4), tổng ngân sách khoảng <b>3 GPU-giờ</b>, mỗi ô có tiêu chí dừng viết <i>trước</i> khi chạy.</li>
+<li><b>Nhiệm vụ giao cho tối nay:</b> (1) đọc loss curve của baseline A, (2) lập bảng so sánh hai baseline, (3) khóa ma trận E0–E5, (4) chạy E5 trước E4.</li>
+</ul>
+<div class="formula">PPL = exp(val loss)<br>chênh lệch PPL &lt; dao động seed → NHIỄU, không phải cải tiến</div>
+<div class="warn">⚠️ <b>Trần P vẫn để trống — tối nay cũng chưa chốt.</b> P chỉ chốt khi A train xong đủ 200M token, 1 epoch (lab Day 35). PPL 7,78 của A là số đo <b>nền</b> từ lab Day 34 (mới train vài triệu token), không phải trần. Số liệu lab Day 34/35 của bạn vẫn chưa nộp — bảng kết quả tối nay ghi rõ số nào còn trống và vì sao trống, không lấy số nền làm trần, không lấy số demo làm số thật.</div>
+
+<h2>2 · Nhiệm vụ tối nay — 4 phần việc</h2>
+
+<h3>Phần A — Đọc loss curve của baseline A: phân loại bằng code, ghi nhận xét 3 dòng (45 phút)</h3>
+<p>Viết file <code>classify_curve.py</code> (Python thuần, không cần thư viện ngoài, không cần GPU). Script đọc log train dạng CSV (<code>step,train_loss,val_loss</code>), phân loại vào 1 trong 4 dạng theo quy tắc tường minh trong code, và in ra bằng chứng số + hành động xử lý. Code đầy đủ — bạn chỉ việc lưu file rồi chạy:</p>
+<pre>"""Phan loai loss curve — Day 41, nhiem vu 1.
+Doc CSV log train: step,train_loss,val_loss (1 dong / checkpoint).
+In: dang duong cong (1 trong 4 dang Day 41 §1), bang chung so,
+va hanh dong xu ly.
+Chay demo (sinh 5 duong cong mau, kiem tra bo phan loai):
+    python classify_curve.py --demo
+Chay tren log that cua ban (Day 34/35):
+    python classify_curve.py train_A_seed42.csv
+Quy tac phan loai (don gian, giai thich duoc — khong phai hop den):
+  3. Diverge  — val loss co NaN/inf, hoac vot len gap &gt;2 lan so voi
+                gia tri thap nhat truoc do, hoac dao dong manh.
+  4. Overfit  — val loss quay dau tang o nua sau (val cuoi cao hon
+                val thap nhat &gt;5%) trong khi train loss van giam.
+  2. Plateau  — val loss gan nhu khong doi: (dau - cuoi)/dau &lt; 5%.
+  1. Hoi tu tot — cac truong hop con lai: val giam deu, doc cham dan.
+Luu y: chi nhin train loss thi khong phan loai duoc dang 4 — script
+bat buoc co ca hai cot train_loss va val_loss."""
+import argparse, csv, math, random, sys
+
+LABELS = {
+    1: ("Hoi tu tot", "De chay het; ghi loss cuoi lam diem neo."),
+    2: ("Plateau som", "Tang LR, hoac kiem tra du lieu co qua de / qua trung lap."),
+    3: ("Diverge / spike", "DUNG NGAY — giam LR, bat gradient clipping, kiem tra lai."),
+    4: ("Overfit", "Dung o checkpoint val thap nhat; xem lai ti le du lieu / epoch (Day 33)."),
+}
+
+def load(path):
+    steps, tr, va = [], [], []
+    with open(path, encoding="utf-8") as f:
+        for r in csv.DictReader(f):
+            steps.append(float(r["step"]))
+            tr.append(float(r["train_loss"]))
+            va.append(float(r["val_loss"]))
+    assert len(steps) &gt;= 10, "log can it nhat 10 dong"
+    return steps, tr, va
+
+def classify(tr, va):
+    """Tra ve (dang, bang_chung)."""
+    n = len(va)
+    # 3. Diverge: NaN/inf hoac VOT DOT NGOT trong 1 buoc — phan biet
+    # voi overfit (val tang DAN sau nhieu buoc). Chi so voi buoc
+    # truoc do, khong so voi min lich su (tang dan cung vuot min).
+    for i, v in enumerate(va):
+        if math.isnan(v) or math.isinf(v):
+            return 3, f"val loss = {v} o dong {i} (NaN/inf)"
+        if i &gt; n // 10 and i &gt; 0:
+            prev = va[i - 1]
+            if (v &gt; 2 * prev and v &gt; prev + 0.5) or (v - prev &gt; 1.0):
+                return 3, f"val loss vot dot ngot {prev:.2f} -&gt; {v:.2f} o dong {i}"
+    # 4. Overfit: val cuoi cao hon min &gt;5% va train van giam o nua sau
+    vmin = min(va)
+    half = n // 2
+    train_down = tr[-1] &lt; tr[half]
+    if va[-1] &gt; vmin * 1.05 and train_down:
+        return 4, (f"val thap nhat {vmin:.2f} roi tang len {va[-1]:.2f} "
+                   f"(+{(va[-1]/vmin-1)*100:.0f}%), train van giam {tr[half]:.2f} -&gt; {tr[-1]:.2f}")
+    # 2. Plateau: val gan nhu khong doi ca duong
+    if (va[0] - va[-1]) / va[0] &lt; 0.05:
+        return 2, f"val loss gan nhu phang: {va[0]:.2f} -&gt; {va[-1]:.2f} (giam {(va[0]-va[-1])/va[0]*100:.1f}%)"
+    # 1. Hoi tu tot
+    return 1, f"val giam deu {va[0]:.2f} -&gt; {va[-1]:.2f}, doc cham dan, gan train loss"
+
+def report(path):
+    steps, tr, va = load(path)
+    dang, bang_chung = classify(tr, va)
+    ten, xu_ly = LABELS[dang]
+    print(f"File: {path} | {len(steps)} checkpoint | step {steps[0]:.0f} -&gt; {steps[-1]:.0f}")
+    print(f"Train loss: {tr[0]:.2f} -&gt; {tr[-1]:.2f} | Val loss: {va[0]:.2f} -&gt; {va[-1]:.2f} (min {min(va):.2f})")
+    print(f"Dang {dang}. {ten}")
+    print(f"Bang chung: {bang_chung}")
+    print(f"Xu ly: {xu_ly}")
+    return dang
+
+def gen_curve(kind, n=60, seed=7):
+    """Sinh duong cong mau. Chi dung cho --demo, KHONG phai so that."""
+    rnd = random.Random(seed)
+    tr, va = [], []
+    for i in range(n):
+        x = i / (n - 1)
+        if kind == 1:      # hoi tu tot: giam nhanh roi cham dan
+            base = 2.0 + 4.5 * math.exp(-6 * x)
+        elif kind == 2:    # plateau som: phang tu som
+            base = 5.8 + 0.3 * math.exp(-8 * x)
+        elif kind == 3:    # diverge: giam roi vot + dao dong
+            base = 2.0 + 4.5 * math.exp(-6 * x) + (6.0 * (x - 0.55) ** 2 * 40 if x &gt; 0.55 else 0)
+        else:              # overfit: train giam, val quay dau tang
+            base = 2.0 + 4.5 * math.exp(-6 * x)
+        tr.append(base + rnd.uniform(-0.05, 0.05))
+        if kind == 4:
+            va.append(base + (3.0 * (x - 0.6) ** 2 * 8 if x &gt; 0.6 else 0) + 0.15 + rnd.uniform(-0.05, 0.05))
+        elif kind == 3:
+            va.append(base + 0.15 + rnd.uniform(-0.3, 0.3))
+        else:
+            va.append(base + 0.15 + rnd.uniform(-0.05, 0.05))
+    return tr, va
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("csv", nargs="?")
+    ap.add_argument("--demo", action="store_true")
+    args = ap.parse_args()
+    if args.demo:
+        print("DEMO — 5 duong cong mau (so minh hoa, khong phai so do cua de tai)")
+        cases = [(1, "hoi tu tot"), (2, "plateau som"), (3, "diverge"),
+                 (4, "overfit"), ("A", "duong A kieu Day 34 (giam nhanh, cham dan)")]
+        ok = True
+        for kind, ten in cases:
+            k = 1 if kind == "A" else kind
+            tr, va = gen_curve(k, seed=11 if kind == "A" else 7)
+            path = f"/tmp/day41_lab/demo_{kind}.csv"
+            with open(path, "w", newline="", encoding="utf-8") as f:
+                w = csv.writer(f)
+                w.writerow(["step", "train_loss", "val_loss"])
+                for i, (t, v) in enumerate(zip(tr, va)):
+                    w.writerow([i * 10, f"{t:.3f}", f"{v:.3f}"])
+            dang, _ = classify(tr, va)
+            expect = 1 if kind == "A" else kind
+            mark = "OK " if dang == expect else "SAI"
+            if dang != expect:
+                ok = False
+            print(f"[{mark}] {ten}: phan loai = dang {dang} ({LABELS[dang][0]}), ky vong dang {expect}")
+        print("DEMO: bo phan loai dung 5/5" if ok else "DEMO: CO LOI — xem lai quy tac")
+        sys.exit(0 if ok else 1)
+    assert args.csv, "can &lt;file.csv&gt; hoac --demo"
+    report(args.csv)
+
+if __name__ == "__main__":
+    main()</pre>
+<p><b>Việc của bạn trong phần này:</b> (1) chạy <code>python classify_curve.py --demo</code> trước — script phải in <code>DEMO: bo phan loai dung 5/5</code> (5 đường cong mẫu: 4 dạng + 1 đường kiểu A của Day 34; <b>đây là số minh họa, không phải số đo của đề tài</b>); (2) xuất log train thật của A (Day 34/35) ra CSV 3 cột rồi chạy script trên đó — ghi kết quả vào <code>baseline_reading.md</code> theo mẫu 3 dòng: <b>dạng gì / bằng chứng là đoạn nào của đường cong / xử lý gì nếu chạy lại</b>; (3) nếu log thật chưa có (số liệu Day 34/35 chưa nộp), ghi rõ "chưa có log thật — phân loại demo xong, chờ log" và đừng kết luận thay. Bài học sáng đã mô tả đường A của Day 34: loss ban đầu cao rồi giảm nhanh trong vài trăm bước đầu, sau đó dốc chậm dần — tức dạng 1, hội tụ tốt — nhưng mô tả đó chỉ được ghi nhận sau khi script của bạn phân loại đúng trên log thật của chính bạn.</p>
+<div class="note">💡 <b>Vì sao quy tắc diverge so với bước trước, không so với min lịch sử?</b> Overfit cũng làm val tăng vượt min cũ — nhưng tăng <i>dần</i> qua nhiều bước. Diverge thì vọt <i>đột ngột</i> trong một bước (hoặc thành NaN). So với bước trước đó tách được hai dạng này; so với min lịch sử thì overfit sẽ bị nhận nhầm thành diverge. Đây chính là khác biệt giữa "đọc đường cong" và "đọc một con số".</div>
+
+<h3>Phần B — Bảng so sánh hai baseline: sàn n-gram ↔ A, viết câu kết luận 1 dòng (30 phút)</h3>
+<p>Viết file <code>compare_baselines.py</code> (Python thuần). Script nhận PPL sàn n-gram (E0), PPL A (E1) và dao động seed (E5), tính khoảng cách + tỉ lệ, rồi áp quy tắc vàng để kết luận "neural có đáng tiền không". Code đầy đủ:</p>
+<pre>"""So hai baseline: san n-gram vs cau hinh A — Day 41, nhiem vu 2.
+Doc: PPL san n-gram (E0) + PPL A (E1) + dao dong seed (E5).
+In: khoang cach, ti le, va cau ket luan "neural co dang tien khong"
+theo quy tac vang Day 41 §2: chenh lech &lt; dao dong seed -&gt; NHIEU.
+Chay demo (so minh hoa, KHONG phai so do cua de tai):
+    python compare_baselines.py --demo
+Chay tren so that (dien so cua ban vao):
+    python compare_baselines.py --ngram 12.40 --a 7.78 --seed-spread 0.30
+So that lay tu: n-gram = ket qua ngram_floor.py (Day 40, du lieu that),
+A = PPL held-out cua E1 (Day 40, chay du 200M token), seed-spread =
+|delta PPL| cua E5 (compare_runs.py). O nao chua co so that thi de
+trong — script tu choi ket luan thay vi bia so."""
+import argparse, sys
+
+def conclude(ngram, a, spread):
+    dist = ngram - a
+    ratio = (dist / ngram * 100) if ngram else 0
+    print(f"San n-gram (E0): PPL {ngram:.2f}")
+    print(f"Cau hinh A (E1): PPL {a:.2f}")
+    print(f"Khoang cach n-gram - A: {dist:.2f} PPL ({ratio:.1f}% so voi san)")
+    if spread is not None:
+        print(f"Dao dong seed (E5): ±{spread:.2f} PPL")
+    if dist &lt;= 0:
+        print("KET LUAN: A KHONG thang san n-gram — pipeline co van de. "
+              "Dung lai, sua pipeline (tokenizer / du lieu / train) truoc, "
+              "khong duoc chay E1–E5.")
+        return "sai-pipeline"
+    if spread is not None and dist &lt; spread:
+        print("KET LUAN: A thang san, NHUNG khoang cach nho hon dao dong seed "
+              "-&gt; chua ket luan duoc 'neural dang tien'. Chay them seed (E5) "
+              "hoac kiem tra lai pipeline truoc khi di tiep.")
+        return "chua-ket-luan"
+    if ratio &lt; 20:
+        print("KET LUAN: A thang san mot cach kha nho (&lt;20%). Pipeline da co "
+              "gia tri, nhung nen kiem tra tokenizer / du lieu truoc khi chay "
+              "E1–E5 — co the mo hinh moi chi hoc duoc thong ke tan suat.")
+        return "thang-nhe"
+    print("KET LUAN: A thang san ro ret. Kien truc neural 10M tham so nay "
+          "DANG TIEN — pipeline da chung minh duoc gia tri, di tiep E1–E5.")
+    return "dang-tien"
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--ngram", type=float)
+    ap.add_argument("--a", type=float)
+    ap.add_argument("--seed-spread", type=float, default=None)
+    ap.add_argument("--demo", action="store_true")
+    args = ap.parse_args()
+    if args.demo:
+        print("DEMO — so minh hoa (khong phai so do cua de tai):")
+        print("  n-gram = 9,50 | A = 7,78 (PPL nen Day 34) | dao dong seed = 0,30 (nguong Day 40)")
+        conclude(9.50, 7.78, 0.30)
+        sys.exit(0)
+    if args.ngram is None or args.a is None:
+        print("Thieu so that. Dien: --ngram &lt;PPL san E0&gt; --a &lt;PPL A E1&gt; "
+              "[--seed-spread &lt;|delta PPL| E5&gt;]")
+        print("So nao chua co thi de trong — khong tu dat so thay the.")
+        sys.exit(2)
+    conclude(args.ngram, args.a, args.seed_spread)
+
+if __name__ == "__main__":
+    main()</pre>
+<p>Sau đó viết file <code>baseline_reading.md</code> — bảng duy nhất mà Day 42 sẽ đọc để quyết định E1 có đáng chạy tiếp không. Mẫu (chỉ điền số đo thật, ô nào chưa có số thì để trống và ghi rõ [chờ số liệu]):</p>
+<pre># Doc ket qua baseline — Tiny Vietnamese LM (Day 41)
+# Tap do: test ~1% Wikipedia-vi da khoa (khong train, khong chon mo hinh tren test)
+# Phan cung: 1 GPU RTX 4090 — Seed co dinh cho moi lan chay so sanh: 42 (E5 dung seed 1337)
+## 1. Loss curve cua baseline A (tu classify_curve.py)
+- Dang: [cho ket qua tren log that Day 34/35]
+- Bang chung (3 dong): dang gi / doan nao cua duong cong / xu ly gi neu chay lai
+## 2. So sanh hai baseline
+| Lan chay | PPL held-out | Ghi chu |
+| n-gram (san, E0) | [cho so lieu — ket qua ngram_floor.py Day 40, du lieu that] | CPU, trigram + Kneser-Ney |
+| A (baseline chinh, E1) | [cho so lieu — E1 chay du 200M token] | seed = 42 |
+| Khoang cach n-gram - A | [cho so lieu] PPL ([cho so lieu]% so voi san) | |
+| Dao dong seed (E5) | ±[cho so lieu] PPL | \|delta PPL\| tu compare_runs.py |
+- Cau ket luan 1 dong: [neural co dang tien khong — theo ket luan cua compare_baselines.py]
+- So PPL nen Day 34 (tham khao, KHONG phai tran): A = 7,78 sau vai trieu token
+## 3. Tran PPL
+Tran PPL P = [cho so lieu lab Day 41 — chi chot khi E1 chay du 200M token]
+Quy tac khoa: tu Day 42, moi "cai tien" deu so voi 2 moc nay. Khong doi thuoc giua chung.</pre>
+<p><b>Việc của bạn trong phần này:</b> (1) chạy <code>python compare_baselines.py --demo</code> trước — demo dùng n-gram 9,50 / A 7,78 / dao động 0,30, in ra khoảng cách 1,72 PPL (18,1%) và kết luận "thắng nhẹ" — <b>đây là số minh họa để kiểm tra logic, không phải số đo của đề tài</b>; (2) điền số thật của bạn vào lệnh <code>--ngram / --a / --seed-spread</code> (sàn lấy từ <code>ngram_floor.py</code> Day 40 trên dữ liệu thật, A lấy từ E1 chạy đủ 200M token, dao động lấy từ E5) rồi ghi kết quả vào <code>baseline_reading.md</code>; (3) nếu một trong ba số chưa có, chạy script <b>không tham số</b> — nó sẽ từ chối kết luận thay vì bịa số — và để ô đó trống trong bảng.</p>
+<div class="note">💡 <b>Vì sao demo lại "thắng nhẹ"?</b> Khoảng cách demo 1,72 PPL lớn hơn dao động seed 0,30 nên không phải nhiễu, nhưng chỉ 18,1% so với sàn — theo bài sáng, A chỉ thắng sàn một chút thì phải kiểm tra pipeline (tokenizer, dữ liệu) trước khi vội chạy E1–E5. Con số demo này dạy đúng bài học đó: "thắng" thôi chưa đủ, phải thắng <i>đủ lớn</i> mới đi tiếp.</div>
+
+<h3>Phần C — Khóa ma trận E0–E5 thành file máy kiểm tra được (30 phút)</h3>
+<p>Viết 2 file: <code>matrix_E0_E5.csv</code> (bảng khóa) và <code>check_matrix.py</code> (máy kiểm tra thay bạn). Bảng CSV đầy đủ — lưu đúng nội dung này (lưu ý: trong file CSV, số thập phân viết dạng 2.5 để máy đọc đúng cột):</p>
+<pre>id,thu_duy_nhat_thay_doi,giu_nguyen,cau_hoi,chi_phi_uoc_tinh,tieu_chi_dung
+E0,khong doi gi — chay A rut gon vai tram buoc,"cau hinh A (d=320, 6 layer, tied embeddings); du lieu; seed 42; tap held-out","Pipeline co chay duoc khong, loss co giam khong?",vai phut,"loss khong giam sau vai tram buoc hoac loi chay — dung ngay, sua pipeline"
+E1,du lieu — khu trung lap bat/tat,"cau hinh A; tokenizer BPE 8k; seed; tap held-out; phan cung","Dedupe co giup PPL that su, hay chi lam so dep?","~8 phut x 2","PPL hai nhanh chenh nhau trong pham vi nhieu do — dung, ghi 'khong khac biet'"
+E2,tokenizer BPE 8k sang 16k,"du lieu da dedupe; cau hinh A; seed; tap held-out","Vocab lon hon co dang chi phi tham so embedding?","~8 phut x 2","PPL 16k khong tot hon 8k vuot nguong nhieu — dung, giu 8k"
+E5,seed 42 sang seed 1337,"cau hinh A; du lieu; tokenizer; tap held-out; phan cung","Dao dong seed la bao nhieu? Nguong y nghia la gi?","~8 phut x 2–3","|delta PPL| &gt; 0,3 — dung, xem lai pipeline truoc khi chay E3/E4"
+E3,kien truc — tied embeddings bat/tat,"du lieu; tokenizer; seed; tap held-out; tong tham so ~10M","Tham so dat o dau thi hieu qua nhat?","~8–50 phut","loss diverge hoac plateau som — dung ngay theo Day 41 §1"
+E4,"huan luyen — train lau hon (1 sang 2.5 sang 3 epoch)","du lieu; tokenizer; kien truc A; seed; tap held-out","Diem toi uu nam o A, B hay C?","~50–110 phut","val loss khong cai thien sau 1 epoch hoac diverge — dung, khong cho them"</pre>
+<p>Script kiểm tra — chạy <code>python check_matrix.py matrix_E0_E5.csv</code>, phải in <code>PASS 6/6</code> mới được coi là khóa xong:</p>
+<pre>"""Kiem tra ma tran thi nghiem E0–E5 — Day 41, nhiem vu 3.
+Doc file CSV ma tran (6 dong E0–E5), kiem tra:
+  1. Du 6 o, dung thu tu chay: E0 -&gt; E1 -&gt; E2 -&gt; E5 -&gt; E3 -&gt; E4
+     (re truoc, dat sau; E5 chay truoc E4 vi khong co dao dong
+     thi E4 khong ket luan duoc gi).
+  2. Moi o chi doi DUNG 1 thu: cot thay_doi chi co 1 muc
+     (chua dau phay / 'va' / '+' la LOI).
+  3. Moi o co cau hoi, chi phi uoc tinh, va tieu chi dung viet truoc.
+Chay:
+    python check_matrix.py matrix_E0_E5.csv
+File mau dung: matrix_E0_E5.csv (theo Day 41 §3).
+Thu nghiem loi: sua 1 dong thanh doi 2 thu roi chay lai — script
+phai bao FAIL dung dong do."""
+import csv, sys
+
+ORDER = ["E0", "E1", "E2", "E5", "E3", "E4"]
+REQUIRED = ["id", "thu_duy_nhat_thay_doi", "giu_nguyen", "cau_hoi",
+            "chi_phi_uoc_tinh", "tieu_chi_dung"]
+
+def check(path):
+    errors = []
+    with open(path, encoding="utf-8") as f:
+        rows = list(csv.DictReader(f))
+    header = rows[0].keys() if rows else []
+    for col in REQUIRED:
+        if col not in header:
+            errors.append(f"thieu cot '{col}' trong CSV")
+    if errors:
+        return errors
+    ids = [r["id"].strip() for r in rows]
+    if ids != ORDER:
+        errors.append(f"thu tu chay sai: co {ids}, can {ORDER} "
+                      "(re truoc dat sau, E5 truoc E4)")
+    if len(rows) != 6:
+        errors.append(f"ma tran can dung 6 o, hien co {len(rows)}")
+    for r in rows:
+        tag = r["id"].strip()
+        thay = r["thu_duy_nhat_thay_doi"].strip()
+        if not thay:
+            errors.append(f"{tag}: chua ghi 'thu duy nhat thay doi la ___'")
+        elif any(s in thay for s in [",", ";", " va ", " + "]):
+            errors.append(f"{tag}: doi nhieu hon 1 thu ('{thay}') — "
+                          "tach thanh nhieu o, moi o 1 bien")
+        # Luu y: "bat/tat" (vi du tied embeddings bat/tat) la MOT bien
+        # nhi phan, khong phai hai thu doi — dau '/' khong tinh la loi.
+        if not r["giu_nguyen"].strip():
+            errors.append(f"{tag}: chua ghi giu nguyen nhung gi")
+        if not r["cau_hoi"].strip():
+            errors.append(f"{tag}: chua ghi cau hoi tra loi")
+        if not r["chi_phi_uoc_tinh"].strip():
+            errors.append(f"{tag}: chua ghi chi phi uoc tinh")
+        if not r["tieu_chi_dung"].strip():
+            errors.append(f"{tag}: chua viet tieu chi dung TRUOC khi chay")
+    return errors
+
+def main():
+    assert len(sys.argv) == 2, "dung: check_matrix.py matrix_E0_E5.csv"
+    errs = check(sys.argv[1])
+    if not errs:
+        print("PASS 6/6 o — ma tran khoa duoc: 1 bien/o, du chi phi, "
+              "du tieu chi dung, dung thu tu E0-&gt;E1-&gt;E2-&gt;E5-&gt;E3-&gt;E4.")
+        sys.exit(0)
+    print(f"FAIL — {len(errs)} loi:")
+    for e in errs:
+        print(" - " + e)
+    sys.exit(1)
+
+if __name__ == "__main__":
+    main()</pre>
+<p><b>Việc của bạn trong phần này:</b> (1) lưu 2 file, chạy <code>check_matrix.py</code> — phải in <code>PASS 6/6 o</code>; (2) thử phá: sửa 1 dòng thành đổi 2 thứ (ví dụ E3 thành "kien truc, tang learning rate") rồi chạy lại — script phải báo FAIL đúng dòng đó, rồi sửa lại cho PASS; (3) bảng CSV này là <b>phụ lục phương pháp của báo cáo</b> — từ mai, mỗi thí nghiệm chạy đúng 1 dòng trong bảng, không thêm bớt, không đổi thứ tự (E0 → E1 → E2 → E5 → E3 → E4).</p>
+<div class="note">💡 <b>Vì sao E5 chạy trước E4?</b> E4 là ô đắt nhất (~50–110 phút) và là ô trả lời câu hỏi lớn nhất của đề tài: điểm tối ưu nằm ở A, B hay C. Nhưng nếu chưa biết dao động seed (E5) thì mọi chênh lệch PPL đo được ở E4 đều không kết luận được — có thể chỉ là nhiễu. Chạy E5 trước là mua "thước đo sai số" với giá ~8 phút × 2–3, để khỏi đốt 110 phút cho một kết quả không đọc được.</div>
+
+<h3>Phần D — Chạy E5 trước E4: seed thứ hai của A + quy tắc quyết định (45 phút)</h3>
+<p>Chạy lại đúng cấu hình A, đúng dữ liệu, đúng 200M token — <b>chỉ đổi seed</b>. Dùng lại <code>run_A.sh</code> của Day 40, chỉ đổi <code>SEED=42</code> thành <code>SEED=1337</code> (và đổi tên file log thành <code>train_A_seed1337.jsonl</code>). Trước khi chạy, viết ra câu "thứ duy nhất thay đổi là <i>seed</i>" và kiểm tra dữ liệu, phần cứng, tập đo đều giống hệt lần một — rồi chạy:</p>
+<pre># Chay E5 — seed thu hai cua A (Day 41). Chi doi seed, moi thu khac giu nguyen.
+SEED=1337
+nvidia-smi --query-gpu=power.draw --format=csv,noheader,nounits -l 10 \
+  &gt; power_A_seed1337.log &amp;
+SMI_PID=$!
+# &lt;lenh train cua ban — giong het lan seed 42, chi doi --seed 1337&gt;
+# vi du: python train.py --config config_A.py \
+#   --seed $SEED --tokens 200000000 --log train_A_seed1337.jsonl
+kill $SMI_PID || true
+python measure_run.py train_A_seed1337.jsonl --params-m 9.94
+python compare_runs.py baseline_results.csv E1-seed42 E1-seed1337</pre>
+<p><b>Việc của bạn trong phần này:</b> (1) kiểm chứng logic quyết định trước bằng file demo: tạo <code>baseline_results_demo.csv</code> với 2 dòng E1-seed42 PPL 7,78 và E1-seed1337 PPL 7,91 (số demo, chỉ để kiểm tra script), chạy <code>compare_runs.py</code> (Day 40) — phải in <code>|delta PPL| = 0.13</code> và kết luận "trong phạm vi nhiễu đo"; (2) chạy A seed 1337 thật trên GPU (nếu tối nay GPU bận: chạy trước bản dry-run 1M token để kiểm tra pipeline, ghi rõ "E5 dry-run xong, chạy đủ đang chờ GPU" — đừng giả vờ đã xong); (3) ghi |ΔPPL| thật vào <code>baseline_reading.md</code> và áp quy tắc: nếu |ΔPPL| &gt; 0,3 thì <b>chưa kết luận gì về B/C</b> — xem lại pipeline trước đã; nếu ≤ 0,3 thì E4 được phép chạy từ Day 42, với ngưỡng ý nghĩa chính là con số |ΔPPL| này.</p>
+<div class="note">💡 <b>Chạy E5 rẻ hay đắt?</b> E5 tốn ~8 phút × 2–3 lần chạy A. Một lần chạy diverge để hết 110 phút (cấu hình C) đốt gấp ~14 lần một lần chạy A 8 phút — cho một kết quả đã đoán được từ phút thứ 5. Kỷ luật tối nay: không chạy cái đã biết sẽ hỏng, không chạy hết cái đã biết sẽ phẳng. Đó là biện pháp tiết kiệm năng lượng rẻ nhất của cả đề tài — không tốn một dòng code mới, chỉ tốn 5 phút nhìn đồ thị (Day 41 §1) và vài phút chạy E5.</div>
+
+<h2>3 · Tự kiểm tra nhanh</h2>
+<div class="qa"><p><b>1. Train loss giảm đều nhưng val loss quay đầu tăng sau một thời gian — đó là dạng nào, xử lý ra sao?</b></p>
+<button onclick="toggleAns('a1')">Hiện đáp án</button>
+<div class="ans" id="a1">Dạng 4, overfit: mô hình đang học thuộc lòng dữ liệu train, không khái quát được. Xử lý: dừng ở checkpoint có val loss thấp nhất, rồi xem lại tỉ lệ dữ liệu / số epoch (Day 33). Chỉ nhìn train loss thì sẽ tưởng mọi thứ vẫn tốt — bẫy kinh điển của Day 41 §1.</div></div>
+<div class="qa"><p><b>2. A và B chênh nhau 0,2 PPL, dao động seed (E5) là ±0,3. Kết luận gì?</b></p>
+<button onclick="toggleAns('a2')">Hiện đáp án</button>
+<div class="ans" id="a2">Chưa kết luận được gì — chênh lệch 0,2 nhỏ hơn cả nhiễu đo (±0,3) nên rất có thể chỉ là nhiễu. Cần thêm lần lặp hoặc hiệu số lớn hơn 0,3 mới được tin. Đây là lý do E5 phải chạy trước khi so B/C — và trước E4.</div></div>
+<div class="qa"><p><b>3. Vì sao ma trận E0–E5 chạy theo thứ tự E0 → E1 → E2 → E5 → E3 → E4, chứ không chạy E4 ngay?</b></p>
+<button onclick="toggleAns('a3')">Hiện đáp án</button>
+<div class="ans" id="a3">Vì rẻ trước, đắt sau — và vì E4 chỉ đọc được khi đã có dao động seed (E5). E0 bắt lỗi pipeline trong vài phút; E1/E2 rẻ (~8 phút × 2); E5 mua thước đo sai số; E3/E4 đắt (~50–110 phút) chạy cuối cùng, khi pipeline đã sạch và sai số đã biết. Chạy E4 ngay mà chưa có E5 thì kết quả không kết luận được gì.</div></div>
+
+<h2>4 · Câu hỏi phản biện — trả lời trong chat (advisor chấm)</h2>
+<ol>
+<li>Đường loss curve của baseline A (log thật Day 34/35) thuộc dạng nào trong 4 dạng — và bằng chứng cụ thể là đoạn nào của đường cong (số bước, giá trị loss)? Nếu script của bạn phân loại khác với mô tả "dạng 1" trong bài sáng, bạn tin bên nào, và bạn kiểm tra lại bằng cách nào?</li>
+<li>Sàn n-gram của bạn là bao nhiêu — và khoảng cách n-gram ↔ A nói gì về độ khó của dữ liệu Wikipedia-vi? Nếu A chỉ thắng sàn một chút (dưới 20% như demo), bạn kiểm tra thứ gì đầu tiên: tokenizer, dữ liệu, hay cách train — và bằng cách nào?</li>
+<li>Giả sử E5 cho |ΔPPL| = 0,45 (vượt ngưỡng 0,3). Bạn có chạy E4 tiếp không? Nếu không, 3 thứ đầu tiên bạn kiểm tra trong pipeline là gì — và mỗi thứ kiểm tra bằng lệnh hay phép đo cụ thể nào?</li>
+<li>Trong ma trận đã khóa, ô E2 đổi tokenizer từ BPE 8k sang 16k. Ngoài PPL, con số nào khác sẽ thay đổi theo (gợi ý: tham số embedding, tokens/s, kWh) — và bạn ghi những con số đó vào đâu để so sánh E2 không chỉ bằng một con số PPL?</li>
+<li>Tiêu chí dừng của E4 bạn viết là "val loss không cải thiện sau 1 epoch". Giữa buổi chạy, val loss đã phẳng 40 phút nhưng train loss vẫn giảm chậm — bạn dừng hay chờ thêm? Viết 1 câu giải thích quyết định đó cho báo cáo, sao cho người đọc tin rằng bạn không "chờ cho chắc" mà đốt GPU vô ích.</li>
+</ol>
+
+<h2>5 · Checklist tự đánh giá (tự chấm trước khi nộp)</h2>
+<ul class="check">
+<li onclick="toggleCheck(this)">Tôi chạy được <code>classify_curve.py --demo</code> và thấy <code>DEMO: bo phan loai dung 5/5</code>, hiểu 5 đường cong demo chỉ kiểm tra script, không phải số đo của đề tài.</li>
+<li onclick="toggleCheck(this)">Tôi phân loại được loss curve của baseline A trên log thật (hoặc ghi rõ "chưa có log thật — chờ số liệu Day 34/35") và viết nhận xét 3 dòng vào <code>baseline_reading.md</code>.</li>
+<li onclick="toggleCheck(this)">Tôi chạy được <code>compare_baselines.py --demo</code> và hiểu kết luận demo "thắng nhẹ" chỉ minh họa logic, không phải kết luận của đề tài.</li>
+<li onclick="toggleCheck(this)">Tôi điền được (hoặc để trống đúng cách) PPL sàn n-gram, PPL A và dao động seed vào <code>baseline_reading.md</code>, kèm câu kết luận 1 dòng "neural có đáng tiền không".</li>
+<li onclick="toggleCheck(this)">Tôi chạy được <code>check_matrix.py</code> cho <code>PASS 6/6</code>, thử phá 1 dòng thấy FAIL đúng chỗ, rồi sửa lại PASS — ma trận đã khóa.</li>
+<li onclick="toggleCheck(this)">Tôi biết |ΔPPL| của E5 là bao nhiêu (hoặc ghi rõ "E5 dry-run xong, chạy đủ đang chờ GPU") và tôi chưa kết luận gì về B/C hay E4 nếu nó vượt ngưỡng 0,3.</li>
+<li onclick="toggleCheck(this)">Ô trần P trong <code>baseline_reading.md</code> vẫn để trống đúng cách (không có con số PPL nào được điền thay).</li>
+</ul>
+
+<h2>6 · Bẫy thường gặp</h2>
+<ul>
+<li><b>Chỉ nhìn train loss rồi kết luận đường cong "đẹp".</b> Train giảm đều không có nghĩa gì nếu val tăng — đó là overfit, không phải hội tụ. Cách chữa: script bắt buộc đọc cả hai cột; phân loại nào cũng phải nêu bằng chứng từ val loss.</li>
+<li><b>Chốt "neural đáng tiền" từ PPL nền 7,78.</b> 7,78 là số sau vài triệu token, chưa phải PPL của A chạy đủ 200M token — lấy nó so với sàn thì khoảng cách chưa phải khoảng cách thật. Cách chữa: ô P và ô PPL A trong bảng chỉ điền từ lần chạy đủ 200M token; chưa chạy đủ thì để trống.</li>
+<li><b>Đổi 2 thứ trong một ô ma trận rồi so PPL với A.</b> Vừa đổi tokenizer sang 16k vừa tăng learning rate thì PPL cải thiện không gán được cho thứ nào. Cách chữa: trước mỗi thí nghiệm, viết câu "thứ duy nhất thay đổi là ___" và chạy <code>check_matrix.py</code> — máy sẽ bắt lỗi nếu một ô đổi nhiều hơn một thứ.</li>
+</ul>
+
+<h2>7 · Checklist nộp bài</h2>
+<ul class="check">
+<li onclick="toggleCheck(this)">Đã chạy <code>classify_curve.py</code> (demo 5/5 + log thật) và ghi nhận xét 3 dòng về loss curve của A.</li>
+<li onclick="toggleCheck(this)">Đã chạy <code>compare_baselines.py</code> (demo + số thật nếu có) và điền bảng so sánh vào <code>baseline_reading.md</code> (trần P để trống đúng cách).</li>
+<li onclick="toggleCheck(this)">Đã khóa ma trận: <code>matrix_E0_E5.csv</code> + <code>check_matrix.py</code> PASS 6/6 (đã thử phá 1 dòng).</li>
+<li onclick="toggleCheck(this)">Đã chuẩn bị/chạy E5 (seed 1337): chạy <code>compare_runs.py</code> trên demo xong, chạy thật hoặc ghi rõ trạng thái dry-run/chờ GPU, ghi |ΔPPL| + quyết định có chạy E4 không.</li>
+<li onclick="toggleCheck(this)">Đã trả lời 5 câu phản biện ở mục 4 trong chat.</li>
+</ul>
+<p><b>Nộp bài:</b> paste code/kết quả vào chat để được nhận xét — gồm: dạng loss curve của A + bằng chứng 3 dòng, bảng so sánh hai baseline (kèm số nào còn trống và vì sao), file <code>matrix_E0_E5.csv</code>, |ΔPPL| của E5 + quyết định về E4, và 5 câu trả lời phản biện.</p>
+
+<div class="note">💡 <b>Gợi ý cải tiến cho ngày mai (Day 42):</b> chạy ma trận E0–E2 theo đúng bảng đã khóa tối nay — bắt đầu bằng E0 smoke test vài phút để bắt lỗi pipeline trước khi đốt GPU cho E1/E2. Trước mỗi ô, đọc to câu "thứ duy nhất thay đổi là ___" và ghi lại vào sổ lab; sau mỗi ô, ghi ngay 4 con số chuẩn vào <code>baseline_results.csv</code> để Day 42 không phải đoán lại từ các log rời rạc.</div>
+
+<div class="footer">Khóa "Trở thành AI Engineer (LLM)" — Phase 2, đề tài Tiny Vietnamese LM · Ngày 41 · Buổi tối: thực hành. File giải thích chi tiết: <a href="Day41_giai_thich.html">Day41_giai_thich.html</a> · Bài học buổi sáng: <a href="Day41_lesson.html">Day41_lesson.html</a> · Quiz: <a href="Day41_quiz.html">Day41_quiz.html</a></div>
+</div>
+</body>
+</html>

@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ngày 43 — Buổi tối: Lab nghiên cứu — Chạy E1: khử trùng lặp có giúp PPL thật sự, hay chỉ làm số đẹp?</title>
+<style>
+:root{--bg:#0a0f1e; --card:#101830; --line:#22305a; --gold:#f5c542; --green:#4ade80;
+ --red:#f87171; --violet:#a78bfa; --cyan:#67e8f9; --text:#e8edf7; --muted:#93a0bd;}
+*{box-sizing:border-box;}
+body{margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.75; font-size:16.5px;}
+.wrap{max-width:820px; margin:0 auto; padding:18px 16px 60px;}
+.kicker{display:inline-block; font-size:13px; letter-spacing:1px; color:var(--gold); font-weight:700; margin-bottom:8px;}
+h1{font-size:28px; line-height:1.3; margin:6px 0 10px;}
+h2{font-size:22px; margin:34px 0 10px; color:var(--cyan);}
+h3{font-size:18px; margin:22px 0 8px; color:var(--gold);}
+.sub{color:var(--muted); font-size:16.5px;}
+.meta{display:flex; gap:8px; flex-wrap:wrap; margin:14px 0 6px;}
+.meta span{font-size:13.5px; background:var(--card); border:1px solid var(--line); border-radius:999px; padding:5px 14px;}
+.card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px; margin:16px 0;}
+.note{border-left:4px solid var(--green); background:#0f2233; border-radius:0 12px 12px 0; padding:12px 16px; margin:14px 0;}
+.warn{border-left:4px solid var(--red); background:#23141a; border-radius:0 12px 12px 0; padding:12px 16px; margin:14px 0;}
+.rq{background:#141d3a; border:1px solid var(--violet); border-radius:10px; padding:12px 16px; margin:10px 0;}
+.rq b{color:var(--violet);}
+.check{list-style:none; padding-left:0;}
+.check li{padding-left:28px; position:relative; margin-bottom:8px;}
+.check li::before{content:"☐"; position:absolute; left:0; color:var(--gold); font-size:17px;}
+.check li.done::before{content:"☑"; color:var(--green);}
+.check li input{position:absolute; left:0; top:4px; width:18px; height:18px; opacity:0; cursor:pointer;}
+.check li.done{color:var(--muted); text-decoration:line-through;}
+code{background:#0a0f1e; border:1px solid var(--line); border-radius:6px; padding:1px 7px; font-size:15px;}
+pre{background:#0a0f1e; border:1px solid var(--line); border-radius:10px; padding:14px 16px; overflow-x:auto; font-size:14px; line-height:1.55; white-space:pre-wrap; word-break:break-word;}
+table{width:100%; border-collapse:collapse; margin:12px 0; font-size:15px;}
+th,td{border:1px solid var(--line); padding:8px 10px; text-align:left;}
+th{background:#141d3a; color:var(--gold);}
+.qa{margin:14px 0;}
+.qa button{background:var(--gold); color:#14100a; font-weight:700; border:none; border-radius:10px; padding:10px 18px; cursor:pointer; font-size:15px;}
+.qa .ans{display:none; margin-top:10px; border-left:4px solid var(--green); background:#0f2233; border-radius:0 12px 12px 0; padding:12px 16px;}
+.qa .ans.show{display:block;}
+.footer{color:var(--muted); font-size:14px; margin-top:36px; border-top:1px solid var(--line); padding-top:14px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+<span class="kicker">TRỞ THÀNH AI ENGINEER (LLM) · PHASE 2 — ĐỀ TÀI TINY VIETNAMESE LM</span>
+<h1>Ngày 43 — Buổi tối: Chạy E1: khử trùng lặp có giúp PPL thật sự, hay chỉ làm số đẹp?</h1>
+<p class="sub">E0 đã PASS hôm qua (Day 42) — pipeline sống, loss giảm, checkpoint lưu được. Tối nay chạy ô đầu tiên trả lời câu hỏi khoa học thật sự: <b>dữ liệu khử trùng lặp có làm mô hình tốt hơn thật không — hay chỉ làm con số PPL trông đẹp hơn?</b> E1 so hai lần chạy giống hệt nhau, chỉ khác một thứ: dữ liệu đã khử trùng lặp hay chưa. Cái gì khác nhau trong kết quả thì gán được đúng cho dữ liệu.</p>
+<div class="meta"><span>⏱️ ~60–90 phút + ~16 phút GPU</span><span>🖥️ Lab CPU + 2 lần chạy GPU</span><span>📦 3 script Python · 3 file kết quả</span></div>
+
+<h2>1 · Tóm tắt nhiệm vụ buổi sáng</h2>
+<div class="card">
+<p>Bài sáng Day 43 định nghĩa <b>E1 — thí nghiệm dữ liệu</b>: chạy cấu hình A hai lần, giống hệt nhau mọi thứ, chỉ khác bộ dữ liệu đầu vào. <b>Chạy 1 — A + dữ liệu thô:</b> Wikipedia tiếng Việt chưa khử trùng lặp, giữ nguyên mọi bản sao. <b>Chạy 2 — A + dữ liệu sạch:</b> cùng nguồn, đã qua khử trùng lặp ExactSubstr + NearDup (Day 33). Mọi thứ còn lại bằng nhau tuyệt đối: tokenizer BPE 8k, cấu hình A (10M tham số, tied embeddings, d = 320, 6 layer), learning rate, seed, tập held-out đóng băng, cùng một máy.</p>
+<p><b>Câu hỏi vàng trước mỗi lần chạy:</b> viết ra một dòng — “thứ duy nhất thay đổi là dữ liệu: khử trùng lặp bật / tắt” — rồi kiểm tra từng mục trong bảng có bằng nhau không. Hai thứ đổi cùng lúc thì kết quả không gán được cho thứ nào.</p>
+<p><b>Vì sao trùng lặp làm số đẹp giả — hai đường khác nhau:</b> (1) mô hình học thuộc lòng thay vì học tiếng Việt — một đoạn văn xuất hiện 20 lần thì gradient từ đoạn đó chiếm tỉ trọng gấp 20 lần, mô hình 10M tham số dành dung lượng để ghi nhớ nguyên văn; (2) tập val bị rò rỉ — cùng đoạn văn xuất hiện cả trong train lẫn held-out thì mô hình đã thấy đáp án trước khi được kiểm tra, PPL thấp giả. Sau khi khử trùng lặp, PPL có thể tăng lên — và đó là tin tốt: con số lúc này mới trung thực.</p>
+<p><b>Thiết kế công bằng:</b> so sánh theo <b>số token đã thấy (200M)</b>, không so theo epoch — vì dữ liệu sạch ít token hơn mỗi epoch (1 epoch thô = 300M token; 1 epoch sạch = 248M token). Chạy cả hai đủ 1 epoch rồi so thì lần chạy sạch đã thấy ít token hơn — nó thua không phải vì dữ liệu sạch kém, mà vì nó học ít hơn.</p>
+<p><b>Đọc kết quả theo 3 kịch bản + ngưỡng dao động seed ±0,3 PPL</b> (Day 41, ngưỡng tạm cho tới khi có E5): chênh lệch nhỏ hơn dao động seed thì là nhiễu, không phải cải tiến. Mỗi con số PPL của E1 phải đi kèm 3 thứ: (1) số token đã thấy (200M), (2) ± dao động seed, (3) ghi rõ tập held-out đã đóng băng từ Day 34.</p>
+</div>
+<div class="warn"><b>Đừng hoảng khi số sạch xấu hơn số bẩn.</b> PPL sau khử trùng lặp có thể tăng lên — đó là con số trung thực đầu tiên của bạn. Kết luận “mô hình giỏi” từ PPL thấp trên val bị rò rỉ là bẫy kinh điển của bài sáng §2. Và: trần P vẫn để trống — P chỉ chốt khi A train đủ 200M token, E1 không chốt P.</div>
+
+<h2>2 · Nhiệm vụ tối nay — 4 phần việc</h2>
+
+<h3>Lab A — Chứng minh 2 tác hại của trùng lặp trên mô hình thu nhỏ (CPU)</h3>
+<p>Chạy <code>dedupe_demo.py</code> dưới đây trên máy của bạn (chỉ cần Python + numpy, không cần GPU). Cùng mô hình bigram, cùng số token đã thấy (400 bước × 64 cặp = 25.600 cặp), chỉ khác phân bố dữ liệu: bản RAW có 1 câu lặp lại 20 lần, bản CLEAN mỗi câu 1 lần. Script đo 2 thí nghiệm: (1) loss trên câu lặp lại — probe học thuộc lòng — và loss trên 5 câu held-out đóng băng; (2) cùng mô hình RAW, đánh giá trên held-out sạch và held-out rò rỉ (5 câu sạch + câu đã có trong train).</p>
+<pre># -*- coding: utf-8 -*-
+&quot;&quot;&quot;dedupe_demo.py — Chung minh 2 tac hai cua du lieu trung lap tren mo hinh
+thu nho chay CPU (numpy), mo phong E1.
+
+Thi nghiem 1 — Hoc thuoc long thay vi hoc tieng Viet:
+    Cung mo hinh bigram, cung so token da thay (400 buoc x 64 cap = 25.600 cap),
+    chi khac phan bo du lieu:
+      RAW   : 1 cau lap lai 20 lan trong train (giong Wikipedia co doan van
+              xuat hien o nhieu bai).
+      CLEAN : moi cau chi 1 lan (da khu trung lap).
+    Do: loss tren cau lap lai (probe hoc thuoc) + loss tren 5 cau held-out
+    dong bang (kha nang that).
+
+Thi nghiem 2 — Val bi ro ri, PPL thap gia:
+    Cung mo hinh RAW, danh gia tren 2 tap held-out:
+      (a) held-out SACH: 5 cau chua tung thay.
+      (b) held-out RO RI: 5 cau sach + cau lap lai (da co trong train).
+    PPL (b) thap hon han (a) — khong phai vi mo hinh gioi, ma vi no nho dap an.
+
+Chay:   python3 dedupe_demo.py
+Ket qua: dedupe_demo_result.json
+&quot;&quot;&quot;
+import json
+import unicodedata
+
+import numpy as np
+
+CORPUS = [
+    &quot;mô hình ngôn ngữ học cách dự đoán từ tiếp theo trong câu&quot;,
+    &quot;dữ liệu sạch giúp mô hình học được tiếng việt tự nhiên hơn&quot;,
+    &quot;tokenizer tách câu thành các đơn vị nhỏ để mô hình xử lý&quot;,
+    &quot;huấn luyện mô hình cần nhiều dữ liệu và thời gian tính toán&quot;,
+    &quot;loss giảm dần cho thấy mô hình đang học được quy luật&quot;,
+    &quot;perplexity đo mức độ bất ngờ của mô hình trước văn bản mới&quot;,
+    &quot;tập held-out dùng để đánh giá mô hình trên dữ liệu chưa thấy&quot;,
+    &quot;learning rate quá cao khiến loss vọt lên và trở thành nan&quot;,
+    &quot;learning rate quá thấp khiến loss giảm rất chậm và phẳng lì&quot;,
+    &quot;checkpoint lưu lại trạng thái mô hình để tiếp tục huấn luyện sau&quot;,
+    &quot;seed cố định giúp kết quả thí nghiệm lặp lại được giống nhau&quot;,
+    &quot;dữ liệu trùng lặp làm mô hình nhớ lại thay vì học khái quát&quot;,
+    &quot;vocab lớn hơn cho phép tokenizer biểu diễn từ hiếm tốt hơn&quot;,
+    &quot;mô hình nhỏ chạy nhanh nhưng khả năng học còn hạn chế&quot;,
+    &quot;mô hình lớn học tốt hơn nhưng tốn nhiều bộ nhớ và điện năng&quot;,
+    &quot;đánh giá mô hình cần tách riêng tập train và tập kiểm tra&quot;,
+    &quot;gradient cho biết hướng điều chỉnh tham số để giảm loss&quot;,
+    &quot;quá khớp xảy ra khi mô hình nhớ dữ liệu train thay vì khái quát&quot;,
+    &quot;một thí nghiệm tốt chỉ thay đổi duy nhất một biến mỗi lần&quot;,
+    &quot;smoke test kiểm tra pipeline có chạy được trước khi làm thật&quot;,
+    &quot;báo cáo nghiên cứu cần ghi rõ dữ liệu và cách đo kết quả&quot;,
+    &quot;tiếng việt có dấu thanh nên tokenizer cần chuẩn hoá unicode&quot;,
+    &quot;mô hình ngôn ngữ nhỏ có thể học được cấu trúc câu đơn giản&quot;,
+    # --- 5 cau held-out (dong bang, khong train) ---
+    &quot;thí nghiệm lặp lại với seed khác cho biết dao động của kết quả&quot;,
+    &quot;tốc độ train đo bằng số token xử lý được trong một giây&quot;,
+    &quot;kết quả tốt cần kiểm chứng bằng nhiều lần chạy độc lập&quot;,
+    &quot;dữ liệu huấn luyện và dữ liệu đánh giá không được trùng nhau&quot;,
+    &quot;mục tiêu cuối cùng là mô hình viết được tiếng việt mạch lạc&quot;,
+]
+HELD_OUT_N = 5
+REPEAT_N = 20          # cau 0 xuat hien 20 lan trong ban RAW
+STEPS = 400
+BATCH = 64             # 400 x 64 = 25.600 cap da thay — BANG NHAU 2 ben
+LR = 0.05
+SEED = 42
+VOCAB_SPECIAL = [&quot;&lt;pad&gt;&quot;, &quot;&lt;bos&gt;&quot;, &quot;&lt;eos&gt;&quot;, &quot;&lt;unk&gt;&quot;]
+
+
+def tokenize(text):
+    return unicodedata.normalize(&quot;NFC&quot;, text.strip().lower()).split()
+
+
+def build_vocab(sentences):
+    vocab = {tok: i for i, tok in enumerate(VOCAB_SPECIAL)}
+    for s in sentences:
+        for w in tokenize(s):
+            if w not in vocab:
+                vocab[w] = len(vocab)
+    return vocab
+
+
+def encode(sentence, vocab):
+    ids = [vocab[&quot;&lt;bos&gt;&quot;]]
+    ids += [vocab.get(w, vocab[&quot;&lt;unk&gt;&quot;]) for w in tokenize(sentence)]
+    ids += [vocab[&quot;&lt;eos&gt;&quot;]]
+    return ids
+
+
+def pairs_from(ids_list):
+    x, y = [], []
+    for ids in ids_list:
+        x += ids[:-1]
+        y += ids[1:]
+    return np.array(x), np.array(y)
+
+
+class BigramLM:
+    def __init__(self, vocab_size, seed=SEED):
+        rng = np.random.default_rng(seed)
+        self.W = rng.normal(0, 0.01, size=(vocab_size, vocab_size))
+
+    def loss(self, x, y):
+        logits = self.W[x]
+        logits -= logits.max(axis=1, keepdims=True)
+        exp = np.exp(logits)
+        probs = exp / exp.sum(axis=1, keepdims=True)
+        return float(-np.log(probs[np.arange(len(y)), y] + 1e-12).mean())
+
+    def train_step(self, x, y, m, v, t, lr=LR):
+        logits = self.W[x]
+        logits -= logits.max(axis=1, keepdims=True)
+        exp = np.exp(logits)
+        probs = exp / exp.sum(axis=1, keepdims=True)
+        n = len(y)
+        loss = float(-np.log(probs[np.arange(n), y] + 1e-12).mean())
+        grad = probs.copy()
+        grad[np.arange(n), y] -= 1.0
+        grad /= n
+        gW = np.zeros_like(self.W)
+        np.add.at(gW, x, grad)
+        m[:] = 0.9 * m + 0.1 * gW
+        v[:] = 0.999 * v + 0.001 * (gW * gW)
+        mh = m / (1 - 0.9 ** t)
+        vh = v / (1 - 0.999 ** t)
+        self.W -= lr * mh / (np.sqrt(vh) + 1e-8)
+        return loss
+
+
+def train(pairs_x, pairs_y, vocab_size):
+    model = BigramLM(vocab_size)
+    m = np.zeros_like(model.W)
+    v = np.zeros_like(model.W)
+    rng = np.random.default_rng(SEED)
+    n = len(pairs_x)
+    for step in range(1, STEPS + 1):
+        idx = rng.integers(0, n, size=BATCH)
+        model.train_step(pairs_x[idx], pairs_y[idx], m, v, step)
+    return model
+
+
+def main():
+    train_sents = CORPUS[:-HELD_OUT_N]
+    held_sents = CORPUS[-HELD_OUT_N:]
+    vocab = build_vocab(train_sents)
+    V = len(vocab)
+
+    # --- Du lieu 2 ben: chi khac phan bo, cung vocab, cung held-out ---
+    raw_sents = train_sents + [train_sents[0]] * (REPEAT_N - 1)
+    clean_sents = list(train_sents)
+    xr, yr = pairs_from([encode(s, vocab) for s in raw_sents])
+    xc, yc = pairs_from([encode(s, vocab) for s in clean_sents])
+    print(f&quot;RAW  : {len(raw_sents)} cau train ({REPEAT_N}x cau 0), {len(xr)} cap&quot;)
+    print(f&quot;CLEAN: {len(clean_sents)} cau train (moi cau 1 lan), {len(xc)} cap&quot;)
+    print(f&quot;Ngan sach giong nhau: {STEPS} buoc x {BATCH} cap = &quot;
+          f&quot;{STEPS * BATCH:,} cap da thay moi ben&quot;)
+
+    m_raw = train(xr, yr, V)
+    m_clean = train(xc, yc, V)
+
+    # --- Probe: loss tren cau lap lai + held-out sach ---
+    xp, yp = pairs_from([encode(train_sents[0], vocab)])
+    xh, yh = pairs_from([encode(s, vocab) for s in held_sents])
+    probe_raw = m_raw.loss(xp, yp)
+    probe_clean = m_clean.loss(xp, yp)
+    held_raw = m_raw.loss(xh, yh)
+    held_clean = m_clean.loss(xh, yh)
+    print(&quot;\nTHI NGHIEM 1 — Hoc thuoc long vs hoc tieng Viet:&quot;)
+    print(f&quot;  loss tren cau lap lai (probe) : RAW {probe_raw:.4f} | CLEAN {probe_clean:.4f}&quot;)
+    print(f&quot;  loss held-out sach (5 cau)    : RAW {held_raw:.4f} | CLEAN {held_clean:.4f}&quot;)
+    print(f&quot;  PPL held-out sach             : RAW {np.exp(held_raw):.2f} | &quot;
+          f&quot;CLEAN {np.exp(held_clean):.2f}&quot;)
+
+    # --- Thi nghiem 2: val ro ri ---
+    leaked_sents = held_sents + [train_sents[0]]
+    xl, yl = pairs_from([encode(s, vocab) for s in leaked_sents])
+    leak_raw = m_raw.loss(xl, yl)
+    leak_clean = m_clean.loss(xl, yl)
+    print(&quot;\nTHI NGHIEM 2 — Val ro ri (cung mo hinh RAW):&quot;)
+    print(f&quot;  PPL held-out SACH  (5 cau)         : {np.exp(held_raw):.2f}&quot;)
+    print(f&quot;  PPL held-out RO RI (5 cau + cau 0) : {np.exp(leak_raw):.2f} &quot;
+          f&quot;-&gt; thap gia {np.exp(held_raw) / np.exp(leak_raw):.2f}x&quot;)
+    print(f&quot;  (doi chieu) mo hinh CLEAN tren val ro ri: {np.exp(leak_clean):.2f}&quot;)
+
+    result = {
+        &quot;ngan_sach_cap_da_thay&quot;: STEPS * BATCH,
+        &quot;cau_lap_lai&quot;: REPEAT_N,
+        &quot;probe_loss_cau_lap_lai&quot;: {&quot;raw&quot;: round(probe_raw, 4),
+                                   &quot;clean&quot;: round(probe_clean, 4)},
+        &quot;held_out_loss&quot;: {&quot;raw&quot;: round(held_raw, 4), &quot;clean&quot;: round(held_clean, 4)},
+        &quot;held_out_ppl&quot;: {&quot;raw&quot;: round(float(np.exp(held_raw)), 2),
+                         &quot;clean&quot;: round(float(np.exp(held_clean)), 2)},
+        &quot;leaked_val_ppl&quot;: {&quot;raw&quot;: round(float(np.exp(leak_raw)), 2),
+                           &quot;clean&quot;: round(float(np.exp(leak_clean)), 2)},
+        &quot;ghi_chu&quot;: (&quot;Mo hinh thu nho CPU, 23 cau train — chi de thay HUONG tac hai, &quot;
+                    &quot;khong phai so PPL that cua de tai. E1 that chay cau hinh A, &quot;
+                    &quot;200M token moi ben, tren GPU.&quot;),
+    }
+    with open(&quot;dedupe_demo_result.json&quot;, &quot;w&quot;, encoding=&quot;utf-8&quot;) as f:
+        json.dump(result, f, ensure_ascii=False, indent=1)
+    print(&quot;\nDa ghi dedupe_demo_result.json&quot;)
+
+
+if __name__ == &quot;__main__&quot;:
+    main()
+</pre>
+<p>Chạy:</p>
+<pre>python3 dedupe_demo.py</pre>
+<div class="note"><b>Kết quả đo thật trên máy trợ giảng (CPU, mô hình thu nhỏ — đã chạy kiểm chứng):</b><br>
+Thí nghiệm 1 — học thuộc lòng: loss trên câu lặp lại <b>RAW 0,12</b> vs <b>CLEAN 0,78</b> — bản RAW nhớ gần như hoàn hảo câu đã thấy 20 lần, bản CLEAN thì không. Loss held-out sạch: RAW 5,38 (PPL 217,14) vs CLEAN 5,51 (PPL 247,96) — chênh 0,13 loss, nhỏ và không kết luận được gì về khái quát hóa trên mô hình đồ chơi (xem lưu ý trung thực bên dưới).<br>
+Thí nghiệm 2 — val rò rỉ: cùng mô hình RAW, PPL trên held-out sạch <b>217,14</b>, trên held-out rò rỉ (thêm câu đã có trong train) chỉ còn <b>90,35 — thấp giả 2,40 lần</b>. Mô hình không giỏi hơn; nó chỉ nhớ đáp án. Đây chính là cơ chế làm PPL đẹp giả mà bài sáng cảnh báo.</div>
+<div class="warn"><b>Lưu ý trung thực — đọc kỹ trước khi nộp:</b> mô hình thu nhỏ có vocab ~120 từ, ma trận W 120×120 thừa dung lượng, nên “học thuộc lòng” không gây thiếu dung lượng cho quy luật chung — vì vậy bản RAW không thua trên held-out sạch trong demo này. Cơ chế dung lượng chỉ lộ ra trên mô hình thật 10M tham số, nơi mỗi tham số đều quý. Demo này chứng minh được 2 điều: (a) trùng lặp làm mô hình nhớ thay vì học (probe 0,12 vs 0,78), (b) rò rỉ làm PPL thấp giả 2,40 lần. Câu hỏi “dedupe có giúp khái quát hóa thật không” thì demo đồ chơi không trả lời được — chính E1 thật (Lab C) mới trả lời. Đừng viết “demo đã chứng minh dedupe giúp PPL thật” khi chưa chạy E1.</div>
+
+<h3>Lab B — Soát giao thức E1 và tập đọc 3 kịch bản (không cần GPU)</h3>
+<p>Trước khi bấm chạy E1 thật, soát giao thức bằng <code>e1_protocol.py</code>: đọc 2 file config JSON (chạy thô / chạy sạch), kiểm tra mọi thứ trừ dữ liệu phải bằng nhau tuyệt đối, ngân sách token bằng nhau (200M), và nhắc chạy lại E0 nếu code/dữ liệu đã đổi sau E0. Sau đó tập đọc kết quả bằng <code>e1_compare.py</code> trên 3 cặp kết quả ví dụ — để khi số thật về, bạn chỉ việc thay file vào, không phải suy nghĩ lại logic phân loại.</p>
+<pre># -*- coding: utf-8 -*-
+&quot;&quot;&quot;e1_protocol.py — Soat giao thuc E1 TRUOC KHI bam chay (bai sang Day 43 §3).
+
+Doc 2 file config JSON (chay 1 = du lieu tho, chay 2 = du lieu sach), kiem tra:
+  - Chi DU LIEU khac nhau (dedupe bat/tat); moi thu khac phai BANG NHAU tuyet doi:
+    tokenizer BPE 8k, cau hinh A (10M, d=320, 6 layer, tied embeddings),
+    learning rate, seed, tap held-out dong bang, may chay.
+  - Ngan sach token BANG NHAU: 200M token moi ben (so theo token da thay,
+    KHONG so theo epoch — vi du lieu sach it token hon moi epoch).
+  - E0 con han: neu code hoac du lieu da doi sau E0 thi chay lai E0 truoc.
+
+Dung:
+    python3 e1_protocol.py config_raw.json config_clean.json
+Thoat 0 neu giao thuc dat (duoc phep chay E1), 1 neu co muc lech.
+
+Mau config (ghi ca 2 file truoc khi chay):
+    {&quot;data&quot;: &quot;raw&quot;, &quot;dedupe&quot;: false, &quot;tokenizer&quot;: &quot;BPE 8k&quot;,
+     &quot;config&quot;: &quot;A&quot;, &quot;params_m&quot;: 10, &quot;d_model&quot;: 320, &quot;layers&quot;: 6,
+     &quot;tied_embeddings&quot;: true, &quot;lr&quot;: 0.001, &quot;seed&quot;: 42,
+     &quot;held_out&quot;: &quot;day34_frozen&quot;, &quot;token_budget_m&quot;: 200, &quot;machine&quot;: &quot;gpu-1&quot;}
+&quot;&quot;&quot;
+import json
+import sys
+
+MUST_MATCH = [&quot;tokenizer&quot;, &quot;config&quot;, &quot;params_m&quot;, &quot;d_model&quot;, &quot;layers&quot;,
+              &quot;tied_embeddings&quot;, &quot;lr&quot;, &quot;seed&quot;, &quot;held_out&quot;, &quot;machine&quot;,
+              &quot;token_budget_m&quot;]
+EXPECTED = {&quot;tokenizer&quot;: &quot;BPE 8k&quot;, &quot;config&quot;: &quot;A&quot;, &quot;params_m&quot;: 10,
+            &quot;d_model&quot;: 320, &quot;layers&quot;: 6, &quot;tied_embeddings&quot;: True,
+            &quot;token_budget_m&quot;: 200}
+
+
+def main():
+    if len(sys.argv) != 3:
+        print(&quot;Dung: python3 e1_protocol.py config_raw.json config_clean.json&quot;)
+        raise SystemExit(2)
+    with open(sys.argv[1], encoding=&quot;utf-8&quot;) as f:
+        raw = json.load(f)
+    with open(sys.argv[2], encoding=&quot;utf-8&quot;) as f:
+        clean = json.load(f)
+
+    print(&quot;SOAT GIAO THUC E1 — &#x27;thu duy nhat thay doi la du lieu&#x27;&quot;)
+    print(f&quot;  Chay 1: du lieu {&#x27;tho&#x27; if not raw.get(&#x27;dedupe&#x27;) else &#x27;SACH?&#x27;} &quot;
+          f&quot;(dedupe={raw.get(&#x27;dedupe&#x27;)})&quot;)
+    print(f&quot;  Chay 2: du lieu {&#x27;sach&#x27; if clean.get(&#x27;dedupe&#x27;) else &#x27;THO?&#x27;} &quot;
+          f&quot;(dedupe={clean.get(&#x27;dedupe&#x27;)})&quot;)
+    ok = True
+    if raw.get(&quot;dedupe&quot;) is not False or clean.get(&quot;dedupe&quot;) is not True:
+        print(&quot;  [LECH] dedupe phai la false (chay 1) / true (chay 2)&quot;)
+        ok = False
+    for k in MUST_MATCH:
+        a, b = raw.get(k), clean.get(k)
+        mark = &quot;dat&quot; if a == b else &quot;LECH&quot;
+        if a != b:
+            ok = False
+        print(f&quot;  [{mark}] {k}: chay1={a} | chay2={b}&quot;)
+    for k, v in EXPECTED.items():
+        if raw.get(k) != v or clean.get(k) != v:
+            print(f&quot;  [LECH] {k} phai la {v} (cau hinh A, Day 40) — &quot;
+                  f&quot;chay1={raw.get(k)}, chay2={clean.get(k)}&quot;)
+            ok = False
+    print(&quot;  Nho: so sanh theo SO TOKEN DA THAY (200M), khong so theo epoch.&quot;)
+    print(&quot;  Nho: neu code/du lieu doi sau E0 thi chay lai E0 truoc (bai sang §3).&quot;)
+    print(f&quot;\nKET LUAN: {&#x27;DAT — duoc phep chay E1&#x27; if ok else &#x27;LECH — sua config roi soat lai&#x27;}&quot;)
+    raise SystemExit(0 if ok else 1)
+
+
+if __name__ == &quot;__main__&quot;:
+    main()
+</pre>
+<pre># -*- coding: utf-8 -*-
+&quot;&quot;&quot;e1_compare.py — Doc ket qua E1, phan loai 1 trong 3 kich ban (bai sang Day 43 §4).
+
+Doc 2 file ket qua JSON (moi file: {&quot;ppl&quot;: ..., &quot;tokens_seen_m&quot;: 200, ...}),
+so sanh PPL tren CUNG tap held-out dong bang, voi nguong dao dong seed
+(mac dinh ±0.3 PPL — Day 41; neu E5 chua chay thi day la nguong tam,
+ghi ro trong bao cao, khong bia so chac chan).
+
+  Kich ban 1 — Dedupe thang ro  : PPL sach thap hon PPL tho &gt; nguong
+                                  -&gt; giu du lieu sach lam chuan cho E2-E5.
+  Kich ban 2 — Khong khac biet : |chenh| &lt;= nguong -&gt; nhieu; VAN giu du
+                                  lieu sach (dung ve phuong phap), ghi ro
+                                  &quot;khong khac biet co y nghia&quot;.
+  Kich ban 3 — Dedupe thua ro   : PPL sach cao hon PPL tho &gt; nguong
+                                  -&gt; KIEM TRA truoc: NearDup co qua gat,
+                                  xoa nham du lieu tot? So so token 2 bo
+                                  du lieu, noi nguong roi chay lai E1.
+                                  KHONG ket luan &quot;trung lap tot&quot;.
+
+Dung:
+    python3 e1_compare.py result_raw.json result_clean.json [--seed-noise 0.3]
+Thoat 0 neu co ket luan (ca 3 kich ban deu co quyet dinh), 1 neu du lieu
+vao khong hop le (thieu truong, token khac nhau, held-out khac nhau).
+&quot;&quot;&quot;
+import argparse
+import json
+import sys
+
+DEFAULT_SEED_NOISE = 0.3  # PPL — nguong tam tu Day 41, cho toi khi co E5
+
+
+def load(path):
+    with open(path, encoding=&quot;utf-8&quot;) as f:
+        return json.load(f)
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument(&quot;raw&quot;)
+    ap.add_argument(&quot;clean&quot;)
+    ap.add_argument(&quot;--seed-noise&quot;, type=float, default=DEFAULT_SEED_NOISE)
+    args = ap.parse_args()
+    r = load(args.raw)
+    c = load(args.clean)
+
+    for name, d in ((&quot;raw&quot;, r), (&quot;clean&quot;, c)):
+        for k in (&quot;ppl&quot;, &quot;tokens_seen_m&quot;, &quot;held_out&quot;):
+            if k not in d:
+                print(f&quot;FAIL: {name} thieu truong &#x27;{k}&#x27; — khong ket luan chay.&quot;)
+                raise SystemExit(1)
+    if r[&quot;tokens_seen_m&quot;] != c[&quot;tokens_seen_m&quot;]:
+        print(f&quot;FAIL: so token da thay khac nhau ({r[&#x27;tokens_seen_m&#x27;]}M vs &quot;
+              f&quot;{c[&#x27;tokens_seen_m&#x27;]}M) — so lech, chay lai cho bang nhau.&quot;)
+        raise SystemExit(1)
+    if r[&quot;held_out&quot;] != c[&quot;held_out&quot;]:
+        print(&quot;FAIL: tap held-out khac nhau — PPL khong so duoc.&quot;)
+        raise SystemExit(1)
+
+    diff = r[&quot;ppl&quot;] - c[&quot;ppl&quot;]  # duong = sach tot hon
+    print(&quot;KET QUA E1 — SO SANH THEO SO TOKEN DA THAY&quot;)
+    print(f&quot;  PPL du lieu tho   : {r[&#x27;ppl&#x27;]}&quot;)
+    print(f&quot;  PPL du lieu sach  : {c[&#x27;ppl&#x27;]}&quot;)
+    print(f&quot;  So token da thay  : {r[&#x27;tokens_seen_m&#x27;]}M (bang nhau)&quot;)
+    print(f&quot;  Tap held-out      : {r[&#x27;held_out&#x27;]} (dong bang, Day 34)&quot;)
+    print(f&quot;  Chenh lech PPL    : {diff:+.2f} (duong = sach tot hon)&quot;)
+    print(f&quot;  Nguong dao dong seed: ±{args.seed_noise} PPL &quot;
+          f&quot;(tam tu Day 41 — ghi ro neu E5 chua chay)&quot;)
+
+    if diff &gt; args.seed_noise:
+        scenario = 1
+        verdict = (&quot;KICH BAN 1 — DEDUPE THANG RO. Giu du lieu sach lam du lieu &quot;
+                   &quot;chuan cho E2-E5. Ghi khoang cach PPL kem ± dao dong seed &quot;
+                   &quot;vao bao cao.&quot;)
+    elif diff &lt; -args.seed_noise:
+        scenario = 3
+        verdict = (&quot;KICH BAN 3 — DEDUPE THUA RO. Dung ket luan &#x27;trung lap tot&#x27;. &quot;
+                   &quot;Kiem tra truoc: NearDup co qua gat, xoa nham du lieu tot? &quot;
+                   &quot;So so token 2 bo du lieu; noi nguong roi chay lai E1.&quot;)
+    else:
+        scenario = 2
+        verdict = (&quot;KICH BAN 2 — KHONG KHAC BIET CO Y NGHIA (chenh trong &quot;
+                   &quot;nguong nhieu). VAN giu du lieu sach — dung ve phuong phap &quot;
+                   &quot;(khong ro ri, khong hoc thuoc long), chi phi dedupe da tra &quot;
+                   &quot;1 lan o Day 33. Ghi ro &#x27;khong khac biet co y nghia&#x27;, &quot;
+                   &quot;khong viet &#x27;dedupe vo dung&#x27;.&quot;)
+    print(f&quot;\n{verdict}&quot;)
+    out = {&quot;ppl_raw&quot;: r[&quot;ppl&quot;], &quot;ppl_clean&quot;: c[&quot;ppl&quot;], &quot;diff&quot;: round(diff, 2),
+           &quot;tokens_seen_m&quot;: r[&quot;tokens_seen_m&quot;], &quot;held_out&quot;: r[&quot;held_out&quot;],
+           &quot;seed_noise&quot;: args.seed_noise, &quot;scenario&quot;: scenario,
+           &quot;verdict&quot;: verdict}
+    with open(&quot;e1_verdict.json&quot;, &quot;w&quot;, encoding=&quot;utf-8&quot;) as f:
+        json.dump(out, f, ensure_ascii=False, indent=1)
+    print(&quot;Da ghi e1_verdict.json&quot;)
+    raise SystemExit(0)
+
+
+if __name__ == &quot;__main__&quot;:
+    main()
+</pre>
+<p>Chạy:</p>
+<pre># 1. Viet 2 file config (mau trong docstring cua e1_protocol.py), roi soat:
+python3 e1_protocol.py config_raw.json config_clean.json
+# 2. Tap doc 3 kich ban bang ket qua VI DU (so PPL duoi day la vi du, KHONG phai ket qua that):
+#    KB1: raw 18,4 / clean 17,9  -> dedupe thang ro (+0,50 &gt; ±0,3)
+#    KB2: raw 18,4 / clean 18,2  -> khong khac biet (+0,20 trong nguong nhieu)
+#    KB3: raw 18,4 / clean 19,1  -> dedupe thua ro (-0,70 &lt; -0,3)
+python3 e1_compare.py result_raw.json result_clean_win.json
+python3 e1_compare.py result_raw.json result_clean_tie.json
+python3 e1_compare.py result_raw.json result_clean_lose.json</pre>
+<div class="note"><b>Kết quả kiểm chứng trên máy trợ giảng:</b> <code>e1_protocol.py</code> — cặp config đúng cho “DAT — duoc phep chay E1” (exit 0); cặp config lệch LR (0,001 vs 0,002) bắt đúng “[LECH] lr” và kết luận “LECH — sua config roi soat lai” (exit 1). <code>e1_compare.py</code> — phân loại đúng cả 3 kịch bản ví dụ (KB1 scenario 1, KB2 scenario 2, KB3 scenario 3); cặp kết quả lệch token (200M vs 150M) bị từ chối “so lech, chay lai cho bang nhau” (exit 1). <b>Các số PPL 18,4 / 17,9 / 18,2 / 19,1 trong Lab B là ví dụ minh họa để tập đọc kịch bản — tuyệt đối không ghi vào báo cáo như kết quả E1.</b></div>
+
+<h3>Lab C — Chạy E1 thật trên GPU (2 lần × ~8 phút) và điền bảng kết quả</h3>
+<p>Dùng lại code train cấu hình A của Day 34/35. <b>Bước 0 — kiểm tra E0 còn hạn không:</b> nếu code hoặc dữ liệu đã đổi sau E0 (Day 42), chạy lại E0 smoke test trước — vài phút, rẻ hơn nhiều so với chạy lại E1. Tiêu chí dừng viết trước khi chạy (bài sáng §3): dừng một lần chạy nếu loss diverge hoặc NaN trong 200 bước đầu; dừng cả E1 nếu E0 PASS đã hết hạn.</p>
+<p><b>Chạy 1 — A + dữ liệu thô</b> (chưa khử trùng lặp) đủ 200M token, log loss mỗi ~50 bước, tokens/s, thời gian, một lần eval held-out ở cuối. <b>Chạy 2 — A + dữ liệu sạch</b> (ExactSubstr + NearDup, Day 33) đủ 200M token, cùng LR, cùng seed, cùng máy, cùng tập held-out. Trước mỗi lần chạy, viết ra dòng: <b>“thứ duy nhất thay đổi là dữ liệu: khử trùng lặp bật / tắt”</b> và soát lại bằng <code>e1_protocol.py</code>.</p>
+<p>Điền bảng dưới bằng <b>số thật đo được</b> — mỗi PPL phải kèm 3 thứ: số token đã thấy (200M), ± dao động seed (±0,3 tạm, ghi rõ “chưa có E5, ngưỡng này là ước tính”), tập held-out đóng băng Day 34. Thiếu một trong ba, hội đồng sẽ hỏi lại — và câu trả lời “không nhớ” thì không được tính điểm.</p>
+<table>
+<tr><th>Mục ghi</th><th>Chạy 1 — dữ liệu thô</th><th>Chạy 2 — dữ liệu sạch</th></tr>
+<tr><td>Ngày chạy E1</td><td colspan="2">24/11/2026 — buổi lab tối Day 43 (ghi ngày thật của bạn)</td></tr>
+<tr><td>Số token đã thấy</td><td>200M (ghi số thật)</td><td>200M (phải bằng chạy 1)</td></tr>
+<tr><td>Số epoch tương ứng</td><td>~0,67 epoch (200M / 300M)</td><td>~0,81 epoch (200M / 248M) — khác nhau là bình thường, vì so theo token</td></tr>
+<tr><td>Loss cuối (train)</td><td>(số thật)</td><td>(số thật)</td></tr>
+<tr><td>PPL trên held-out đóng băng</td><td>(số thật)</td><td>(số thật)</td></tr>
+<tr><td>Tokens/s + thời gian chạy</td><td>(số thật, ~8 phút)</td><td>(số thật, ~8 phút)</td></tr>
+<tr><td>Chênh lệch PPL (thô − sạch)</td><td colspan="2">(số thật, kèm dấu +/−)</td></tr>
+<tr><td>Kịch bản (theo e1_compare.py)</td><td colspan="2">1 / 2 / 3 — ghi số kịch bản + câu quyết định</td></tr>
+</table>
+<div class="warn">Nếu tối nay GPU bận: chạy trước 1 lần chạy rút gọn 20M token mỗi bên để kiểm tra pipeline E1 nối đúng (dữ liệu vào đúng bản thô/sạch, eval chạy được), ghi rõ “E1 dry-run xong, chạy đủ 200M đang chờ GPU” — đừng giả vờ đã xong. Nếu số liệu Day 34/35 của bạn chưa nộp (tính đến 17/11 vẫn chưa có), ô “so với số nền của A” cứ để trống có ghi nguồn chờ — một ô trống có ghi nguồn chờ là ô tốt.</div>
+
+<h3>Lab D — Quyết định dữ liệu chuẩn + gợi ý cho ngày mai</h3>
+<p>Áp quy tắc vàng vào bảng Lab C bằng <code>e1_compare.py</code> và viết 1 dòng quyết định vào file lab của bạn: <b>“E1: kịch bản ___ — dữ liệu chuẩn cho E2–E5 là ___ (thô / sạch), vì ___”</b>. Kịch bản 2 (không khác biệt) vẫn giữ dữ liệu sạch — vì đúng về mặt phương pháp, và chi phí dedupe đã trả một lần ở Day 33. Kịch bản 3 thì kiểm tra NearDup trước đã: ngưỡng có quá gắt, xóa nhầm cả dữ liệu tốt không? So số token hai bộ dữ liệu — nếu dữ liệu sạch mất quá nhiều token thì nới ngưỡng, chạy lại E1. Đây là lỗi thiết kế, không phải lỗi ý tưởng.</p>
+<p><b>Gợi ý 1 hướng cải tiến cho ngày mai (Day 44):</b> E2 sẽ đổi duy nhất một thứ — tokenizer (BPE 16k so với BPE 8k). Chuẩn bị trước tokenizer BPE 16k train song song trên cùng dữ liệu chuẩn vừa chốt ở E1, để ngày mai chỉ việc bấm chạy mà không phải train tokenizer giữa chừng. Nếu dữ liệu chuẩn chưa chốt (E1 rơi vào kịch bản 3 và cần chạy lại), đó chính là việc cần làm tối nay sau khi E1 xong.</p>
+
+<h2>3 · Tự kiểm tra nhanh</h2>
+<div class="qa"><p><b>Câu 1.</b> Hai lần chạy E1 nên so sánh theo tiêu chí nào mới công bằng — số epoch hay số token đã thấy? Vì sao?</p>
+<button onclick="this.nextElementSibling.classList.toggle('show')">Hiện đáp án</button>
+<div class="ans">Số token đã thấy (200M). Dữ liệu sạch ít token hơn mỗi epoch (1 epoch thô = 300M, 1 epoch sạch = 248M), nên 1 epoch sạch &lt; 1 epoch thô — so theo epoch là so lệch, lần chạy sạch thua không phải vì dữ liệu sạch kém mà vì nó học ít hơn.</div></div>
+<div class="qa"><p><b>Câu 2.</b> E1 cho PPL sạch thấp hơn PPL thô 0,15, trong khi dao động seed là ±0,3. Kết luận đúng là gì — và câu nào tuyệt đối không được viết vào báo cáo?</p>
+<button onclick="this.nextElementSibling.classList.toggle('show')">Hiện đáp án</button>
+<div class="ans">Chưa kết luận được — chênh lệch nhỏ hơn dao động seed thì là nhiễu (kịch bản 2). Không được viết “dedupe giúp thật” hay “dedupe vô dụng” — viết “không khác biệt có ý nghĩa”, và vẫn giữ dữ liệu sạch vì đúng về mặt phương pháp.</div></div>
+<div class="qa"><p><b>Câu 3.</b> Sau khi khử trùng lặp, PPL của bạn TĂNG lên so với trước. Đây là tin tốt hay tin xấu — và vì sao?</p>
+<button onclick="this.nextElementSibling.classList.toggle('show')">Hiện đáp án</button>
+<div class="ans">Tin tốt: con số lúc này mới trung thực. PPL thấp trước đó một phần là nhờ val bị rò rỉ — mô hình nhớ đáp án của đoạn văn đã xuất hiện trong train. Đừng hoảng khi số sạch xấu hơn số bẩn; hoảng mới là sai.</div></div>
+
+<h2>4 · Câu hỏi phản biện — trả lời trong chat (advisor chấm)</h2>
+<div class="rq"><b>Q1.</b> Demo Lab A cho thấy bản RAW nhớ câu lặp lại gần như hoàn hảo (loss 0,12) nhưng không thua trên held-out sạch — trong khi bài sáng nói trùng lặp làm mô hình kém đi. Mâu thuẫn này giải thích thế nào bằng dung lượng mô hình đồ chơi, và vì sao nó không bác bỏ được E1? Câu hỏi “dedupe có giúp khái quát hóa thật không” phải trả lời bằng thí nghiệm nào?</div>
+<div class="rq"><b>Q2.</b> Bạn chạy E1 và thấy PPL sạch cao hơn PPL thô 0,7 (vượt ngưỡng seed). Một người làm cùng đề tài bảo “kết luận ngay: trùng lặp tốt cho mô hình, bỏ khử trùng lặp đi”. Bạn phản biện thế nào — bước kiểm tra đầu tiên là gì, và con số nào (số token hai bộ dữ liệu) sẽ cho biết đó là lỗi thiết kế chứ không phải lỗi ý tưởng?</div>
+<div class="rq"><b>Q3.</b> So sánh 2 thiết kế E1: (a) hai lần chạy đủ 1 epoch mỗi bên rồi so PPL; (b) hai lần chạy đủ 200M token mỗi bên rồi so PPL. Thiết kế nào công bằng, và lần chạy sạch trong thiết kế (a) đã thấy ít hơn bao nhiêu token (dùng số 300M / 248M của bài sáng)? Nếu bạn đã lỡ chạy theo (a), có cách nào cứu kết quả đó không — hay phải chạy lại từ đầu?</div>
+<div class="rq"><b>Q4.</b> E1 của bạn rơi vào kịch bản 2 (không khác biệt có ý nghĩa). Bạn có chạy E2 ngay trong đêm không? Điều kiện nào thì “giữ dữ liệu sạch” nghĩa là chốt luôn làm dữ liệu chuẩn cho E2–E5, điều kiện nào thì bạn phải chạy thêm seed trước khi chốt — và ai là người quyết định ranh giới đó?</div>
+<div class="rq"><b>Q5.</b> Nếu GPU tối nay bận và bạn chỉ chạy được dry-run 20M token mỗi bên: bản dry-run đó chứng minh được những gì (pipeline nối đúng, dữ liệu vào đúng bản thô/sạch), và không chứng minh được những gì (kịch bản 1/2/3)? Viết rõ 2 cột “đã chứng minh / chưa chứng minh” — và giải thích vì sao PPL của dry-run không được điền vào bảng kết quả E1.</div>
+
+<h2>5 · Checklist tự đánh giá (tự chấm trước khi nộp)</h2>
+<ul class="check">
+<li><input type="checkbox" onclick="this.parentElement.classList.toggle('done')"> Lab A: <code>dedupe_demo.py</code> chạy được trên máy của bạn, đã lưu <code>dedupe_demo_result.json</code>; đọc đúng 2 con số: probe học thuộc lòng + PPL rò rỉ thấp giả 2,40 lần</li>
+<li><input type="checkbox" onclick="this.parentElement.classList.toggle('done')"> Lab B: <code>e1_protocol.py</code> cho “DAT” với 2 config thật của bạn; <code>e1_compare.py</code> phân loại đúng cả 3 kịch bản ví dụ; không ghi số PPL ví dụ vào báo cáo</li>
+<li><input type="checkbox" onclick="this.parentElement.classList.toggle('done')"> Lab C: 2 lần chạy E1 đủ 200M token mỗi bên (hoặc ghi rõ dry-run / đang chờ GPU); bảng kết quả điền bằng số thật, mỗi PPL kèm đủ 3 thứ (token đã thấy, ± dao động seed, held-out đóng băng Day 34)</li>
+<li><input type="checkbox" onclick="this.parentElement.classList.toggle('done')"> Lab D: đã viết 1 dòng quyết định dữ liệu chuẩn cho E2–E5; đã chuẩn bị tokenizer BPE 16k cho E2 ngày mai (hoặc ghi rõ E1 cần chạy lại vì kịch bản 3)</li>
+<li><input type="checkbox" onclick="this.parentElement.classList.toggle('done')"> Ô trần P vẫn để trống; không có con số nào trong bài nộp được ghi là PPL chính thức; ngưỡng seed ±0,3 được ghi rõ là tạm (chưa có E5)</li>
+</ul>
+
+<h2>6 · Bẫy thường gặp</h2>
+<div class="card">
+<p><b>1. So sánh theo epoch thay vì theo số token đã thấy.</b> Dữ liệu sạch ít token hơn mỗi epoch (248M vs 300M). So 1 epoch với 1 epoch thì lần chạy sạch đã thấy ít hơn 52M token — nó thua vì học ít hơn, không phải vì dữ liệu sạch kém. Lỗi này làm hỏng toàn bộ E1 mà không để lại dấu vết nào trong log, chỉ lộ ra khi đọc lại bảng thiết kế.</p>
+<p><b>2. Kết luận “dedupe vô dụng” khi chênh lệch nằm trong ngưỡng nhiễu.</b> PPL sạch thấp hơn 0,15 trong khi dao động seed là ±0,3 thì chưa kết luận được gì. Viết “không khác biệt có ý nghĩa” và vẫn giữ dữ liệu sạch — dữ liệu sạch đúng về mặt phương pháp (không rò rỉ, không học thuộc lòng), và chi phí dedupe đã trả một lần ở Day 33.</p>
+<p><b>3. Lấy PPL của val bị rò rỉ làm PPL chính thức / trần P.</b> Demo Lab A cho thấy val rò rỉ làm PPL thấp giả 2,40 lần trên mô hình đồ chơi. Điền số đó vào đề cương Day 39 là lỗi khoa học. Mọi PPL báo cáo phải đi kèm: số token đã thấy, ± dao động seed, tập held-out đóng băng Day 34 — và held-out phải sạch trùng lặp với train.</p>
+</div>
+
+<h2>7 · Checklist nộp bài</h2>
+<p>Paste vào chat để được nhận xét chi tiết:</p>
+<ul class="check">
+<li><input type="checkbox" onclick="this.parentElement.classList.toggle('done')"> File <code>dedupe_demo_result.json</code> của lần chạy demo trên máy bạn (probe loss, PPL held-out sạch, PPL rò rỉ)</li>
+<li><input type="checkbox" onclick="this.parentElement.classList.toggle('done')"> Kết quả <code>e1_protocol.py</code> (“DAT”) + 2 file config thật của bạn</li>
+<li><input type="checkbox" onclick="this.parentElement.classList.toggle('done')"> Bảng kết quả E1 Lab C điền bằng số thật của 2 lần chạy GPU (hoặc ghi rõ dry-run / đang chờ GPU) + file <code>e1_verdict.json</code></li>
+<li><input type="checkbox" onclick="this.parentElement.classList.toggle('done')"> 1 dòng quyết định dữ liệu chuẩn + trả lời 5 câu phản biện mục 4</li>
+</ul>
+<p class="footer">Ngày 43 — Buổi tối · Phase 2, nhóm ngày 38–44: đề cương + baseline · E0 PASS (Day 42) → E1 (dữ liệu) tối nay → E2 (tokenizer) từ Day 44. Trần P chưa chốt — chờ A train đủ 200M token.</p>
+</div>
+<script>
+document.querySelectorAll('.check li input').forEach(function(cb){
+  cb.addEventListener('change', function(){ this.parentElement.classList.toggle('done', this.checked); });
+});
+</script>
+</body>
+</html>

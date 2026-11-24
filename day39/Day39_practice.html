@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ngày 39 — Buổi tối: Lab nghiên cứu — Viết đề cương chi tiết + kiểm chứng bằng code</title>
+<style>
+:root{--bg:#0a0f1e; --card:#101830; --line:#22305a; --gold:#f5c542; --green:#4ade80;
+ --red:#f87171; --violet:#a78bfa; --cyan:#67e8f9; --text:#e8edf7; --muted:#93a0bd;}
+*{box-sizing:border-box;}
+body{margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.75; font-size:16.5px;}
+.wrap{max-width:820px; margin:0 auto; padding:18px 16px 60px;}
+.kicker{display:inline-block; font-size:13px; letter-spacing:1px; color:var(--gold); font-weight:700; margin-bottom:8px;}
+h1{font-size:28px; line-height:1.3; margin:6px 0 10px;}
+h2{font-size:22px; margin:34px 0 10px; color:var(--cyan);}
+h3{font-size:18px; margin:22px 0 8px; color:var(--gold);}
+.sub{color:var(--muted); font-size:16.5px;}
+.meta{display:flex; gap:8px; flex-wrap:wrap; margin:14px 0 6px;}
+.meta span{font-size:13.5px; background:var(--card); border:1px solid var(--line); border-radius:999px; padding:5px 14px;}
+.card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px; margin:16px 0;}
+.note{border-left:4px solid var(--green); background:#0f2233; border-radius:0 12px 12px 0; padding:12px 16px; margin:14px 0;}
+.warn{border-left:4px solid var(--red); background:#23141a; border-radius:0 12px 12px 0; padding:12px 16px; margin:14px 0;}
+.rq{background:#141d3a; border:1px solid var(--violet); border-radius:10px; padding:12px 16px; margin:10px 0;}
+.rq b{color:var(--violet);}
+.check{list-style:none; padding-left:0;}
+.check li{padding-left:28px; position:relative; margin-bottom:8px;}
+.check li::before{content:"☐"; position:absolute; left:0; color:var(--gold); font-size:17px;}
+.check li.done::before{content:"☑"; color:var(--green);}
+.check li input{position:absolute; left:0; top:4px; width:18px; height:18px; opacity:0; cursor:pointer;}
+.check li.done{color:var(--muted); text-decoration:line-through;}
+code{background:#0a0f1e; border:1px solid var(--line); border-radius:6px; padding:1px 7px; font-size:15px;}
+pre{background:#0a0f1e; border:1px solid var(--line); border-radius:10px; padding:14px 16px; overflow-x:auto; font-size:14.5px; line-height:1.6; white-space:pre-wrap;}
+table{width:100%; border-collapse:collapse; margin:12px 0; font-size:15px;}
+th,td{border:1px solid var(--line); padding:8px 10px; text-align:left;}
+th{background:#141d3a; color:var(--gold);}
+.qa{margin:14px 0;}
+.qa button{background:var(--gold); color:#14100a; font-weight:700; border:none; border-radius:10px; padding:10px 18px; cursor:pointer; font-size:15px;}
+.qa .ans{display:none; margin-top:10px; border-left:4px solid var(--green); background:#0f2233; border-radius:0 12px 12px 0; padding:12px 16px;}
+.qa .ans.show{display:block;}
+.footer{color:var(--muted); font-size:14px; margin-top:40px; border-top:1px solid var(--line); padding-top:14px;}
+.formula{background:#0a1428; border:1px solid var(--line); border-radius:10px; padding:12px 16px; font-family:"SF Mono",Consolas,Menlo,monospace; font-size:16px; text-align:center; margin:14px 0; color:var(--cyan);}
+ul li, ol li{margin-bottom:6px;}
+</style>
+<script>
+function toggleAns(id){document.getElementById(id).classList.toggle('show');}
+function toggleCheck(el){el.classList.toggle('done');}
+</script>
+</head>
+<body>
+<div class="wrap">
+
+<span class="kicker">PHASE 2 · NGÀY 39 / 60 · RESEARCH LAB · ĐỀ TÀI: TINY VIETNAMESE LM</span>
+<h1>Ngày 39 — Buổi tối: Lab nghiên cứu — Viết đề cương chi tiết + kiểm chứng bằng code</h1>
+<p class="sub">Sáng nay đã biến khung 5 phần (Day 38) thành bản thảo đề cương chi tiết: mục tiêu + RQ + giả thuyết falsifiable, phương pháp 4 khối, lịch chạy thí nghiệm rẻ trước đắt sau. Tối nay <b>viết thật bản thảo đó thành file <code>outline_detailed.md</code></b> trong repo đề tài — và viết thêm một <b>script kiểm chứng tự động</b> (<code>check_outline.py</code>) để máy chấm thay bạn: đề cương có đủ RQ/H không, mỗi giả thuyết có ngưỡng số không, lịch chạy có đúng thứ tự không, ô trần P có bị điền số bịa không. Đề cương tốt không phải đề cương "trông đầy đủ", mà là đề cương máy cũng kiểm chứng được.</p>
+<div class="meta"><span>⏱️ Ước lượng ~130 phút</span><span>📄 Sản phẩm: outline_detailed.md + check_outline.py</span><span>🎯 RQ: RQ1 · RQ2 · RQ3 — mỗi giả thuyết kèm ngưỡng chấp nhận / bác bỏ</span></div>
+
+<h2>1 · Tóm tắt nhiệm vụ buổi sáng</h2>
+<p>Sáng nay (Day 39) đã làm 3 việc để biến khung dàn ý thành bản thảo có thể làm theo:</p>
+<ul>
+<li><b>Từ khung tới bản thảo:</b> khung 5 phần ở Day 38 chỉ là dàn ý (tên phần + nguyên liệu). Bản thảo chi tiết hôm nay là <b>văn bản đầy đủ của 3 phần đầu</b> — giới thiệu, tổng quan, phương pháp — cộng với <b>kế hoạch thí nghiệm</b> cho chương 4. Chương 4 và 5 vẫn để trống chờ số liệu, nhưng mỗi ô trống đã có tên thí nghiệm đứng sau nó. Đề cương viết xong hôm nay là tài liệu mà giai đoạn thí nghiệm (Ngày 45–53) chỉ việc làm theo, không còn phải nghĩ lại.</li>
+<li><b>Mục tiêu + RQ + giả thuyết falsifiable:</b> ba câu hỏi đã chốt ở Day 37, nay viết thành văn bản — mỗi câu kèm một giả thuyết và một ngưỡng kiểm chứng. <b>RQ1</b> (cấu hình nào tốt nhất trên mỗi watt) → <b>H1</b>: cấu hình nhỏ train dài cho PPL thấp nhất trên mỗi GPU-giờ; chấp nhận nếu A đạt PPL ≤ P với &lt; ½ GPU-giờ của C. <b>RQ2</b> (lọc dữ liệu có ích không) → <b>H2</b>: dữ liệu đã khử trùng lặp cho PPL thấp hơn dữ liệu thô, cùng cấu hình A, cùng số token; chấp nhận nếu chênh lệch vượt sai số đo (lấy từ E5). <b>RQ3</b> (ngoài PPL, mô hình nhỏ đạt bao nhiêu) → <b>H3</b>: PPL thấp không đồng nghĩa VMLU cao; xác nhận nếu thứ hạng hai cấu hình đảo nhau giữa hai thước đo (PPL held-out vs VMLU mẫu 200 câu, cùng checkpoint A). Mỗi giả thuyết chỉ đổi một thứ — H1 đổi cấu hình, H2 đổi dữ liệu — đúng nguyên tắc "thứ duy nhất thay đổi là ___".</li>
+<li><b>Phương pháp 4 khối — đủ để người lạ tái hiện:</b> (1) <b>Dữ liệu:</b> Wikipedia tiếng Việt, dump 01/11/2026 (1,11 GiB), khử trùng lặp ExactSubstr + NearDup (Lee et al. 2022), lặp tối đa 3–4 epoch (Muennighoff et al. 2023); CulturaX-vi dự phòng. (2) <b>Tokenizer:</b> BPE byte-level, vocab 8k–16k, chuẩn hóa NFC (Day 32); BPE 8k nén ~20%, 16k ~41%. (3) <b>Huấn luyện:</b> A ~9,94M tham số (tied embeddings, d=320, 6 layer), 200M token, 1 epoch, 1 GPU RTX 4090, D/N = 20 (Chinchilla); B 25M/500M (~50 phút), C 37M/744M (~110 phút). (4) <b>Đánh giá:</b> PPL trên tập held-out đã đóng băng (Day 34) + VMLU mẫu 200 câu (Day 36) + GPU-giờ và kWh. Tập held-out đóng băng — không thêm, không sửa, không nhìn vào để chọn mô hình.</li>
+<li><b>Kế hoạch thí nghiệm — chạy rẻ trước, đắt sau:</b> E0 sàn n-gram (vài phút, khóa pipeline) → E1 baseline chính A (~8 phút, khóa baseline + trần P) → E2 dữ liệu thô (~8 phút, trả lời H2) → E5 lặp seed (~8 phút, sai số đo) → E3 cấu hình B (~50 phút) → E4 cấu hình C (~110 phút). Tổng E0–E2 + E5 ≈ 20 phút GPU. Mỗi thí nghiệm có điểm dừng: E1 PPL bất thường thì dừng ngay; E4 chỉ chạy khi E3 xong, và dừng nếu A đã gần trần P.</li>
+</ul>
+<div class="formula">Đề cương tốt ⟺ người lạ đọc xong chạy lại được mà không cần hỏi thêm câu nào<br>Ô trống có ghi nguồn chờ = ô tốt · Số bịa lấp chỗ trống = lỗi khoa học</div>
+<div class="warn">⚠️ <b>Trần P vẫn để trống — có chủ đích, và tối nay cũng không chốt.</b> P là trần PPL, chỉ chốt được sau khi train xong cấu hình A đủ 200M token (lab Day 35). Số liệu lab Day 34/35 của bạn vẫn chưa nộp, nên đề cương hôm nay ghi rõ: <code>P = [chờ số liệu lab Day 35]</code>. Một ô trống có ghi nguồn chờ là ô tốt; một con số bịa ra để lấp chỗ trống là lỗi khoa học. Script kiểm chứng ở Phần B sẽ bắt lỗi này tự động: nếu file của bạn chứa dòng "P = &lt;một con số&gt;" thì coi như FAIL.</div>
+
+<h2>2 · Nhiệm vụ tối nay — 4 phần việc</h2>
+
+<h3>Phần A — Viết outline_detailed.md: bản thảo đề cương chi tiết (40 phút, sản phẩm chính)</h3>
+<p>Viết file <code>outline_detailed.md</code> trong repo đề tài (thư mục gốc của repo, cạnh <code>outline.md</code> của Day 38). File gồm đúng 5 khối dưới đây — viết bằng lời của bạn, bám sát nội dung buổi sáng; khung gợi ý sau đây cho sẵn cấu trúc và các con số đã chốt, bạn chỉ việc điền văn bản:</p>
+<pre># Đề cương chi tiết — Tiny Vietnamese LM (Day 39)
+## 0. Mục tiêu (1 đoạn, đủ 3 yếu tố)
+Tìm cấu hình (N, D) cho PPL held-out thấp nhất trên mỗi GPU-giờ,
+với dữ liệu Wikipedia tiếng Việt đã khử trùng lặp.
+(Cái gì được đo: PPL held-out trên mỗi GPU-giờ / Trên cái gì: dữ liệu
+Wikipedia-vi đã lọc / So với cái gì: giữa 3 cấu hình A/B/C.)
+
+## 1. Câu hỏi + giả thuyết (falsifiable, kèm ngưỡng)
+| RQ | Giả thuyết | Ngưỡng chấp nhận / bác bỏ |
+| RQ1 | H1: cấu hình nhỏ train dài cho PPL thấp nhất trên mỗi GPU-giờ | Chấp nhận nếu A đạt PPL ≤ P với &lt; ½ GPU-giờ của C; bác bỏ nếu C vẫn hơn A trên mỗi GPU-giờ |
+| RQ2 | H2: dữ liệu đã khử trùng lặp cho PPL thấp hơn dữ liệu thô (cùng A, cùng token) | Chấp nhận nếu chênh lệch PPL vượt sai số đo (E5); bằng không, bác bỏ |
+| RQ3 | H3: PPL thấp không đồng nghĩa VMLU cao | Xác nhận nếu thứ hạng 2 cấu hình đảo nhau giữa PPL held-out và VMLU mẫu 200 câu (cùng checkpoint A) |
+
+## 2. Phương pháp (4 khối — đủ để người lạ tái hiện)
+- Dữ liệu: Wikipedia-vi, dump 01/11/2026 (1,11 GiB), khử trùng lặp
+  ExactSubstr + NearDup (Lee et al. 2022), tối đa 3–4 epoch
+  (Muennighoff et al. 2023); CulturaX-vi dự phòng; dữ liệu thô chỉ
+  dùng cho baseline E2, không dùng cho kết quả chính.
+- Tokenizer: BPE byte-level, vocab 8k–16k, chuẩn hóa NFC (Day 32);
+  BPE 8k nén ~20%, 16k ~41%.
+- Huấn luyện: A ~9,94M (d=320, 6 layer, tied embeddings), 200M token,
+  1 epoch, 1 GPU RTX 4090, D/N = 20; B 25M/500M; C 37M/744M.
+  Ghi rõ optimizer, learning rate, batch size, seed.
+- Đánh giá: PPL held-out đã đóng băng (Day 34) + VMLU mẫu 200 câu
+  (Day 36) + GPU-giờ và kWh cho mỗi lần chạy.
+
+## 3. Kế hoạch thí nghiệm (thứ tự + điểm dừng)
+| Thí nghiệm | Nội dung | Chi phí GPU | Trả lời | Điểm dừng |
+| E0 | Sàn n-gram | ~phút | (kiểm pipeline) | PPL sàn bất thường → kiểm tra tập held-out |
+| E1 | Baseline chính A, dữ liệu sạch | ~8 phút | RQ1, RQ3 | PPL A bất thường → dừng, sửa rồi mới chạy tiếp |
+| E2 | Cấu hình A, dữ liệu thô | ~8 phút | RQ2 (H2) | — |
+| E5 | Chạy lại E1 với seed khác | ~8 phút | Sai số đo cho H2 | — |
+| E3 | Cấu hình B (25M/500M) | ~50 phút | RQ1 | Chỉ chạy khi E0–E2 + E5 đã xong |
+| E4 | Cấu hình C (37M/744M) | ~110 phút | RQ1 | Chỉ chạy khi E3 xong; dừng nếu A đã gần trần P |
+Thứ tự chạy: E0 → E1 → E2 → E5 → E3 → E4 · Tổng E0–E2 + E5 ≈ 20 phút GPU
+Thứ duy nhất thay đổi là ___ cho từng cặp so sánh: E1 vs E2 chỉ đổi
+dữ liệu (đã lọc → chưa lọc); E1 vs E3 chỉ đổi cấu hình (A → B);
+E1 vs E5 chỉ đổi seed.
+
+## 4. Ô trống (ghi rõ nguồn chờ — không bịa số)
+- Trần PPL P = [chờ số liệu lab Day 35]
+- Kết quả chương 4–5: chờ thí nghiệm Ngày 45–53</pre>
+<p>Chấm xong phần này thì tự hỏi: người đọc chỉ nhìn file này có biết được "mỗi thí nghiệm trả lời RQ nào, đổi thứ gì, dừng ở đâu" không? Nếu chưa, viết lại dòng mở đầu mỗi khối cho tới khi trả lời được cả 3 câu hỏi đó.</p>
+
+<h3>Phần B — Lab code chính: check_outline.py — máy chấm đề cương của bạn (40 phút)</h3>
+<p>Đây là phần làm thật bằng code. Viết file <code>check_outline.py</code> (Python thuần, không cần thư viện ngoài) — đọc <code>outline_detailed.md</code> vừa viết ở Phần A và kiểm tra 10 điều kiện, in <code>PASS/FAIL</code> từng mục + điểm tổng. Chạy file, ghi kết quả vào sổ lab. Code gợi ý — tự điền 2 chỗ còn thiếu rồi chạy:</p>
+<pre>"""Kiem tra de cuong chi tiet outline_detailed.md (Day 39).
+Chay: python check_outline.py outline_detailed.md
+May cham 10 dieu kien — de cuong dat neu >= 9/10 PASS.
+Rieng muc 9 (tran P) la cua cung: FAIL muc 9 thi CHUA DAT du diem co cao,
+vi dien so PPL bia la loi khoa hoc, khong phai loi trinh bay."""
+import re
+import sys
+
+def load(path):
+    with open(path, encoding="utf-8") as f:
+        return f.read()
+
+def check(name, ok, detail=""):
+    print(f"[{'PASS' if ok else 'FAIL'}] {name}" + (f" — {detail}" if detail else ""))
+    return 1 if ok else 0
+
+def schedule_order(text):
+    """Thu tu thi nghiem trong dong 'Thu tu chay:' cua lich chay.
+    Chi doc dong do — vi E0..E5 con xuat hien o bang RQ/H truoc lich chay,
+    dem het ca file se xao tron thu tu."""
+    for line in text.splitlines():
+        if "Thứ tự chạy" in line:
+            # Chi lay 6 thi nghiem dau tien — phan sau dau "·" (tong GPU-gio)
+            # cung nhac lai E0/E2/E5, khong phai thu tu chay.
+            return re.findall(r"\bE[0-5]\b", line)[:6]
+    return []
+
+def check_thresholds(text):
+    # TO-DO (ban tu dien, 3-4 dong): kiem tra moi gia thuyet H1/H2/H3
+    # co kem nguong so de chap nhan/bac bo hay khong.
+    # Goi y: moi gia thuyet co dau hieu nguong rieng — H1: "≤" hoac "½";
+    # H2: "sai số" (sai so do tu E5); H3: "đảo nhau" (thu hang dao nhau
+    # giua PPL va VMLU). Tra ve True neu ca 3 gia thuyet deu co nguong.
+    pass
+
+def check_p_placeholder(text):
+    # TO-DO (ban tu dien, 3-4 dong): kiem tra o tran P de trong dung cach.
+    # PASS khi: (1) co chuoi "[cho so lieu lab Day 35]" (hoac "[chờ số liệu")
+    # VA (2) KHONG co dong dang "P = &lt;so&gt;" (vd "P = 12,5", "P=30").
+    # Goi y: re.search(r"P\s*=\s*\d", text) phai tra ve None.
+    pass
+
+def main(path):
+    text = load(path)
+    score = 0
+    score += check("1. File co noi dung day du (&gt; 800 ky tu)", len(text) &gt; 800,
+                   f"{len(text)} ky tu")
+    obj = "PPL" in text and "GPU" in text and "Wikipedia" in text
+    score += check("2. Muc tieu du 3 yeu to (do / tren / so voi)", obj)
+    rqs = all(f"RQ{i}" in text for i in (1, 2, 3))
+    score += check("3. Du RQ1, RQ2, RQ3", rqs)
+    hs = all(f"H{i}" in text for i in (1, 2, 3))
+    score += check("4. Du H1, H2, H3", hs)
+    score += check("5. Moi gia thuyet co nguong chap nhan/bac bo",
+                   check_thresholds(text))
+    blocks = all(k in text for k in ("Dữ liệu", "Tokenizer", "Huấn luyện", "Đánh giá"))
+    score += check("6. Phuong phap du 4 khoi (du lieu/tokenizer/huan luyen/danh gia)",
+                   blocks)
+    order = schedule_order(text)
+    want = ["E0", "E1", "E2", "E5", "E3", "E4"]
+    score += check("7. Lich chay dung thu tu E0 -&gt; E1 -&gt; E2 -&gt; E5 -&gt; E3 -&gt; E4",
+                   order == want, f"dong 'Thu tu chay:' ghi: {order}")
+    rq_lines = sum(1 for line in text.splitlines() if "RQ" in line
+                   and ("E" in line or "thi nghiem" in line.lower()))
+    score += check("8. Moi thi nghiem gan voi RQ (co dong 'tra loi RQ')",
+                   rq_lines &gt;= 3, f"{rq_lines} dong gan RQ")
+    p_ok = check_p_placeholder(text)
+    score += check("9. O tran P de trong dung cach, khong bia so", p_ok)
+    single = text.count("thay doi la") + text.count("thay đổi là")
+    score += check("10. Co cau 'thu duy nhat thay doi la' cho thi nghiem",
+                   single &gt;= 1, f"{single} cau")
+    print(f"\nTong: {score}/10 — " +
+          ("DE CUONG DAT (>= 9/10, muc 9 PASS)." if score &gt;= 9 and p_ok else
+           "CHUA DAT: sua cac muc FAIL roi chay lai."))
+    return score
+
+if __name__ == "__main__":
+    main(sys.argv[1] if len(sys.argv) &gt; 1 else "outline_detailed.md")</pre>
+<p><b>Việc của bạn trong phần này:</b> (1) điền 2 hàm còn thiếu (<code>check_thresholds</code> và <code>check_p_placeholder</code>) theo gợi ý trong comment; (2) chạy <code>python check_outline.py outline_detailed.md</code> trên file vừa viết ở Phần A và ghi điểm vào sổ lab; (3) cố tình thử một bản "xấu" — copy file, sửa trần P thành <code>P = 12,5</code> rồi chạy lại — script phải báo FAIL mục 9 (đây là cách chứng minh script bắt được lỗi bịa số, không phải script nào cũng PASS); (4) sửa lại các mục FAIL trong file thật cho tới khi đạt ≥ 9/10, rồi mới coi đề cương là "khóa" cho giai đoạn thí nghiệm.</p>
+<div class="note">💡 <b>Vì sao chấm bằng code thay vì đọc lại bằng mắt?</b> Vì mắt người đọc lướt qua ô trần P đã điền số vẫn thấy "đầy đủ" — máy thì không. Một đề cương mà máy kiểm chứng được thì advisor, người chấm, hay chính bạn 3 tuần sau đọc lại cũng kiểm chứng được bằng cùng một tiêu chuẩn. Đây chính là tinh thần của giao thức đánh giá 3 lớp (Day 36): một thước đo chỉ có giá trị khi nó bắt được lỗi.</div>
+
+<h3>Phần C — Viết phần Phương pháp chi tiết: bảng gộp 3 khối (30 phút)</h3>
+<p>Phần 2 của <code>outline_detailed.md</code> (phương pháp 4 khối) dễ viết rời rạc: dữ liệu ở một chỗ, tokenizer ở một chỗ, kiến trúc ở một chỗ — người đọc phải lật 3 nơi mới thấy một thí nghiệm chạy như thế nào. Tối nay viết thêm <b>một bảng gộp duy nhất</b> đặt ngay sau 4 khối phương pháp, để chương phương pháp đọc một mạch từ dữ liệu tới mô hình:</p>
+<pre>| Khối | Chọn gì (Day 39) | Vì sao chọn | Đổi thì ảnh hưởng gì |
+| Dữ liệu | Wikipedia-vi dump 01/11/2026, khử trùng lặp | Nguồn tiếng Việt lớn, sạch, tái hiện được | Đổi dữ liệu mà không ghi lại = mọi so sánh sau mất giá trị |
+| Tokenizer | BPE byte-level, vocab 8k–16k, NFC | BPE 8k nén ~20%, 16k ~41% (Day 32) | Đổi vocab là đổi luôn ngân sách token D |
+| Kiến trúc | A ~9,94M (d=320, 6 layer) · B 25M · C 37M | D/N = 20 (Chinchilla, Day 34) | Đổi kiến trúc + token cùng lúc thì chênh lệch không quy được cho thứ nào |
+| Đánh giá | PPL held-out đóng băng + VMLU 200 câu + GPU-giờ/kWh | PPL một mình không đủ, VMLU một mình không đủ | Thiếu một cột là mất khả năng tái tạo |</pre>
+<p>Sau đó viết thêm <b>datasheet mini cho dữ liệu</b> (5 dòng, đặt cuối phần phương pháp): nguồn + phiên bản dump, bước lọc (ExactSubstr + NearDup), tỉ lệ dữ liệu bị loại (ghi "chưa đo — điền sau khi chạy lọc" nếu chưa có số, đừng ước), cách tách held-out (tách trước khi train, đóng băng), giấy phép/nguồn dự phòng (CulturaX-vi). Datasheet này là thứ người chấm hỏi đầu tiên khi nghi ngờ kết quả — viết trước thì lúc bị hỏi chỉ việc chỉ vào file.</p>
+
+<h3>Phần D — Rà soát "quy tắc vàng": người lạ chạy lại được không? (20 phút)</h3>
+<p>Đọc lại toàn bộ <code>outline_detailed.md</code> bằng checklist sau — mỗi mục tick được thì đánh dấu, mục nào chưa chắc thì sửa ngay trong file, đừng để sang Day 40:</p>
+<ul class="check">
+<li onclick="toggleCheck(this)">Người lạ đọc phần phương pháp xong có chạy lại được toàn bộ thí nghiệm mà không cần hỏi thêm câu nào không? (Nếu còn chỗ phải hỏi tác giả, chỗ đó chưa đủ chi tiết — bổ sung ngay.)</li>
+<li onclick="toggleCheck(this)">Mỗi giả thuyết H1/H2/H3 có cả điều kiện chấp nhận VÀ điều kiện bác bỏ, kèm ngưỡng số cụ thể không?</li>
+<li onclick="toggleCheck(this)">Mỗi thí nghiệm E0–E5 có đủ 3 thứ: trả lời RQ nào, đổi thứ gì duy nhất, điểm dừng ở đâu?</li>
+<li onclick="toggleCheck(this)">Ô trần P ghi đúng "[chờ số liệu lab Day 35]", không có con số PPL nào được điền thay.</li>
+<li onclick="toggleCheck(this)">Tập held-out được ghi rõ là "đóng băng" — không thêm, không sửa, không nhìn vào để chọn mô hình.</li>
+<li onclick="toggleCheck(this)">Script <code>check_outline.py</code> chạy đạt ≥ 9/10 trên file cuối cùng (ghi điểm vào sổ lab).</li>
+</ul>
+<p>Nếu còn mục nào chưa tick được: ghi rõ "chưa xong — cần ___ trước Day 45" vào sổ lab, đừng giả vờ là đã xong. Đề cương cho phép để trống có lý do; một đề cương "trông xong" nhưng thiếu chi tiết tái hiện thì giai đoạn thí nghiệm sẽ trả giá bằng GPU-giờ.</p>
+
+<h2>3 · Tự kiểm tra nhanh</h2>
+<div class="qa"><p><b>1. Vì sao giả thuyết phải viết cả điều kiện bác bỏ, không chỉ điều kiện chấp nhận?</b></p>
+<button onclick="toggleAns('a1')">Hiện đáp án</button>
+<div class="ans" id="a1">Vì một giả thuyết falsifiable phải nói rõ "kết quả nào thì tôi chịu thua". Nếu chỉ viết "A tốt hơn C" mà không nói "tốt hơn bao nhiêu thì tính", thì bất kỳ kết quả nào cũng có thể bẻ cong thành "đúng" — và đề cương mất tác dụng khóa câu hỏi trước khi có đáp án. H1 trong đề cương hôm nay nói rõ: chấp nhận nếu A đạt PPL ≤ P với &lt; ½ GPU-giờ của C, bác bỏ nếu C vẫn hơn A trên mỗi GPU-giờ.</div></div>
+<div class="qa"><p><b>2. Vì sao không được viết giả thuyết sau khi đã thấy kết quả thí nghiệm?</b></p>
+<button onclick="toggleAns('a2')">Hiện đáp án</button>
+<div class="ans" id="a2">Vì đó là gian lận, dù vô tình: chỉnh câu chữ giả thuyết cho khớp số liệu đã thấy thì giả thuyết không còn dự đoán gì nữa, nó chỉ mô tả lại quá khứ. Đề cương hôm nay khóa H1/H2/H3 trước giai đoạn thí nghiệm (Ngày 45–53) — sau hôm nay, chỉ được đổi giả thuyết khi có lý do ghi rõ bằng văn bản, không đổi âm thầm.</div></div>
+<div class="qa"><p><b>3. Vì sao chạy E0–E2 + E5 trước (chỉ ~20 phút GPU) lại tiết kiệm điện hơn chạy thẳng E4?</b></p>
+<button onclick="toggleAns('a3')">Hiện đáp án</button>
+<div class="ans" id="a3">Vì E0–E2 + E5 khóa được pipeline, baseline chính và sai số đo. Một lỗi pipeline phát hiện ở E0 tiết kiệm cả một lần chạy E4 (~110 phút) vô ích. Ngược lại, chạy thẳng E4 mà không qua E0–E2 thì mỗi lỗi nhỏ đều phải trả bằng một lần chạy lại 110 phút — và các lần chạy rẻ còn cho sai số đo sớm (E5), giúp ta không phí GPU-giờ đuổi theo những chênh lệch PPL nhỏ hơn cả nhiễu đo.</div></div>
+
+<h2>4 · Câu hỏi phản biện — trả lời trong chat (advisor chấm)</h2>
+<ol>
+<li>Nếu sau E1–E2, PPL của A đã gần trần P (khi P được chốt), bạn có chạy B/C nữa không — và quyết định "dừng" đó viết vào báo cáo như thế nào để nó được tính là một kết quả, không phải một lần bỏ dở?</li>
+<li>Giả thuyết H2 nói "dữ liệu đã lọc cho PPL thấp hơn dữ liệu thô". Nếu E1 vs E2 cho chênh lệch PPL nhỏ hơn sai số đo (E5) thì bạn kết luận gì — H2 bị bác bỏ, hay thí nghiệm chưa đủ mạnh để kết luận? Hai kết luận đó khác nhau ở điểm nào?</li>
+<li>Trong 4 khối phương pháp, khối nào nếu viết thiếu chi tiết sẽ làm hỏng tính tái hiện nhiều nhất — dữ liệu, tokenizer, huấn luyện hay đánh giá? Lấy một ví dụ cụ thể: thiếu một dòng nào thì người khác chạy ra số khác?</li>
+<li>Đề cương khóa H1/H2/H3 hôm nay. Giả sử ở Day 46 bạn phát hiện H2 đặt sai câu hỏi (lọc dữ liệu không phải yếu tố quyết định, mà là tỉ lệ lặp epoch mới là). Bạn xử lý thế nào — đổi giả thuyết âm thầm, ghi lý do bằng văn bản rồi đổi, hay giữ nguyên giả thuyết và báo cáo kết quả âm tính?</li>
+</ol>
+
+<h2>5 · Bẫy thường gặp</h2>
+<ul>
+<li><b>Viết mục tiêu chung chung.</b> "Nghiên cứu LLM tiết kiệm năng lượng" là chủ đề, không phải mục tiêu. Cách chữa: mục tiêu phải nêu được cái gì được đo, trên cái gì, so với cái gì — ví dụ "tìm cấu hình cho PPL held-out thấp nhất trên mỗi GPU-giờ, với dữ liệu Wikipedia-vi đã khử trùng lặp". Thiếu một trong ba yếu tố thì mục tiêu chỉ còn là chủ đề.</li>
+<li><b>Viết giả thuyết sau khi đã thấy kết quả rồi chỉnh câu chữ cho khớp số liệu.</b> Đó là gian lận, dù vô tình. Cách chữa: khóa H1/H2/H3 hôm nay, trước giai đoạn thí nghiệm; sau hôm nay chỉ đổi khi có lý do ghi rõ bằng văn bản.</li>
+<li><b>Điền trần P bằng số ước lượng cho "đẹp" đề cương.</b> Ô "Trần PPL P = …" để trống kèm ghi chú "chờ lab Day 35" là đúng — điền số bịa vào thì cả chương thí nghiệm sau này đối chiếu với một con số giả. Script Phần B bắt lỗi này tự động (FAIL mục 9).</li>
+<li><b>Viết phương pháp thiếu chi tiết tái hiện.</b> "Train mô hình nhỏ trên dữ liệu Wikipedia" không ai tái hiện được. Cách chữa: mỗi khối ghi đủ 4 yếu tố — cái gì, phiên bản nào, vì sao chọn, đo bằng gì — tới mức người khác đọc xong chạy lại được cùng một con số.</li>
+</ul>
+
+<h2>6 · Checklist nộp bài</h2>
+<ul class="check">
+<li onclick="toggleCheck(this)">Đã viết <code>outline_detailed.md</code> trong repo (mục tiêu đủ 3 yếu tố, bảng RQ/H kèm ngưỡng, phương pháp 4 khối, lịch chạy E0–E5 kèm điểm dừng, ô trần P ghi "[chờ số liệu lab Day 35]").</li>
+<li onclick="toggleCheck(this)">Đã viết bảng gộp phương pháp (Phần C) + datasheet mini cho dữ liệu vào cuối phần phương pháp.</li>
+<li onclick="toggleCheck(this)">Đã viết <code>check_outline.py</code>, điền 2 hàm còn thiếu, và chạy đạt ≥ 9/10 trên file thật (ghi điểm vào sổ lab).</li>
+<li onclick="toggleCheck(this)">Đã thử bản "xấu" (P = 12,5) và xác nhận script báo FAIL mục 9.</li>
+<li onclick="toggleCheck(this)">Đã rà soát bằng checklist Phần D (người lạ chạy lại được, mỗi thí nghiệm đủ RQ + thứ đổi duy nhất + điểm dừng).</li>
+<li onclick="toggleCheck(this)">Đã trả lời 4 câu phản biện ở mục 4 trong chat.</li>
+</ul>
+<p><b>Nộp bài:</b> paste code/kết quả vào chat để được nhận xét — gồm: file <code>outline_detailed.md</code> (hoặc link repo), điểm chạy <code>check_outline.py</code> (mục nào PASS/FAIL), kết quả thử bản "xấu", và 4 câu trả lời phản biện.</p>
+
+<div class="note">💡 <b>Gợi ý cải tiến cho ngày mai (Day 40):</b> rà soát bản thảo đề cương rồi chuyển sang thiết kế baseline chi tiết cho từng thí nghiệm — chuẩn bị trước một "experiment detail sheet": mỗi thí nghiệm E0–E5 một trang, ghi đủ cấu hình, dữ liệu, seed, cách đo, checkpoint lưu ở đâu và điểm dừng. Có sheet này thì Ngày 45 chỉ việc chạy theo từng trang, không phải mở lại đề cương để tra thông số giữa chừng.</div>
+
+<div class="footer">Khóa "Trở thành AI Engineer (LLM)" — Phase 2, đề tài Tiny Vietnamese LM · Ngày 39 · Buổi tối: thực hành. File giải thích chi tiết: <a href="Day39_giai_thich.html">Day39_giai_thich.html</a> · Bài học buổi sáng: <a href="Day39_lesson.html">Day39_lesson.html</a> · Quiz: <a href="Day39_quiz.html">Day39_quiz.html</a></div>
+</div>
+</body>
+</html>

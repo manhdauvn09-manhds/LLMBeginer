@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ngày 43 — Giải thích chi tiết: Chạy E1: khử trùng lặp có giúp PPL thật sự, hay chỉ làm số đẹp?</title>
+<style>
+:root{--bg:#0a0f1e; --card:#101830; --line:#22305a; --gold:#f5c542; --green:#4ade80;
+ --red:#f87171; --violet:#a78bfa; --cyan:#67e8f9; --text:#e8edf7; --muted:#93a0bd;}
+*{box-sizing:border-box;}
+body{margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.75; font-size:16.5px;}
+.wrap{max-width:820px; margin:0 auto; padding:18px 16px 60px;}
+.kicker{display:inline-block; font-size:13px; letter-spacing:1px; color:var(--gold); font-weight:700; margin-bottom:8px;}
+h1{font-size:28px; line-height:1.3; margin:6px 0 10px;}
+h2{font-size:22px; margin:34px 0 10px; color:var(--cyan);}
+h3{font-size:18px; margin:22px 0 8px; color:var(--gold);}
+.sub{color:var(--muted); font-size:16.5px;}
+.card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px; margin:16px 0;}
+.note{border-left:4px solid var(--green); background:#0f2233; border-radius:0 12px 12px 0; padding:12px 16px; margin:14px 0;}
+.warn{border-left:4px solid var(--red); background:#23141a; border-radius:0 12px 12px 0; padding:12px 16px; margin:14px 0;}
+.formula{background:#0a0f1e; border:1px solid var(--line); border-radius:10px; padding:14px 16px; overflow-x:auto; font-size:15px; line-height:1.7; margin:12px 0;}
+code{background:#0a0f1e; border:1px solid var(--line); border-radius:6px; padding:1px 7px; font-size:15px;}
+table{width:100%; border-collapse:collapse; margin:12px 0; font-size:15px;}
+th,td{border:1px solid var(--line); padding:8px 10px; text-align:left;}
+th{background:#141d3a; color:var(--gold);}
+.footer{color:var(--muted); font-size:14px; margin-top:36px; border-top:1px solid var(--line); padding-top:14px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+<span class="kicker">TRỞ THÀNH AI ENGINEER (LLM) · PHASE 2 — ĐỀ TÀI TINY VIETNAMESE LM</span>
+<h1>Ngày 43 — Giải thích chi tiết: Chạy E1: khử trùng lặp có giúp PPL thật sự, hay chỉ làm số đẹp?</h1>
+<p class="sub">Bản giải thích chi tiết cho bài thực hành tối Day 43. Đọc sau khi làm lab, hoặc đọc trước để hiểu vì sao mỗi bước tồn tại — rồi quay lại làm lab bằng tay.</p>
+
+<h2>1 · Mục tiêu của buổi lab tối nay</h2>
+<div class="card">
+<p>Sau buổi tối nay, bạn làm được 3 việc:</p>
+<p><b>1. Chứng minh được bằng số đo 2 tác hại của dữ liệu trùng lặp</b> — mô hình học thuộc lòng thay vì học tiếng Việt (probe loss 0,12 vs 0,78 trên mô hình thu nhỏ) và val bị rò rỉ làm PPL thấp giả 2,40 lần — rồi đọc đúng giới hạn của demo đồ chơi: nó không trả lời được câu hỏi khái quát hóa, chỉ E1 thật mới trả lời.</p>
+<p><b>2. Chạy được E1 đúng giao thức</b> — hai lần chạy cấu hình A, chỉ khác dữ liệu (khử trùng lặp bật/tắt), cùng 200M token đã thấy, cùng LR, seed, held-out đóng băng — và soát giao thức bằng script trước khi bấm chạy, thay vì soát bằng mắt.</p>
+<p><b>3. Đọc được kết quả E1 theo 3 kịch bản + ngưỡng dao động seed</b> — phân biệt “dedupe thắng rõ” với “không khác biệt có ý nghĩa” và “dedupe thua rõ”, biết kịch bản nào thì giữ dữ liệu sạch, kịch bản nào thì kiểm tra lại ngưỡng NearDup — và viết được 1 dòng quyết định dữ liệu chuẩn cho E2–E5.</p>
+<p>Nhắc lại ranh giới: E1 <b>không</b> chốt trần P, không nói tokenizer nào tốt hơn (E2), kiến trúc nào tốt hơn (E3), hay điểm tối ưu là A, B hay C (E4). Nó chỉ trả lời một câu: <b>dữ liệu sạch có giúp mô hình tốt hơn thật không — và nếu có thì hơn bao nhiêu, đo bằng PPL trên cùng một tập held-out đóng băng.</b> E1 là thí nghiệm rẻ nhất cho ra kiến thức thật trong ma trận: 16 phút GPU cho một quyết định khóa dữ liệu chuẩn của cả đề tài.</p>
+</div>
+
+<h2>2 · E1 là gì — biến duy nhất là dữ liệu</h2>
+<p>E1 là ô đầu tiên của ma trận thí nghiệm (Day 41) trả lời một câu hỏi khoa học: dữ liệu sạch — đã khử trùng lặp — có giúp mô hình tốt hơn thật không? Cách trả lời: chạy cấu hình A hai lần, giống hệt nhau mọi thứ, chỉ khác bộ dữ liệu đầu vào. Thứ duy nhất thay đổi là dữ liệu.</p>
+<table>
+<tr><th>Hạng mục</th><th>Chạy 1 — dữ liệu thô</th><th>Chạy 2 — dữ liệu sạch</th></tr>
+<tr><td>Dữ liệu</td><td>Wikipedia tiếng Việt, chưa khử trùng lặp</td><td>Cùng nguồn, ExactSubstr + NearDup (Day 33)</td></tr>
+<tr><td>Ngân sách train</td><td>200M token đã thấy</td><td>200M token — bằng nhau</td></tr>
+<tr><td>Tokenizer</td><td>BPE 8k</td><td>BPE 8k — bằng nhau</td></tr>
+<tr><td>Cấu hình</td><td>A: 10M, d = 320, 6 layer, tied embeddings</td><td>Giống hệt</td></tr>
+<tr><td>Learning rate, seed</td><td>Như Day 40 đã ghi</td><td>Giống hệt</td></tr>
+<tr><td>Đánh giá</td><td>PPL trên held-out đóng băng (Day 34)</td><td>Cùng tập held-out — bằng nhau</td></tr>
+<tr><td>Chi phí</td><td>~8 phút</td><td>~8 phút</td></tr>
+</table>
+<p>Nhắc lại kiến thức nền (Day 33): dữ liệu Wikipedia tiếng Việt chứa nhiều bản sao — cùng một đoạn văn xuất hiện ở nhiều bài viết khác nhau (mẫu tin, trích dẫn lặp, bài sao chép). Khử trùng lặp có hai tầng: <b>ExactSubstr</b> — xóa các đoạn văn giống hệt nhau, và <b>NearDup</b> — xóa các đoạn gần giống nhau (chỉ khác vài từ). Sau khi khử trùng, số token hiệu dụng của bộ dữ liệu giảm: 3 epoch ≈ 744M token, 4 epoch ≈ 902M token — nghĩa là dữ liệu sạch ít token hơn dữ liệu thô, nhưng mỗi token mang thông tin mới nhiều hơn.</p>
+<p>Vì E1 rẻ (ô rẻ thứ hai trong ma trận sau E0) nên nó chạy đầu tiên, trước cả E2 (tokenizer) và E3 (kiến trúc). Lý do thứ tự này quan trọng: nếu dedupe giúp thật mà không chạy E1, mọi thí nghiệm E2–E5 sau này đều chạy trên dữ liệu bẩn — kết quả nào cũng phải chạy lại một lần nữa trên dữ liệu sạch, đốt gấp đôi ngân sách 3 GPU-giờ.</p>
+
+<h2>3 · Vì sao trùng lặp làm số đẹp giả — hai đường khác nhau</h2>
+<p>Trùng lặp gây hại theo hai đường khác nhau — một đường làm mô hình kém đi, một đường làm con số đo lừa mình. Hiểu cả hai mới thấy E1 đáng chạy.</p>
+<p><b>Đường 1 — mô hình học thuộc lòng thay vì học tiếng Việt.</b> Một đoạn văn xuất hiện 20 lần trong dữ liệu train thì mô hình gặp nó 20 lần trong mỗi epoch. Gradient từ đoạn đó chiếm tỉ trọng gấp 20 lần một đoạn chỉ xuất hiện một lần. Kết quả: mô hình dành dung lượng quý giá (chỉ 10M tham số) để ghi nhớ nguyên văn những đoạn lặp lại, thay vì học quy luật chung của tiếng Việt. Đó là overfit ở cấp độ dữ liệu — không phải do mô hình quá lớn, mà do dữ liệu cho nó học thuộc lòng.</p>
+<div class="formula"><b>Công thức cốt lõi — gradient bị lệch bởi trùng lặp:</b><br>
+Một đoạn văn xuất hiện k lần thì gradient của nó được cộng k lần vào mỗi epoch.<br>
+Tỉ trọng gradient đoạn lặp / đoạn thường = k (ở đây k = 20).<br>
+Mô hình 10M tham số dùng dung lượng để ghi nhớ nguyên văn thay vì học quy luật chung.<br><br>
+<b>Công thức cốt lõi — perplexity:</b><br>
+PPL = exp( mean cross-entropy loss trên tập held-out )<br>
+Loss tại mỗi vị trí = −log P(token thật | các token trước đó). PPL càng thấp càng tốt — nhưng chỉ khi tập held-out sạch trùng lặp với train.</div>
+<p><b>Đường 2 — tập val bị rò rỉ, PPL thấp giả tạo.</b> Nguy hiểm hơn: nếu cùng một đoạn văn xuất hiện cả trong train lẫn trong tập held-out, thì mô hình đã thấy đáp án trước khi được kiểm tra. PPL đo được lúc đó thấp giả — không phải vì mô hình giỏi tiếng Việt, mà vì nó nhớ đáp án. Đây chính là lỗi rò rỉ đánh giá đã cảnh báo ở Day 40–41: chọn checkpoint bằng val, mở test một lần duy nhất — và val phải sạch trùng lặp với train, nếu không mọi con số đều vô nghĩa.</p>
+<div class="warn"><b>Bẫy kinh điển:</b> chạy A trên dữ liệu thô, thấy PPL đẹp, kết luận mô hình giỏi — trong khi một phần PPL đẹp đó là nhờ val chứa đoạn văn đã xuất hiện trong train. Sau khi khử trùng lặp, PPL có thể tăng lên — và đó là tin tốt: con số lúc này mới trung thực. Đừng hoảng khi số sạch xấu hơn số bẩn. Ví dụ trực quan: giả sử 10% tập held-out trùng với train. Mô hình nhớ đúng 10% đó gần như hoàn hảo (loss ≈ 0 trên phần đó), PPL tổng thể bị kéo xuống đáng kể — trong khi khả năng thật trên văn bản chưa từng thấy không đổi.</div>
+
+<h2>4 · Thiết kế E1 — so sánh công bằng theo số token đã thấy</h2>
+<p>Đây là phần dễ làm sai nhất của E1. Hai bộ dữ liệu có kích thước khác nhau — dữ liệu sạch ít token hơn dữ liệu thô — nên so sánh theo epoch là so sánh lệch. Ví dụ cụ thể: dữ liệu thô 1 epoch = 300M token; dữ liệu sạch 1 epoch = 248M token (đã trừ trùng lặp). Chạy cả hai đủ 1 epoch rồi so PPL thì lần chạy sạch đã thấy ít token hơn — nó thua không phải vì dữ liệu sạch kém, mà vì nó học ít hơn. So sánh công bằng: cả hai chạy đủ 200M token (ngân sách của cấu hình A, Day 34) rồi mới so PPL trên cùng tập held-out đóng băng.</p>
+<table>
+<tr><th></th><th>So theo epoch (SAI)</th><th>So theo token đã thấy (ĐÚNG)</th></tr>
+<tr><td>Chạy thô</td><td>1 epoch = 300M token</td><td>200M token</td></tr>
+<tr><td>Chạy sạch</td><td>1 epoch = 248M token</td><td>200M token</td></tr>
+<tr><td>Chênh lệch lượng học</td><td>Sạch thấy ít hơn 52M token (~17%)</td><td>Bằng nhau — cùng compute, cùng lượng học</td></tr>
+<tr><td>Kết luận</td><td>Lệch: sạch thua vì học ít hơn</td><td>Công bằng: chênh PPL gán được cho dữ liệu</td></tr>
+</table>
+<p><b>Tiêu chí dừng viết trước khi chạy</b> (Day 41, §3): dừng một lần chạy nếu loss diverge hoặc NaN trong 200 bước đầu; dừng cả E1 nếu E0 PASS đã hết hạn — tức là code hoặc dữ liệu đã đổi sau E0 mà chưa chạy lại smoke test. E0 chạy lại vài phút mỗi lần đổi dữ liệu — rẻ hơn nhiều so với chạy lại E1. Lab B có script <code>e1_protocol.py</code> soát giao thức tự động: chỉ dữ liệu được khác nhau, mọi thứ khác phải bằng nhau tuyệt đối, ngân sách token bằng nhau.</p>
+
+<h2>5 · Đọc kết quả E1 — ba kịch bản, một ngưỡng</h2>
+<p>Sau hai lần chạy, có ba kịch bản có thể xảy ra. Mỗi kịch bản có một quyết định khác nhau — và một sai lầm khác nhau cần tránh. Ngưỡng dao động seed (nhắc lại Day 41): chạy lại đúng cấu hình A với 2–3 seed khác nhau, PPL dao động một chút — ví dụ ±0,3. Chênh lệch PPL giữa hai lần chạy E1 mà nhỏ hơn con số này thì chưa kết luận được gì. Nếu chưa có dao động seed đo thật (E5 chạy sau), dùng ngưỡng tạm từ Day 41 và ghi rõ “chưa có E5, ngưỡng này là ước tính” — không bịa số chắc chắn.</p>
+<table>
+<tr><th>Kịch bản</th><th>Dấu hiệu</th><th>Kết luận &amp; quyết định</th></tr>
+<tr><td><b>1. Dedupe thắng rõ</b></td><td>PPL sạch thấp hơn PPL thô một khoảng lớn hơn dao động seed</td><td>Dedupe giúp thật. Giữ dữ liệu sạch làm dữ liệu chuẩn cho E2–E5. Ghi khoảng cách PPL vào báo cáo kèm ± dao động seed.</td></tr>
+<tr><td><b>2. Không khác biệt</b></td><td>Chênh lệch PPL nhỏ hơn dao động seed — hai đường loss gần như chồng lên nhau</td><td>Không kết luận được dedupe giúp hay không. Vẫn giữ dữ liệu sạch — vì dữ liệu sạch đúng về mặt phương pháp (không rò rỉ, không học thuộc lòng), và chi phí dedupe đã trả một lần ở Day 33. Ghi rõ “không khác biệt có ý nghĩa” thay vì “dedupe vô dụng”.</td></tr>
+<tr><td><b>3. Dedupe thua rõ</b></td><td>PPL sạch cao hơn PPL thô vượt ngưỡng seed</td><td>Đừng vội kết luận “trùng lặp tốt”. Kiểm tra trước: NearDup có quá gắt, xóa nhầm cả dữ liệu tốt (văn bản mẫu hợp pháp, công thức lặp)? So sánh số token hai bộ dữ liệu — nếu dữ liệu sạch mất quá nhiều token thì ngưỡng NearDup cần nới ra, rồi chạy lại E1. Đây là lỗi thiết kế, không phải lỗi ý tưởng.</td></tr>
+</table>
+<p><b>Quy tắc báo cáo:</b> trong báo cáo, mỗi con số PPL của E1 phải đi kèm 3 thứ: (1) số token đã thấy (200M), (2) ± dao động seed, (3) ghi rõ tập held-out đã đóng băng từ Day 34. Thiếu một trong ba, hội đồng sẽ hỏi lại — và câu trả lời “không nhớ” thì không được tính điểm.</p>
+
+<h2>6 · Kết quả lab thu nhỏ — số đo thật để đối chiếu</h2>
+<p>Script <code>dedupe_demo.py</code> trong bài thực hành là bản thu nhỏ chạy CPU (mô hình bigram log-tuyến tính, 28 câu tiếng Việt, seed 42). Cùng số token đã thấy (400 bước × 64 cặp = 25.600 cặp), chỉ khác phân bố dữ liệu: bản RAW có 1 câu lặp lại 20 lần (42 câu train, 584 cặp), bản CLEAN mỗi câu 1 lần (23 câu train, 318 cặp). Kết quả đo thật trên máy trợ giảng:</p>
+<table>
+<tr><th>Thí nghiệm</th><th>Bản RAW</th><th>Bản CLEAN</th><th>Đọc thế nào</th></tr>
+<tr><td>Loss trên câu lặp lại (probe học thuộc)</td><td><b>0,12</b></td><td>0,78</td><td>RAW nhớ gần như hoàn hảo câu đã thấy 20 lần — học thuộc lòng, không phải học tiếng Việt</td></tr>
+<tr><td>Loss held-out sạch (5 câu)</td><td>5,38</td><td>5,51</td><td>Chênh 0,13 — nhỏ, không kết luận được gì về khái quát hóa trên mô hình đồ chơi</td></tr>
+<tr><td>PPL held-out sạch</td><td>217,14</td><td>247,96</td><td>Cùng ý trên — PPL đồ chơi, không phải PPL đề tài</td></tr>
+<tr><td>PPL held-out rò rỉ (mô hình RAW)</td><td><b>90,35</b></td><td>112,75 (mô hình CLEAN)</td><td>Cùng mô hình RAW: val rò rỉ thấp giả <b>2,40 lần</b> so với val sạch 217,14 — nhớ đáp án, không phải giỏi hơn</td></tr>
+</table>
+<p><b>Đọc đúng giới hạn của demo.</b> Mô hình thu nhỏ có vocab ~120 từ, ma trận W 120×120 thừa dung lượng, nên “học thuộc lòng” không gây thiếu dung lượng cho quy luật chung — vì vậy bản RAW không thua trên held-out sạch trong demo này. Cơ chế dung lượng chỉ lộ ra trên mô hình thật 10M tham số, nơi mỗi tham số đều quý. Demo chứng minh được 2 điều: (a) trùng lặp làm mô hình nhớ thay vì học, (b) rò rỉ làm PPL thấp giả 2,40 lần. Câu hỏi “dedupe có giúp khái quát hóa thật không” thì demo đồ chơi không trả lời được — chính E1 thật mới trả lời. Đây cũng là lý do bài thực hành yêu cầu chạy E1 thật trên GPU, không dừng ở demo.</p>
+<p>Script <code>e1_protocol.py</code> và <code>e1_compare.py</code> đã kiểm chứng: protocol bắt đúng cặp config lệch LR (0,001 vs 0,002) và cho qua cặp config đúng; compare phân loại đúng cả 3 kịch bản trên kết quả ví dụ (PPL 18,4 / 17,9 / 18,2 / 19,1 là <b>ví dụ minh họa</b>, không phải kết quả E1 thật) và từ chối cặp kết quả lệch token (200M vs 150M).</p>
+
+<h2>7 · Sau E1 — quyết định dữ liệu chuẩn cho E2–E5</h2>
+<p>E1 xong, viết 1 dòng quyết định: “E1: kịch bản ___ — dữ liệu chuẩn cho E2–E5 là ___ (thô / sạch), vì ___”. Kịch bản 2 vẫn giữ dữ liệu sạch. Kịch bản 3 thì kiểm tra NearDup trước đã. Thứ tự sau E1: E2 (tokenizer) → E5 (lặp seed, đo dao động) → E3 (kiến trúc) → E4 (huấn luyện, đắt nhất, chạy cuối). Dữ liệu chuẩn vừa chốt ở E1 là dữ liệu mọi ô sau dùng — chốt sai ở đây thì mọi ô sau đều phải chạy lại.</p>
+<div class="warn"><b>Trần P vẫn để trống.</b> PPL của E1 — dù là số thật đo trên GPU — cũng là PPL của cấu hình A sau 200M token trên từng bộ dữ liệu, không phải trần P của đề tài. P chỉ chốt khi A train xong đủ 200M token (lab Day 35) và được ghi trong đề cương Day 39. Đừng lấy số E1 điền vào chỗ của P.</div>
+
+<h2>8 · Bẫy thường gặp</h2>
+<div class="card">
+<p><b>1. So sánh theo epoch thay vì theo số token đã thấy.</b> Dữ liệu sạch ít token hơn mỗi epoch (248M vs 300M). So 1 epoch với 1 epoch thì lần chạy sạch đã thấy ít hơn 52M token — nó thua vì học ít hơn, không phải vì dữ liệu sạch kém. Lỗi này làm hỏng toàn bộ E1 mà không để lại dấu vết nào trong log.</p>
+<p><b>2. Kết luận “dedupe vô dụng” khi chênh lệch nằm trong ngưỡng nhiễu.</b> PPL sạch thấp hơn 0,15 trong khi dao động seed là ±0,3 thì chưa kết luận được gì. Viết “không khác biệt có ý nghĩa” và vẫn giữ dữ liệu sạch — dữ liệu sạch đúng về mặt phương pháp, và chi phí dedupe đã trả một lần ở Day 33.</p>
+<p><b>3. Lấy PPL của val bị rò rỉ làm PPL chính thức / trần P.</b> Demo Lab A cho thấy val rò rỉ làm PPL thấp giả 2,40 lần trên mô hình đồ chơi. Điền số đó vào đề cương Day 39 là lỗi khoa học. Mọi PPL báo cáo phải đi kèm: số token đã thấy, ± dao động seed, tập held-out đóng băng Day 34 — và held-out phải sạch trùng lặp với train.</p>
+<p><b>4. Đổi 2 thứ cùng lúc rồi gán kết quả cho dữ liệu.</b> Chạy sạch mà tiện tay đổi luôn LR “để bù dữ liệu ít hơn” thì kết quả E1 không gán được cho thứ nào — vi phạm quy tắc một biến của Day 41. Mọi thứ trừ dữ liệu phải bằng nhau tuyệt đối, soát bằng <code>e1_protocol.py</code> trước khi bấm chạy.</p>
+</div>
+
+<h2>9 · Tóm tắt buổi lab tối nay</h2>
+<p>E1 là thí nghiệm dữ liệu: hai lần chạy cấu hình A giống hệt nhau, chỉ khác khử trùng lặp bật/tắt, so sánh theo 200M token đã thấy trên cùng tập held-out đóng băng. Trùng lặp làm hại theo hai đường — mô hình học thuộc lòng thay vì học tiếng Việt, và val rò rỉ làm PPL thấp giả. Đọc kết quả theo 3 kịch bản với ngưỡng dao động seed ±0,3 (tạm, chưa có E5): thắng rõ thì giữ dữ liệu sạch, không khác biệt thì vẫn giữ dữ liệu sạch, thua rõ thì kiểm tra ngưỡng NearDup trước khi kết luận. Viết 1 dòng quyết định dữ liệu chuẩn cho E2–E5 — và để trống ô trần P cho tới khi A train đủ 200M token.</p>
+<p class="footer">Ngày 43 — Giải thích chi tiết · Phase 2, nhóm ngày 38–44: đề cương + baseline · E0 PASS (Day 42) → E1 (dữ liệu) tối nay → E2 (tokenizer) từ Day 44.</p>
+</div>
+</body>
+</html>

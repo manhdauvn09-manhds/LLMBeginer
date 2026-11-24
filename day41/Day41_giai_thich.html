@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ngày 41 — Giải thích chi tiết: Đọc kết quả baseline và chốt ma trận thí nghiệm E0–E5</title>
+<style>
+:root{--bg:#0a0f1e; --card:#101830; --line:#22305a; --gold:#f5c542; --green:#4ade80;
+ --red:#f87171; --violet:#a78bfa; --cyan:#67e8f9; --text:#e8edf7; --muted:#93a0bd;}
+*{box-sizing:border-box;}
+body{margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.75; font-size:16.5px;}
+.wrap{max-width:820px; margin:0 auto; padding:18px 16px 60px;}
+.kicker{display:inline-block; font-size:13px; letter-spacing:1px; color:var(--gold); font-weight:700; margin-bottom:8px;}
+h1{font-size:28px; line-height:1.3; margin:6px 0 10px;}
+h2{font-size:22px; margin:34px 0 10px; color:var(--cyan);}
+h3{font-size:18px; margin:22px 0 8px; color:var(--gold);}
+.sub{color:var(--muted); font-size:16.5px;}
+.card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px; margin:16px 0;}
+.note{border-left:4px solid var(--green); background:#0f2233; border-radius:0 12px 12px 0; padding:12px 16px; margin:14px 0;}
+.warn{border-left:4px solid var(--red); background:#23141a; border-radius:0 12px 12px 0; padding:12px 16px; margin:14px 0;}
+.energy{border-left:4px solid var(--gold); background:#1a1607; border-radius:0 12px 12px 0; padding:12px 16px; margin:14px 0;}
+code{background:#0a0f1e; border:1px solid var(--line); border-radius:6px; padding:1px 7px; font-size:15px;}
+table{width:100%; border-collapse:collapse; margin:12px 0; font-size:15px;}
+th,td{border:1px solid var(--line); padding:8px 10px; text-align:left; vertical-align:top;}
+th{background:#141d3a; color:var(--gold);}
+td.num{font-family:ui-monospace,Menlo,Consolas,monospace;}
+.formula{background:#0a1428; border:1px solid var(--line); border-radius:10px; padding:12px 16px; font-family:"SF Mono",Consolas,Menlo,monospace; font-size:16px; text-align:center; margin:14px 0; color:var(--cyan);}
+.footer{color:var(--muted); font-size:14px; margin-top:40px; border-top:1px solid var(--line); padding-top:14px;}
+ul li, ol li{margin-bottom:6px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<span class="kicker">PHASE 2 · NGÀY 41 / 60 · GIẢI THÍCH CHI TIẾT · ĐỀ TÀI: TINY VIETNAMESE LM</span>
+<h1>Ngày 41 — Giải thích chi tiết: Đọc kết quả baseline và chốt ma trận thí nghiệm E0–E5</h1>
+<p class="sub">Bài giải thích chi tiết cho lab buổi tối Ngày 41. Bám sát bài học buổi sáng cùng ngày: đọc loss curve, so hai baseline, khóa ma trận E0–E5, và chạy E5 trước E4. Mọi con số trong file này đều lấy từ bài sáng hoặc từ số đo đã có — số nào chưa đo được thì ghi rõ là chưa có, không bịa.</p>
+
+<h2>1 · Mục tiêu của buổi lab tối nay</h2>
+<ul>
+<li><b>Đọc được loss curve:</b> phân biệt 4 dạng đường cong — hội tụ tốt, plateau sớm, diverge/spike, overfit — và biết xử lý từng dạng, bằng code phân loại chứ không chỉ bằng mắt.</li>
+<li><b>So được hai baseline với nhau:</b> khoảng cách n-gram ↔ A cho biết "giá trị của neural", dao động seed cho biết ngưỡng nào mới tính là cải tiến thật.</li>
+<li><b>Chốt ma trận thí nghiệm E0–E5</b> thành một file CSV mà máy kiểm tra được: mỗi thí nghiệm chỉ đổi một thứ, chạy rẻ trước đắt sau, tổng ngân sách khoảng 3 GPU-giờ.</li>
+<li><b>Viết được tiêu chí dừng sớm (kill criteria):</b> khi nào tắt một lần chạy đang dở để khỏi đốt GPU vô ích — viết trước khi chạy, không "xem sao đã".</li>
+</ul>
+
+<h2>2 · Loss curve — điện tâm đồ của buổi train</h2>
+<p><b>Định nghĩa ngắn:</b> loss curve là đồ thị của loss theo số bước train (hoặc theo số token đã thấy). Hai đường luôn vẽ cùng nhau: <b>train loss</b> (trên dữ liệu đang học) và <b>val loss</b> (trên tập val, mô hình chưa học). Đọc hai đường này — chứ không phải nhìn một con số PPL cuối — mới biết buổi chạy có khỏe không.</p>
+<p>Có 4 dạng đường cong mà mọi nghiên cứu sinh đều phải nhận ra trong 5 phút đầu tiên:</p>
+<table>
+<tr><th>Dạng</th><th>Dấu hiệu</th><th>Chẩn đoán</th><th>Xử lý</th></tr>
+<tr><td><b>1. Hội tụ tốt</b></td><td>Train + val giảm đều, dốc chậm dần, hai đường gần nhau</td><td>Pipeline khỏe, learning rate hợp lý</td><td>Để chạy hết; ghi loss cuối làm điểm neo</td></tr>
+<tr><td><b>2. Plateau sớm</b></td><td>Loss phẳng lì từ rất sớm, không giảm thêm</td><td>Learning rate quá thấp, hoặc mô hình đã chạm trần dữ liệu</td><td>Tăng learning rate, hoặc kiểm tra dữ liệu có quá dễ / quá trùng lặp</td></tr>
+<tr><td><b>3. Diverge / spike</b></td><td>Loss vọt lên đột ngột, dao động mạnh, có khi thành NaN</td><td>Learning rate quá cao, hoặc gradient nổ</td><td><b>Dừng ngay</b> — giảm learning rate, bật gradient clipping, kiểm tra lại</td></tr>
+<tr><td><b>4. Overfit</b></td><td>Train giảm tiếp, val quay đầu tăng</td><td>Mô hình nhớ train, không khái quát</td><td>Dừng ở checkpoint val thấp nhất; xem lại tỉ lệ dữ liệu / epoch (Day 33)</td></tr>
+</table>
+<div class="formula">PPL = exp(val loss)<br><span style="font-size:14px;color:var(--muted);font-family:inherit;">PPL held-out chỉ là val loss đổi sang thang mũ — đọc loss curve tức là đang đọc PPL theo thời gian thực.</span></div>
+<p><b>Ví dụ trực quan:</b> buổi lab Day 34 chạy cấu hình A, loss ban đầu cao rồi giảm nhanh trong vài trăm bước đầu, sau đó dốc chậm dần — dạng 1, hội tụ tốt. Nếu thay learning rate gấp 10 lần mà loss vọt lên ngay 200 bước đầu thì đó là dạng 3: không cần chờ hết 8 phút, tắt máy, giảm learning rate, chạy lại. Mỗi lần "chờ cho chắc" với một đường cong đã diverge là đốt GPU-giờ cho một kết quả đã biết trước.</p>
+<div class="warn">⚠️ <b>Bẫy kinh điển:</b> chỉ nhìn train loss. Train loss giảm đẹp không có nghĩa gì nếu val loss tăng — đó là mô hình đang học thuộc lòng, không phải đang học tiếng Việt. Ngược lại, một đường val loss "xấu" vì val set bị rò rỉ dữ liệu train (Day 33–34) sẽ cho PPL thấp giả tạo. Luôn đọc <b>cả hai đường</b> trước khi kết luận bất cứ điều gì.</div>
+<p><b>Phân loại bằng code, không chỉ bằng mắt:</b> lab tối nay dùng <code>classify_curve.py</code> với quy tắc tường minh — diverge là val vọt <i>đột ngột</i> trong một bước (so với bước trước đó, hoặc thành NaN); overfit là val tăng <i>dần</i> ở nửa sau trong khi train vẫn giảm; plateau là val gần như không đổi cả đường; còn lại là hội tụ tốt. Phân biệt diverge với overfit bằng tốc độ tăng — overfit tăng dần qua nhiều bước, diverge vọt trong một bước — chính là khác biệt giữa "đọc đường cong" và "đọc một con số".</p>
+
+<h2>3 · So hai baseline: khoảng cách và ngưỡng nhiễu</h2>
+<p>Sau khi hai baseline chạy xong, có hai phép so sánh phải làm — và một phép so sánh <b>không được làm</b>.</p>
+<h3>So sánh 1 — khoảng cách n-gram ↔ A: "giá trị của neural"</h3>
+<p>Sàn n-gram là mốc dưới, A là baseline chính. Khoảng cách giữa hai con số PPL này trả lời một câu hỏi duy nhất: <b>kiến trúc neural 10M tham số này có đáng tiền không?</b> Nếu A chỉ thắng n-gram một chút thì có gì đó sai: hoặc tokenizer kém, hoặc dữ liệu có vấn đề, hoặc mô hình chưa học được gì ngoài thống kê tần suất. Khi đó phải sửa pipeline trước, không được vội chạy thí nghiệm E1–E5. Nếu A thắng sàn một cách rõ rệt, pipeline đã chứng minh được giá trị — lúc đó mới đi tiếp.</p>
+<p><b>Lưu ý trung thực:</b> PPL 7,78 của A là số đo nền từ lab Day 34 (mới train vài triệu token). Con số chính thức của A — và trần P của đề tài — chỉ chốt khi A train xong đủ 200M token, một epoch (lab Day 35). Đến lúc đó mới có khoảng cách n-gram ↔ A thật sự. Hôm nay ta học <i>cách đọc</i> khoảng cách đó, không bịa trước con số.</p>
+<h3>So sánh 2 — dao động seed: ngưỡng "cải tiến thật"</h3>
+<p>Chạy lại đúng cấu hình A với 2–3 seed khác nhau, PPL sẽ dao động một chút. Dao động đó là <b>sai số đo</b> của đề tài. Quy tắc vàng (đã có từ Day 40, §5):</p>
+<div class="formula">chênh lệch PPL &lt; dao động seed → NHIỄU, không phải cải tiến<br><span style="font-size:14px;color:var(--muted);font-family:inherit;">Ví dụ: A và B chênh nhau 0,2 PPL mà dao động seed đã là ±0,3 → chưa kết luận được gì. Phải chạy thêm seed, hoặc chấp nhận "không khác biệt".</span></div>
+<p>Nói cách khác: <b>không có thanh sai số thì mọi tuyên bố cải tiến đều là kể chuyện.</b> Trong báo cáo, mỗi con số PPL phải đi kèm ± dao động seed — hội đồng sẽ hỏi câu này đầu tiên.</p>
+<h3>So sánh không được làm — A với... chính A sau khi đã "chọn" checkpoint tốt nhất trên test</h3>
+<p>Chọn checkpoint bằng tập test rồi báo cáo PPL trên chính tập test đó là rò rỉ đánh giá (Day 40, §4). Checkpoint chỉ được chọn bằng <b>val</b>. Test chỉ mở một lần khi báo cáo — "két sắt, không phải ngăn kéo".</p>
+<div class="note">💡 <b>Lab tối nay làm gì với hai phép so sánh này?</b> Script <code>compare_baselines.py</code> nhận ba con số — PPL sàn n-gram (E0), PPL A (E1), dao động seed (E5) — và áp quy tắc vàng để kết luận. Số demo (n-gram 9,50 / A 7,78 / dao động 0,30) cho khoảng cách 1,72 PPL, tức 18,1% so với sàn: thắng nhưng thắng nhẹ, dưới 20%, nên kết luận demo là "kiểm tra pipeline trước khi chạy E1–E5". Số thật của bạn thay vào sẽ cho kết luận thật — và nếu một trong ba số chưa có, script từ chối kết luận thay vì bịa số.</div>
+
+<h2>4 · Ma trận thí nghiệm E0–E5: rẻ trước, đắt sau, mỗi lần một biến</h2>
+<p>Từ đề cương Day 39, ma trận thí nghiệm của đề tài có 6 ô. Hôm nay khóa lại nội dung từng ô — và quan trọng nhất: <b>thứ tự chạy</b>.</p>
+<table>
+<tr><th>Ô</th><th>Thứ duy nhất thay đổi là…</th><th>Câu hỏi trả lời</th><th>Chi phí (ước tính)</th></tr>
+<tr><td><b>E0 — smoke test</b></td><td>Không đổi gì — chạy A rút gọn vài trăm bước</td><td>Pipeline có chạy được không, loss có giảm không?</td><td class="num">vài phút</td></tr>
+<tr><td><b>E1 — dữ liệu</b></td><td>Dữ liệu: khử trùng lặp bật / tắt (Day 33)</td><td>Dedupe có giúp PPL thật sự, hay chỉ làm số đẹp?</td><td class="num">~8 phút × 2</td></tr>
+<tr><td><b>E2 — tokenizer</b></td><td>Tokenizer: BPE 8k so với 16k (Day 32)</td><td>Vocab lớn hơn có đáng chi phí tham số embedding?</td><td class="num">~8 phút × 2</td></tr>
+<tr><td><b>E3 — kiến trúc</b></td><td>Kiến trúc: tied embeddings bật / tắt; hoặc sâu hơn vs rộng hơn</td><td>Tham số đặt ở đâu thì hiệu quả nhất?</td><td class="num">~8–50 phút</td></tr>
+<tr><td><b>E4 — huấn luyện</b></td><td>Huấn luyện: train lâu hơn (1 → 2,5 → 3 epoch) hoặc learning rate khác</td><td>Điểm tối ưu nằm ở A, B hay C? (Day 34–35)</td><td class="num">~50–110 phút</td></tr>
+<tr><td><b>E5 — lặp seed</b></td><td>Seed: chạy lại A với 2–3 seed khác</td><td>Dao động seed là bao nhiêu? Ngưỡng ý nghĩa là gì?</td><td class="num">~8 phút × 2–3</td></tr>
+</table>
+<p><b>Ba quy tắc khóa ma trận:</b></p>
+<ol>
+<li><b>Một biến duy nhất mỗi ô.</b> Trước mỗi thí nghiệm, viết ra câu "thứ duy nhất thay đổi là ___" và kiểm tra mọi thứ còn lại có bằng nhau không (dữ liệu, seed, phần cứng, tập held-out). Hai thứ đổi cùng lúc thì kết quả không gán được cho thứ nào.</li>
+<li><b>Rẻ trước, đắt sau.</b> E0 → E1 → E2 → E5 → E3 → E4. Tổng ngân sách cả ma trận khoảng <b>3 GPU-giờ</b> (Day 38). E4 đắt nhất chạy cuối cùng — vì khi đó pipeline đã sạch, sai số đã biết, và câu hỏi "A, B hay C" mới đáng tiền.</li>
+<li><b>Mỗi ô có tiêu chí dừng trước khi chạy.</b> Ví dụ E4: dừng khi val loss không cải thiện sau một epoch, hoặc khi loss diverge. Viết tiêu chí dừng <i>trước</i>, không "xem sao đã" — vì giữa buổi chạy, ai cũng muốn chờ thêm một chút.</li>
+</ol>
+<p><b>Vì sao E5 chạy trước E4?</b> E4 là ô đắt nhất (~50–110 phút) và trả lời câu hỏi lớn nhất của đề tài: điểm tối ưu nằm ở A, B hay C. Nhưng nếu chưa biết dao động seed (E5) thì mọi chênh lệch PPL đo được ở E4 đều không kết luận được — có thể chỉ là nhiễu. Chạy E5 trước là mua "thước đo sai số" với giá ~8 phút × 2–3, để khỏi đốt 110 phút cho một kết quả không đọc được.</p>
+
+<h2>5 · Tiêu chí dừng sớm và tiết kiệm năng lượng</h2>
+<div class="energy">
+<h3 style="margin-top:0">⚡ Góc tiết kiệm năng lượng</h3>
+<p>Đọc loss curve sớm là biện pháp tiết kiệm năng lượng rẻ nhất trong cả đề tài — không tốn một dòng code nào, chỉ tốn 5 phút nhìn đồ thị. Một lần chạy diverge mà để hết 110 phút (cấu hình C) thì đốt gấp ~14 lần một lần chạy A 8 phút — cho một kết quả đã đoán được từ phút thứ 5. Cộng dồn: E0 smoke test vài phút bắt được lỗi pipeline trước khi E4 đốt cả giờ đồng hồ; tiêu chí dừng sớm cắt được những lần chạy plateau vô ích. Năng lượng tiết kiệm được ở đây không nằm ở kiến trúc mới — mà nằm ở kỷ luật: <b>không chạy cái đã biết sẽ hỏng, không chạy hết cái đã biết sẽ phẳng.</b> Con số kWh của baseline A (đo từ Day 40) là giá sàn: mọi thí nghiệm sau này đều phải trả lời "đáng bao nhiêu kWh so với A".</p>
+</div>
+<p>Tiêu chí dừng của từng ô đã khóa trong <code>matrix_E0_E5.csv</code>: E0 dừng khi loss không giảm sau vài trăm bước; E1/E2 dừng khi hai nhánh chênh nhau trong phạm vi nhiễu; E5 dừng để xem lại pipeline khi |ΔPPL| &gt; 0,3; E3/E4 dừng ngay khi loss diverge hoặc plateau dài. Tất cả đều viết <i>trước</i> khi chạy — vì giữa buổi chạy, ai cũng muốn chờ thêm một chút.</p>
+
+<h2>6 · Bẫy thường gặp</h2>
+<ul>
+<li><b>Chỉ nhìn train loss.</b> Train loss giảm đẹp không có nghĩa gì nếu val loss tăng — đó là mô hình đang học thuộc lòng, không phải đang học tiếng Việt. Luôn đọc cả hai đường trước khi kết luận.</li>
+<li><b>Chốt trần P từ PPL nền sau vài triệu token.</b> PPL đầu train còn cao và chưa ổn định — lấy nó làm trần thì mọi "cải tiến" sau này đều dễ dàng vượt trần giả. P chỉ chốt từ E1 chạy đủ 200M token; chưa chạy đủ thì ô P ở nguyên trạng thái chờ.</li>
+<li><b>Đổi 2 thứ trong một ô ma trận.</b> Vừa đổi tokenizer vừa tăng learning rate thì PPL cải thiện không gán được cho thứ nào. Trước mỗi thí nghiệm, viết câu "thứ duy nhất thay đổi là ___" và chạy <code>check_matrix.py</code> — máy sẽ bắt lỗi nếu một ô đổi nhiều hơn một thứ.</li>
+<li><b>Chọn checkpoint bằng tập test.</b> Checkpoint chỉ được chọn bằng val. Test chỉ mở một lần khi báo cáo — "két sắt, không phải ngăn kéo".</li>
+<li><b>Tuyên bố cải tiến mà không có thanh sai số.</b> Chênh lệch PPL nhỏ hơn dao động seed thì là nhiễu. Trong báo cáo, mỗi con số PPL phải đi kèm ± dao động seed.</li>
+</ul>
+
+<h2>7 · Tóm tắt buổi lab tối nay</h2>
+<ul>
+<li>Loss curve có 4 dạng: hội tụ tốt (để chạy hết), plateau sớm (tăng learning rate / xem dữ liệu), diverge (dừng ngay), overfit (dừng ở checkpoint val thấp nhất). Luôn đọc cả train lẫn val — và phân loại bằng code (<code>classify_curve.py</code>), không chỉ bằng mắt.</li>
+<li>Khoảng cách n-gram ↔ A đo "giá trị của neural"; dao động seed đo ngưỡng ý nghĩa — chênh lệch nhỏ hơn dao động seed thì là nhiễu (<code>compare_baselines.py</code>).</li>
+<li>Ma trận E0–E5: mỗi ô một biến, chạy rẻ trước đắt sau, tổng ~3 GPU-giờ, mỗi ô có tiêu chí dừng viết trước khi chạy (<code>matrix_E0_E5.csv</code> + <code>check_matrix.py</code>).</li>
+<li>Chạy E5 trước E4: chạy lại A với seed thứ hai để biết dao động — vì không có dao động thì E4 không kết luận được gì (<code>compare_runs.py</code>, ngưỡng 0,3 PPL).</li>
+<li>Tiết kiệm năng lượng lớn nhất hôm nay không phải kiến trúc mới — mà là kỷ luật dừng sớm và không chạy cái đã biết sẽ hỏng.</li>
+</ul>
+
+<div class="footer">Khóa "Trở thành AI Engineer (LLM)" — Phase 2, đề tài Tiny Vietnamese LM · Ngày 41 · Buổi tối: thực hành. Bài tập thực hành: <a href="Day41_practice.html">Day41_practice.html</a> · Bài học buổi sáng: <a href="Day41_lesson.html">Day41_lesson.html</a> · Quiz: <a href="Day41_quiz.html">Day41_quiz.html</a></div>
+</div>
+</body>
+</html>

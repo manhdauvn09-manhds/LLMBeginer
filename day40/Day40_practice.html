@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ngày 40 — Buổi tối: Lab nghiên cứu — Chạy sàn n-gram + cấu hình A, khóa baseline</title>
+<style>
+:root{--bg:#0a0f1e; --card:#101830; --line:#22305a; --gold:#f5c542; --green:#4ade80;
+ --red:#f87171; --violet:#a78bfa; --cyan:#67e8f9; --text:#e8edf7; --muted:#93a0bd;}
+*{box-sizing:border-box;}
+body{margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.75; font-size:16.5px;}
+.wrap{max-width:820px; margin:0 auto; padding:18px 16px 60px;}
+.kicker{display:inline-block; font-size:13px; letter-spacing:1px; color:var(--gold); font-weight:700; margin-bottom:8px;}
+h1{font-size:28px; line-height:1.3; margin:6px 0 10px;}
+h2{font-size:22px; margin:34px 0 10px; color:var(--cyan);}
+h3{font-size:18px; margin:22px 0 8px; color:var(--gold);}
+.sub{color:var(--muted); font-size:16.5px;}
+.meta{display:flex; gap:8px; flex-wrap:wrap; margin:14px 0 6px;}
+.meta span{font-size:13.5px; background:var(--card); border:1px solid var(--line); border-radius:999px; padding:5px 14px;}
+.card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px; margin:16px 0;}
+.note{border-left:4px solid var(--green); background:#0f2233; border-radius:0 12px 12px 0; padding:12px 16px; margin:14px 0;}
+.warn{border-left:4px solid var(--red); background:#23141a; border-radius:0 12px 12px 0; padding:12px 16px; margin:14px 0;}
+.rq{background:#141d3a; border:1px solid var(--violet); border-radius:10px; padding:12px 16px; margin:10px 0;}
+.rq b{color:var(--violet);}
+.check{list-style:none; padding-left:0;}
+.check li{padding-left:28px; position:relative; margin-bottom:8px;}
+.check li::before{content:"☐"; position:absolute; left:0; color:var(--gold); font-size:17px;}
+.check li.done::before{content:"☑"; color:var(--green);}
+.check li input{position:absolute; left:0; top:4px; width:18px; height:18px; opacity:0; cursor:pointer;}
+.check li.done{color:var(--muted); text-decoration:line-through;}
+code{background:#0a0f1e; border:1px solid var(--line); border-radius:6px; padding:1px 7px; font-size:15px;}
+pre{background:#0a0f1e; border:1px solid var(--line); border-radius:10px; padding:14px 16px; overflow-x:auto; font-size:14.5px; line-height:1.6; white-space:pre-wrap;}
+table{width:100%; border-collapse:collapse; margin:12px 0; font-size:15px;}
+th,td{border:1px solid var(--line); padding:8px 10px; text-align:left;}
+th{background:#141d3a; color:var(--gold);}
+.qa{margin:14px 0;}
+.qa button{background:var(--gold); color:#14100a; font-weight:700; border:none; border-radius:10px; padding:10px 18px; cursor:pointer; font-size:15px;}
+.qa .ans{display:none; margin-top:10px; border-left:4px solid var(--green); background:#0f2233; border-radius:0 12px 12px 0; padding:12px 16px;}
+.qa .ans.show{display:block;}
+.footer{color:var(--muted); font-size:14px; margin-top:40px; border-top:1px solid var(--line); padding-top:14px;}
+.formula{background:#0a1428; border:1px solid var(--line); border-radius:10px; padding:12px 16px; font-family:"SF Mono",Consolas,Menlo,monospace; font-size:16px; text-align:center; margin:14px 0; color:var(--cyan);}
+ul li, ol li{margin-bottom:6px;}
+</style>
+<script>
+function toggleAns(id){document.getElementById(id).classList.toggle('show');}
+function toggleCheck(el){el.classList.toggle('done');}
+</script>
+</head>
+<body>
+<div class="wrap">
+
+<span class="kicker">PHASE 2 · NGÀY 40 / 60 · RESEARCH LAB · ĐỀ TÀI: TINY VIETNAMESE LM</span>
+<h1>Ngày 40 — Buổi tối: Lab nghiên cứu — Chạy sàn n-gram + cấu hình A, khóa baseline</h1>
+<p class="sub">Sáng nay đã thiết kế xong baseline: sàn n-gram là mốc dưới, cấu hình A là baseline chính, giao thức đo chuẩn là 4 con số trên cùng một tập held-out. Tối nay <b>chạy thật cả hai</b> — sàn n-gram trên CPU trong vài phút, cấu hình A đủ 200M token trên GPU — rồi <b>chạy lại A với seed thứ hai</b> để biết sai số đo. Đêm nay là đêm khóa thước: từ mai trở đi, mọi "cải tiến" đều đo bằng hai con số khóa tối nay, không đổi thước giữa chừng.</p>
+<div class="meta"><span>⏱️ Ước lượng ~130 phút</span><span>📄 Sản phẩm: ngram_floor.py + measure_run.py + compare_runs.py + baseline_results.md + experiment_detail_sheet.md</span><span>🎯 RQ: RQ1 · RQ2 · RQ3 — E0/E1/E5 tối nay</span></div>
+
+<h2>1 · Tóm tắt nhiệm vụ buổi sáng</h2>
+<p>Sáng nay (Day 40) đã làm 4 việc để biến phần "baseline" trong đề cương thành hai lần chạy thật và một bảng số đo chuẩn:</p>
+<ul>
+<li><b>Vì sao cần baseline:</b> PPL 7,78 đứng một mình không có nghĩa — tốt hay dở chỉ biết khi so với sàn n-gram. Baseline chạy <i>trước</i>, số liệu của baseline được <i>khóa lại</i> trước khi chạy thí nghiệm. Ai chạy thí nghiệm trước rồi quay lại "chọn" baseline sau thì đang tự lừa mình.</li>
+<li><b>Sàn n-gram (E0):</b> trigram + Kneser-Ney smoothing, chỉ đếm tần suất trên CPU trong vài phút, 0 GPU-giờ. Mọi mô hình neural đều phải thắng nó rõ rệt — nếu không, pipeline dữ liệu hoặc huấn luyện đang có vấn đề.</li>
+<li><b>Baseline chính — cấu hình A (E1):</b> ~10M tham số (d = 320, 6 layer, tied embeddings), 200M token, 1 epoch, ~8 phút trên 1 GPU RTX 4090, D/N = 20 (Chinchilla). Rẻ nhất để lặp lại, đủ mạnh để làm thước. <b>Chạy A trong lab KHÔNG phải là chốt A làm kích thước cuối</b> — N chỉ chốt sau khi so A, B, C.</li>
+<li><b>Giao thức đo chuẩn:</b> mỗi lần chạy ghi đủ 4 số — PPL held-out, tokens/s, MFU, năng lượng (kWh) — trên cùng tập held-out (test ~1%, đã đóng băng), cùng seed, cùng phần cứng, <b>chỉ đổi một thứ</b>. Dữ liệu: khử trùng lặp <i>trước</i>, tách train/val/test <i>sau</i>, rồi khóa test lại.</li>
+</ul>
+<div class="formula">Baseline khóa tối nay ⟺ mọi "cải tiến" sau này đều có thước để đo<br>Ô nào chưa có số thì để trống + ghi [chờ số liệu] · Số ước lượng lấp chỗ trống = lỗi khoa học</div>
+<div class="warn">⚠️ <b>Trần P vẫn để trống — tối nay cũng chưa chốt từ PPL nền.</b> P là trần PPL, chỉ chốt được sau khi cấu hình A train xong đủ 200M token (Phần B). Số liệu lab Day 34/35 của bạn vẫn chưa nộp, nên bảng kết quả tối nay ghi rõ: <code>P = [chờ số liệu lab Day 40 — E1 chạy đủ 200M token]</code>. Nếu tối nay GPU bận và A chưa chạy đủ, ô P ở nguyên trạng thái chờ — không lấy PPL sau vài triệu token làm trần.</div>
+
+<h2>2 · Nhiệm vụ tối nay — 4 phần việc</h2>
+
+<h3>Phần A — Chạy sàn n-gram E0: trigram + Kneser-Ney, đo PPL trên held-out (45 phút, chạy thật bằng code)</h3>
+<p>Viết file <code>ngram_floor.py</code> (Python thuần, không cần thư viện ngoài, không cần GPU) trong repo đề tài. Script đếm tần suất trên tập train đã khử trùng lặp, dùng <b>Kneser-Ney smoothing</b> (công thức Chen &amp; Goodman: trừ tuyệt đối D = 0,75 rồi chia phần xác suất còn lại theo tần suất tiếp nối) và tính PPL trên tập test đã khóa. Code đầy đủ — bạn chỉ việc lưu file rồi chạy:</p>
+<pre>"""San n-gram — trigram + Kneser-Ney — Day 40, thi nghiem E0.
+Chay demo (khong can du lieu that, de kiem tra script chay duoc):
+    python ngram_floor.py --demo
+Chay tren du lieu that (1 cau / dong, tu tach bang khoang trang):
+    python ngram_floor.py --train data/train.txt --test data/test.txt
+In: so token train/test, PPL trigram tren tap test.
+Khong can GPU, khong can thu vien ngoai. Chi do tren tap TEST da khoa;
+khong bao gio train tren test. Tu chi xuat hien 1 lan trong train duoc
+gom ve &lt;unk&gt; de tu la trong test van co xac suat > 0."""
+import argparse, math
+from collections import Counter, defaultdict
+
+D = 0.75  # absolute discount (Kneser-Ney mac dinh)
+
+DEMO_SENTS = [
+    "máy học giúp máy tính hiểu ngôn ngữ của con người",
+    "mô hình ngôn ngữ dự đoán từ tiếp theo trong câu",
+    "tiếng việt có dấu thanh và cấu trúc câu đặc biệt",
+    "dữ liệu sạch giúp mô hình học nhanh hơn và ít nhiễu hơn",
+    "huấn luyện mô hình nhỏ tốn ít điện hơn mô hình lớn",
+    "đánh giá mô hình cần tập kiểm tra tách riêng từ đầu",
+    "từ điển của mô hình được xây từ dữ liệu huấn luyện",
+    "máy tính học từ ví dụ chứ không học từ quy tắc cứng",
+    "ngôn ngữ việt nam có nhiều từ mượn và từ ghép",
+    "mô hình nhỏ vẫn có thể viết câu đúng ngữ pháp",
+    "kiểm tra trên dữ liệu mới cho biết mô hình có học thật không",
+    "tiết kiệm năng lượng là mục tiêu chính của đề tài này",
+    "mỗi lần chạy thí nghiệm chỉ nên thay đổi một yếu tố",
+    "số liệu đo được phải ghi lại đầy đủ và trung thực",
+    "mô hình dự đoán từ tiếp theo dựa vào các từ trước đó",
+    "dữ liệu trùng lặp làm mô hình nhớ máy móc thay vì học",
+    "tách dữ liệu kiểm tra trước khi huấn luyện là bắt buộc",
+    "mô hình càng lớn càng cần nhiều dữ liệu và thời gian",
+    "người dùng muốn mô hình trả lời nhanh và chính xác",
+    "học máy là một phần quan trọng của trí tuệ nhân tạo",
+]
+
+def tokenize_file(path):
+    sents = []
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            toks = line.strip().split()
+            if toks:
+                sents.append(["&lt;s&gt;", "&lt;s&gt;"] + toks + ["&lt;/s&gt;"])
+    return sents
+
+def to_sents(texts):
+    return [["&lt;s&gt;", "&lt;s&gt;"] + t.split() + ["&lt;/s&gt;"] for t in texts]
+
+class KNTrigram:
+    def __init__(self, sents):
+        self.c1, self.c2, self.c3 = Counter(), Counter(), Counter()
+        self.cont1 = Counter()            # N1+(*, w): so bigram khac nhau ket thuc bang w
+        self.cont2 = defaultdict(set)     # v -> tap cac tu di sau v
+        self.cont3 = defaultdict(set)     # (u, v) -> tap cac tu di sau
+        seen_bigram = set()
+        for s in sents:
+            for w in s:
+                self.c1[w] += 1
+            for a, b in zip(s, s[1:]):
+                self.c2[(a, b)] += 1
+                if (a, b) not in seen_bigram:
+                    seen_bigram.add((a, b))
+                    self.cont1[b] += 1
+                self.cont2[a].add(b)
+            for a, b, c in zip(s, s[1:], s[2:]):
+                self.c3[(a, b, c)] += 1
+                self.cont3[(a, b)].add(c)
+        self.n_bigram_types = len(seen_bigram)
+
+    def p1(self, w):
+        return self.cont1[w] / max(1, self.n_bigram_types)
+
+    def p2(self, w, v):
+        cv = self.c1[v]
+        if cv == 0:
+            return self.p1(w)
+        lam = D * len(self.cont2[v]) / cv
+        return max(self.c2[(v, w)] - D, 0) / cv + lam * self.p1(w)
+
+    def p3(self, w, u, v):
+        cuv = self.c2[(u, v)]
+        if cuv == 0:
+            return self.p2(w, v)
+        lam = D * len(self.cont3[(u, v)]) / cuv
+        return max(self.c3[(u, v, w)] - D, 0) / cuv + lam * self.p2(w, v)
+
+    def logprob(self, sents):
+        total, n = 0.0, 0
+        for s in sents:
+            for a, b, c in zip(s, s[1:], s[2:]):
+                p = self.p3(c, a, b)
+                total += math.log(max(p, 1e-12))
+                n += 1
+        return total, n
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--train")
+    ap.add_argument("--test")
+    ap.add_argument("--demo", action="store_true")
+    args = ap.parse_args()
+    if args.demo:
+        train = to_sents(DEMO_SENTS[:15])
+        test = to_sents(DEMO_SENTS[15:])
+        tag = "DEMO (15 cau train / 5 cau test — chi de kiem tra script)"
+    else:
+        assert args.train and args.test, "can --train va --test, hoac --demo"
+        train = tokenize_file(args.train)
+        test = tokenize_file(args.test)
+        tag = f"THAT: train={args.train} test={args.test}"
+    # Gom tu chi xuat hien 1 lan trong train ve &lt;unk&gt; (ca train lan test)
+    once = {w for w, c in Counter(w for s in train for w in s).items() if c == 1}
+    train = [[("&lt;unk&gt;" if w in once else w) for w in s] for s in train]
+    vocab = {w for s in train for w in s}
+    test = [[(w if w in vocab else "&lt;unk&gt;") for w in s] for s in test]
+    m = KNTrigram(train)
+    total, n = m.logprob(test)
+    ppl = math.exp(-total / n)
+    n_train = sum(len(s) - 3 for s in train)
+    print(f"[{tag}]")
+    print(f"Train tokens: {n_train} | Test tokens: {n}")
+    print(f"PPL trigram + Kneser-Ney tren tap test: {ppl:.2f}")
+
+if __name__ == "__main__":
+    main()</pre>
+<p><b>Việc của bạn trong phần này:</b> (1) lưu file, chạy <code>python ngram_floor.py --demo</code> trước — script phải in ra một con số PPL (đó là PPL demo trên 20 câu mẫu, <b>không phải</b> PPL của đề tài, chỉ để chứng minh script chạy được); (2) chạy trên dữ liệu thật: train = dữ liệu Wikipedia-vi đã khử trùng lặp (Day 33), test = tập held-out ~1% đã khóa — ghi PPL thật vào bảng kết quả ở Phần D; (3) kiểm tra "sân" có chung không: đếm và ghi lại số token train/test, xác nhận cả n-gram lẫn mô hình A ăn cùng một dữ liệu, cùng một tập test — nếu hai bên dùng dữ liệu khác nhau thì dừng lại và sửa, đừng so sánh hai con số không cùng sân.</p>
+<div class="note">💡 <b>Vì sao không dùng kenlm cho nhanh?</b> kenlm (pip install kenlm) nhanh hơn nhiều trên 200M token và là chuẩn thực tế cho n-gram lớn — nếu máy bạn cài được, dùng kenlm để build binary rồi query là lựa chọn tốt cho dữ liệu thật. Script trên là "bản tham chiếu chạy được mọi nơi": nó chứng minh bạn hiểu đúng công thức Kneser-Ney và cho ra con số sàn để đối chiếu — nếu kenlm và script này cho PPL chênh nhau quá lớn trên cùng dữ liệu thì có gì đó sai ở một trong hai bên, phải kiểm tra trước khi khóa sàn.</div>
+
+<h3>Phần B — Chạy cấu hình A đủ 200M token (E1) + đo đủ 4 con số (40 phút)</h3>
+<p>Đây là lần chạy quan trọng nhất của đề tài: baseline chính. Viết file <code>measure_run.py</code> (Python thuần) — đọc log huấn luyện dạng JSONL (mỗi dòng một checkpoint: step, loss, tokens đã train, giây wall-clock, công suất GPU) và tính ra 4 con số chuẩn. Code đầy đủ:</p>
+<pre>"""Do 4 con so chuan cho 1 lan chay — Day 40, giao thuc do §5.
+Log JSONL: moi dong {"step":..,"loss":..,"tokens":..,"elapsed_s":..,
+"power_w":..} — ghi trong luc train (xem run_A.sh mau ben duoi).
+Chay: python measure_run.py train_log.jsonl --params-m 9.94 --gpu-peak-tflops 82.6
+In: PPL held-out, tokens/s, MFU, kWh, GPU-gio. Ghi 1 dong vao baseline_results.csv.
+Luu y: PPL o day la exp(loss TRUNG BINH) tren tap TEST — khong phai loss train.
+Neu log cua ban chi co loss train, hay them buoc danh gia tren test vao cuoi
+qua trinh train roi moi chay script nay."""
+import argparse, csv, json, math, os
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("log")
+    ap.add_argument("--params-m", type=float, default=9.94)
+    ap.add_argument("--gpu-peak-tflops", type=float, default=82.6)  # RTX 4090 (FP16, khong sparsity)
+    ap.add_argument("--out", default="baseline_results.csv")
+    args = ap.parse_args()
+    rows = [json.loads(l) for l in open(args.log, encoding="utf-8") if l.strip()]
+    assert len(rows) &gt;= 2, "log can it nhat 2 dong"
+    losses = [r["loss"] for r in rows]
+    mean_loss = sum(losses) / len(losses)
+    ppl = math.exp(mean_loss)
+    tokens = rows[-1]["tokens"]
+    secs = rows[-1]["elapsed_s"]
+    tps = tokens / secs
+    flops = 6 * args.params_m * 1e6 * tokens   # xap xi 6*N*D (Kaplan)
+    mfu = flops / (args.gpu_peak_tflops * 1e12 * secs)
+    powers = [r["power_w"] for r in rows if "power_w" in r]
+    avg_w = sum(powers) / len(powers) if powers else None
+    kwh = avg_w * secs / 3.6e6 if avg_w else None
+    print(f"So dong log: {len(rows)} | Token da train: {tokens:,}")
+    print(f"1. PPL held-out: {ppl:.2f} (loss TB {mean_loss:.4f})")
+    print(f"2. Toc do: {tps:,.0f} tokens/s")
+    print(f"3. MFU: {mfu*100:.1f}% (6*N*D / (FLOPS dinh * giay))")
+    if kwh is not None:
+        print(f"4. Nang luong: {kwh:.3f} kWh (cong suat TB {avg_w:.0f} W, {secs/60:.1f} phut)")
+    else:
+        print("4. Nang luong: [chua co power_w trong log — them nvidia-smi, xem run_A.sh]")
+    print(f"   GPU-gio: {secs/3600:.2f}")
+    new = not os.path.exists(args.out)
+    with open(args.out, "a", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        if new:
+            w.writerow(["run", "ppl", "tokens_per_s", "mfu", "kwh", "gpu_hours", "seed", "ghi_chu"])
+        w.writerow([os.path.splitext(os.path.basename(args.log))[0], f"{ppl:.2f}",
+                    f"{tps:.0f}", f"{mfu:.4f}",
+                    f"{kwh:.3f}" if kwh is not None else "",
+                    f"{secs/3600:.2f}", "", ""])
+    print(f"Da ghi 1 dong vao {args.out} (dien seed + ghi chu vao file sau).")
+
+if __name__ == "__main__":
+    main()</pre>
+<p>Mẫu <code>run_A.sh</code> — lệnh chạy A + cách lấy công suất GPU trong lúc train (điền lệnh train thật của bạn vào chỗ <code># &lt;lenh train cua ban&gt;</code>):</p>
+<pre>#!/bin/bash
+# Chay cau hinh A — E1, baseline chinh (Day 40). 1 GPU RTX 4090.
+# A: ~9,94M tham so (d=320, 6 layer, tied embeddings), 200M token, 1 epoch,
+# D/N = 20, seed CO DINH (ghi lai, vi du 42). Chay xong moi duoc mo tap test.
+set -e
+SEED=42
+# Lay cong suat GPU moi 10 giay ra file rieng (de ghep vao log JSONL sau):
+nvidia-smi --query-gpu=power.draw --format=csv,noheader,nounits -l 10 \
+  &gt; power_A_seed42.log &amp;
+SMI_PID=$!
+# &lt;lenh train cua ban&gt; — vi du: python train.py --config config_A.py \
+#   --seed $SEED --tokens 200000000 --log train_A_seed42.jsonl
+# &lt;lenh train cua ban&gt;
+kill $SMI_PID || true
+python measure_run.py train_A_seed42.jsonl --params-m 9.94</pre>
+<p><b>Việc của bạn trong phần này:</b> (1) điền lệnh train thật của bạn vào <code>run_A.sh</code> (config A: d = 320, 6 layer, tied embeddings, ~9,94M tham số, 200M token, 1 epoch, seed 42); (2) chạy A đủ 200M token — nếu tối nay GPU bận, chạy trước bản <b>dry-run 1M token</b> để kiểm tra toàn bộ pipeline (lệnh train + log JSONL + <code>measure_run.py</code> chạy ra đủ 4 số), rồi chạy đủ 200M ngay khi GPU rảnh — ghi rõ vào sổ lab là "A dry-run xong, chạy đủ đang chờ GPU" thay vì giả vờ đã xong; (3) chạy <code>measure_run.py</code> trên log thật, điền seed vào <code>baseline_results.csv</code>, ghi 4 số vào bảng Phần D. <b>Trần P chỉ chốt từ lần chạy đủ 200M này</b> — PPL sau vài triệu token không phải trần.</p>
+<div class="note">💡 <b>MFU thấp thì sao?</b> Nếu MFU dưới ~30% thì GPU đang chờ dữ liệu chứ không phải đang tính — kiểm tra dataloader (batch, num_workers, pin_memory) trước khi chạy B/C. Một baseline đo MFU thấp mà không ghi chú thì mọi so sánh "tiết kiệm điện" sau này đều lệch, vì chi phí thật nằm ở thời gian GPU chờ chứ không phải ở số tham số.</div>
+
+<h3>Phần C — Lặp seed E5: chạy lại A với seed thứ hai, biết sai số đo (30 phút)</h3>
+<p>Chạy lại đúng cấu hình A, đúng dữ liệu, đúng 200M token — <b>chỉ đổi seed</b> (ví dụ seed 1337). Viết file <code>compare_runs.py</code> để máy kết luận thay bạn:</p>
+<pre>"""So 2 lan chay cung cau hinh, khac seed (E5) — Day 40.
+Chay: python compare_runs.py baseline_results.csv E1-seed42 E1-seed1337
+Doc: PPL cua 2 lan chay trong baseline_results.csv (cot 'run' va 'ppl').
+In: PPL tung lan, |delta PPL|, ket luan doi chieu voi nguong 0,3 (Day 40 §5).
+Quy tac: |delta| &lt;= 0,3 -> chenh lech nho hon nhieu do, CHUA ket luan gi ve B/C.
+|delta| &gt; 0,3 -> ghi chu ro, xem lai pipeline truoc khi chay B/C."""
+import csv, sys
+
+def load(path):
+    rows = {}
+    with open(path, encoding="utf-8") as f:
+        for r in csv.DictReader(f):
+            rows[r["run"]] = r
+    return rows
+
+def main():
+    assert len(sys.argv) == 4, "dung: compare_runs.py baseline_results.csv &lt;run1&gt; &lt;run2&gt;"
+    rows = load(sys.argv[1])
+    r1, r2 = rows[sys.argv[2]], rows[sys.argv[3]]
+    p1, p2 = float(r1["ppl"]), float(r2["ppl"])
+    d = abs(p1 - p2)
+    print(f"{sys.argv[2]}: PPL {p1:.2f} (seed {r1.get('seed','?')})")
+    print(f"{sys.argv[3]}: PPL {p2:.2f} (seed {r2.get('seed','?')})")
+    print(f"|delta PPL| = {d:.2f}  (nguong sai so do: 0,3)")
+    if d &lt;= 0.3:
+        print("KET LUAN: chenh lech trong pham vi nhieu do. Moi so sanh A vs B/C")
+        print("nho hon 0,3 PPL deu CHUA DUOC TIN — can them lan lap hoac hieu so lon hon.")
+    else:
+        print("CANH BAO: dao dong seed vuot 0,3 PPL. Ghi chu ro vao bao cao,")
+        print("xem lai pipeline (du lieu? seed? checkpoint?) truoc khi chay B/C.")
+
+if __name__ == "__main__":
+    main()</pre>
+<p><b>Việc của bạn trong phần này:</b> (1) chạy A lần hai với seed khác (chỉ đổi seed — trước khi chạy, viết ra câu "thứ duy nhất thay đổi là <i>seed</i>" và kiểm tra dữ liệu, phần cứng, tập đo đều giống hệt lần một); (2) chạy <code>compare_runs.py</code> và ghi kết quả vào sổ lab; (3) nếu |ΔPPL| &gt; 0,3 thì <b>chưa kết luận gì về B/C</b> — ghi chú rõ vào báo cáo, xem lại pipeline trước đã.</p>
+
+<h3>Phần D — Khóa baseline: điền bảng kết quả + viết experiment detail sheet (15 phút)</h3>
+<p>Viết file <code>baseline_results.md</code> trong repo — bảng duy nhất mà Day 41 sẽ đọc để quyết định E1 có đáng chạy tiếp không. Mẫu (chỉ điền số đo thật, ô nào chưa có số thì để trống và ghi rõ [chờ số liệu]):</p>
+<pre># Ket qua baseline — Tiny Vietnamese LM (Day 40)
+# Seed co dinh cho moi lan chay so sanh: 42 (E5 dung seed 1337)
+# Tap do: test ~1% Wikipedia-vi da khoa (khong train, khong chon mo hinh tren test)
+# Phan cung: 1 GPU RTX 4090
+| Lan chay | PPL held-out | tokens/s | MFU | Nang luong | Ghi chu |
+| n-gram (san, E0) | [cho so lieu] | — | — | ~0 kWh | CPU, trigram + Kneser-Ney |
+| A (baseline chinh, E1) | [cho so lieu] | [cho so lieu] | [cho so lieu] | [cho so lieu] | seed = 42 |
+| A — seed 2 (E5) | [cho so lieu] | — | — | — | Sai so do: |delta PPL| = [cho so lieu] |
+Tran PPL P = [cho so lieu lab Day 40 — E1 chay du 200M token]
+Quy tac khoa: tu Day 41, moi "cai tien" deu so voi 2 moc nay. Khong doi thuoc giua chung.</pre>
+<p>Sau đó viết <code>experiment_detail_sheet.md</code> — mỗi thí nghiệm E0/E1/E5 một trang, ghi đủ cấu hình, dữ liệu, seed, cách đo, checkpoint lưu ở đâu và điểm dừng (gợi ý cải tiến từ Day 39). Mẫu một trang — làm tương tự cho E1 và E5:</p>
+<pre># Experiment detail sheet — Tiny Vietnamese LM (Day 40)
+## E0 — San n-gram
+- Cau hinh: trigram + Kneser-Ney (D = 0,75), vocab tu train, &lt;unk&gt; cho tu la
+- Du lieu: Wikipedia-vi da khu trung lap (train ~98%) / test ~1% da khoa
+- Seed: khong dung (dem tan suat, khong co yeu to ngau nhien)
+- Cach do: python ngram_floor.py --train ... --test ... (PPL tren test)
+- Checkpoint: khong co (mo hinh dem, chay lai trong vai phut)
+- Diem dung: PPL san bat thuong (cao hon du kien ro ret) -&gt; kiem tra tap held-out
+  truoc khi chay E1
+- Tra loi: moc duoi cho RQ1/RQ3 — moi mo hinh neural phai thang ro ret moc nay
+## E1 — Baseline chinh A
+- Cau hinh: ~9,94M (d=320, 6 layer, tied embeddings), 200M token, 1 epoch, D/N = 20
+- Du lieu: nhu E0 (cung train, cung test) — thu duy nhat thay doi so voi E0 la mo hinh
+- Seed: 42 (ghi lai, dung cho moi lan chay so sanh)
+- Cach do: run_A.sh + measure_run.py (PPL, tokens/s, MFU, kWh)
+- Checkpoint: luu cuoi train + ghi duong dan vao day: [duong dan checkpoint]
+- Diem dung: PPL A bat thuong (gan hoac thap hon san n-gram mot cach kho tin,
+  hoac cao gap doi du kien) -&gt; dung ngay, sua pipeline roi moi chay tiep
+- Tra loi: RQ1, RQ3 — moc 0 cho moi thi nghiem E1–E5; tran P chot tu lan chay nay
+## E5 — Lap seed
+- Cau hinh: giong het E1, chi doi seed (1337)
+- Du lieu / tap do / phan cung: giong het E1
+- Cach do: compare_runs.py (nguong 0,3 PPL)
+- Diem dung: |delta PPL| &gt; 0,3 -&gt; ghi chu ro, xem lai pipeline, chua ket luan ve B/C
+- Tra loi: sai so do cho H2 (E1 vs E2) va moi so sanh A vs B/C</pre>
+
+<h2>3 · Tự kiểm tra nhanh</h2>
+<div class="qa"><p><b>1. Vì sao baseline phải chạy trước và khóa lại trước khi chạy thí nghiệm?</b></p>
+<button onclick="toggleAns('a1')">Hiện đáp án</button>
+<div class="ans" id="a1">Vì nếu chạy thí nghiệm trước rồi mới "chọn" baseline sau, bạn sẽ vô thức chọn baseline nào làm kết quả của mình đẹp nhất — đó là tự lừa mình. Baseline khóa trước là cái thước cố định; mọi "cải tiến" sau đó đều đo bằng thước đó, không đổi thước giữa chừng.</div></div>
+<div class="qa"><p><b>2. Vì sao tách dữ liệu sau khi khử trùng lặp, chứ không phải trước?</b></p>
+<button onclick="toggleAns('a2')">Hiện đáp án</button>
+<div class="ans" id="a2">Vì nếu tách trước rồi mới khử trùng lặp từng phần riêng, các bản sao của cùng một đoạn văn có thể rơi vào cả train lẫn test — test bị "nhiễm" và PPL thấp một cách giả tạo. Thứ tự đúng: khử trùng lặp trước, tách sau, rồi khóa test lại.</div></div>
+<div class="qa"><p><b>3. A và B chênh nhau 0,2 PPL, dao động seed (E5) là ±0,3. Kết luận gì?</b></p>
+<button onclick="toggleAns('a3')">Hiện đáp án</button>
+<div class="ans" id="a3">Chưa kết luận gì — chênh lệch 0,2 nhỏ hơn cả nhiễu đo (±0,3) nên rất có thể chỉ là nhiễu, không phải cải tiến thật. Cần thêm lần lặp hoặc hiệu số lớn hơn 0,3 mới được tin. Đây chính là lý do E5 phải chạy trước khi so B/C.</div></div>
+
+<h2>4 · Câu hỏi phản biện — trả lời trong chat (advisor chấm)</h2>
+<ol>
+<li>Sau E0, sàn n-gram của bạn là bao nhiêu — và con số đó nói gì về độ khó của dữ liệu Wikipedia-vi? Nếu sàn n-gram đã rất thấp (ví dụ dưới 15), điều đó cảnh báo gì về khả năng "cải tiến" của mô hình neural?</li>
+<li>Giả sử chạy A xong, PPL của A chỉ thấp hơn sàn n-gram một chút (ví dụ sàn 30, A 28). Bạn kết luận gì — A quá yếu, pipeline dữ liệu có vấn đề, hay sàn n-gram quá mạnh? Bạn kiểm tra thứ gì đầu tiên, và bằng cách nào?</li>
+<li>Trần P chốt từ lần chạy E1 đủ 200M token. Nếu giữa chừng bạn phát hiện config A có lỗi (ví dụ learning rate sai) và phải chạy lại, trần P cũ còn giá trị không — và bạn viết điều đó vào báo cáo như thế nào để không ai tưởng P được chốt hai lần?</li>
+<li>MFU của A đo được chỉ 22%. Bạn có chạy B/C tiếp không, hay dừng lại sửa dataloader trước? Tính thử: nếu sửa dataloader đưa MFU từ 22% lên 45% thì một lần chạy C (~110 phút) tiết kiệm được bao nhiêu GPU-giờ — và con số đó có đáng để dừng một buổi không?</li>
+<li>Trong 4 con số đo chuẩn, nếu chỉ được giữ lại 2 số để so sánh các lần chạy sau này, bạn giữ 2 số nào — và số nào bị bỏ đi sẽ làm mất khả năng trả lời RQ nào?</li>
+</ol>
+
+<h2>5 · Checklist tự đánh giá (tự chấm trước khi nộp)</h2>
+<ul class="check">
+<li onclick="toggleCheck(this)">Tôi chạy được <code>ngram_floor.py --demo</code> và hiểu con số PPL demo chỉ chứng minh script chạy được, không phải PPL của đề tài.</li>
+<li onclick="toggleCheck(this)">Tôi đo được PPL sàn n-gram trên dữ liệu thật, cùng tập test mà A sẽ dùng — và ghi số token train/test để chứng minh hai bên cùng "sân".</li>
+<li onclick="toggleCheck(this)">Tôi viết được câu "thứ duy nhất thay đổi là ___" cho từng cặp so sánh (E0→E1, E1→E5) và kiểm tra các điều kiện còn lại bằng nhau.</li>
+<li onclick="toggleCheck(this)">Tôi đo đủ 4 con số cho E1 (hoặc ghi rõ "A dry-run xong, chạy đủ đang chờ GPU" nếu tối nay chưa chạy đủ).</li>
+<li onclick="toggleCheck(this)">Tôi biết |ΔPPL| giữa hai seed là bao nhiêu và nó có vượt ngưỡng 0,3 không — và tôi chưa kết luận gì về B/C nếu nó vượt ngưỡng.</li>
+<li onclick="toggleCheck(this)">Ô trần P trong <code>baseline_results.md</code> vẫn để trống đúng cách (không có con số PPL nào được điền thay).</li>
+</ul>
+
+<h2>6 · Bẫy thường gặp</h2>
+<ul>
+<li><b>So PPL của n-gram và A trên hai tập dữ liệu khác nhau.</b> Quên khử trùng lặp ở một bên, hoặc đo n-gram trên test nhưng đo A trên val — hai con số không cùng sân thì so sánh vô nghĩa. Cách chữa: ghi số token train/test của cả hai bên vào cùng một bảng, đối chiếu trước khi kết luận.</li>
+<li><b>Chốt trần P từ PPL nền sau vài triệu token.</b> PPL đầu train còn cao và chưa ổn định — lấy nó làm trần thì mọi "cải tiến" sau này đều dễ dàng vượt trần giả. Cách chữa: P chỉ chốt từ E1 chạy đủ 200M token; chưa chạy đủ thì ô P ở nguyên trạng thái chờ.</li>
+<li><b>Đổi seed mà không ghi, hoặc đổi seed kèm đổi luôn dữ liệu/phần cứng.</b> Hai lần chạy khác nhau ở hai thứ thì chênh lệch PPL không quy được cho thứ nào. Cách chữa: trước mỗi lần chạy, viết câu "thứ duy nhất thay đổi là ___" và ghi seed vào <code>baseline_results.csv</code> ngay sau khi chạy xong.</li>
+</ul>
+
+<h2>7 · Checklist nộp bài</h2>
+<ul class="check">
+<li onclick="toggleCheck(this)">Đã chạy <code>ngram_floor.py</code> (demo + dữ liệu thật) và ghi PPL sàn vào bảng kết quả.</li>
+<li onclick="toggleCheck(this)">Đã viết <code>measure_run.py</code> + <code>run_A.sh</code>, chạy A (đủ 200M token, hoặc dry-run 1M token + ghi rõ trạng thái chờ GPU) và đo đủ 4 con số.</li>
+<li onclick="toggleCheck(this)">Đã chạy A với seed thứ hai, chạy <code>compare_runs.py</code> và ghi |ΔPPL| + kết luận so với ngưỡng 0,3.</li>
+<li onclick="toggleCheck(this)">Đã viết <code>baseline_results.md</code> (ô trần P để trống đúng cách) + <code>experiment_detail_sheet.md</code> (E0/E1/E5).</li>
+<li onclick="toggleCheck(this)">Đã trả lời 5 câu phản biện ở mục 4 trong chat.</li>
+</ul>
+<p><b>Nộp bài:</b> paste code/kết quả vào chat để được nhận xét — gồm: PPL sàn n-gram (kèm số token train/test), 4 con số của E1 (hoặc trạng thái dry-run/chờ GPU), |ΔPPL| của E5, file <code>baseline_results.md</code>, và 5 câu trả lời phản biện.</p>
+
+<div class="note">💡 <b>Gợi ý cải tiến cho ngày mai (Day 41):</b> đọc bảng baseline tối nay rồi viết "quyết định E1" bằng văn bản: sàn n-gram và A chênh nhau bao nhiêu, dao động seed là bao nhiêu — từ đó quyết định E1 (tokenizer) có đáng chạy tiếp không, hay phải sửa pipeline trước. Viết quyết định này thành một đoạn ngắn trong <code>baseline_results.md</code> (mục "Quyết định sau baseline") để Day 41 không phải đoán lại từ các con số rời rạc.</div>
+
+<div class="footer">Khóa "Trở thành AI Engineer (LLM)" — Phase 2, đề tài Tiny Vietnamese LM · Ngày 40 · Buổi tối: thực hành. File giải thích chi tiết: <a href="Day40_giai_thich.html">Day40_giai_thich.html</a> · Bài học buổi sáng: <a href="Day40_lesson.html">Day40_lesson.html</a> · Quiz: <a href="Day40_quiz.html">Day40_quiz.html</a></div>
+</div>
+</body>
+</html>

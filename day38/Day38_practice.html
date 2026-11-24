@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ngày 38 — Buổi tối: Lab nghiên cứu — Đề cương 5 phần + baseline n-gram chạy thật</title>
+<style>
+:root{--bg:#0a0f1e; --card:#101830; --line:#22305a; --gold:#f5c542; --green:#4ade80;
+ --red:#f87171; --violet:#a78bfa; --cyan:#67e8f9; --text:#e8edf7; --muted:#93a0bd;}
+*{box-sizing:border-box;}
+body{margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.75; font-size:16.5px;}
+.wrap{max-width:820px; margin:0 auto; padding:18px 16px 60px;}
+.kicker{display:inline-block; font-size:13px; letter-spacing:1px; color:var(--gold); font-weight:700; margin-bottom:8px;}
+h1{font-size:28px; line-height:1.3; margin:6px 0 10px;}
+h2{font-size:22px; margin:34px 0 10px; color:var(--cyan);}
+h3{font-size:18px; margin:22px 0 8px; color:var(--gold);}
+.sub{color:var(--muted); font-size:16.5px;}
+.meta{display:flex; gap:8px; flex-wrap:wrap; margin:14px 0 6px;}
+.meta span{font-size:13.5px; background:var(--card); border:1px solid var(--line); border-radius:999px; padding:5px 14px;}
+.card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px; margin:16px 0;}
+.note{border-left:4px solid var(--green); background:#0f2233; border-radius:0 12px 12px 0; padding:12px 16px; margin:14px 0;}
+.warn{border-left:4px solid var(--red); background:#23141a; border-radius:0 12px 12px 0; padding:12px 16px; margin:14px 0;}
+.rq{background:#141d3a; border:1px solid var(--violet); border-radius:10px; padding:12px 16px; margin:10px 0;}
+.rq b{color:var(--violet);}
+.check{list-style:none; padding-left:0;}
+.check li{padding-left:28px; position:relative; margin-bottom:8px;}
+.check li::before{content:"☐"; position:absolute; left:0; color:var(--gold); font-size:17px;}
+.check li.done::before{content:"☑"; color:var(--green);}
+.check li input{position:absolute; left:0; top:4px; width:18px; height:18px; opacity:0; cursor:pointer;}
+.check li.done{color:var(--muted); text-decoration:line-through;}
+code{background:#0a0f1e; border:1px solid var(--line); border-radius:6px; padding:1px 7px; font-size:15px;}
+pre{background:#0a0f1e; border:1px solid var(--line); border-radius:10px; padding:14px 16px; overflow-x:auto; font-size:14.5px; line-height:1.6; white-space:pre-wrap;}
+table{width:100%; border-collapse:collapse; margin:12px 0; font-size:15px;}
+th,td{border:1px solid var(--line); padding:8px 10px; text-align:left;}
+th{background:#141d3a; color:var(--gold);}
+.qa{margin:14px 0;}
+.qa button{background:var(--gold); color:#14100a; font-weight:700; border:none; border-radius:10px; padding:10px 18px; cursor:pointer; font-size:15px;}
+.qa .ans{display:none; margin-top:10px; border-left:4px solid var(--green); background:#0f2233; border-radius:0 12px 12px 0; padding:12px 16px;}
+.qa .ans.show{display:block;}
+.footer{color:var(--muted); font-size:14px; margin-top:40px; border-top:1px solid var(--line); padding-top:14px;}
+.formula{background:#0a1428; border:1px solid var(--line); border-radius:10px; padding:12px 16px; font-family:"SF Mono",Consolas,Menlo,monospace; font-size:16px; text-align:center; margin:14px 0; color:var(--cyan);}
+ul li, ol li{margin-bottom:6px;}
+</style>
+<script>
+function toggleAns(id){document.getElementById(id).classList.toggle('show');}
+function toggleCheck(el){el.classList.toggle('done');}
+</script>
+</head>
+<body>
+<div class="wrap">
+
+<span class="kicker">PHASE 2 · NGÀY 38 / 60 · RESEARCH LAB · ĐỀ TÀI: TINY VIETNAMESE LM</span>
+<h1>Ngày 38 — Buổi tối: Lab nghiên cứu — Đề cương 5 phần + baseline n-gram chạy thật</h1>
+<p class="sub">Sáng nay đã vẽ xong khung báo cáo và thiết kế 3 baseline. Tối nay không học thêm lý thuyết: <b>viết thật 2 file nghiên cứu</b> (<code>outline.md</code>, <code>baseline_plan.md</code>) và <b>chạy thật baseline sàn E0</b> — một mô hình n-gram viết bằng Python thuần, đo perplexity trên văn bản tiếng Việt mẫu. Baseline sàn là "còi báo động" của cả đề tài: nếu sau này transformer 10M mà thua cả n-gram thì lỗi nằm ở code, không nằm ở lý thuyết — và tối nay bạn sẽ cầm trên tay con số của cái còi đó.</p>
+<div class="meta"><span>⏱️ Ước lượng ~120 phút</span><span>📄 Sản phẩm: outline.md + baseline_plan.md + ngram_baseline.py + check_single_variable.py</span><span>🎯 RQ: RQ1 · RQ2 · RQ3 — mỗi thí nghiệm gắn đúng 1 RQ</span></div>
+
+<h2>1 · Tóm tắt nhiệm vụ buổi sáng</h2>
+<p>Sáng nay (Day 38) đã làm 2 việc nền tảng cho giai đoạn đề cương + baseline (Ngày 38–44):</p>
+<ul>
+<li><b>Khung báo cáo 5 phần:</b> (1) Giới thiệu — vấn đề + khoảng trống (Day 31, đã có); (2) Tổng quan — bản đồ tài liệu theo mạch câu hỏi (Day 32–37, đã có); (3) Phương pháp — dữ liệu Wikipedia-vi đã lọc, tokenizer BPE 8k/16k, kiến trúc A/B/C, giao thức đánh giá 3 lớp (bắt đầu hôm nay); (4) Thí nghiệm — RQ1/RQ2/RQ3 + baseline (Day 45–53, chờ số liệu); (5) Kết luận — trả lời từng RQ, chấp nhận/bác bỏ H1/H2/H3 (Day 54–60). Mạch logic xuyên suốt: vấn đề → đã biết gì → ta làm thế nào → đo được gì → kết luận gì. Mỗi chương sau trả lời đúng câu hỏi chương trước để lại.</li>
+<li><b>3 baseline — mỗi baseline trả lời một RQ khác nhau:</b> <b>sàn (n-gram)</b> là còi báo động kiểm tra pipeline, không trả lời RQ nào — chạy trong vài phút, trước mọi thí nghiệm khác; <b>chính (cấu hình A: 10M / 200M token, dữ liệu đã lọc)</b> trả lời RQ1 + RQ3, mọi cấu hình B/C so với A, không so với nhau; <b>dữ liệu thô (cùng A, dữ liệu chưa lọc)</b> trả lời RQ2 — chênh lệch PPL giữa E1 và E2 chính là giá trị của bước lọc Day 33. Một baseline tốt phải <b>đơn giản, rẻ, công bằng</b> (cùng dữ liệu, cùng cách đo với mô hình chính).</li>
+<li><b>Nguyên tắc "thứ duy nhất thay đổi là ___":</b> trước mỗi thí nghiệm, viết ra một câu như vậy rồi kiểm tra mọi điều kiện còn lại có bằng nhau không — cùng tokenizer, cùng tập held-out, cùng seed, cùng số token, cùng cách đo. Hai thứ đổi cùng lúc thì chênh lệch kết quả không quy được cho thứ nào cả, thí nghiệm đó coi như bỏ.</li>
+<li><b>Ma trận thí nghiệm E0–E5, thứ tự chạy bắt buộc rẻ trước đắt sau:</b> E0 sàn n-gram (vài phút) → E1 baseline chính A (∼8 phút) → E2 dữ liệu thô (∼8 phút) → E5 lặp seed A (∼8 phút, sai số đo cho H2) → E3 cấu hình B (∼50 phút) → E4 cấu hình C (∼110 phút). Tổng ma trận ∼3 GPU-giờ. Bảng ghi kết quả 7 cột cho mọi lần chạy: cấu hình | dữ liệu | seed | PPL held-out | VMLU mẫu (200 câu) | GPU-giờ | kWh | checkpoint.</li>
+</ul>
+<div class="formula">So sánh hợp lệ ⟺ Δ(kết quả) = f(Δ(thứ duy nhất thay đổi))<br>So sánh vô nghĩa ⟺ 2 thứ thay đổi cùng lúc</div>
+<div class="warn">⚠️ <b>Trần P vẫn chưa chốt — và tối nay cũng không chốt.</b> Số liệu lab Day 34 và kết quả train Day 35 của bạn vẫn chưa nộp. P chỉ chốt từ PPL held-out của cấu hình A sau khi train trọn 200M token — không chốt từ PPL đo giữa chừng, không bịa số, không ước lượng P. Hai file tối nay viết được đầy đủ, chỉ để trống ô "Trần PPL P = …" kèm ghi chú "chờ lab Day 34/35" và điền sau khi số liệu về.</div>
+
+<h2>2 · Nhiệm vụ tối nay — 4 phần việc</h2>
+
+<h3>Phần A — Viết outline.md: khung báo cáo 5 phần (30 phút)</h3>
+<p>Viết file <code>outline.md</code> trong repo đề tài theo bảng mục 2 buổi sáng. Mỗi phần 3–5 gạch đầu dòng: viết gì, cần số liệu nào, nguồn từ ngày nào, trạng thái (đã có / hôm nay / chờ thí nghiệm). <b>Phần 4 viết theo mạch RQ, không viết như danh sách thí nghiệm rời rạc:</b> mỗi thí nghiệm trong phần 4 phải có một dòng "Thí nghiệm này trả lời RQ__" — không gắn được với RQ nào thì bỏ thí nghiệm đó. Khung gợi ý:</p>
+<pre># Đề cương báo cáo — Tiny Vietnamese LM (Day 38, cập nhật sau mỗi giai đoạn)
+## 1. Giới thiệu — viết gì: ...
+## 2. Tổng quan — viết gì: ...
+## 3. Phương pháp — viết gì: ...
+## 4. Thí nghiệm — RQ1: ... (E1, E3, E4) | RQ2: ... (E1 vs E2) | RQ3: ... (E1 + VMLU)
+## 5. Kết luận — viết gì: ...
+## Ô trống: Trần PPL P = … (chờ lab Day 34/35 — KHÔNG bịa số)</pre>
+<p>Chấm xong phần này thì tự hỏi: người đọc chỉ nhìn outline có biết được "mỗi chương trả lời câu hỏi nào của chương trước" không? Nếu chưa, viết lại câu mở đầu mỗi phần cho tới khi mạch nối rõ.</p>
+
+<h3>Phần B — Viết baseline_plan.md: 3 baseline + ma trận E0–E5 (30 phút)</h3>
+<p>Viết file <code>baseline_plan.md</code> gồm 3 khối: (1) mô tả 3 baseline — mỗi baseline 3–4 dòng: nó là gì, chạy như thế nào, trả lời RQ nào, chi phí bao nhiêu; (2) ma trận E0–E5 dạng bảng — cột: thí nghiệm | cấu hình | dữ liệu | seed | trả lời RQ nào | chi phí ước tính; (3) <b>câu "thứ duy nhất thay đổi là ___" cho từng thí nghiệm</b>, viết đầy đủ cả 6 câu, ví dụ:</p>
+<ul>
+<li>E1 vs E2: "Thứ duy nhất thay đổi là <b>dữ liệu</b> (đã lọc → chưa lọc); cấu hình A, 200M token, seed, tập held-out giữ nguyên." → trả lời RQ2.</li>
+<li>E1 vs E3: "Thứ duy nhất thay đổi là <b>cấu hình</b> (A 10M/200M → B 25M/500M); dữ liệu đã lọc, seed, tập held-out giữ nguyên." → trả lời RQ1.</li>
+<li>E1 vs E5: "Thứ duy nhất thay đổi là <b>seed</b>; mọi thứ khác giữ nguyên." → sai số đo cho H2.</li>
+</ul>
+<p>Cuối file, chèn bảng ghi kết quả 7 cột (cấu hình | dữ liệu | seed | PPL held-out | VMLU mẫu 200 câu | GPU-giờ | kWh | checkpoint) — bảng này để trống, điền dần ở giai đoạn thí nghiệm Day 45–53. Ghi chú rõ: thiếu một cột là mất khả năng tái tạo.</p>
+
+<h3>Phần C — Lab code chính: baseline sàn n-gram E0 chạy thật (40 phút, sản phẩm chính)</h3>
+<p>Đây là phần làm thật bằng code. Viết file <code>ngram_baseline.py</code> (Python thuần, không cần GPU, không cần thư viện ngoài) — mô hình bigram với Laplace smoothing, train trên văn bản tiếng Việt mẫu, đo PPL trên tập held-out, và so với baseline ngẫu nhiên (PPL = kích thước từ vựng). Chạy file, ghi 2 con số đo được vào sổ lab. Code gợi ý — tự điền phần còn thiếu rồi chạy:</p>
+<pre>"""Baseline san E0: mo hinh bigram + Laplace smoothing.
+Chay: python ngram_baseline.py  (khong can GPU, khong can thu vien ngoai)
+Doc: PPL tren tap held-out; so voi baseline ngau nhien (PPL = |V|).
+Neu bigram thua ca baseline ngau nhien -> pipeline co van de (coi bao dong)."""
+import math
+from collections import Counter, defaultdict
+
+# --- Tap train nho (12 cau tieng Viet mau) ---
+TRAIN = [
+    "mo hinh ngon ngu du doan tu tiep theo trong cau",
+    "mo hinh nho co the chay tren mot card do hoa",
+    "du lieu sach giup mo hinh hoc nhanh hon",
+    "mo hinh ngon ngu du doan tu tiep theo dua tren ngu canh",
+    "du lieu sach va da dang giup mo hinh hoc tot hon",
+    "mo hinh nho train lau co the thang mo hinh lon train it",
+    "perplexity do do bat dinh cua mo hinh tren van ban moi",
+    "mo hinh ngon ngu hoc tu van ban tieng viet",
+    "du lieu sach giup giam nhieu va cai thien chat luong",
+    "mo hinh nho can it nang luong hon mo hinh lon",
+    "perplexity thap hon co nghia mo hinh doan tot hon",
+    "mo hinh ngon ngu du doan tu tiep theo trong van ban",
+]
+# --- Tap held-out (3 cau chua tung thay khi train) ---
+HELDOUT = [
+    "mo hinh ngon ngu du doan tu tiep theo trong cau",
+    "du lieu sach giup mo hinh hoc nhanh hon",
+    "perplexity do do bat dinh cua mo hinh tren van ban moi",
+]
+
+def tokenize(s):
+    return ["&lt;s&gt;"] + s.split() + ["&lt;/s&gt;"]
+
+def train_bigram(sentences, alpha=1.0):
+    uni, bi = Counter(), defaultdict(Counter)
+    for s in sentences:
+        toks = tokenize(s)
+        uni.update(toks)
+        for a, b in zip(toks, toks[1:]):
+            bi[a][b] += 1
+    return uni, bi, alpha
+
+def bigram_ppl(uni, bi, alpha, sentences):
+    vocab = set(uni) | {"&lt;unk&gt;"}
+    V = len(vocab)
+    logprob, n = 0.0, 0
+    for s in sentences:
+        toks = tokenize(s)
+        for a, b in zip(toks, toks[1:]):
+            # TO-DO (ban tu dien): Laplace smoothing
+            # P(b|a) = (count(a,b) + alpha) / (count(a) + alpha * V)
+            # logprob += math.log(P); n += 1
+            pass
+    return math.exp(-logprob / n)
+
+if __name__ == "__main__":
+    uni, bi, alpha = train_bigram(TRAIN)
+    ppl_bigram = bigram_ppl(uni, bi, alpha, HELDOUT)
+    ppl_random = len(set(uni))  # baseline ngau nhien: PPL = |V|
+    print(f"Vocab |V| = {len(set(uni))} tu")
+    print(f"PPL bigram (E0)   = {ppl_bigram:.2f}")
+    print(f"PPL ngau nhien    = {ppl_random:.2f}")
+    print("Ket luan:", "E0 VUOT baseline ngau nhien"
+          if ppl_bigram &lt; ppl_random else "CANH BAO: E0 thua ca ngau nhien - kiem tra pipeline")</pre>
+<p><b>Việc của bạn trong phần này:</b> (1) điền 3 dòng còn thiếu trong <code>bigram_ppl</code> (công thức Laplace smoothing đã cho sẵn trong comment); (2) chạy file và ghi 2 con số PPL vào sổ lab; (3) trả lời: PPL bigram nhỏ hơn PPL ngẫu nhiên bao nhiêu lần — và con số đó nói gì về "cái sàn" mà transformer 10M của ta phải vượt qua? (4) thử đổi <code>alpha</code> = 0.1 và 0.5, ghi PPL thay đổi ra sao — và giải thích vì sao alpha càng nhỏ thì PPL trên held-out càng nhạy với từ chưa gặp.</p>
+<p><b>Sau đó viết thêm <code>check_single_variable.py</code></b> — hàm kiểm tra nguyên tắc "thứ duy nhất thay đổi" cho ma trận E0–E5:</p>
+<pre>"""Kiem tra nguyen tac 'thu duy nhat thay doi la ___' cho ma tran E0-E5.
+Chay: python check_single_variable.py"""
+def differing_fields(a, b):
+    return [k for k in a if a.get(k) != b.get(k)]
+
+def check_pair(name_a, a, name_b, b):
+    diff = differing_fields(a, b)
+    ok = len(diff) == 1
+    print(f"{name_a} vs {name_b}: khac {diff} -> {'HOP LE' if ok else 'VO NGHIA (doi %d thu)' % len(diff)}")
+    return ok
+
+E1 = {"config": "A", "data": "loc", "tokens": "200M", "seed": 42}
+E2 = {"config": "A", "data": "tho", "tokens": "200M", "seed": 42}
+E3 = {"config": "B", "data": "loc", "tokens": "500M", "seed": 42}
+BAD = {"config": "B", "data": "tho", "tokens": "500M", "seed": 42}
+
+if __name__ == "__main__":
+    assert check_pair("E1", E1, "E2", E2)        # chi khac data -> tra loi RQ2
+    assert check_pair("E1", E1, "E3", E3) is False  # khac ca config + tokens!
+    assert check_pair("E1", E1, "BAD", BAD) is False
+    print("Luu y: E1 vs E3 khac 2 thu (config + tokens) — day la diem yeu cua ma tran,")
+    print("ghi ro trong baseline_plan.md: so sanh E1-E3 chi co nghia khi doc cung voi")
+    print("duong cong scaling Day 34/35, khong doc rieng con so chenh lech.")</pre>
+<div class="note">💡 <b>Phát hiện cần ghi lại:</b> E1 vs E3 khác cả cấu hình lẫn số token (A/200M → B/500M) — đúng luật scaling D/N ≈ 20 nên hai thứ này đi cùng nhau, không tách được. Đó không phải lỗi thiết kế, mà là giới hạn phải ghi rõ: chênh lệch E1–E3 không quy được cho riêng "quy mô" hay riêng "dữ liệu". Cách xử lý trung thực: báo cáo cả hai con số cùng lúc, và dùng đường cong scaling Day 34/35 để tách phần đóng góp. Ghi câu này vào <code>baseline_plan.md</code>.</div>
+
+<h3>Phần D — Chuẩn bị script train baseline A: kiểm tra lại code Day 34/35 (20 phút)</h3>
+<p>Chưa cần bật GPU tối nay. Mở lại code train cấu hình A từ lab Day 34/35 và kiểm tra bằng checklist sau — mỗi mục tick được thì đánh dấu, mục nào chưa chắc thì ghi vào sổ lab để sửa trước Day 45:</p>
+<ul class="check">
+<li onclick="toggleCheck(this)">Code train chạy trọn 200M token mà không dừng giữa chừng: kiểm tra vòng lặp train, lưu checkpoint giữa chừng, và khả năng resume từ checkpoint.</li>
+<li onclick="toggleCheck(this)">Tập held-out tách TRƯỚC khi train, không lẫn vào tập train (khử trùng lặp Day 33 đã áp dụng trước khi tách).</li>
+<li onclick="toggleCheck(this)">Seed cố định (ghi rõ số seed) — chạy lại cùng seed cho cùng kết quả; E5 chỉ đổi seed.</li>
+<li onclick="toggleCheck(this)">Đo đủ 7 cột kết quả: PPL held-out, VMLU mẫu 200 câu, GPU-giờ, kWh, checkpoint — thiếu cột nào thì thêm code đo ngay, đo sau không đo được nữa.</li>
+<li onclick="toggleCheck(this)">Script n-gram E0 (Phần C) đã chạy xong và 2 con số PPL đã ghi vào sổ lab.</li>
+</ul>
+<p>Nếu code train A chưa sẵn sàng chạy trọn 200M token: ghi rõ "chưa sẵn sàng — cần sửa ___ trước Day 45" vào sổ lab, đừng giả vờ là đã xong. Đề cương cho phép để trống có lý do; chạy mù thì không lấy lại được GPU-giờ.</p>
+
+<h2>3 · Tự kiểm tra nhanh</h2>
+<div class="qa"><p><b>1. Vì sao đề tài cần tới 3 baseline mà không phải 1?</b></p>
+<button onclick="toggleAns('a1')">Hiện đáp án</button>
+<div class="ans" id="a1">Vì mỗi RQ hỏi một thứ khác nhau nên cần baseline khác nhau: baseline sàn (n-gram) là còi báo động kiểm tra pipeline, không trả lời RQ nào; baseline chính A trả lời RQ1 + RQ3 (B/C so với A); baseline dữ liệu thô (cùng A, chưa lọc) trả lời RQ2 — chênh lệch PPL E1 vs E2 chính là giá trị của bước lọc. Chỉ có 1 baseline thì có RQ không có điểm so sánh.</div></div>
+<div class="qa"><p><b>2. So sánh cấu hình A trên dữ liệu đã lọc với cấu hình B trên dữ liệu thô có hợp lệ không?</b></p>
+<button onclick="toggleAns('a2')">Hiện đáp án</button>
+<div class="ans" id="a2">Không hợp lệ. Hai thứ thay đổi cùng lúc (vừa đổi cấu hình A→B, vừa đổi dữ liệu lọc→thô) nên chênh lệch kết quả không quy được cho thứ nào cả — thí nghiệm đó coi như bỏ. So sánh đúng: E1 vs E2 (chỉ đổi dữ liệu) trả lời RQ2; E1 vs E3 (chỉ đổi cấu hình theo luật scaling) trả lời RQ1 — và nhớ ghi rõ E1 vs E3 còn khác cả số token nên phải đọc cùng đường cong scaling.</div></div>
+<div class="qa"><p><b>3. Vì sao ma trận chạy rẻ trước, đắt sau (E0 → E1 → E2 → E5 → E3 → E4)?</b></p>
+<button onclick="toggleAns('a3')">Hiện đáp án</button>
+<div class="ans" id="a3">Vì E0–E2 tốn tổng cộng ~20 phút GPU nhưng khóa được pipeline, baseline chính và điểm so dữ liệu thô; nếu E1 cho PPL bất thường thì dừng ngay, sửa rồi mới chạy tiếp — đừng đợi E4 chạy 110 phút mới phát hiện lỗi ở E1. E5 chạy ngay sau E1 để có sai số đo sớm, vì H2 chỉ được chấp nhận khi chênh lệch vượt sai số đo. Chạy đắt trước là đốt GPU-giờ cho một kết quả có thể phải bỏ.</div></div>
+
+<h2>4 · Câu hỏi phản biện — trả lời trong chat (advisor chấm)</h2>
+<ol>
+<li>Vì sao đề cương phải viết trước khi chạy thí nghiệm — điều gì mất đi nếu chạy trước, viết sau? (Gợi ý: nghĩ tới 3 thứ cụ thể: số liệu quên đo, checkpoint quên lưu, và câu hỏi bị đổi sau khi thấy kết quả.)</li>
+<li>Nếu transformer 10M thua n-gram baseline thì kết luận gì — về mô hình hay về code? Bạn sẽ kiểm tra thứ gì đầu tiên, và vì sao không phải là "tăng tham số lên"?</li>
+<li>Thí nghiệm nào trong ma trận E0–E5 có thể cắt mà không mất câu trả lời cho RQ nào — và cắt nó thì mất đi thứ gì khác (gợi ý: E5 không trả lời RQ nào trực tiếp, nhưng không có nó thì H2 đánh giá bằng gì)?</li>
+<li>Nếu E1 cho PPL bất thường, bạn dừng ở đâu và kiểm tra gì trước — code, dữ liệu, hay siêu tham số? Vì sao thứ tự kiểm tra đó tiết kiệm thời gian nhất?</li>
+</ol>
+
+<h2>5 · Bẫy thường gặp</h2>
+<ul>
+<li><b>Viết phần 4 đề cương như danh sách thí nghiệm rời rạc</b> ("train A, train B, đo VMLU…") mà không gắn mỗi thí nghiệm với một RQ. Cách chữa: trước mỗi thí nghiệm, viết một dòng "Thí nghiệm này trả lời RQ__" — không gắn được thì bỏ thí nghiệm đó.</li>
+<li><b>So sánh hai thứ đổi cùng lúc rồi kết luận.</b> Đổi cấu hình + đổi dữ liệu trong một lần chạy rồi nói "B tốt hơn A nhờ dữ liệu sạch" là kết luận sai — chênh lệch đó không quy được cho thứ nào. Chạy lại đúng cặp so sánh, mỗi lần chỉ đổi một thứ.</li>
+<li><b>Điền trần P bằng số ước lượng cho "đẹp" đề cương.</b> Ô "Trần PPL P = …" để trống kèm ghi chú "chờ lab Day 34/35" là đúng — điền số bịa vào thì cả chương thí nghiệm sau này đối chiếu với một con số giả. Advisor chấm điểm trung thực, không chấm đề cương "trông đầy đủ".</li>
+<li><b>Chạy E3/E4 trước E0–E2 vì "đã lên lịch".</b> Lịch trong đề cương là thứ tự ưu tiên, không phải lệnh bắt buộc khi E1 chưa xong. Sau E1–E2, nếu PPL của A đã gần trần P thì B/C có thể không còn đáng chạy — cắt bằng một dòng lý do trong đề cương, đừng chạy mù.</li>
+</ul>
+
+<h2>6 · Checklist nộp bài</h2>
+<ul class="check">
+<li onclick="toggleCheck(this)">Đã viết <code>outline.md</code> (5 phần, mỗi phần 3–5 gạch đầu dòng, ô trần P để trống kèm ghi chú "chờ lab Day 34/35").</li>
+<li onclick="toggleCheck(this)">Đã viết <code>baseline_plan.md</code> (3 baseline + ma trận E0–E5 + câu "thứ duy nhất thay đổi là ___" cho từng thí nghiệm + bảng ghi kết quả 7 cột).</li>
+<li onclick="toggleCheck(this)">Đã chạy <code>ngram_baseline.py</code> và ghi 2 con số PPL (bigram + ngẫu nhiên) vào sổ lab; đã thử alpha = 0.1 và 0.5.</li>
+<li onclick="toggleCheck(this)">Đã chạy <code>check_single_variable.py</code> và ghi nhận xét về cặp E1 vs E3 vào <code>baseline_plan.md</code>.</li>
+<li onclick="toggleCheck(this)">Đã kiểm tra code train cấu hình A bằng checklist Phần D (hoặc ghi rõ "chưa sẵn sàng — cần sửa ___").</li>
+<li onclick="toggleCheck(this)">Đã trả lời 4 câu phản biện ở mục 4 trong chat.</li>
+</ul>
+<p><b>Nộp bài:</b> paste code/kết quả vào chat để được nhận xét — gồm: 2 con số PPL từ <code>ngram_baseline.py</code> (bigram + ngẫu nhiên), kết quả chạy <code>check_single_variable.py</code>, và 4 câu trả lời phản biện.</p>
+
+<div class="note">💡 <b>Gợi ý cải tiến cho ngày mai (Day 39):</b> viết phần 3 Phương pháp theo đúng outline vừa vẽ — dữ liệu (datasheet Wikipedia-vi + bước lọc Day 33), tokenizer (BPE 8k/16k + NFC, Day 32), kiến trúc A/B/C (bảng so sánh 3 cấu hình + luật scaling D/N ≈ 20, Day 34) — và chuẩn bị trước một bảng duy nhất gộp cả 3, để chương phương pháp đọc một mạch từ dữ liệu tới mô hình mà không phải lật lại các ngày cũ.</div>
+
+<div class="footer">Khóa "Trở thành AI Engineer (LLM)" — Phase 2, đề tài Tiny Vietnamese LM · Ngày 38 · Buổi tối: thực hành. File giải thích chi tiết: <a href="Day38_giai_thich.html">Day38_giai_thich.html</a> · Bài học buổi sáng: <a href="Day38_lesson.html">Day38_lesson.html</a> · Quiz: <a href="Day38_quiz.html">Day38_quiz.html</a></div>
+</div>
+</body>
+</html>

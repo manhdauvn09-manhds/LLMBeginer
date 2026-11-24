@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ngày 37 — Giải thích chi tiết: Tổng kết tổng quan tài liệu — TinyLlama, Phi và 3 câu hỏi nghiên cứu</title>
+<style>
+:root{--bg:#0a0f1e; --card:#101830; --line:#22305a; --gold:#f5c542; --green:#4ade80;
+ --red:#f87171; --violet:#a78bfa; --cyan:#67e8f9; --text:#e8edf7; --muted:#93a0bd;}
+*{box-sizing:border-box;}
+body{margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.75; font-size:16.5px;}
+.wrap{max-width:820px; margin:0 auto; padding:18px 16px 60px;}
+.kicker{display:inline-block; font-size:13px; letter-spacing:1px; color:var(--gold); font-weight:700; margin-bottom:8px;}
+h1{font-size:28px; line-height:1.3; margin:6px 0 10px;}
+h2{font-size:22px; margin:34px 0 10px; color:var(--cyan);}
+h3{font-size:18px; margin:22px 0 8px; color:var(--gold);}
+.sub{color:var(--muted); font-size:16.5px;}
+.meta{display:flex; gap:8px; flex-wrap:wrap; margin:14px 0 6px;}
+.meta span{font-size:13.5px; background:var(--card); border:1px solid var(--line); border-radius:999px; padding:5px 14px;}
+.card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px; margin:16px 0;}
+.note{border-left:4px solid var(--green); background:#0f2233; border-radius:0 12px 12px 0; padding:12px 16px; margin:14px 0;}
+.warn{border-left:4px solid var(--red); background:#23141a; border-radius:0 12px 12px 0; padding:12px 16px; margin:14px 0;}
+.rq{background:#141d3a; border:1px solid var(--violet); border-radius:10px; padding:12px 16px; margin:10px 0;}
+.rq b{color:var(--violet);}
+code{background:#0a0f1e; border:1px solid var(--line); border-radius:6px; padding:1px 7px; font-size:15px;}
+pre{background:#0a0f1e; border:1px solid var(--line); border-radius:10px; padding:14px 16px; overflow-x:auto; font-size:14.5px; line-height:1.6; white-space:pre-wrap;}
+table{width:100%; border-collapse:collapse; margin:12px 0; font-size:15px;}
+th,td{border:1px solid var(--line); padding:8px 10px; text-align:left;}
+th{background:#141d3a; color:var(--gold);}
+.footer{color:var(--muted); font-size:14px; margin-top:40px; border-top:1px solid var(--line); padding-top:14px;}
+.formula{background:#0a1428; border:1px solid var(--line); border-radius:10px; padding:12px 16px; font-family:"SF Mono",Consolas,Menlo,monospace; font-size:16px; text-align:center; margin:14px 0; color:var(--cyan);}
+ul li, ol li{margin-bottom:6px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<span class="kicker">PHASE 2 · NGÀY 37 / 60 · GIẢI THÍCH CHI TIẾT · ĐỀ TÀI: TINY VIETNAMESE LM</span>
+<h1>Ngày 37 — Giải thích chi tiết: Tổng kết tổng quan tài liệu — TinyLlama, Phi và 3 câu hỏi nghiên cứu</h1>
+<p class="sub">Hôm nay là ngày cuối của giai đoạn đọc paper (Ngày 31–37). Sáu ngày qua ta đã đi từ tokenizer, dữ liệu sạch, luật scaling, train vượt Chinchilla tới giao thức đánh giá. Sáng nay đọc thêm 2 paper — TinyLlama và Phi — rồi đóng lại toàn bộ tổng quan: vẽ bản đồ tài liệu, chốt khoảng trống nghiên cứu và viết ra 3 câu hỏi nghiên cứu cho Tiny Vietnamese LM, sẵn sàng bước sang giai đoạn đề cương + baseline (Ngày 38–44).</p>
+<div class="meta"><span>⏱️ Ước lượng ~120 phút</span><span>📄 Sản phẩm: literature_review.md + model_comparison.md + research_questions.md</span><span>🎯 RQ: RQ1 · RQ2 · RQ3 đã chốt, giả thuyết có bác bỏ được không?</span></div>
+
+<h2>1 · Mục tiêu của buổi tối</h2>
+<p>Sau buổi tối nay, bạn sẽ:</p>
+<ul>
+<li>Viết xong <code>literature_review.md</code> (1 trang) — tổng quan theo mạch câu hỏi, không liệt kê.</li>
+<li>Viết xong <code>model_comparison.md</code> — bảng so sánh TinyLlama — Phi — Tiny Vietnamese LM theo 4 cột: quy mô, dữ liệu, kiến trúc, điểm học được.</li>
+<li>Chốt xong <code>research_questions.md</code> — RQ1/RQ2/RQ3 + giả thuyết H1/H2/H3, mỗi giả thuyết có số cụ thể và điều kiện bác bỏ rõ ràng.</li>
+<li>Chạy được <code>check_falsifiable.py</code> — kiểm chứng bằng số rằng 3 giả thuyết đều bác bỏ được, và tỉ lệ quy mô TinyLlama vs cấu hình A là bao nhiêu.</li>
+<li>Chuẩn bị xong dàn ý đề cương Day 38 (5 phần), để trống ô "Trần PPL P = …" chờ số liệu lab Day 34/35.</li>
+</ul>
+<div class="note">📌 <b>Vì sao tối nay quan trọng:</b> đọc paper mà không đóng lại thành câu hỏi nghiên cứu thì 6 ngày đọc chỉ còn là 6 buổi đọc. Tối nay là lúc toàn bộ tổng quan phải "đóng gói" được: bản đồ tài liệu → khoảng trống → 3 câu hỏi → dàn ý đề cương. Từ ngày mai, mọi thí nghiệm đều đo để trả lời đúng 3 câu hỏi này — không còn thí nghiệm nào "làm cho biết".</div>
+
+<h2>2 · Bản đồ tài liệu 6 ngày: mỗi paper để lại gì?</h2>
+<p>Một tổng quan tài liệu tốt không phải là danh sách paper — mà là một <b>bản đồ có mạch logic</b>: mỗi paper trả lời một câu hỏi mà paper trước để lại, và cùng nhau chúng dẫn tới khoảng trống mà đề tài của ta sẽ lấp.</p>
+<table>
+<tr><th>Ngày</th><th>Paper / chủ đề</th><th>Đóng góp chính</th><th>Áp dụng vào Tiny Vietnamese LM</th></tr>
+<tr><td>32</td><td>Tokenizer BPE + datasheet Wikipedia-vi</td><td>BPE 8k–16k + chuẩn hóa NFC; datasheet ghi rõ nguồn dữ liệu</td><td>Tokenizer 8k/16k, dump Wikipedia-vi 01/11/2026 (1,11 GiB)</td></tr>
+<tr><td>33</td><td>Lee và cộng sự (2022); Muennighoff và cộng sự (2023)</td><td>Khử trùng lặp bắt buộc; lặp lại dữ liệu có giới hạn (~4 epoch) vẫn có ích</td><td>ExactSubstr + NearDup; D′ hiệu dụng: 3 epoch ≈ 744M, 4 epoch ≈ 902M token</td></tr>
+<tr><td>34</td><td>Chinchilla (Hoffmann và cộng sự, 2022)</td><td>Luật scaling: D/N ≈ 20 tối ưu về compute</td><td>3 cấu hình A (10M/200M), B (25M/500M), C (37M/744M) trên 1 GPU RTX 4090</td></tr>
+<tr><td>35</td><td>Sardana &amp; Frankle (2024); Besiroglu và cộng sự (2024)</td><td>Mô hình nhỏ train lâu (vượt Chinchilla) có thể thắng mô hình lớn train ít</td><td>Train A trọn 200M token; đặt trần PPL P từ loss curve 8 điểm</td></tr>
+<tr><td>36</td><td>HELM (Liang và cộng sự, 2022); VMLU (2025)</td><td>Đánh giá đa thước đo; benchmark tiếng Việt 10.880 câu, 58 môn</td><td>Giao thức đánh giá 3 lớp: PPL → VMLU mẫu 200 câu → mẫu sinh kiểm tra tay</td></tr>
+<tr><td>37</td><td>TinyLlama (2024); Phi (Microsoft)</td><td>Công thức mô hình nhỏ mở; dữ liệu chất lượng cao thắng quy mô</td><td>Bản thiết kế Tiny Vietnamese LM + 3 câu hỏi nghiên cứu</td></tr>
+</table>
+<p>Nhìn vào bảng, mạch logic hiện ra rõ ràng: <b>dữ liệu (32–33) → kích thước (34–35) → đo đạc (36) → công thức tổng hợp (37)</b>. Mỗi tầng dựa trên tầng trước: không thể bàn scaling nếu dữ liệu chưa sạch; không thể chốt trần P nếu chưa có giao thức đo. Đây chính là cấu trúc của chương tổng quan trong báo cáo cuối cùng.</p>
+<div class="formula">Muốn train mô hình nhỏ tiếng Việt thì cần gì?<br>Tokenizer phù hợp → dữ liệu sạch → kích thước tối ưu → cách đo tin cậy → công thức đã chứng minh</div>
+<p>💡 <b>Cách viết tổng quan không bị "liệt kê":</b> đừng viết "Paper A làm X. Paper B làm Y." Hãy viết theo <b>câu hỏi</b>: "Muốn train mô hình nhỏ tiếng Việt thì cần gì? Cần tokenizer phù hợp (Day 32), dữ liệu sạch (Day 33), kích thước tối ưu (Day 34–35), cách đo tin cậy (Day 36) và một công thức đã được chứng minh (Day 37)." Mỗi paper là một câu trả lời cho một câu hỏi trong chuỗi đó.</p>
+
+<h2>3 · TinyLlama: công thức mô hình nhỏ mở</h2>
+<p><b>Paper:</b> Zhang và cộng sự (2024), <i>TinyLlama: An Open-Source Small Language Model</i>, arXiv:2401.02385. TinyLlama là mô hình 1,1 tỉ tham số, pretrain trên <b>3 nghìn tỉ token</b> — một con số khổng lồ cho mô hình nhỏ — với kiến trúc Llama (Grouped-Query Attention, SwiGLU, RoPE) và toàn bộ quá trình train được mở: code, dữ liệu, checkpoint trung gian đều công khai.</p>
+<table>
+<tr><th></th><th>TinyLlama (1,1B tham số)</th><th>Tiny Vietnamese LM (10–37M)</th></tr>
+<tr><td>Token</td><td>3 nghìn tỉ token · 3 epoch</td><td>200–744M token · 1–3 epoch</td></tr>
+<tr><td>Kiến trúc</td><td>22 layer · d = 2048 · GQA</td><td>6 layer · d = 320 · tied embeddings</td></tr>
+<tr><td>Mở</td><td>Code + dữ liệu + checkpoint</td><td>Datasheet + eval protocol + sổ lab</td></tr>
+</table>
+<p>Cùng một công thức, khác quy mô: kiến trúc Llama thu nhỏ, dữ liệu lặp có giới hạn, mọi checkpoint đều lưu lại.</p>
+<h3>Ba bài học của TinyLlama áp thẳng vào đề tài</h3>
+<ul>
+<li><b>Kiến trúc chuẩn, đừng phát minh lại.</b> TinyLlama không đề xuất kiến trúc mới — nó dùng đúng kiến trúc Llama (RoPE, SwiGLU, RMSNorm, GQA) ở quy mô nhỏ. Bài học: Tiny Vietnamese LM cũng dùng kiến trúc đã được chứng minh (cấu hình A: 6 layer, d = 320, tied embeddings), để mọi khác biệt đo được đều đến từ <b>dữ liệu và quy mô</b>, không phải từ kiến trúc lạ.</li>
+<li><b>Train lâu trên dữ liệu lặp vẫn có ích — đúng như Day 33 và Day 35.</b> TinyLlama train 3 epoch trên cùng dữ liệu và vẫn cải thiện — khớp với kết quả Muennighoff và cộng sự (2023) và với hiệu ứng "train vượt Chinchilla" của Day 35. Đây là bằng chứng độc lập thứ ba cho lựa chọn epoch của cấu hình C (3 epoch, 744M token).</li>
+<li><b>Mở toàn bộ mới là khoa học.</b> Giá trị lớn nhất của TinyLlama không phải con số benchmark, mà là toàn bộ quá trình được mở: bất kỳ ai cũng có thể chạy lại, kiểm tra lại. Đề tài của ta làm theo đúng tinh thần đó: datasheet (Day 32), giao thức đánh giá (Day 36), sổ lab ghi mọi số đo — để người đọc báo cáo cuối cùng có thể <b>tái tạo</b>, không phải tin lời.</li>
+</ul>
+<div class="warn">⚠️ <b>Đừng so sánh lệch quy mô:</b> TinyLlama 1,1B tham số train trên 3 nghìn tỉ token — gấp 110 lần tham số và 15.000 lần token so với cấu hình A của ta (tính chính xác trong script tối nay: gấp 110 lần tham số, 15.000 lần token). Đừng lấy điểm benchmark của TinyLlama làm mục tiêu cho mô hình 10M. Cái ta học từ TinyLlama là <b>công thức và phương pháp</b>, không phải con số. Mục tiêu của ta khiêm tốn hơn nhiều: chứng minh được trade-off giữa quy mô, dữ liệu và năng lượng ở tầm 10–37M tham số.</div>
+
+<h2>4 · Phi: dữ liệu "textbook-quality" thắng quy mô</h2>
+<p><b>Paper:</b> Gunasekar và cộng sự (Microsoft, 2023), <i>Textbooks Are All You Need</i>, arXiv:2306.11644. Phi-1 (1,3B tham số) đạt điểm code benchmark ngang mô hình lớn gấp nhiều lần — không phải nhờ kiến trúc mới, mà nhờ dữ liệu: thay vì vét web thô, nhóm Microsoft <b>tổng hợp dữ liệu dạng sách giáo khoa</b> ("textbook-quality") bằng mô hình lớn, rồi lọc dữ liệu web theo đúng tiêu chuẩn đó.</p>
+<div class="formula">Chất lượng dữ liệu × số token &gt; số token đơn thuần</div>
+<p>Thông điệp của Phi đảo ngược trực giác "càng nhiều dữ liệu càng tốt": <b>một token từ văn bản rõ ràng, có cấu trúc, đúng kiến thức dạy cho mô hình nhiều hơn một token từ văn bản lộn xộn</b>. Phi-2 (2,7B) tiếp tục chứng minh điều này trên kiến thức chung, và Phi-3 (3,8B) mở rộng sang dữ liệu tổng hợp đa lĩnh vực — cả ba đều thắng các mô hình cùng cỡ train trên dữ liệu web thô.</p>
+<h3>Liên hệ trực tiếp với dữ liệu Wikipedia-vi của ta</h3>
+<ul>
+<li><b>Wikipedia-vi đã là "textbook-quality" sẵn có.</b> Wikipedia là văn bản bách khoa: câu rõ ràng, có cấu trúc, ít lỗi chính tả, ít độc hại — gần với tiêu chuẩn sách giáo khoa mà Phi phải tổng hợp nhân tạo. Lựa chọn nguồn chính Wikipedia-vi từ Day 32 vì thế không chỉ là lựa chọn tiện lợi, mà là lựa chọn <b>đúng triết lý Phi</b>: chất lượng trước, quy mô sau.</li>
+<li><b>Khử trùng lặp (Day 33) chính là bước "lọc theo chất lượng".</b> Phi lọc dữ liệu web bằng bộ lọc chất lượng; ta lọc Wikipedia-vi bằng ExactSubstr + NearDup. Hai thao tác khác nhau về kỹ thuật, nhưng cùng một mục đích: <b>mỗi token đưa vào train đều xứng đáng</b>.</li>
+<li><b>Giới hạn cần ghi nhận trung thực:</b> Phi có thể tổng hợp dữ liệu bằng mô hình lớn — ta không có mô hình lớn đó, cũng không có ngân sách tổng hợp. Vì vậy dữ liệu của ta bị giới hạn ở những gì Wikipedia-vi có sẵn (~1,11 GiB dump 01/11/2026). Đây là một <b>giới hạn của đề tài</b>, phải ghi rõ trong đề cương Day 38 — và cũng chính là một phần của RQ2.</li>
+</ul>
+<div class="note">💡 <b>Câu hỏi để tự kiểm tra:</b> nếu Phi đúng — chất lượng thắng quy mô — thì vì sao ta vẫn cần luật scaling Chinchilla (Day 34)? Vì hai paper trả lời hai câu hỏi khác nhau: Phi trả lời "dữ liệu nào thì tốt", Chinchilla trả lời "với dữ liệu đã chọn, bao nhiêu tham số và bao nhiêu token là tối ưu". Một đề tài tốt cần cả hai: <b>chọn đúng dữ liệu (Phi), rồi chọn đúng quy mô cho dữ liệu đó (Chinchilla)</b>.</div>
+
+<h2>5 · Khoảng trống nghiên cứu + 3 câu hỏi nghiên cứu</h2>
+<p>Sau 6 ngày đọc paper, khoảng trống hiện ra ở giao điểm của ba điều chưa ai làm cùng lúc: (1) <b>mô hình rất nhỏ (10–37M tham số) cho tiếng Việt</b> — TinyLlama dừng ở 1,1B, Phi dừng ở 1,3B; (2) <b>dữ liệu Wikipedia-vi chất lượng cao với ngân sách token chỉ vài trăm triệu</b> — chưa ai đo đường cong scaling ở tầm này cho tiếng Việt; (3) <b>đánh giá bằng cả perplexity lẫn VMLU kèm chi phí năng lượng</b> — chưa có nghiên cứu nào báo cáo cả ba cùng lúc cho mô hình nhỏ tiếng Việt.</p>
+<table>
+<tr><th></th><th>Câu hỏi</th><th>Giả thuyết (falsifiable)</th><th>Bác bỏ được nếu…</th></tr>
+<tr><td><b>RQ1</b></td><td>Với dữ liệu Wikipedia-vi đã khử trùng lặp (D′ ≤ 902M token) và 1 GPU RTX 4090, cấu hình nào trong A (10M/200M), B (25M/500M), C (37M/744M) cho PPL held-out thấp nhất trên mỗi đơn vị năng lượng?</td><td><b>H1:</b> C đạt PPL held-out thấp hơn A ít nhất 15%, nhưng tốn hơn 10 lần GPU-giờ — nên hiệu quả trên mỗi watt của A cao hơn C.</td><td>C không cải thiện quá 5% so với A, hoặc A không hiệu quả hơn về năng lượng.</td></tr>
+<tr><td><b>RQ2</b></td><td>Dữ liệu Wikipedia-vi đã khử trùng lặp (Day 33) có cải thiện PPL held-out và điểm VMLU mẫu so với dữ liệu thô chưa lọc, khi giữ nguyên cấu hình và ngân sách token?</td><td><b>H2:</b> mô hình train trên dữ liệu đã lọc đạt PPL held-out thấp hơn ít nhất 5% và điểm VMLU mẫu cao hơn ít nhất 2 điểm phần trăm so với bản chưa lọc.</td><td>Chênh lệch nằm trong sai số đo (lặp lại với seed khác mà đảo chiều).</td></tr>
+<tr><td><b>RQ3</b></td><td>Thứ hạng A/B/C có giữ nguyên khi chuyển từ perplexity (lớp 1) sang VMLU mẫu (lớp 2) không — và nếu không, thước đo nào đáng tin hơn?</td><td><b>H3:</b> thứ hạng theo PPL và theo VMLU mẫu trùng nhau, vì cả hai cùng đo chất lượng mô hình ngôn ngữ.</td><td>Một cấu hình thắng về PPL nhưng thua về VMLU — khi đó VMLU được ưu tiên vì nó đo kiến thức, không chỉ đo văn phong.</td></tr>
+</table>
+<p>Mỗi giả thuyết đều viết theo chuẩn đã học ở Day 29: <b>có số cụ thể, có điều kiện bác bỏ rõ ràng</b>. Một giả thuyết không bác bỏ được thì không phải giả thuyết khoa học — chỉ là một mong muốn. Script <code>check_falsifiable.py</code> tối nay kiểm chứng đúng điều này bằng số: mỗi H có ngưỡng số + điều kiện bác bỏ tính được, và tỉ lệ quy mô TinyLlama vs A được đối chiếu bằng phép chia thật (110 lần tham số, 15.000 lần token).</p>
+<div class="warn">⚠️ <b>Trung thực về số liệu còn thiếu:</b> số liệu lab Day 34 (tokens/s, MFU, PPL nền của cấu hình A) và Day 35 (loss curve 8 điểm, điểm bão hòa, trần PPL P) <b>vẫn chưa được nộp</b> — vì vậy trần P vẫn chưa chốt. Điều này KHÔNG chặn đề cương Day 38: đề cương viết được đầy đủ với 3 câu hỏi nghiên cứu và phương pháp; chỉ để trống ô "Trần P = …" và điền sau khi số liệu về. Không bịa số P, không ước lượng P từ PPL nền đo giữa chừng.</div>
+<div class="note">⚡ <b>Góc tiết kiệm năng lượng:</b> tổng quan tài liệu cũng là một quyết định năng lượng. Mỗi paper ta đọc kỹ là một thí nghiệm ta không cần chạy lại: luật Chinchilla cho ta D/N ≈ 20 mà không cần quét hàng chục cấu hình; TinyLlama cho ta kiến trúc sẵn mà không cần thử kiến trúc mới; Phi cho ta tiêu chuẩn dữ liệu mà không cần tổng hợp dữ liệu từ đầu. Một tuần đọc paper nghiêm túc có thể tiết kiệm <b>hàng chục GPU-giờ</b> thí nghiệm mù — đó là khoản tiết kiệm năng lượng lớn nhất của cả đề tài, và nó xảy ra trước cả khi GPU bật lên.</div>
+
+<h2>6 · Nhiệm vụ nghiên cứu hôm nay (Day 37) — tóm tắt</h2>
+<ul>
+<li>Viết <code>literature_review.md</code> (1 trang): viết theo mạch câu hỏi ở mục 2, dùng bảng tổng hợp làm khung xương; mỗi paper 2–3 câu: đóng góp + áp dụng vào đề tài.</li>
+<li>Viết bảng so sánh <code>model_comparison.md</code>: TinyLlama (1,1B/3T token) — Phi-1/2/3 (1,3–3,8B, textbook data) — Tiny Vietnamese LM (10–37M, Wikipedia-vi) theo các cột: quy mô, dữ liệu, kiến trúc, điểm học được.</li>
+<li>Chốt 3 câu hỏi nghiên cứu RQ1/RQ2/RQ3 + giả thuyết H1/H2/H3 vào file <code>research_questions.md</code>, mỗi giả thuyết ghi rõ điều kiện bác bỏ.</li>
+<li>Chuẩn bị đề cương Day 38: dàn ý 5 phần (giới thiệu — tổng quan — phương pháp — thí nghiệm — kết quả dự kiến), để trống ô "Trần PPL P = …" chờ số liệu lab Day 34/35.</li>
+</ul>
+
+<h2>7 · Bẫy thường gặp</h2>
+<ul>
+<li><b>So sánh lệch quy mô với TinyLlama 1,1B:</b> TinyLlama gấp 110 lần tham số và 15.000 lần token so với cấu hình A (tính chính xác: 110 lần tham số, 15.000 lần token). Lấy benchmark 1,1B làm mục tiêu cho mô hình 10–37M là sai ngay từ đầu — học công thức và phương pháp, không học con số.</li>
+<li><b>Bịa trần P:</b> P chưa chốt vì số liệu lab Day 34/35 chưa nộp. Đừng điền số ước lượng, đừng lấy PPL nền đo giữa chừng làm P. Ô "Trần P = …" để trống cho tới khi có PPL held-out đầy đủ của A sau 200M token.</li>
+<li><b>Viết tổng quan kiểu liệt kê:</b> "Paper A làm X. Paper B làm Y." — tổng quan như vậy không có mạch, đọc xong không biết vì sao đề tài này phải tồn tại. Viết theo mạch câu hỏi: mỗi paper là một câu trả lời cho một câu hỏi trong chuỗi, và chuỗi đó dẫn thẳng tới khoảng trống nghiên cứu.</li>
+<li><b>Nhầm vai trò của Phi và Chinchilla:</b> Phi trả lời "dữ liệu nào thì tốt", Chinchilla trả lời "với dữ liệu đã chọn, bao nhiêu tham số và bao nhiêu token là tối ưu". Bỏ một trong hai là bỏ một nửa đề tài: chọn đúng dữ liệu rồi mới chọn đúng quy mô cho dữ liệu đó.</li>
+</ul>
+
+<h2>8 · Câu hỏi định hướng để tự trả lời cuối ngày</h2>
+<div class="rq"><b>(1)</b> Vì sao bản đồ tài liệu phải viết theo mạch câu hỏi thay vì liệt kê từng paper?</div>
+<div class="rq"><b>(2)</b> Bài học nào của TinyLlama là quan trọng nhất cho đề tài — kiến trúc chuẩn, train lâu, hay mở toàn bộ — và vì sao?</div>
+<div class="rq"><b>(3)</b> Nếu dữ liệu Wikipedia-vi đã là "textbook-quality" thì vì sao RQ2 vẫn cần thí nghiệm so sánh dữ liệu lọc vs chưa lọc?</div>
+<p><b>Tài liệu tham khảo:</b> Zhang và cộng sự, <i>TinyLlama: An Open-Source Small Language Model</i>, arXiv:2401.02385 (2024) • Gunasekar và cộng sự, <i>Textbooks Are All You Need</i>, arXiv:2306.11644 (Microsoft, 2023) • Hoffmann và cộng sự, <i>Chinchilla</i> (2022) • Liang và cộng sự, <i>HELM</i>, arXiv:2211.09110 • ZaloAI &amp; JAIST, <i>VMLU Benchmark Suite</i> (2025) • Lee và cộng sự (2022) • Muennighoff và cộng sự (2023) • Sardana &amp; Frankle (2024) • Besiroglu và cộng sự (2024).</p>
+
+<div class="footer">Khóa "Trở thành AI Engineer (LLM)" — Phase 2 · Ngày 37/60 · Đề tài: Tiny Vietnamese LM · File giải thích chi tiết buổi tối.</div>
+</div>
+</body>
+</html>

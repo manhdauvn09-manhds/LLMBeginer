@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ngày 42 — Buổi tối: Lab nghiên cứu — Chạy E0: smoke test, kiểm chứng pipeline trước khi đốt GPU</title>
+<style>
+:root{--bg:#0a0f1e; --card:#101830; --line:#22305a; --gold:#f5c542; --green:#4ade80;
+ --red:#f87171; --violet:#a78bfa; --cyan:#67e8f9; --text:#e8edf7; --muted:#93a0bd;}
+*{box-sizing:border-box;}
+body{margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.75; font-size:16.5px;}
+.wrap{max-width:820px; margin:0 auto; padding:18px 16px 60px;}
+.kicker{display:inline-block; font-size:13px; letter-spacing:1px; color:var(--gold); font-weight:700; margin-bottom:8px;}
+h1{font-size:28px; line-height:1.3; margin:6px 0 10px;}
+h2{font-size:22px; margin:34px 0 10px; color:var(--cyan);}
+h3{font-size:18px; margin:22px 0 8px; color:var(--gold);}
+.sub{color:var(--muted); font-size:16.5px;}
+.meta{display:flex; gap:8px; flex-wrap:wrap; margin:14px 0 6px;}
+.meta span{font-size:13.5px; background:var(--card); border:1px solid var(--line); border-radius:999px; padding:5px 14px;}
+.card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px; margin:16px 0;}
+.note{border-left:4px solid var(--green); background:#0f2233; border-radius:0 12px 12px 0; padding:12px 16px; margin:14px 0;}
+.warn{border-left:4px solid var(--red); background:#23141a; border-radius:0 12px 12px 0; padding:12px 16px; margin:14px 0;}
+.rq{background:#141d3a; border:1px solid var(--violet); border-radius:10px; padding:12px 16px; margin:10px 0;}
+.rq b{color:var(--violet);}
+.check{list-style:none; padding-left:0;}
+.check li{padding-left:28px; position:relative; margin-bottom:8px;}
+.check li::before{content:"☐"; position:absolute; left:0; color:var(--gold); font-size:17px;}
+.check li.done::before{content:"☑"; color:var(--green);}
+.check li input{position:absolute; left:0; top:4px; width:18px; height:18px; opacity:0; cursor:pointer;}
+.check li.done{color:var(--muted); text-decoration:line-through;}
+code{background:#0a0f1e; border:1px solid var(--line); border-radius:6px; padding:1px 7px; font-size:15px;}
+pre{background:#0a0f1e; border:1px solid var(--line); border-radius:10px; padding:14px 16px; overflow-x:auto; font-size:14px; line-height:1.55; white-space:pre-wrap; word-break:break-word;}
+table{width:100%; border-collapse:collapse; margin:12px 0; font-size:15px;}
+th,td{border:1px solid var(--line); padding:8px 10px; text-align:left;}
+th{background:#141d3a; color:var(--gold);}
+.qa{margin:14px 0;}
+.qa button{background:var(--gold); color:#14100a; font-weight:700; border:none; border-radius:10px; padding:10px 18px; cursor:pointer; font-size:15px;}
+.qa .ans{display:none; margin-top:10px; border-left:4px solid var(--green); background:#0f2233; border-radius:0 12px 12px 0; padding:12px 16px;}
+.qa .ans.show{display:block;}
+.footer{color:var(--muted); font-size:14px; margin-top:36px; border-top:1px solid var(--line); padding-top:14px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+<span class="kicker">TRỞ THÀNH AI ENGINEER (LLM) · PHASE 2 — ĐỀ TÀI TINY VIETNAMESE LM</span>
+<h1>Ngày 42 — Buổi tối: Chạy E0: smoke test, kiểm chứng pipeline trước khi đốt GPU</h1>
+<p class="sub">Ma trận E0–E5 đã khóa xong hôm qua (Day 41). Tối nay thực hiện ô rẻ nhất: E0. Không phải để ra kết quả khoa học — mà để trả lời một câu duy nhất: <b>pipeline có chạy được không, loss có giảm không?</b></p>
+<div class="meta"><span>⏱️ ~60–90 phút</span><span>🖥️ Lab CPU + 1 lần chạy GPU ngắn</span><span>📦 2 script Python · 2 file kết quả</span></div>
+
+<h2>1 · Tóm tắt nhiệm vụ buổi sáng</h2>
+<div class="card">
+<p>Bài sáng Day 42 định nghĩa <b>E0 — smoke test</b>: lần chạy huấn luyện rút gọn của cấu hình A (Day 34), vài trăm bước, cùng seed, cùng giao thức đo — chỉ để hỏi pipeline sống hay chết. Ba lý do E0 đứng đầu ma trận: rẻ nhất (tính bằng phút), bắt lỗi hệ thống trước khi chúng làm hỏng thí nghiệm thật, và cho ra đường loss tham chiếu để so sánh E1–E5.</p>
+<p><b>Câu hỏi vàng trước mỗi thí nghiệm:</b> “thứ duy nhất thay đổi là ___?” — Với E0, đáp án là <b>quy mô chạy</b> (ít bước hơn, ít dữ liệu hơn). Mọi thứ khác — cấu hình A, dữ liệu, tokenizer BPE 8k, seed, tập held-out, cách đo — giữ nguyên y hệt lần chạy A đầy đủ.</p>
+<p><b>Checklist 5 mục trước khi bấm chạy</b> (mục nào chưa đạt thì sửa trước, không dùng E0 để kiểm tra checklist): dữ liệu vào · tokenizer · cấu hình A · tập held-out đóng băng · giao thức đo 4 con số (train loss, val loss → PPL, tokens/s, MFU).</p>
+<p><b>4 dấu hiệu PASS — phải đủ cả bốn mới được go E1:</b> loss giảm đều · không NaN, không diverge · tốc độ đúng kỳ vọng · checkpoint lưu + load được, eval held-out chạy xong. Không có “PASS một nửa”. E0 FAIL thì sửa đúng chỗ lỗi, chạy lại E0 từ đầu.</p>
+</div>
+<div class="warn"><b>Trần P vẫn để trống.</b> PPL sơ bộ của E0 — train vài trăm bước — không phải PPL chính thức của A, càng không phải trần P. P chỉ chốt khi A train xong đủ 200M token. Đừng lấy số E0 điền vào chỗ của P trong đề cương Day 39.</div>
+
+<h2>2 · Nhiệm vụ tối nay — 4 phần việc</h2>
+
+<h3>Lab A — Chạy E0 thu nhỏ trên CPU: checklist + train + eval + checkpoint</h3>
+<p>Chạy <code>e0_smoke.py</code> dưới đây trên máy của bạn (chỉ cần Python + numpy, không cần GPU). Đây là <b>bản thu nhỏ để luyện tập và kiểm tra logic phán quyết</b> — mô hình bigram log-tuyến tính trên 28 câu tiếng Việt, 300 bước. Bản E0 thật trên GPU dùng code train thật của đề tài (cấu hình A, BPE 8k, 200M token) nhưng <b>giữ nguyên</b> checklist, 4 dấu hiệu PASS và bảng go/no-go này.</p>
+<p>Script làm 4 việc theo đúng bài sáng: (1) soát checklist 5 mục, dừng ngay nếu mục nào chưa đạt; (2) train 300 bước, log loss mỗi 50 bước + tokens/s; (3) eval trên 5 câu held-out đóng băng (không bao giờ train); (4) lưu checkpoint, load lại, kiểm tra loss khớp — rồi tự kết luận PASS/FAIL.</p>
+<pre># -*- coding: utf-8 -*-
+&quot;&quot;&quot;E0 smoke test — mo hinh thu nho chay CPU (numpy), mo phong pipeline cau hinh A.
+
+Muc dich: kiem chung PIPELINE co chay duoc khong, loss co giam khong — truoc khi
+dot GPU cho E1-E5. Day la ban thu nho chay CPU de luyen tap + kiem tra logic
+phan quyet; ban E0 that tren GPU dung code train that cua de tai (config A,
+BPE 8k, 200M token) nhung GIU NGUYEN checklist, 4 dau hieu PASS va bang go/no-go.
+
+Chay mac dinh (300 buoc):
+    python3 e0_smoke.py
+Chay lai loi FAIL trong bai sang de doi chieu:
+    python3 e0_smoke.py --fault lr-high        # LR gap 30 lan: loss roi thang dung roi phang li tu buoc 5
+    python3 e0_smoke.py --fault bad-data       # loss phang li, khong giam
+    python3 e0_smoke.py --fault no-checkpoint  # checkpoint luu khong duoc
+
+Ket qua: e0_log.json (loss theo buoc), e0_result.json (bang go/no-go),
+e0_checkpoint.npz (checkpoint, luu + load lai de kiem chung).
+&quot;&quot;&quot;
+import argparse
+import json
+import os
+import time
+import unicodedata
+
+import numpy as np
+
+# ---------------------------------------------------------------- du lieu
+# Ngu lieu tieng Viet goc, viet rieng cho lab nay (28 cau). 5 cau cuoi la tap
+# held-out DONG BANG — khong bao gio dung de train, chi dung de eval.
+CORPUS = [
+    &quot;mô hình ngôn ngữ học cách dự đoán từ tiếp theo trong câu&quot;,
+    &quot;dữ liệu sạch giúp mô hình học được tiếng việt tự nhiên hơn&quot;,
+    &quot;tokenizer tách câu thành các đơn vị nhỏ để mô hình xử lý&quot;,
+    &quot;huấn luyện mô hình cần nhiều dữ liệu và thời gian tính toán&quot;,
+    &quot;loss giảm dần cho thấy mô hình đang học được quy luật&quot;,
+    &quot;perplexity đo mức độ bất ngờ của mô hình trước văn bản mới&quot;,
+    &quot;tập held-out dùng để đánh giá mô hình trên dữ liệu chưa thấy&quot;,
+    &quot;learning rate quá cao khiến loss vọt lên và trở thành nan&quot;,
+    &quot;learning rate quá thấp khiến loss giảm rất chậm và phẳng lì&quot;,
+    &quot;checkpoint lưu lại trạng thái mô hình để tiếp tục huấn luyện sau&quot;,
+    &quot;seed cố định giúp kết quả thí nghiệm lặp lại được giống nhau&quot;,
+    &quot;dữ liệu trùng lặp làm mô hình nhớ lại thay vì học khái quát&quot;,
+    &quot;vocab lớn hơn cho phép tokenizer biểu diễn từ hiếm tốt hơn&quot;,
+    &quot;mô hình nhỏ chạy nhanh nhưng khả năng học còn hạn chế&quot;,
+    &quot;mô hình lớn học tốt hơn nhưng tốn nhiều bộ nhớ và điện năng&quot;,
+    &quot;đánh giá mô hình cần tách riêng tập train và tập kiểm tra&quot;,
+    &quot;gradient cho biết hướng điều chỉnh tham số để giảm loss&quot;,
+    &quot;quá khớp xảy ra khi mô hình nhớ dữ liệu train thay vì khái quát&quot;,
+    &quot;một thí nghiệm tốt chỉ thay đổi duy nhất một biến mỗi lần&quot;,
+    &quot;smoke test kiểm tra pipeline có chạy được trước khi làm thật&quot;,
+    &quot;báo cáo nghiên cứu cần ghi rõ dữ liệu và cách đo kết quả&quot;,
+    &quot;tiếng việt có dấu thanh nên tokenizer cần chuẩn hoá unicode&quot;,
+    &quot;mô hình ngôn ngữ nhỏ có thể học được cấu trúc câu đơn giản&quot;,
+    # --- 5 cau held-out (dong bang, khong train) ---
+    &quot;thí nghiệm lặp lại với seed khác cho biết dao động của kết quả&quot;,
+    &quot;tốc độ train đo bằng số token xử lý được trong một giây&quot;,
+    &quot;kết quả tốt cần kiểm chứng bằng nhiều lần chạy độc lập&quot;,
+    &quot;dữ liệu huấn luyện và dữ liệu đánh giá không được trùng nhau&quot;,
+    &quot;mục tiêu cuối cùng là mô hình viết được tiếng việt mạch lạc&quot;,
+]
+HELD_OUT_N = 5
+SEED = 42
+VOCAB_SPECIAL = [&quot;&lt;pad&gt;&quot;, &quot;&lt;bos&gt;&quot;, &quot;&lt;eos&gt;&quot;, &quot;&lt;unk&gt;&quot;]
+
+
+def tokenize(text):
+    &quot;&quot;&quot;NFC + tach tu theo khoang trang (ban thu nho cua BPE 8k).&quot;&quot;&quot;
+    text = unicodedata.normalize(&quot;NFC&quot;, text.strip().lower())
+    return text.split()
+
+
+def build_vocab(sentences):
+    vocab = {tok: i for i, tok in enumerate(VOCAB_SPECIAL)}
+    for s in sentences:
+        for w in tokenize(s):
+            if w not in vocab:
+                vocab[w] = len(vocab)
+    return vocab
+
+
+def encode(sentence, vocab):
+    ids = [vocab[&quot;&lt;bos&gt;&quot;]]
+    ids += [vocab.get(w, vocab[&quot;&lt;unk&gt;&quot;]) for w in tokenize(sentence)]
+    ids += [vocab[&quot;&lt;eos&gt;&quot;]]
+    return ids
+
+
+def pairs_from(ids_list):
+    &quot;&quot;&quot;Cap (token truoc -&gt; token sau) cho mo hinh bigram log-tuyen tinh.&quot;&quot;&quot;
+    x, y = [], []
+    for ids in ids_list:
+        x += ids[:-1]
+        y += ids[1:]
+    return np.array(x), np.array(y)
+
+
+class BigramLM:
+    &quot;&quot;&quot;P(y|x) = softmax(W[x]) — mo hinh thu nho, du de thay loss giam.&quot;&quot;&quot;
+
+    def __init__(self, vocab_size, seed=SEED):
+        rng = np.random.default_rng(seed)
+        self.W = rng.normal(0, 0.01, size=(vocab_size, vocab_size))
+
+    def loss_and_grad(self, x, y):
+        logits = self.W[x]  # (N, V)
+        logits -= logits.max(axis=1, keepdims=True)
+        exp = np.exp(logits)
+        probs = exp / exp.sum(axis=1, keepdims=True)
+        n = len(y)
+        loss = -np.log(probs[np.arange(n), y] + 1e-12).mean()
+        grad = probs.copy()
+        grad[np.arange(n), y] -= 1.0
+        grad /= n
+        gW = np.zeros_like(self.W)
+        np.add.at(gW, x, grad)
+        return float(loss), gW
+
+    def eval_loss(self, x, y):
+        logits = self.W[x]
+        logits -= logits.max(axis=1, keepdims=True)
+        exp = np.exp(logits)
+        probs = exp / exp.sum(axis=1, keepdims=True)
+        return float(-np.log(probs[np.arange(len(y)), y] + 1e-12).mean())
+
+
+def adam_step(model, grad, m, v, t, lr=0.05, b1=0.9, b2=0.999, eps=1e-8):
+    m[:] = b1 * m + (1 - b1) * grad
+    v[:] = b2 * v + (1 - b2) * (grad * grad)
+    mh = m / (1 - b1 ** t)
+    vh = v / (1 - b2 ** t)
+    model.W -= lr * mh / (np.sqrt(vh) + eps)
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument(&quot;--steps&quot;, type=int, default=300)
+    ap.add_argument(&quot;--lr&quot;, type=float, default=0.05)
+    ap.add_argument(&quot;--fault&quot;, choices=[&quot;&quot;, &quot;lr-high&quot;, &quot;bad-data&quot;, &quot;no-checkpoint&quot;],
+                    default=&quot;&quot;)
+    ap.add_argument(&quot;--out&quot;, default=&quot;.&quot;)
+    args = ap.parse_args()
+    os.makedirs(args.out, exist_ok=True)
+
+    train_sents = CORPUS[:-HELD_OUT_N]
+    held_sents = CORPUS[-HELD_OUT_N:]
+    vocab = build_vocab(train_sents)
+    train_ids = [encode(s, vocab) for s in train_sents]
+    held_ids = [encode(s, vocab) for s in held_sents]
+
+    # --- Checklist 5 muc (bai sang §2): muc nao chua dat thi dung lai sua ---
+    checks = {}
+    checks[&quot;1_du_lieu&quot;] = len(train_ids) &gt; 0 and all(len(i) &gt; 3 for i in train_ids)
+    rt = tokenize(&quot;tiếng việt có dấu thanh nên tokenizer cần chuẩn hoá unicode&quot;)
+    checks[&quot;2_tokenizer&quot;] = &quot; &quot;.join(rt) == (
+        &quot;tiếng việt có dấu thanh nên tokenizer cần chuẩn hoá unicode&quot;)
+    checks[&quot;3_cau_hinh&quot;] = True  # ban thu nho: W (VxV); ban that: A ~10M, d=320, 6 layer
+    train_set = set(&quot; &quot;.join(tokenize(s)) for s in train_sents)
+    checks[&quot;4_held_out&quot;] = all(&quot; &quot;.join(tokenize(s)) not in train_set
+                               for s in held_sents)
+    checks[&quot;5_giao_thuc_do&quot;] = True  # log loss, tokens/s, checkpoint — ghi o duoi
+    print(&quot;CHECKLIST TRUOC KHI CHAY E0:&quot;)
+    for k, v in checks.items():
+        print(f&quot;  [{&#x27;dat&#x27; if v else &#x27;CHUA DAT&#x27;}] {k}&quot;)
+    if not all(checks.values()):
+        print(&quot;FAIL: checklist chua dat — sua xong moi chay E0 (bai sang §2).&quot;)
+        raise SystemExit(2)
+
+    x, y = pairs_from(train_ids)
+    xh, yh = pairs_from(held_ids)
+    bad_data = args.fault == &quot;bad-data&quot;
+    if bad_data:
+        # Target xao lai MOI buoc -&gt; khong co anh xa nao hoc duoc -&gt; loss phang li.
+        # (Chi xao 1 lan co dinh thi mo hinh van hoc thuoc duoc anh xa da xao.)
+        pass
+    model = BigramLM(len(vocab))
+    m = np.zeros_like(model.W)
+    v = np.zeros_like(model.W)
+
+    lr = args.lr
+    opt = &quot;adam&quot;
+    if args.fault == &quot;lr-high&quot;:
+        lr = 1.5  # gap 30 lan so voi giao thuc: Adam buoc ~lr moi lan -&gt; dao dong, khong hoi tu
+    log, t0, tokens = [], time.time(), 0
+    loss_first = loss_last = loss_50 = None
+    nan_hit = False
+    for step in range(1, args.steps + 1):
+        y_step = np.random.default_rng(1000 + step).permutation(y) if bad_data else y
+        loss, grad = model.loss_and_grad(x, y_step)
+        tokens += len(x)
+        if not np.isfinite(loss):
+            nan_hit = True
+            loss_last = loss
+            print(f&quot;  buoc {step}: loss = {loss} (NaN/Inf — DUNG NGAY)&quot;)
+            break
+        if opt == &quot;adam&quot;:
+            adam_step(model, grad, m, v, step, lr=lr)
+        else:
+            model.W -= lr * grad
+        if step == 1:
+            loss_first = loss
+        if step == 50:
+            loss_50 = loss
+        loss_last = loss
+        if step % 50 == 0 or step == args.steps:
+            el = time.time() - t0
+            log.append({&quot;step&quot;: step, &quot;loss&quot;: round(loss, 4),
+                        &quot;tokens_per_s&quot;: round(tokens / el, 1)})
+            print(f&quot;  buoc {step}: loss {loss:.4f} | {tokens / el:,.0f} tokens/s&quot;)
+
+    elapsed = time.time() - t0
+    tps = tokens / elapsed if elapsed &gt; 0 else 0.0
+    held_loss = model.eval_loss(xh, yh) if not nan_hit else float(&quot;nan&quot;)
+    ppl = float(np.exp(held_loss)) if np.isfinite(held_loss) else float(&quot;nan&quot;)
+
+    # --- Checkpoint: luu + load lai, loss phai khop ---
+    ckpt_ok = False
+    ckpt_path = f&quot;{args.out}/e0_checkpoint.npz&quot;
+    if args.fault != &quot;no-checkpoint&quot;:
+        np.savez(ckpt_path, W=model.W)
+        reloaded = BigramLM(len(vocab))
+        reloaded.W = np.load(ckpt_path)[&quot;W&quot;]
+        ckpt_ok = abs(reloaded.eval_loss(x, y) - model.eval_loss(x, y)) &lt; 1e-9
+    print(f&quot;  checkpoint: {&#x27;luu + load lai khop&#x27; if ckpt_ok else &#x27;LOI&#x27;}&quot;)
+
+    # --- 4 dau hieu PASS (bai sang §4): du ca 4 moi duoc go E1 ---
+    # &quot;Giam deu&quot; nghia la giam XUYEN SUOT: loss buoc 300 phai thap hon ca
+    # loss buoc 1 (giam tong) VA loss buoc 50 (van giam sau buoc 50).
+    # LR gap 30 lan lam loss roi thang dung trong 4 buoc roi phang li tu
+    # buoc 5 — mat dang hoi tu tot, nen FAIL o day. (Tren transformer that,
+    # khong loi, LR cao nhu vay thuong vot len / NaN — xem bang FAIL bai sang.)
+    passed = {
+        &quot;loss_giam_deu&quot;: (loss_first is not None and loss_last is not None
+                          and loss_50 is not None
+                          and np.isfinite(loss_last)
+                          and loss_last &lt; loss_first - 0.3
+                          and loss_last &lt; loss_50 - 0.05),
+        &quot;khong_nan&quot;: not nan_hit,
+        &quot;toc_do_co_so_do&quot;: tps &gt; 0,
+        &quot;checkpoint_eval_song&quot;: bool(ckpt_ok and np.isfinite(ppl)),
+    }
+    verdict = &quot;PASS&quot; if all(passed.values()) else &quot;FAIL&quot;
+    result = {
+        &quot;steps&quot;: args.steps, &quot;tokens&quot;: int(tokens),
+        &quot;loss_dau&quot;: loss_first, &quot;loss_buoc_50&quot;: loss_50, &quot;loss_cuoi&quot;: loss_last,
+        &quot;tokens_per_s&quot;: round(tps, 1), &quot;thoi_gian_giay&quot;: round(elapsed, 1),
+        &quot;ppl_so_bo_held_out&quot;: (round(ppl, 2) if np.isfinite(ppl) else None),
+        &quot;vocab&quot;: len(vocab), &quot;seed&quot;: SEED,
+        &quot;checkpoint_ok&quot;: ckpt_ok, &quot;passed&quot;: passed, &quot;verdict&quot;: verdict,
+        &quot;ghi_chu&quot;: (&quot;PPL so bo, mo hinh thu nho CPU — KHONG phai PPL chinh thuc, &quot;
+                    &quot;KHONG phai tran P. Tran P chi chot khi A train du 200M token.&quot;),
+    }
+    with open(f&quot;{args.out}/e0_log.json&quot;, &quot;w&quot;, encoding=&quot;utf-8&quot;) as f:
+        json.dump(log, f, ensure_ascii=False, indent=1)
+    with open(f&quot;{args.out}/e0_result.json&quot;, &quot;w&quot;, encoding=&quot;utf-8&quot;) as f:
+        json.dump(result, f, ensure_ascii=False, indent=1)
+    print(f&quot;\nKET LUAN E0: {verdict} — {&#x27;go E1&#x27; if verdict == &#x27;PASS&#x27; else &#x27;sua roi chay lai E0&#x27;}&quot;)
+    print(json.dumps(result, ensure_ascii=False, indent=1))
+
+
+if __name__ == &quot;__main__&quot;:
+    main()
+</pre>
+<p>Chạy:</p>
+<pre>python3 e0_smoke.py
+python3 check_e0.py</pre>
+<pre># -*- coding: utf-8 -*-
+&quot;&quot;&quot;check_e0.py — doc e0_result.json, in bang go/no-go (bai sang §5).
+
+Dung:  python3 check_e0.py [duong dan e0_result.json]
+Thoat 0 neu PASS (go E1), 1 neu FAIL (sua roi chay lai E0).
+Khong bao gio tu ket luan thay — chi doc file ket qua E0 da chay that.
+&quot;&quot;&quot;
+import json
+import sys
+
+LABELS = {
+    &quot;loss_giam_deu&quot;: &quot;Loss giam deu xuyen suot (buoc 300 &lt; buoc 50 &lt; buoc 1)&quot;,
+    &quot;khong_nan&quot;: &quot;Khong NaN / khong diverge&quot;,
+    &quot;toc_do_co_so_do&quot;: &quot;Toc do tokens/s co so do&quot;,
+    &quot;checkpoint_eval_song&quot;: &quot;Checkpoint luu + load duoc, eval held-out chay xong&quot;,
+}
+
+
+def main():
+    path = sys.argv[1] if len(sys.argv) &gt; 1 else &quot;e0_result.json&quot;
+    try:
+        with open(path, encoding=&quot;utf-8&quot;) as f:
+            r = json.load(f)
+    except FileNotFoundError:
+        print(f&quot;FAIL: chua co {path} — chay e0_smoke.py truoc, khong ket luan chay.&quot;)
+        raise SystemExit(1)
+
+    print(&quot;BANG GHI KET QUA E0 — QUYET DINH GO / NO-GO CHO E1&quot;)
+    print(f&quot;  So buoc / so token : {r[&#x27;steps&#x27;]} buoc / {r[&#x27;tokens&#x27;]:,} token&quot;)
+    print(f&quot;  Loss dau -&gt; cuoi  : {r[&#x27;loss_dau&#x27;]} -&gt; {r[&#x27;loss_cuoi&#x27;]}&quot;)
+    print(f&quot;  Tokens/s           : {r[&#x27;tokens_per_s&#x27;]:,}&quot;)
+    print(f&quot;  PPL so bo held-out : {r[&#x27;ppl_so_bo_held_out&#x27;]} (so bo, khong phai PPL chinh thuc)&quot;)
+    print(f&quot;  Checkpoint         : {&#x27;luu + load lai duoc&#x27; if r[&#x27;checkpoint_ok&#x27;] else &#x27;LOI&#x27;}&quot;)
+    print(&quot;  4 dau hieu PASS:&quot;)
+    for k, label in LABELS.items():
+        print(f&quot;    [{&#x27;x&#x27; if r[&#x27;passed&#x27;].get(k) else &#x27; &#x27;}] {label}&quot;)
+    verdict = r[&quot;verdict&quot;]
+    print(f&quot;  Ket luan: {verdict} -&gt; &quot;
+          f&quot;{&#x27;GO E1&#x27; if verdict == &#x27;PASS&#x27; else &#x27;NO-GO: sua dung cho loi roi chay lai E0 tu dau&#x27;}&quot;)
+    raise SystemExit(0 if verdict == &quot;PASS&quot; else 1)
+
+
+if __name__ == &quot;__main__&quot;:
+    main()
+</pre>
+<div class="note"><b>Kết quả đo thật trên máy trợ giảng (CPU, mô hình thu nhỏ — đã chạy kiểm chứng):</b> 300 bước / 95.400 token / 0,4 giây · loss 5,15 → 1,39 (bước 50) → <b>0,74</b> (bước 300) · tokens/s ~218.900 · PPL sơ bộ trên held-out <b>364,37</b> · checkpoint lưu + load lại khớp · kết luận <b>PASS 4/4 dấu hiệu → go E1</b>. PPL sơ bộ cao là bình thường: mô hình thu nhỏ + chỉ 23 câu train, E0 không đánh giá chất lượng mô hình — nó chỉ kiểm tra eval có chạy được và có ra số không. <b>Tokens/s ~218.900 là tốc độ của mô hình thu nhỏ trên CPU, không so được với số nền GPU của cấu hình A (Day 34).</b> Khi chạy E0 thật, điền tokens/s thật của bạn vào bảng dưới và so với số nền Day 34 của chính bạn.</div>
+
+<h3>Lab B — Chạy lại 3 lỗi FAIL để đối chiếu bảng sửa lỗi của bài sáng</h3>
+<p>Chạy 3 chế độ lỗi của cùng script, ghi kết quả vào bảng. Mỗi lỗi phải FAIL đúng dấu hiệu của nó — nếu script vẫn PASS thì logic phán quyết của bạn có vấn đề, sửa script trước đã.</p>
+<pre>python3 e0_smoke.py --fault lr-high        # LR gap 30 lan so voi giao thuc
+python3 e0_smoke.py --fault bad-data       # du lieu vao toan token rac
+python3 e0_smoke.py --fault no-checkpoint  # checkpoint luu khong duoc</pre>
+<table>
+<tr><th>Chế độ lỗi</th><th>Kết quả đo thật (máy trợ giảng)</th><th>Đối chiếu bài sáng §4</th></tr>
+<tr><td><code>--fault lr-high</code></td><td>FAIL — loss rơi thẳng đứng 5,15 → 0,72 trong 4 bước rồi phẳng lì từ bước 5 (bước 50: 0,72 → bước 300: 0,72); PPL held-out 1.060.827,82</td><td>Mất dạng hội tụ tốt. Trên transformer thật (không lồi), LR cao như vậy thường vọt lên / NaN → giảm LR về đúng Day 40, chạy lại E0 từ đầu.</td></tr>
+<tr><td><code>--fault bad-data</code></td><td>FAIL — loss phẳng lì quanh 5,1 (5,15 → 5,02 → 5,11), không giảm</td><td>LR quá thấp, hoặc dữ liệu toàn token lặp / rác → kiểm tra LR đúng Day 40 chưa; in vài batch mẫu xem dữ liệu có đọc được không.</td></tr>
+<tr><td><code>--fault no-checkpoint</code></td><td>FAIL — loss giảm đẹp 5,15 → 0,74 nhưng checkpoint lỗi → 3/4 dấu hiệu</td><td>Không có PASS một nửa. Sửa đường dẫn lưu, chạy lại E0 từ đầu — E4 mà chạy xong không lưu được gì thì trắng tay.</td></tr>
+</table>
+<div class="note">Lưu ý trung thực: mô hình thu nhỏ là bài toán lồi nên LR cao không vọt lên thành NaN như transformer thật — nó chỉ làm mất dạng hội tụ tốt (rơi thẳng đứng rồi phẳng lì) và phá hỏng PPL held-out (1.060.827,82). Dấu hiệu FAIL thì giống nhau (đường cong không còn dạng hội tụ tốt), cơ chế thì khác — ghi rõ điểm này khi nộp bài, đừng viết “đã tái hiện NaN” khi chưa thấy NaN.</div>
+
+<h3>Lab C — Chạy E0 thật trên GPU (vài phút) và điền bảng go/no-go</h3>
+<p>Dùng lại code train cấu hình A của Day 34/35, chỉ rút gọn quy mô: vài trăm bước (~1–2M token) trên lát dữ liệu đầu tiên cùng nguồn, cùng seed, LR đúng Day 40, tập held-out đóng băng từ Day 34. Trước khi bấm chạy, viết ra câu: <b>“thứ duy nhất thay đổi là quy mô chạy”</b> và soát checklist 5 mục, ghi “đạt / chưa đạt” từng mục.</p>
+<p>Log ít nhất 5 dòng số liệu: loss mỗi ~50 bước, tokens/s trung bình, thời gian mỗi bước, bộ nhớ GPU dùng, một lần eval held-out ở cuối E0, cộng một dòng xác nhận checkpoint đã lưu và load lại được. Điền bảng dưới đây bằng <b>số thật đo được</b> — đây cũng là trang đầu tiên trong phụ lục thí nghiệm của báo cáo đề tài.</p>
+<table>
+<tr><th>Mục ghi</th><th>Điền số thật của bạn</th></tr>
+<tr><td>Ngày chạy E0</td><td>23/11/2026 — buổi lab tối Day 42</td></tr>
+<tr><td>Số bước / số token</td><td>(vd: 300 bước / ~1,5M token — ghi số thật)</td></tr>
+<tr><td>Loss đầu → loss cuối</td><td>(vd: 9,8 → 7,4 — ghi số thật, không làm tròn đẹp)</td></tr>
+<tr><td>Tokens/s + MFU</td><td>(số đo thật, so với số nền của A — Day 34)</td></tr>
+<tr><td>PPL sơ bộ trên held-out</td><td>(số thật — ghi rõ “sơ bộ, vài trăm bước, không phải PPL chính thức”)</td></tr>
+<tr><td>Checkpoint</td><td>Đã lưu + load lại được? (có / không)</td></tr>
+<tr><td>Kết luận</td><td>PASS → go E1 &nbsp;|&nbsp; FAIL → sửa ___ rồi chạy lại E0</td></tr>
+</table>
+<div class="warn">Nếu tối nay GPU bận: chạy trước bản dry-run 1M token để kiểm tra pipeline, ghi rõ “E0 dry-run xong, chạy đủ đang chờ GPU” — đừng giả vờ đã xong. Nếu số liệu Day 34/35 của bạn chưa nộp (tính đến 17/11 vẫn chưa có), ô “so với số nền của A” cứ để trống có ghi nguồn chờ — một ô trống có ghi nguồn chờ là ô tốt.</div>
+
+<h3>Lab D — Quyết định E1 + gợi ý cho ngày mai</h3>
+<p>Áp quy tắc vàng vào bảng Lab C: đủ 4 dấu hiệu PASS mới viết “go E1”. E0 FAIL thì ghi rõ sửa chỗ nào, rồi chạy lại E0 từ đầu — không sửa giữa chừng rồi chạy tiếp. Sau đó viết 1 dòng vào file lab của bạn: <b>“E0: PASS/FAIL — E1 được phép chạy từ Day 43 / chưa được phép vì ___”</b>.</p>
+<p><b>Gợi ý 1 hướng cải tiến cho ngày mai (Day 43):</b> E1 sẽ đổi duy nhất một thứ — bật/tắt khử trùng lặp. Chuẩn bị trước 2 lát dữ liệu song song (đã dedupe / chưa dedupe) từ cùng một nguồn, cùng seed, để ngày mai chỉ việc bấm chạy mà không phải chuẩn bị dữ liệu giữa chừng. Nếu dữ liệu sạch Day 33 của bạn chưa sẵn, đó chính là việc cần làm tối nay sau khi E0 PASS.</p>
+
+<h2>3 · Tự kiểm tra nhanh</h2>
+<div class="qa"><p><b>Câu 1.</b> E0 PASS cần mấy dấu hiệu, và thiếu 1 dấu hiệu thì kết luận gì?</p>
+<button onclick="this.nextElementSibling.classList.toggle('show')">Hiện đáp án</button>
+<div class="ans">Đủ cả 4 dấu hiệu: loss giảm đều, không NaN, tốc độ đúng kỳ vọng, checkpoint + eval sống. Thiếu 1 cũng là FAIL — không có “PASS một nửa”. Sửa đúng chỗ lỗi rồi chạy lại E0 từ đầu.</div></div>
+<div class="qa"><p><b>Câu 2.</b> Trong thiết kế E0, “thứ duy nhất thay đổi là ___?” — và vì sao không được đổi cả LR lẫn dữ liệu cùng lúc?</p>
+<button onclick="this.nextElementSibling.classList.toggle('show')">Hiện đáp án</button>
+<div class="ans">Chỉ quy mô chạy: ít bước hơn, ít dữ liệu hơn. Mọi thứ khác (cấu hình A, tokenizer BPE 8k, seed, tập held-out, LR đúng Day 40) giữ nguyên. Đổi 2 thứ cùng lúc thì kết quả E0 không gán được cho thứ nào — vi phạm quy tắc một biến của Day 41.</div></div>
+<div class="qa"><p><b>Câu 3.</b> PPL sơ bộ của E0 là 364,37 (bản thu nhỏ) — có được dùng làm PPL chính thức hay trần P không? Vì sao?</p>
+<button onclick="this.nextElementSibling.classList.toggle('show')">Hiện đáp án</button>
+<div class="ans">Không. Đó là PPL sơ bộ sau vài trăm bước trên mô hình thu nhỏ — chỉ chứng minh eval chạy được và ra số. Trần P chỉ chốt khi A train xong đủ 200M token (lab Day 35). Lấy số E0 điền vào chỗ của P là sai nghiêm trọng.</div></div>
+
+<h2>4 · Câu hỏi phản biện — trả lời trong chat (advisor chấm)</h2>
+<div class="rq"><b>Q1.</b> Bài sáng nói “bỏ qua E0 vì pipeline Day 34/35 đã chạy được rồi” là bẫy kinh điển. Kể từ Day 34 tới nay, đề tài của bạn đã thay đổi những mắt xích nào (dữ liệu, tokenizer, giao thức đo)? Mắt xích nào trong số đó, nếu tuột ra, sẽ cho ra con số trông hợp lý nhưng sai — và E0 bắt được nó bằng cách nào?</div>
+<div class="rq"><b>Q2.</b> E0 của bạn FAIL ở dấu hiệu checkpoint (loss giảm đẹp, eval chạy được, chỉ checkpoint load không được). Một người làm cùng đề tài bảo “cứ chạy E1 đi, checkpoint sửa sau cũng được”. Bạn phản biện thế nào — bằng con số chi phí nào (E4 bao nhiêu phút, E0 bao nhiêu phút)?</div>
+<div class="rq"><b>Q3.</b> So sánh 2 lần chạy E0 giả định: lần 1 loss 9,8 → 7,4 giảm đều; lần 2 loss 9,8 → 0,7 trong 4 bước rồi phẳng lì. Lần nào đáng tin hơn, và vì sao lần 2 — dù loss cuối thấp hơn nhiều — lại là dấu hiệu FAIL?</div>
+<div class="rq"><b>Q4.</b> E0 PASS xong, bạn có chạy E1 ngay trong đêm không? Điều kiện nào thì “go E1” nghĩa là chạy luôn tối nay, điều kiện nào thì “go E1” chỉ nghĩa là được phép chạy từ ngày mai — và ai là người quyết định ranh giới đó?</div>
+<div class="rq"><b>Q5.</b> Nếu GPU tối nay bận và bạn chỉ chạy được dry-run 1M token: bản dry-run đó chứng minh được những gì, và không chứng minh được những gì? Viết rõ 2 cột “đã chứng minh / chưa chứng minh”.</div>
+
+<h2>5 · Checklist tự đánh giá (tự chấm trước khi nộp)</h2>
+<ul class="check">
+<li><input type="checkbox" onclick="this.parentElement.classList.toggle('done')"> Lab A: <code>e0_smoke.py</code> chạy được trên máy của bạn, kết quả PASS 4/4, đã lưu <code>e0_result.json</code></li>
+<li><input type="checkbox" onclick="this.parentElement.classList.toggle('done')"> Lab B: cả 3 chế độ lỗi đều FAIL đúng dấu hiệu, đã đối chiếu được với bảng FAIL bài sáng §4</li>
+<li><input type="checkbox" onclick="this.parentElement.classList.toggle('done')"> Lab C: checklist 5 mục đã soát “đạt / chưa đạt” trước khi bấm chạy E0 thật; bảng go/no-go điền bằng số thật (hoặc ghi rõ dry-run / đang chờ GPU)</li>
+<li><input type="checkbox" onclick="this.parentElement.classList.toggle('done')"> Lab D: đã viết 1 dòng quyết định E0 → E1; đã chuẩn bị 2 lát dữ liệu cho E1 ngày mai</li>
+<li><input type="checkbox" onclick="this.parentElement.classList.toggle('done')"> Ô trần P vẫn để trống; không có con số nào trong bài nộp được ghi là PPL chính thức</li>
+</ul>
+
+<h2>6 · Bẫy thường gặp</h2>
+<div class="card">
+<p><b>1. Chạy E0 bằng config khác rồi kết luận “pipeline ổn”.</b> E0 chỉ có giá trị khi chạy đúng cấu hình sẽ dùng cho E1–E5. Đổi LR, đổi tokenizer, đổi tập held-out trong lúc chạy E0 thì E0 không còn là smoke test của cấu hình A nữa — nó thành một thí nghiệm khác mà bạn không đặt tên.</p>
+<p><b>2. Lấy PPL sơ bộ của E0 làm PPL chính thức / trần P.</b> E0 train vài trăm bước; P chỉ chốt khi A train đủ 200M token. Điền số E0 vào đề cương Day 39 là lỗi khoa học, không phải lỗi trình bày.</p>
+<p><b>3. Sửa lỗi giữa chừng rồi chạy tiếp.</b> E0 FAIL thì sửa đúng chỗ lỗi, chạy lại E0 từ đầu. Sửa giữa chừng thì không còn biết phần nào của đường cong thuộc về bản sửa nào — đường loss đó vứt đi, không dùng làm đường tham chiếu cho E1–E5 được.</p>
+</div>
+
+<h2>7 · Checklist nộp bài</h2>
+<p>Paste vào chat để được nhận xét chi tiết:</p>
+<ul class="check">
+<li><input type="checkbox" onclick="this.parentElement.classList.toggle('done')"> File <code>e0_result.json</code> của lần chạy E0 thu nhỏ (loss đầu → cuối, tokens/s, PPL sơ bộ, verdict)</li>
+<li><input type="checkbox" onclick="this.parentElement.classList.toggle('done')"> Bảng 3 lỗi Lab B: mỗi lỗi 1 dòng (chế độ lỗi → FAIL dấu hiệu nào → sửa thế nào)</li>
+<li><input type="checkbox" onclick="this.parentElement.classList.toggle('done')"> Bảng go/no-go Lab C điền bằng số thật của lần chạy E0 trên GPU (hoặc ghi rõ dry-run / đang chờ GPU)</li>
+<li><input type="checkbox" onclick="this.parentElement.classList.toggle('done')"> 1 dòng quyết định E1 + trả lời 5 câu phản biện mục 4</li>
+</ul>
+<p class="footer">Ngày 42 — Buổi tối · Phase 2, nhóm ngày 38–44: đề cương + baseline · Ma trận E0–E5 đã khóa Day 41 · E0 PASS → E1 (dữ liệu) từ Day 43. Trần P chưa chốt — chờ A train đủ 200M token.</p>
+</div>
+<script>
+document.querySelectorAll('.check li input').forEach(function(cb){
+  cb.addEventListener('change', function(){ this.parentElement.classList.toggle('done', this.checked); });
+});
+</script>
+</body>
+</html>

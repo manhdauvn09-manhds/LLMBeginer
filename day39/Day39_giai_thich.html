@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ngày 39 — Giải thích chi tiết: Viết đề cương chi tiết — mục tiêu, RQ, giả thuyết, phương pháp và kế hoạch thí nghiệm</title>
+<style>
+:root{--bg:#0a0f1e; --card:#101830; --line:#22305a; --gold:#f5c542; --green:#4ade80;
+ --red:#f87171; --violet:#a78bfa; --cyan:#67e8f9; --text:#e8edf7; --muted:#93a0bd;}
+*{box-sizing:border-box;}
+body{margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.75; font-size:16.5px;}
+.wrap{max-width:820px; margin:0 auto; padding:18px 16px 60px;}
+.kicker{display:inline-block; font-size:13px; letter-spacing:1px; color:var(--gold); font-weight:700; margin-bottom:8px;}
+h1{font-size:28px; line-height:1.3; margin:6px 0 10px;}
+h2{font-size:22px; margin:34px 0 10px; color:var(--gold); border-bottom:1px solid var(--line); padding-bottom:6px;}
+h3{font-size:18px; margin:22px 0 8px; color:var(--cyan);}
+.sub{color:var(--muted); font-size:16.5px;}
+.card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px; margin:16px 0;}
+.note{border-left:4px solid var(--green); background:#0f2233; border-radius:0 12px 12px 0; padding:12px 16px; margin:14px 0;}
+.warn{border-left:4px solid var(--red); background:#23141a; border-radius:0 12px 12px 0; padding:12px 16px; margin:14px 0;}
+.formula{background:#0a1428; border:1px solid var(--line); border-radius:10px; padding:12px 16px; font-family:"SF Mono",Consolas,Menlo,monospace; font-size:16px; text-align:center; margin:14px 0; color:var(--cyan);}
+table{width:100%; border-collapse:collapse; margin:12px 0; font-size:15px;}
+th,td{border:1px solid var(--line); padding:8px 10px; text-align:left;}
+th{background:#141d3a; color:var(--gold);}
+code{background:#0a0f1e; border:1px solid var(--line); border-radius:6px; padding:1px 7px; font-size:15px;}
+pre{background:#0a0f1e; border:1px solid var(--line); border-radius:10px; padding:14px 16px; overflow-x:auto; font-size:14.5px; line-height:1.6; white-space:pre-wrap;}
+.footer{color:var(--muted); font-size:14px; margin-top:40px; border-top:1px solid var(--line); padding-top:14px;}
+ul li, ol li{margin-bottom:6px;}
+a{color:var(--gold);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<span class="kicker">PHASE 2 · NGÀY 39 / 60 · GIẢI THÍCH CHI TIẾT · ĐỀ TÀI: TINY VIETNAMESE LM</span>
+<h1>Ngày 39 — Giải thích chi tiết: Viết đề cương chi tiết — mục tiêu, RQ, giả thuyết, phương pháp và kế hoạch thí nghiệm</h1>
+<p class="sub">Bài giải thích này đi cùng <a href="Day39_practice.html">bài thực hành tối nay</a>. Nó giải thích <b>vì sao</b> đề cương phải viết trước thí nghiệm, <b>thế nào</b> là một giả thuyết kiểm chứng được, và <b>làm sao</b> viết phương pháp đủ chi tiết để người lạ chạy lại được — rồi mới tới các bước lab cụ thể trong file thực hành.</p>
+
+<h2>🎯 Mục tiêu buổi tối</h2>
+<ul>
+<li>Hiểu vì sao đề cương chi tiết là "hợp đồng" giữa người làm thí nghiệm và chính mình trong tương lai — và điều gì mất đi nếu chạy thí nghiệm trước, viết đề cương sau.</li>
+<li>Viết được mục tiêu + RQ + giả thuyết falsifiable thành văn bản, mỗi giả thuyết kèm ngưỡng chấp nhận / bác bỏ cụ thể.</li>
+<li>Viết được phần phương pháp 4 khối (dữ liệu → tokenizer → huấn luyện → đánh giá) đủ để người khác tái hiện.</li>
+<li>Chốt được lịch chạy E0 → E1 → E2 → E5 → E3 → E4, và biết khi nào thì dừng.</li>
+</ul>
+
+<h2>1 · Đề cương chi tiết là gì — và vì sao nó viết trước thí nghiệm</h2>
+<p>Khung 5 phần ở Day 38 là <b>dàn ý</b>: mỗi phần có tên và ghi chú nguyên liệu lấy từ đâu. Bản thảo chi tiết hôm nay là <b>văn bản đầy đủ của 3 phần đầu</b> — giới thiệu, tổng quan, phương pháp — cộng với <b>kế hoạch thí nghiệm</b> cho chương 4. Chương 4 và 5 vẫn để trống chờ số liệu, nhưng mỗi ô trống đã có tên thí nghiệm đứng sau nó.</p>
+<p>Đề cương làm ba việc thay cho ta. <b>Thứ nhất, khóa câu hỏi trước khi có đáp án:</b> RQ1/RQ2/RQ3 đã chốt ở Day 37 được ghi vào đúng chương thí nghiệm. Đổi câu hỏi sau khi biết đáp án là gian lận khoa học, dù vô tình. <b>Thứ hai, liệt kê số liệu cần đo trước khi đo:</b> mỗi ô trong đề cương là một số đo phải có. Viết trước thì khi chạy mới nhớ bật đồng hồ đo GPU-giờ hay lưu checkpoint. <b>Thứ ba, biến báo cáo thành checklist để điền dần:</b> giai đoạn thí nghiệm (Ngày 45–53) chỉ việc điền từng ô đã vẽ, không viết lại từ đầu.</p>
+<div class="note">💡 <b>Quy tắc vàng của advisor:</b> đề cương chi tiết tốt là đề cương mà một người lạ đọc xong có thể <em>chạy lại toàn bộ thí nghiệm mà không cần hỏi thêm câu nào</em>. Nếu còn chỗ nào phải hỏi lại tác giả, chỗ đó chưa đủ chi tiết. Tối nay, checklist Phần D trong file thực hành chính là bài kiểm tra quy tắc này.</div>
+<p>Ba lỗi thường gặp khi viết bản thảo — và cách đề cương hôm nay tránh chúng: <b>(1) Viết mục tiêu chung chung</b> — "nghiên cứu LLM tiết kiệm năng lượng" là chủ đề, không phải mục tiêu. Mục tiêu phải nêu được <em>cái gì được đo, trên cái gì, so với cái gì</em>. <b>(2) Giả thuyết không kiểm chứng được</b> — "mô hình nhỏ train lâu sẽ tốt" không thể bác bỏ, vì "tốt" là bao nhiêu? <b>(3) Phương pháp thiếu chi tiết tái hiện</b> — "train mô hình nhỏ trên dữ liệu Wikipedia" không ai tái hiện được.</p>
+
+<h2>2 · Giả thuyết falsifiable — nói rõ "kết quả nào thì tôi chịu thua"</h2>
+<p>Ba câu hỏi nghiên cứu đã chốt ở Day 37, nay viết thành văn bản đề cương — mỗi câu kèm một giả thuyết và một ngưỡng kiểm chứng:</p>
+<table>
+<tr><th>Câu hỏi</th><th>Giả thuyết (falsifiable)</th><th>Ngưỡng chấp nhận / bác bỏ</th></tr>
+<tr><td><strong>RQ1</strong> — Cấu hình nào tốt nhất trên mỗi watt?</td><td><strong>H1:</strong> Trong 3 cấu hình A/B/C, cấu hình nhỏ train dài cho PPL thấp nhất trên mỗi GPU-giờ.</td><td>Chấp nhận H1 nếu A đạt PPL ≤ P với &lt; ½ GPU-giờ của C. Bác bỏ nếu C vẫn hơn A trên mỗi GPU-giờ.</td></tr>
+<tr><td><strong>RQ2</strong> — Lọc dữ liệu có ích không?</td><td><strong>H2:</strong> Dữ liệu đã khử trùng lặp cho PPL thấp hơn dữ liệu thô, cùng cấu hình A, cùng số token.</td><td>Chấp nhận H2 nếu chênh lệch PPL vượt sai số đo (lấy từ E5 — lặp seed). Bằng không, H2 bị bác bỏ.</td></tr>
+<tr><td><strong>RQ3</strong> — Ngoài PPL, mô hình nhỏ đạt bao nhiêu?</td><td><strong>H3:</strong> PPL thấp không đồng nghĩa VMLU cao — hai số có thể kể hai câu chuyện khác nhau.</td><td>So PPL held-out với điểm VMLU mẫu 200 câu trên cùng checkpoint A. Nếu thứ hạng hai cấu hình đảo nhau giữa hai thước đo, H3 được xác nhận.</td></tr>
+</table>
+<p>Ba điểm cần lưu ý khi viết phần này vào đề cương:</p>
+<ul>
+<li><b>Mỗi giả thuyết chỉ đổi một thứ.</b> H1 đổi cấu hình (A/B/C), dữ liệu và cách đo giữ nguyên. H2 đổi dữ liệu (sạch / thô), cấu hình A giữ nguyên. Đây chính là nguyên tắc "thứ duy nhất thay đổi là ___" — viết vào đề cương để mỗi thí nghiệm E0–E5 đều soi được vào một giả thuyết.</li>
+<li><b>Trần P vẫn để trống — có chủ đích.</b> P là trần PPL, chỉ chốt được sau khi train xong cấu hình A đủ 200M token (lab Day 35). Số liệu lab Day 34/35 vẫn chưa nộp, nên đề cương hôm nay ghi rõ: <code>P = [chờ số liệu lab Day 35]</code>. Một ô trống có ghi nguồn chờ là ô tốt; một con số bịa ra để lấp chỗ trống là lỗi khoa học.</li>
+<li><b>Viết cả điều kiện bác bỏ, không chỉ điều kiện chấp nhận.</b> Một giả thuyết falsifiable phải nói rõ "kết quả nào thì tôi chịu thua". Nếu chỉ viết "A tốt hơn C" mà không nói "tốt hơn bao nhiêu thì tính", thì bất kỳ kết quả nào cũng có thể bẻ cong thành "đúng" — và đề cương mất tác dụng khóa câu hỏi trước khi có đáp án.</li>
+</ul>
+<div class="warn">⚠️ <b>Bẫy thường gặp:</b> viết giả thuyết sau khi đã thấy kết quả thí nghiệm rồi chỉnh câu chữ cho khớp số liệu. Đó là gian lận, dù vô tình. Đề cương hôm nay khóa H1/H2/H3 <em>trước</em> giai đoạn thí nghiệm (Ngày 45–53) — sau hôm nay, chỉ được đổi giả thuyết khi có lý do ghi rõ bằng văn bản, không đổi âm thầm.</div>
+
+<h2>3 · Phương pháp 4 khối — mỗi khối khóa đầu vào của khối sau</h2>
+<p>Phần phương pháp của Tiny Vietnamese LM có 4 khối. Mỗi khối viết đủ 4 yếu tố: <em>cái gì, phiên bản nào, vì sao chọn, đo bằng gì</em>. Dữ liệu → tokenizer → huấn luyện → đánh giá: mỗi khối khóa đầu vào của khối sau. Đổi dữ liệu mà không ghi lại thì mọi so sánh sau đó mất giá trị.</p>
+<div class="card">
+<p><strong>Khối 1 — Dữ liệu:</strong> Wikipedia tiếng Việt, dump 01/11/2026 (1,11 GiB), khử trùng lặp ExactSubstr + NearDup theo Lee et al. 2022, lặp lại tối đa 3–4 epoch theo Muennighoff et al. 2023 (3 epoch ≈ 744M, 4 epoch ≈ 902M token hiệu dụng). CulturaX-vi là nguồn dự phòng. Dữ liệu thô chỉ dùng cho baseline E2, không dùng cho kết quả chính.</p>
+<p><strong>Khối 2 — Tokenizer:</strong> BPE byte-level, vocab 8k–16k, chuẩn hóa NFC (Day 32). Con số đo được: BPE 8k nén được khoảng 20%, 16k khoảng 41% — vì vocab ảnh hưởng trực tiếp tới số token của cùng một văn bản, đổi vocab là đổi luôn ngân sách token D.</p>
+<p><strong>Khối 3 — Huấn luyện:</strong> cấu hình chính A (~9,94M tham số, tied embeddings, d=320, 6 layer), 200M token, 1 epoch, 1 GPU RTX 4090, tỉ lệ D/N = 20 theo Chinchilla (Day 34). B (25M/500M, 2,5 epoch, ~50 phút) và C (37M/744M, 3 epoch, ~110 phút) chỉ chạy sau khi A đã khóa baseline. Ghi rõ optimizer, learning rate, batch size, seed — thiếu một dòng là người khác chạy ra số khác.</p>
+<p><strong>Khối 4 — Đánh giá:</strong> PPL trên tập held-out đã đóng băng (Day 34) + điểm VMLU mẫu 200 câu (Day 36) + chi phí tính toán GPU-giờ và kWh cho mỗi lần chạy. Ba con số này đi cùng nhau trong mọi bảng kết quả — PPL một mình không đủ, VMLU một mình không đủ, và không có chi phí thì không trả lời được RQ1.</p>
+</div>
+<p>Tập held-out <b>đóng băng</b> từ Day 34 — không thêm, không sửa, không nhìn vào để chọn mô hình. Nếu tập đánh giá bị thay đổi giữa chừng, mọi so sánh trước–sau đều mất giá trị, vì thước đo đã đổi mà không ai ghi lại.</p>
+<div class="note">💡 <b>Vì sao phương pháp viết trước thí nghiệm:</b> nếu viết phương pháp sau khi chạy xong, ta sẽ vô thức chỉ ghi những gì đã làm đúng và bỏ qua những gì đã làm sai — ví dụ quên ghi rằng lần chạy C dùng batch size khác A. Viết trước thì phương pháp là <em>hợp đồng</em>: thí nghiệm nào lệch khỏi hợp đồng phải ghi lý do, không được lặng lẽ sửa.</div>
+
+<h2>4 · Kế hoạch thí nghiệm — chạy rẻ trước, đắt sau</h2>
+<p>Ma trận E0–E5 đã có từ Day 38. Hôm nay viết thành <strong>lịch chạy có thứ tự và điểm dừng</strong>. Nguyên tắc: chạy rẻ trước để khóa pipeline, baseline và sai số đo — rồi mới đốt GPU-giờ cho các cấu hình đắt.</p>
+<table>
+<tr><th>Thí nghiệm</th><th>Nội dung</th><th>Chi phí GPU</th><th>Khóa được cái gì</th><th>Điểm dừng</th></tr>
+<tr><td><strong>E0</strong> — sàn n-gram</td><td>Baseline sàn, không học sâu</td><td>~phút</td><td>Pipeline đo PPL chạy đúng</td><td>PPL sàn bất thường → kiểm tra tập held-out</td></tr>
+<tr><td><strong>E1</strong> — baseline chính</td><td>Cấu hình A, dữ liệu sạch</td><td>~8 phút</td><td>Baseline chính + trần P (khi có số lab)</td><td>PPL A bất thường → dừng, sửa rồi mới chạy tiếp</td></tr>
+<tr><td><strong>E2</strong> — dữ liệu thô</td><td>Cấu hình A, dữ liệu chưa lọc</td><td>~8 phút</td><td>Trả lời H2 (RQ2)</td><td>—</td></tr>
+<tr><td><strong>E5</strong> — lặp seed</td><td>Chạy lại E1 với seed khác</td><td>~8 phút</td><td>Sai số đo — ngưỡng chấp nhận H2</td><td>—</td></tr>
+<tr><td><strong>E3</strong> — cấu hình B</td><td>25M / 500M token</td><td>~50 phút</td><td>Điểm giữa của đường scaling</td><td>Chỉ chạy khi E0–E2 + E5 đã xong</td></tr>
+<tr><td><strong>E4</strong> — cấu hình C</td><td>37M / 744M token</td><td>~110 phút</td><td>Điểm cuối của đường scaling</td><td>Chỉ chạy khi E3 xong; dừng nếu A đã gần trần P</td></tr>
+</table>
+<div class="formula">Thứ tự chạy: E0 → E1 → E2 → E5 → E3 → E4 &nbsp;&nbsp;•&nbsp;&nbsp; Tổng E0–E2 + E5 ≈ 20 phút GPU</div>
+<p>Ba quy tắc vận hành viết kèm vào đề cương:</p>
+<ul>
+<li><strong>Không chạy E4 để "cho đủ lịch".</strong> Sau E1–E2, nếu PPL của A đã gần trần P (khi P được chốt) thì B/C có thể không còn đáng chạy — tiết kiệm 160 phút GPU. Quyết định dừng cũng là một kết quả nghiên cứu, ghi vào báo cáo.</li>
+<li><strong>Mỗi thí nghiệm chỉ đổi một thứ.</strong> E2 so với E1 chỉ khác dữ liệu; E3 so với E1 chỉ khác cấu hình. Thí nghiệm nào đổi hai thứ cùng lúc thì kết quả của nó không gán được cho nguyên nhân nào — phải chạy lại.</li>
+<li><strong>Một GPU-giờ trả lời nhiều câu hỏi.</strong> E1 vừa là baseline chính cho RQ1, vừa là điểm so cho RQ3, vừa là mốc cho trần P. Thiết kế thí nghiệm tốt không phải là chạy nhiều, mà là chạy ít mà mỗi lần chạy trả lời được nhiều câu hỏi nhất.</li>
+</ul>
+
+<h2>5 · Góc tiết kiệm năng lượng</h2>
+<p>Đề cương chi tiết tự nó đã là một biện pháp tiết kiệm năng lượng: <strong>E0–E2 + E5 tốn tổng cộng ~20 phút GPU nhưng khóa được pipeline, baseline chính và sai số đo</strong>. Một lỗi pipeline phát hiện ở E0 tiết kiệm cả một lần chạy E4 (~110 phút) vô ích — tức là tiết kiệm điện của cả một buổi chiều chạy GPU chỉ bằng 20 phút chạy rẻ đầu tiên. Ngược lại, chạy thẳng E4 mà không qua E0–E2 thì mỗi lỗi nhỏ đều phải trả bằng một lần chạy lại 110 phút.</p>
+<p>Quy tắc "chạy rẻ trước" còn có một lợi ích ít ai để ý: các lần chạy rẻ cho ta <em>sai số đo sớm</em> (E5). Biết sai số đo là bao nhiêu trước khi chạy các cấu hình đắt giúp ta không phí GPU-giờ đuổi theo những chênh lệch PPL nhỏ hơn cả nhiễu đo — chênh lệch đó dù có đo được cũng không kết luận được gì.</p>
+
+<h2>6 · Các bước lab tối nay — tóm tắt</h2>
+<ol>
+<li><b>Viết <code>outline_detailed.md</code></b> (40 phút): mục tiêu đủ 3 yếu tố, bảng RQ/H kèm ngưỡng, phương pháp 4 khối, lịch chạy E0–E5 kèm điểm dừng, ô trần P ghi <code>[chờ số liệu lab Day 35]</code>.</li>
+<li><b>Viết <code>check_outline.py</code></b> (40 phút): script Python chấm 10 điều kiện — đủ RQ/H, mỗi giả thuyết có ngưỡng, đủ 4 khối phương pháp, lịch chạy đúng thứ tự, ô trần P không bịa số. Điền 2 hàm còn thiếu, chạy trên file thật, thử cả bản "xấu" (P = 12,5) để chứng minh script bắt được lỗi bịa số.</li>
+<li><b>Viết bảng gộp phương pháp + datasheet mini</b> (30 phút): một bảng duy nhất nối dữ liệu → tokenizer → kiến trúc → đánh giá, kèm datasheet 5 dòng cho dữ liệu.</li>
+<li><b>Rà soát quy tắc vàng</b> (20 phút): người lạ đọc xong có chạy lại được mà không cần hỏi thêm không? Mỗi thí nghiệm đủ RQ + thứ đổi duy nhất + điểm dừng chưa? Script đạt ≥ 9/10 chưa?</li>
+</ol>
+
+<h2>7 · Bẫy thường gặp</h2>
+<ul>
+<li><b>Viết mục tiêu chung chung</b> — thiếu một trong ba yếu tố (đo gì / trên gì / so với gì) thì mục tiêu chỉ còn là chủ đề.</li>
+<li><b>Giả thuyết không có ngưỡng số</b> — không có ngưỡng thì kết quả nào cũng bẻ cong thành "đúng" được.</li>
+<li><b>Viết giả thuyết sau khi thấy kết quả</b> — chỉnh câu chữ cho khớp số liệu là gian lận, dù vô tình.</li>
+<li><b>Điền trần P bằng số ước lượng</b> — ô trống có ghi nguồn chờ là đúng; số bịa thì cả chương thí nghiệm đối chiếu với một con số giả.</li>
+<li><b>Phương pháp thiếu chi tiết tái hiện</b> — thiếu một dòng (optimizer, seed, batch size) là người khác chạy ra số khác.</li>
+<li><b>Chạy E3/E4 trước E0–E2 vì "đã lên lịch"</b> — lịch là thứ tự ưu tiên, không phải lệnh bắt buộc khi E1 chưa xong.</li>
+</ul>
+
+<h2>📋 Tóm tắt</h2>
+<ul>
+<li>Đề cương chi tiết = văn bản đầy đủ của 3 phần đầu (giới thiệu, tổng quan, phương pháp) + kế hoạch thí nghiệm cho chương 4; chương 4–5 để trống chờ số liệu, mỗi ô trống có tên thí nghiệm đứng sau.</li>
+<li>RQ1/RQ2/RQ3 + H1/H2/H3 đã viết thành văn bản falsifiable, mỗi giả thuyết kèm ngưỡng chấp nhận / bác bỏ; trần P vẫn để trống chờ số lab Day 35 — không bịa số.</li>
+<li>Phương pháp 4 khối (dữ liệu → tokenizer → huấn luyện → đánh giá) viết đủ để người khác tái hiện; tập held-out đóng băng, không sửa.</li>
+<li>Kế hoạch chạy: E0 → E1 → E2 → E5 (~20 phút GPU) trước, rồi mới E3/E4; mỗi thí nghiệm chỉ đổi một thứ; biết dừng khi A đã gần trần P.</li>
+<li>Lab tối nay: viết <code>outline_detailed.md</code> + script <code>check_outline.py</code> chấm 10 điều kiện (bản tốt 10/10, bản điền P bịa bị bắt FAIL) + bảng gộp phương pháp + rà soát quy tắc vàng.</li>
+</ul>
+
+<div class="footer">Khóa "Trở thành AI Engineer (LLM)" — Phase 2, đề tài Tiny Vietnamese LM · Ngày 39 · Buổi tối: giải thích chi tiết. Bài thực hành: <a href="Day39_practice.html">Day39_practice.html</a> · Bài học buổi sáng: <a href="Day39_lesson.html">Day39_lesson.html</a> · Quiz: <a href="Day39_quiz.html">Day39_quiz.html</a></div>
+</div>
+</body>
+</html>

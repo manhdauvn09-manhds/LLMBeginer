@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ngày 40 — Giải thích chi tiết: Chạy sàn n-gram + cấu hình A, khóa baseline</title>
+<style>
+:root{--bg:#0a0f1e; --card:#101830; --line:#22305a; --gold:#f5c542; --green:#4ade80;
+ --red:#f87171; --violet:#a78bfa; --cyan:#67e8f9; --text:#e8edf7; --muted:#93a0bd;}
+*{box-sizing:border-box;}
+body{margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; line-height:1.75; font-size:16.5px;}
+.wrap{max-width:820px; margin:0 auto; padding:18px 16px 60px;}
+.kicker{display:inline-block; font-size:13px; letter-spacing:1px; color:var(--gold); font-weight:700; margin-bottom:8px;}
+h1{font-size:28px; line-height:1.3; margin:6px 0 10px;}
+h2{font-size:22px; margin:34px 0 10px; color:var(--cyan);}
+h3{font-size:18px; margin:22px 0 8px; color:var(--gold);}
+.sub{color:var(--muted); font-size:16.5px;}
+.meta{display:flex; gap:8px; flex-wrap:wrap; margin:14px 0 6px;}
+.meta span{font-size:13.5px; background:var(--card); border:1px solid var(--line); border-radius:999px; padding:5px 14px;}
+.card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px; margin:16px 0;}
+.note{border-left:4px solid var(--green); background:#0f2233; border-radius:0 12px 12px 0; padding:12px 16px; margin:14px 0;}
+.warn{border-left:4px solid var(--red); background:#23141a; border-radius:0 12px 12px 0; padding:12px 16px; margin:14px 0;}
+.formula{background:#0a1428; border:1px solid var(--line); border-radius:10px; padding:12px 16px; font-family:"SF Mono",Consolas,Menlo,monospace; font-size:16px; text-align:center; margin:14px 0; color:var(--cyan);}
+code{background:#0a0f1e; border:1px solid var(--line); border-radius:6px; padding:1px 7px; font-size:15px;}
+pre{background:#0a0f1e; border:1px solid var(--line); border-radius:10px; padding:14px 16px; overflow-x:auto; font-size:14.5px; line-height:1.6; white-space:pre-wrap;}
+table{width:100%; border-collapse:collapse; margin:12px 0; font-size:15px;}
+th,td{border:1px solid var(--line); padding:8px 10px; text-align:left;}
+th{background:#141d3a; color:var(--gold);}
+.footer{color:var(--muted); font-size:14px; margin-top:40px; border-top:1px solid var(--line); padding-top:14px;}
+ul li, ol li{margin-bottom:6px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<span class="kicker">PHASE 2 · NGÀY 40 / 60 · GIẢI THÍCH CHI TIẾT · ĐỀ TÀI: TINY VIETNAMESE LM</span>
+<h1>Ngày 40 — Giải thích chi tiết: Chạy sàn n-gram + cấu hình A, khóa baseline</h1>
+<p class="sub">Bài giải thích cho lab buổi tối Day 40: vì sao phải có baseline, sàn n-gram tính như thế nào, cấu hình A đóng vai trò gì, dữ liệu tách ra sao, và giao thức đo chuẩn gồm những gì. Đọc xong bài này, bạn sẽ hiểu từng dòng code trong <code>ngram_floor.py</code>, <code>measure_run.py</code> và <code>compare_runs.py</code> — và vì sao đêm nay được gọi là "đêm khóa thước".</p>
+<div class="meta"><span>📖 Đi kèm: Day40_practice.html</span><span>🎯 E0 · E1 · E5</span><span>⏱️ Đọc ~12 phút</span></div>
+
+<h2>🎯 Mục tiêu buổi tối</h2>
+<ul>
+<li>Chạy thật <b>sàn n-gram</b> (trigram + Kneser-Ney) trên dữ liệu đã khử trùng lặp, đo PPL trên tập held-out đã khóa.</li>
+<li>Chạy <b>cấu hình A đủ 200M token, 1 epoch</b>, đo đủ 4 con số chuẩn (PPL, tokens/s, MFU, kWh) với seed cố định.</li>
+<li>Chạy lại A với <b>seed thứ hai</b> (E5) để biết dao động — ngưỡng 0,3 PPL quyết định chênh lệch nào mới được tin.</li>
+<li>Điền bảng kết quả baseline và <b>khóa lại</b>: từ Day 41, mọi "cải tiến" đều đo bằng hai mốc này.</li>
+</ul>
+
+<h2>1 · Baseline là cái thước — không có thước, mọi con số đều vô nghĩa</h2>
+<p>Hãy tưởng tượng bạn khoe: "Mô hình của tôi đạt PPL 7,78". Người nghe hỏi lại: "Tốt hay dở?" — và bạn không trả lời được, vì con số đó đứng một mình không có nghĩa. Nếu sàn n-gram của dữ liệu là 40, thì 7,78 là xuất sắc. Nếu sàn chỉ là 8,2, thì 7,78 là tệ — mô hình 10 triệu tham số chỉ hơn một bộ đếm tần suất một chút.</p>
+<p>Đề tài này dùng <b>hai cái thước</b>, không phải một. Thước thứ nhất là <b>sàn n-gram</b> — mốc dưới, gần như miễn phí, cho biết "dữ liệu này dễ tới mức nào". Thước thứ hai là <b>cấu hình A</b> — baseline chính, mốc so sánh cho mọi thí nghiệm E1–E5: mọi thay đổi (tokenizer, dữ liệu, lặp epoch) đều đo bằng "hơn hay kém A bao nhiêu, với giá bao nhiêu".</p>
+<p>Có một quy tắc vàng mà buổi sáng đã nhấn mạnh: <b>baseline chạy trước, số liệu khóa lại trước khi chạy thí nghiệm</b>. Lý do rất thực tế: nếu chạy thí nghiệm trước rồi quay lại "chọn" baseline sau, bạn sẽ vô thức chọn baseline nào làm kết quả của mình đẹp nhất. Đó không phải gian lận có chủ đích — đó là thiên kiến mà ai cũng mắc phải. Khóa baseline tối nay chính là cách đề tài tự bảo vệ mình khỏi thiên kiến đó.</p>
+<div class="warn">⚠️ <b>Bẫy kinh điển — "cải tiến ảo":</b> chọn baseline quá yếu rồi tuyên bố "cải tiến 30%". Hội đồng chấm sẽ hỏi ngay: "so với cái gì?" Một baseline yếu + một con số phần trăm lớn = một kết luận rỗng. Ngược lại, một baseline mạnh và trung thực làm cho cải tiến dù chỉ 5% cũng đáng tin.</div>
+
+<h2>2 · Sàn n-gram: bộ đếm tần suất mà mọi mô hình neural phải thắng</h2>
+<p><b>Định nghĩa ngắn:</b> mô hình n-gram dự đoán từ tiếp theo chỉ dựa vào (n−1) từ ngay trước nó, bằng cách đếm tần suất trong dữ liệu huấn luyện. Với trigram (n = 3), xác suất của từ "học" sau "máy đang" là số lần cụm "máy đang học" xuất hiện chia cho số lần cụm "máy đang" xuất hiện. Không có tham số học được theo nghĩa neural, không cần GPU — chỉ là đếm.</p>
+<p>Vấn đề duy nhất của đếm tần suất là <b>cụm chưa từng thấy</b>: nếu "máy đang học" chưa bao giờ xuất hiện trong dữ liệu train, xác suất thô bằng 0 — và một từ có xác suất 0 sẽ làm PPL của cả câu thành vô cực. Vì vậy n-gram luôn cần <b>smoothing</b> (làm mịn): chia một phần xác suất cho những cụm chưa thấy bao giờ. Lab tối nay dùng <b>Kneser-Ney smoothing</b> — chuẩn thực tế cho n-gram — theo công thức Chen &amp; Goodman:</p>
+<div class="formula">P<sub>KN</sub>(w | u, v) = max(c(u,v,w) − D, 0) / c(u,v) + λ(u,v) · P<sub>KN</sub>(w | v)<br>λ(u,v) = D · N<sub>1+</sub>((u,v), •) / c(u,v) &nbsp;·&nbsp; D = 0,75</div>
+<p>Đọc công thức này bằng lời: lấy số lần cụm (u, v, w) xuất hiện, trừ đi một khoản cố định D = 0,75 (gọi là <i>absolute discount</i> — chiết khấu tuyệt đối), chia cho số lần cụm (u, v) xuất hiện. Phần xác suất bị trừ đi đó không biến mất — nó được gom lại thành λ(u,v) rồi chia tiếp xuống tầng thấp hơn: xác suất bigram P(w | v), rồi unigram. Điểm khôn ngoan của Kneser-Ney nằm ở tầng unigram: xác suất của một từ không tính bằng tần suất thô của nó, mà bằng <b>số ngữ cảnh khác nhau mà từ đó từng xuất hiện sau</b> — gọi là <i>continuation count</i>. Một từ như "học" xuất hiện sau rất nhiều từ khác nhau thì được ưu ái hơn một từ chỉ xuất hiện nhiều lần sau cùng một từ — vì từ đó "đa năng" hơn, khả năng xuất hiện trong ngữ cảnh mới cao hơn.</p>
+<p>Trong <code>ngram_floor.py</code>, ba tầng này là ba hàm <code>p1</code> (unigram theo continuation count), <code>p2</code> (bigram) và <code>p3</code> (trigram) — mỗi tầng gọi tầng dưới khi cụm chưa đủ dữ liệu. Một chi tiết thực tế nữa: từ chỉ xuất hiện một lần trong train được gom về <code>&lt;unk&gt;</code>, và từ lạ trong test cũng về <code>&lt;unk&gt;</code> — nếu không, từ chưa từng thấy sẽ có xác suất 0 ở cả ba tầng và PPL sẽ vô cực.</p>
+<p><b>Vì sao n-gram là sàn tốt?</b> Ba lý do: (1) <b>rẻ</b> — đếm tần suất trên CPU trong vài phút, 0 GPU-giờ; (2) <b>trung thực</b> — không có gì để "tune" cho đẹp, không overfit kiểu neural; (3) <b>khó bị đánh bại một cách giả tạo</b> — nếu mô hình neural 10M tham số mà không thắng rõ rệt một bộ đếm tần suất, thì có gì đó sai ở pipeline dữ liệu hoặc huấn luyện, cần sửa trước khi nghĩ tới cải tiến.</p>
+
+<h2>3 · Cấu hình A: baseline chính — rẻ để lặp lại, đủ mạnh để làm thước</h2>
+<p>Từ bài Chinchilla Day 34, đề tài có ba ứng viên: A (10M / 200M token / 1 epoch / ~8 phút), B (25M / 500M / ~50 phút), C (37M / 744M / ~110 phút). A làm baseline chính vì ba lý do. Thứ nhất, <b>rẻ nhất để lặp lại</b>: ~8 phút một lần chạy — mỗi lần sửa pipeline, chạy lại A để kiểm tra, không tốn kém. Baseline mà đắt thì không ai dám chạy lại, và baseline không chạy lại được thì không còn là baseline. Thứ hai, <b>đủ mạnh để làm thước</b>: 10M tham số với tied embeddings (d = 320, 6 layer) đã học được cấu trúc tiếng Việt thật — không phải baseline yếu để "cải tiến ảo". Thứ ba, <b>đúng điểm Chinchilla 1 epoch</b>: A nằm trên đường tối ưu D/N = 20 ở mức rẻ nhất, nên mọi so sánh "train lâu hơn" (Day 35) đều có điểm neo sạch.</p>
+<table>
+<tr><th>Cấu hình</th><th>Tham số</th><th>Token</th><th>Epoch</th><th>Thời gian (ước tính, 1 GPU RTX 4090)</th><th>Vai trò</th></tr>
+<tr><td>n-gram (trigram + Kneser-Ney)</td><td>~0</td><td>200M</td><td>—</td><td>vài phút CPU</td><td>Sàn — mốc dưới</td></tr>
+<tr><td><b>A</b></td><td>~10M</td><td>200M</td><td>1</td><td>~8 phút</td><td><b>Baseline chính</b></td></tr>
+<tr><td>B</td><td>~25M</td><td>500M</td><td>2,5</td><td>~50 phút</td><td>So sánh (E3/E4)</td></tr>
+<tr><td>C</td><td>~37M</td><td>744M</td><td>3</td><td>~110 phút</td><td>So sánh (E4)</td></tr>
+</table>
+<p class="sub">Thời gian là ước tính từ bài Day 34 — số đo thực tế từ lab Day 34/35 sẽ thay thế khi nộp. Chưa có số thì để trống, không bịa.</p>
+<p><b>Nhắc lại cho rõ — chạy A trong lab KHÔNG phải là chốt A làm kích thước cuối.</b> Kích thước cuối N chỉ chốt sau khi A train đủ 200M token và so với B, C trên cùng thước đo. Hôm nay A chỉ đóng vai "mốc 0" — cái thước, không phải cái đích.</p>
+
+<h2>4 · Tách dữ liệu: held-out là "két sắt", không phải "ngăn kéo"</h2>
+<p>Mọi con số PPL trong đề tài đều đo trên <b>cùng một tập held-out</b> — một phần dữ liệu Wikipedia-vi đã tách ra ngay từ đầu và <b>không bao giờ</b> dùng để huấn luyện hay chọn siêu tham số. Phân tách chuẩn: train ~98%, val ~1%, test ~1%.</p>
+<ul>
+<li><b>Train (~98%):</b> dữ liệu đã khử trùng lặp (Day 33), chuẩn hóa NFC, tokenizer BPE 8k–16k (Day 32).</li>
+<li><b>Val (~1%):</b> theo dõi loss trong lúc train, phát hiện overfit, chọn checkpoint. Được nhìn, nhưng không được train lên.</li>
+<li><b>Test / held-out (~1%):</b> chỉ mở khi báo cáo kết quả cuối. Dùng test để chọn mô hình rồi lại báo cáo trên chính test đó = <b>rò rỉ đánh giá</b> — con số đẹp nhưng giả.</li>
+</ul>
+<p><b>Thứ tự đúng — và là lỗi dễ mắc nhất:</b> khử trùng lặp <i>trước</i>, tách <i>sau</i>. Nếu tách trước rồi mới khử trùng lặp từng phần riêng, các bản sao của cùng một đoạn văn có thể rơi vào cả train lẫn test — test bị "nhiễm" và PPL thấp một cách giả tạo. Sàn n-gram chỉ có nghĩa khi cả n-gram lẫn mô hình A ăn cùng một dữ liệu, cùng một tập held-out. Trong lab tối nay, Phần A yêu cầu ghi số token train/test của cả hai bên vào cùng một bảng và đối chiếu — đó không phải thủ tục hành chính, đó là cách duy nhất để biết hai con số PPL có cùng "sân" hay không.</p>
+
+<h2>5 · Giao thức đo chuẩn: 4 con số cho mọi lần chạy</h2>
+<p>Một lần chạy chỉ được tính là "đã đo" khi ghi đủ 4 con số sau, trên cùng tập held-out, cùng seed, cùng phần cứng (1 GPU RTX 4090):</p>
+<table>
+<tr><th>#</th><th>Con số</th><th>Đo bằng gì</th><th>Vì sao bắt buộc</th></tr>
+<tr><td>1</td><td><b>PPL held-out</b></td><td>exp(−loss trung bình trên test)</td><td>Chất lượng mô hình — số duy nhất so được giữa n-gram, A, B, C</td></tr>
+<tr><td>2</td><td><b>tokens/s</b></td><td>token đã train / giây wall-clock</td><td>Tốc độ huấn luyện — nối sang chi phí GPU-giờ</td></tr>
+<tr><td>3</td><td><b>MFU</b></td><td>FLOPS thực tế / FLOPS đỉnh của GPU</td><td>Hiệu quả phần cứng — MFU thấp nghĩa là GPU đang chờ dữ liệu, không phải đang tính</td></tr>
+<tr><td>4</td><td><b>Năng lượng</b></td><td>kWh (đồng hồ GPU / nvidia-smi) + giờ chạy</td><td>Cột sống của đề tài tiết kiệm năng lượng — không đo thì không có gì để tiết kiệm</td></tr>
+</table>
+<p><code>measure_run.py</code> tính cả 4 số từ log huấn luyện: PPL = exp(loss trung bình trên test); tokens/s = token đã train chia giây wall-clock; MFU = 6·N·D chia cho (FLOPS đỉnh của GPU × giây) — công thức 6·N·D là xấp xỉ Kaplan cho số phép tính của một lần train transformer; kWh = công suất trung bình (lấy từ <code>nvidia-smi</code> mỗi 10 giây trong <code>run_A.sh</code>) nhân thời gian chạy.</p>
+<p><b>Ba quy tắc đi kèm, viết vào đề cương và tuân thủ như hợp đồng:</b> (1) <b>Seed cố định, ghi lại</b> — cùng một seed cho mọi lần chạy so sánh; đổi seed mà không ghi thì hai con số không so được với nhau. (2) <b>Chỉ đổi một thứ</b> — trước mỗi thí nghiệm, viết ra câu "thứ duy nhất thay đổi là ___" rồi kiểm tra mọi điều kiện còn lại có bằng nhau không. (3) <b>Lặp lại để biết sai số</b> — E5 chạy lại A với 2–3 seed khác nhau, xem PPL dao động bao nhiêu. Nếu A và B chênh nhau 0,2 PPL mà dao động seed đã là ±0,3 thì chênh lệch đó là nhiễu, không phải cải tiến. <code>compare_runs.py</code> làm đúng việc này: đọc hai dòng trong <code>baseline_results.csv</code>, in |ΔPPL| và kết luận theo ngưỡng 0,3.</p>
+
+<h2>6 · Các bước lab tối nay — tóm tắt</h2>
+<ol>
+<li><b>E0 — sàn n-gram:</b> lưu <code>ngram_floor.py</code>, chạy <code>--demo</code> để kiểm tra script, rồi chạy trên dữ liệu thật (train đã khử trùng lặp, test đã khóa). Ghi PPL sàn + số token train/test vào bảng kết quả.</li>
+<li><b>E1 — baseline A:</b> điền lệnh train thật vào <code>run_A.sh</code> (d = 320, 6 layer, tied embeddings, 200M token, 1 epoch, seed 42), chạy đủ 200M token. Nếu GPU bận: dry-run 1M token để kiểm tra pipeline, ghi rõ "đang chờ GPU" — không giả vờ đã xong. Chạy <code>measure_run.py</code> để ra 4 con số.</li>
+<li><b>E5 — lặp seed:</b> chạy lại A, chỉ đổi seed (1337), chạy <code>compare_runs.py</code>, ghi |ΔPPL| và kết luận theo ngưỡng 0,3.</li>
+<li><b>Khóa baseline:</b> viết <code>baseline_results.md</code> (ô trần P vẫn để trống đúng cách) và <code>experiment_detail_sheet.md</code> (E0/E1/E5, mỗi thí nghiệm một trang: cấu hình, dữ liệu, seed, cách đo, checkpoint, điểm dừng).</li>
+</ol>
+<div class="warn">⚠️ <b>Trần P vẫn để trống — có chủ đích.</b> P là trần PPL, chỉ chốt được sau khi cấu hình A train xong đủ 200M token. PPL sau vài triệu token không phải trần. Một ô trống có ghi nguồn chờ là ô tốt; một con số bịa ra để lấp chỗ trống là lỗi khoa học.</div>
+
+<h2>7 · Góc tiết kiệm năng lượng</h2>
+<p>Baseline rẻ là quyết định tiết kiệm năng lượng đầu tiên của đề tài — và nó không tốn một dòng code nào. Sàn n-gram tốn 0 GPU-giờ. Baseline A tốn ~8 phút. Cả hai cộng lại chưa bằng một lần chạy C (~110 phút). Nghĩa là: <b>mọi lần chạy đắt sau này đều phải "xin phép" hai baseline rẻ này trước</b> — nếu pipeline còn lỗi, A sẽ lộ ra trong 8 phút thay vì lộ ra sau 110 phút. Đo năng lượng ngay từ lần chạy baseline đầu tiên: con số kWh của A là "giá sàn" cho mọi so sánh hiệu quả sau này (PPL trên mỗi kWh). Không có giá sàn thì mọi tuyên bố "tiết kiệm điện" đều là cảm tính. Và nếu MFU của A chỉ ~22%, đừng vội chạy B/C — sửa dataloader để GPU khỏi chờ dữ liệu có thể tiết kiệm nhiều GPU-giờ hơn bất kỳ cải tiến kiến trúc nào.</p>
+
+<h2>8 · Bẫy thường gặp</h2>
+<ul>
+<li><b>So PPL của n-gram và A trên hai tập dữ liệu khác nhau.</b> Quên khử trùng lặp ở một bên, hoặc đo n-gram trên test nhưng đo A trên val. Cách chữa: ghi số token train/test của cả hai bên vào cùng một bảng, đối chiếu trước khi kết luận.</li>
+<li><b>Chốt trần P từ PPL nền sau vài triệu token.</b> PPL đầu train còn cao và chưa ổn định. Cách chữa: P chỉ chốt từ E1 chạy đủ 200M token; chưa chạy đủ thì ô P ở nguyên trạng thái chờ.</li>
+<li><b>Đổi seed mà không ghi, hoặc đổi seed kèm đổi luôn dữ liệu/phần cứng.</b> Hai lần chạy khác nhau ở hai thứ thì chênh lệch PPL không quy được cho thứ nào. Cách chữa: viết câu "thứ duy nhất thay đổi là ___" trước mỗi lần chạy và ghi seed vào file kết quả ngay sau khi chạy xong.</li>
+</ul>
+
+<h2>📋 Tóm tắt</h2>
+<ul>
+<li>✅ Baseline là cái thước: không có nó, mọi "cải tiến" đều vô nghĩa; baseline yếu tạo ra "cải tiến ảo".</li>
+<li>✅ Sàn n-gram: trigram + Kneser-Ney (D = 0,75, continuation count), train vài phút trên CPU, PPL sàn để mọi mô hình neural phải thắng rõ rệt.</li>
+<li>✅ Cấu hình A (10M / 200M / 1 epoch / ~8 phút) là baseline chính — rẻ để lặp lại, đủ mạnh để làm thước. Chạy A ≠ chốt A làm N cuối.</li>
+<li>✅ Held-out test là két sắt: khử trùng lặp trước, tách sau, chỉ mở khi báo cáo kết quả cuối.</li>
+<li>✅ Mỗi lần chạy ghi đủ 4 số: PPL held-out, tokens/s, MFU, năng lượng — cùng seed, cùng phần cứng, chỉ đổi một thứ.</li>
+<li>✅ E5 cho biết sai số đo: chênh lệch nhỏ hơn 0,3 PPL là nhiễu, chưa phải cải tiến.</li>
+<li>✅ Trần P vẫn để trống [chờ số liệu lab Day 40 — E1 chạy đủ 200M token] — không bịa số.</li>
+</ul>
+
+<div class="footer">Khóa "Trở thành AI Engineer (LLM)" — Phase 2, đề tài Tiny Vietnamese LM · Ngày 40 · Buổi tối: thực hành. Bài tập: <a href="Day40_practice.html">Day40_practice.html</a> · Bài học buổi sáng: <a href="Day40_lesson.html">Day40_lesson.html</a> · Quiz: <a href="Day40_quiz.html">Day40_quiz.html</a></div>
+</div>
+</body>
+</html>
