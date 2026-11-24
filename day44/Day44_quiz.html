@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 44 Quiz — Chạy E2: BPE 8k so với 16k, vocab lớn có đáng chi phí embedding?</title>
+<style>
+:root{--bg:#0a0f1e;--card:#101830;--line:#22305a;--gold:#f5c542;--green:#4ade80;--red:#f87171;--cyan:#67e8f9;--text:#e8edf7;--muted:#93a0bd;}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;line-height:1.7;font-size:16.5px;}
+.wrap{max-width:760px;margin:0 auto;padding:18px 16px 60px;}
+h1{font-size:26px;line-height:1.3;margin:6px 0 8px;}
+.sub{color:var(--muted);}
+.q{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin:18px 0;}
+.q h3{margin:0 0 10px;font-size:17px;color:var(--gold);}
+label{display:block;padding:8px 10px;border-radius:8px;cursor:pointer;margin:4px 0;}
+label:hover{background:#1a2447;}
+input{margin-right:8px;}
+.expl{display:none;margin-top:10px;padding:10px 14px;border-left:4px solid var(--green);background:#0f2233;border-radius:0 10px 10px 0;font-size:15.5px;}
+.expl.wrong{border-left-color:var(--red);background:#2a1218;}
+.btn{display:inline-block;background:var(--gold);color:#14100a;font-weight:700;border-radius:10px;padding:12px 22px;border:none;font-size:16px;cursor:pointer;margin:8px 8px 0 0;}
+.btn2{display:inline-block;background:#1a2447;color:var(--text);border:1px solid var(--line);border-radius:10px;padding:12px 22px;font-size:16px;cursor:pointer;margin:8px 8px 0 0;}
+#result{font-size:18px;font-weight:700;margin:16px 0 6px;}
+#copyBox{width:100%;background:#0a1428;color:var(--text);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:15px;margin-top:8px;}
+.note{color:var(--muted);font-size:14.5px;margin-top:14px;}
+a{color:var(--cyan);}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>📝 Day 44 Quiz — Chạy E2: BPE 8k so với 16k, vocab lớn có đáng chi phí embedding?</h1>
+<p class="sub">5 câu trắc nghiệm • Chọn đáp án rồi bấm "Nộp bài" để chấm điểm ngay trong file. File HTML này không tự gửi kết quả về được — làm xong bấm "Copy kết quả" rồi paste vào chat để trợ lý ghi điểm.</p>
+
+<div class="q" id="q1">
+<h3>Câu 1. Trong E2, "thứ duy nhất thay đổi là ___"? Điền đúng vào chỗ trống.</h3>
+<label><input type="radio" name="q1" value="A"> A. Tokenizer: BPE 8k hay 16k — mọi thứ khác (dữ liệu sạch, cấu hình A, LR, seed, held-out) giữ nguyên</label>
+<label><input type="radio" name="q1" value="B"> B. Dữ liệu: chạy 8k dùng dữ liệu thô, chạy 16k dùng dữ liệu sạch để bù chi phí embedding</label>
+<label><input type="radio" name="q1" value="C"> C. Kiến trúc: chạy 16k dùng d = 320, chạy 8k dùng d = 256 để tổng tham số bằng nhau</label>
+<label><input type="radio" name="q1" value="D"> D. Số token train: chạy 16k train 250M token, chạy 8k train 200M token để giữ D/N = 20</label>
+<div class="expl" id="e1"><b>Đúng: A.</b> E2 là thí nghiệm tokenizer — chỉ tokenizer đổi, còn lại bằng nhau tuyệt đối. Đổi thêm dữ liệu hay d thì kết quả không gán được cho tokenizer nữa (Day 41: mỗi ô một biến). Giữ D/N = 20 cho lần 16k bằng cách tăng token lên 250M sẽ làm lệch ngân sách compute — E2 so ở cùng 200M token và ghi rõ D/N lệch vào báo cáo.</div>
+</div>
+
+<div class="q" id="q2">
+<h3>Câu 2. Với tied embeddings và d = 320, tham số embedding của BPE 16k là bao nhiêu, chiếm tỉ trọng nào trong mô hình?</h3>
+<label><input type="radio" name="q2" value="A"> A. 16.000 × 320 = 5,12M — khoảng 52% tổng ~9,94M tham số của cấu hình A, hơn một nửa mô hình</label>
+<label><input type="radio" name="q2" value="B"> B. 16.000 × 256 = 4,096M — khoảng 41% tổng tham số, theo bảng Day 32</label>
+<label><input type="radio" name="q2" value="C"> C. 16.000 × 320 × 2 = 10,24M — vì tied embeddings phải tính cả đầu vào lẫn LM head</label>
+<label><input type="radio" name="q2" value="D"> D. 16.000 × 320 = 5,12M — nhưng chỉ khoảng 20% vì tổng tham số thực tế là 25M</label>
+<div class="expl" id="e2"><b>Đúng: A.</b> Tied embeddings dùng chung một bảng nên chỉ tính một lần: 16.000 × 320 = 5,12M, chiếm ~52% của ~9,94M. Bảng Day 32 ghi 41% vì tính với d = 256 (giả định lập kế hoạch); lab Day 34 chạy A thật với d = 320 nên từ Day 44 dùng d = 320 nhất quán.</div>
+</div>
+
+<div class="q" id="q3">
+<h3>Câu 3. Vì sao không được kết luận 8k hay 16k thắng chỉ bằng cách so PPL mỗi token của hai lần chạy?</h3>
+<label><input type="radio" name="q3" value="A"> A. Vì PPL mỗi token của 16k luôn cao hơn 8k do vocab lớn hơn, nên so như vậy thiên vị 8k</label>
+<label><input type="radio" name="q3" value="B"> B. Vì "một token" của 8k và 16k là hai đơn vị khác nhau — token 16k mang nhiều chữ hơn — nên phải so bằng bits-per-character trên cùng một văn bản held-out</label>
+<label><input type="radio" name="q3" value="C"> C. Vì PPL chỉ đo được trên tập train, không đo được trên tập held-out khi tokenizer khác nhau</label>
+<label><input type="radio" name="q3" value="D"> D. Vì hai lần chạy dùng learning rate khác nhau nên PPL không so được</label>
+<div class="expl" id="e3"><b>Đúng: B.</b> PPL = e^(loss trung bình mỗi token) mà token hai tokenizer dài ngắn khác nhau — so PPL mỗi token giống như so "giá mỗi gói" khi hai gói nặng khác nhau. Metric quyết định là BPC: tổng negative log-likelihood trên cùng một văn bản held-out chia cho tổng số ký tự.</div>
+</div>
+
+<div class="q" id="q4">
+<h3>Câu 4. Cùng ngân sách 200M token, lần chạy BPE 16k "đọc" được nhiều văn bản hơn lần 8k. Điều này có nghĩa là gì khi đọc kết quả?</h3>
+<label><input type="radio" name="q4" value="A"> A. Đó là một phần của hiệu ứng tokenizer cần tách bạch và ghi rõ vào báo cáo — không phải nhiễu, cũng không phải bằng chứng tự động rằng 16k tốt hơn</label>
+<label><input type="radio" name="q4" value="B"> B. Đó là lỗi thiết kế — phải giảm token của lần 16k xuống để hai lần đọc đúng bằng nhau về số văn bản rồi mới so</label>
+<label><input type="radio" name="q4" value="C"> C. Đó là bằng chứng 16k tốt hơn — đọc nhiều văn bản hơn thì chắc chắn BPC thấp hơn</label>
+<label><input type="radio" name="q4" value="D"> D. Không ảnh hưởng gì — vì hai lần chạy đều train đủ 200M token nên đã công bằng hoàn toàn</label>
+<div class="expl" id="e4"><b>Đúng: A.</b> Fertility của 16k thấp hơn nên cùng 200M token thì nó thấy nhiều chữ hơn — đó là một phần của hiệu ứng tokenizer, phải ghi rõ và tách bạch khi đọc kết quả: phần chênh lệch nào đến từ việc đọc nhiều hơn, phần nào đến từ việc mỗi token mang nghĩa dài hơn. Giảm token của lần 16k để "bằng văn bản" thì lại lệch ngân sách compute.</div>
+</div>
+
+<div class="q" id="q5">
+<h3>Câu 5. E2 cho BPC của 16k và 8k chênh nhau ít hơn dao động seed, hai đường BPC gần như chồng lên nhau. Quyết định đúng là gì?</h3>
+<label><input type="radio" name="q5" value="A"> A. Chốt BPE 16k — vì vocab lớn hơn thì kiểu gì cũng tốt hơn về lâu dài, chênh lệch nhỏ chỉ do chưa train đủ lâu</label>
+<label><input type="radio" name="q5" value="B"> B. Chọn BPE 8k — cùng chất lượng mà rẻ hơn 2,56M tham số, rẻ hơn 26% FLOPs, giữ được D/N = 20; ghi rõ "không khác biệt có ý nghĩa" thay vì "16k vô dụng"</label>
+<label><input type="radio" name="q5" value="C"> C. Kết luận 16k vô dụng và bỏ luôn tokenizer 16k khỏi mọi thí nghiệm sau</label>
+<label><input type="radio" name="q5" value="D"> D. Chạy lại E2 với learning rate cao hơn để khuếch đại chênh lệch cho rõ rồi mới quyết định</label>
+<div class="expl" id="e5"><b>Đúng: B.</b> Chênh lệch nhỏ hơn dao động seed thì là nhiễu — không kết luận được 16k tốt hơn. Khi chất lượng ngang nhau thì chọn phương án rẻ hơn: 8k tiết kiệm 2,56M tham số và 26% FLOPs, lại giữ chuẩn Chinchilla D/N = 20. "Không khác biệt có ý nghĩa" khác hẳn "vô dụng" — ghi đúng chữ trong báo cáo.</div>
+</div>
+
+<button class="btn" onclick="grade()">Nộp bài</button>
+<button class="btn2" onclick="copyResult()">Copy kết quả</button>
+<div id="result"></div>
+<input id="copyBox" readonly value="Chưa có kết quả — hãy bấm Nộp bài trước.">
+<p class="note">💡 File HTML này không tự gửi kết quả về được. Sau khi bấm "Copy kết quả", paste chuỗi "Day44 Quiz: 1A 2B … — s/5" vào chat để trợ lý ghi điểm. Điểm dưới 70% (dưới 4/5) — xem lại phần tương ứng trong bài học rồi làm lại nhé.</p>
+<p><a href="Day44_lesson.html">← Quay lại bài học Ngày 44</a></p>
+
+<script>
+const answers = {q1:"A", q2:"A", q3:"B", q4:"A", q5:"B"};
+let resultStr = "";
+function grade(){
+  let score = 0; const letters = [];
+  for(let i=1;i<=5;i++){
+    const sel = document.querySelector('input[name="q'+i+'"]:checked');
+    const expl = document.getElementById('e'+i);
+    const letter = sel ? sel.value : "?";
+    letters.push(letter);
+    if(sel && sel.value === answers["q"+i]){ score++; expl.classList.remove("wrong"); }
+    else if(sel){ expl.classList.add("wrong"); }
+    expl.style.display = "block";
+  }
+  resultStr = "Day44 Quiz: " + letters.map((l,i)=>(i+1)+l).join(" ") + " — " + score + "/5";
+  document.getElementById("result").textContent = "🎯 Bạn được " + score + "/5 câu đúng." + (score<4 ? " Dưới 70% — xem lại phần tương ứng trong bài học rồi làm lại nhé." : " Đạt! Sẵn sàng sang Day 45.");
+  document.getElementById("copyBox").value = resultStr;
+}
+function copyResult(){
+  const box = document.getElementById("copyBox");
+  if(!resultStr){ alert("Bạn chưa nộp bài — hãy chọn đáp án và bấm Nộp bài trước."); return; }
+  box.select();
+  if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(resultStr); }
+  else { document.execCommand("copy"); }
+  alert("Đã copy: " + resultStr);
+}
+</script>
+</div>
+</body>
+</html>

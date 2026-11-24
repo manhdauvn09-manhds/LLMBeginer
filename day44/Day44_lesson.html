@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ngày 44 — Chạy E2: BPE 8k so với 16k — vocab lớn hơn có đáng chi phí tham số embedding?</title>
+<style>
+:root{--bg:#0a0f1e;--card:#101830;--line:#22305a;--gold:#f5c542;--green:#4ade80;--red:#f87171;--cyan:#67e8f9;--text:#e8edf7;--muted:#93a0bd;}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;line-height:1.75;font-size:16.5px;}
+.wrap{max-width:780px;margin:0 auto;padding:18px 16px 60px;}
+h1{font-size:27px;line-height:1.3;margin:8px 0 6px;}
+h2{font-size:21px;color:var(--gold);margin:34px 0 10px;border-bottom:1px solid var(--line);padding-bottom:6px;}
+h3{font-size:18px;color:var(--cyan);margin:22px 0 6px;}
+p{margin:10px 0;}
+.sub{color:var(--muted);}
+.hero{width:100%;border-radius:14px;border:1px solid var(--line);margin:14px 0 6px;}
+.cap{color:var(--muted);font-size:14px;text-align:center;margin:0 0 14px;}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin:16px 0;}
+.card.energy{border-left:5px solid var(--gold);background:#1a1607;}
+.warn{border-left:5px solid var(--red);background:#2a1218;}
+.good{border-left:5px solid var(--green);background:#0f2233;}
+.formula{background:#0a1428;border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin:12px 0;text-align:center;font-size:19px;overflow-x:auto;}
+.formula small{display:block;font-size:14px;color:var(--muted);margin-top:6px;}
+table{width:100%;border-collapse:collapse;margin:12px 0;font-size:15px;}
+th,td{border:1px solid var(--line);padding:9px 10px;text-align:left;vertical-align:top;}
+th{background:#16224a;color:var(--gold);}
+ul,ol{margin:8px 0 8px 22px;padding:0;}
+li{margin:6px 0;}
+code{background:#1a2447;padding:2px 7px;border-radius:6px;font-size:15px;}
+a{color:var(--cyan);}
+.btn{display:inline-block;background:var(--gold);color:#14100a;font-weight:700;border-radius:10px;padding:12px 22px;text-decoration:none;margin:10px 8px 0 0;}
+.tag{display:inline-block;background:#1a2447;border:1px solid var(--line);border-radius:20px;padding:3px 12px;font-size:13.5px;color:var(--muted);margin:2px 4px 2px 0;}
+svg{display:block;margin:14px auto;max-width:100%;}
+</style>
+</head>
+<body>
+<div class="wrap">
+<p class="sub">Phase 2 — Đề tài Tiny Vietnamese LM &nbsp;•&nbsp; Ngày 44 / 60 &nbsp;•&nbsp; Nhóm ngày 38–44: đề cương + baseline</p>
+<h1>Ngày 44 — Chạy E2: BPE 8k so với 16k — vocab lớn hơn có đáng chi phí tham số embedding?</h1>
+<p class="sub">Advisor buổi sáng — đọc ~15 phút, nhiệm vụ chạy E2 thật vào buổi lab tối nay. E1 xong hôm qua (Day 43) — dữ liệu sạch đã chốt làm dữ liệu chuẩn. Hôm nay chạy ô thứ hai trả lời câu hỏi ngân sách: <b>vocab 16k có đáng 2,56 triệu tham số embedding thêm không — hay 8k đã đủ tốt cho tiếng Việt?</b></p>
+<img class="hero" src="img/hero44.webp" alt="Minh họa: một mô hình nhỏ với bảng embedding — một bên vocab 8k chiếm một phần tư mô hình, một bên vocab 16k chiếm hơn một nửa mô hình">
+<p class="cap">E2 so hai lần chạy giống hệt nhau, chỉ khác một thứ: tokenizer BPE 8k hay 16k. Vocab lớn hơn ăn tham số embedding — nhưng đổi lại mỗi câu tiếng Việt tốn ít token hơn.</p>
+
+<h2>🎯 Mục tiêu buổi học</h2>
+<ul>
+<li>Hiểu <b>E2 — thí nghiệm tokenizer</b>: thứ duy nhất thay đổi là <b>BPE 8k hay 16k</b>, mọi thứ khác giữ nguyên y hệt cấu hình A, trên dữ liệu sạch E1 vừa chốt.</li>
+<li>Tính đúng <b>cái giá của vocab</b>: với tied embeddings, tham số embedding = vocab × d — 8k ăn 2,56M, 16k ăn 5,12M trên tổng ~10M tham số.</li>
+<li>Hiểu vì sao <b>PPL mỗi token không so được trực tiếp</b> giữa hai tokenizer khác nhau — và phải dùng <b>bits-per-character</b> trên cùng một văn bản held-out.</li>
+<li>Đọc được kết quả E2 theo <b>3 kịch bản</b> và ngưỡng dao động seed: chênh lệch nhỏ hơn dao động seed thì là nhiễu, không phải cải tiến.</li>
+</ul>
+<p>⏱️ Ước lượng: §1 E2 là gì ~4 phút • §2 cái giá của vocab ~5 phút • §3 thiết kế công bằng + bẫy PPL ~4 phút • §4 đọc kết quả + nhiệm vụ ~3 phút.</p>
+
+<h2>1. E2 là gì — biến duy nhất là tokenizer</h2>
+<p><b>Định nghĩa ngắn:</b> E2 là ô thứ hai của ma trận thí nghiệm (Day 41) trả lời một câu hỏi ngân sách: <b>vocab lớn hơn có đáng chi phí tham số embedding không?</b> Cách trả lời: chạy cấu hình A hai lần, giống hệt nhau mọi thứ, chỉ khác tokenizer đầu vào.</p>
+<div class="card">
+<p style="margin:0"><b>Thứ duy nhất thay đổi là tokenizer.</b> Viết ra trước khi chạy, theo quy tắc vàng của ma trận (Day 41):</p>
+<p style="margin:8px 0 0">Chạy 1 — <b>A + BPE 8k</b>: tokenizer BPE vocab 8.000, train trên dữ liệu sạch (kết quả E1).<br>
+Chạy 2 — <b>A + BPE 16k</b>: tokenizer BPE vocab 16.000, train trên cùng dữ liệu sạch đó.</p>
+<p style="margin:8px 0 0">Mọi thứ còn lại <b>bằng nhau tuyệt đối</b>: dữ liệu sạch (ExactSubstr + NearDup, Day 33), cấu hình A (tied embeddings, d = 320, 6 layer), learning rate, seed, tập held-out đóng băng, cùng một máy. Một thứ đổi theo mà không kiểm soát được — ví dụ learning rate khác — thì kết quả không gán được cho tokenizer nữa.</p>
+</div>
+<p><b>Nhắc lại kiến thức nền (Day 32):</b> BPE học cách chia từ bằng cách gộp cặp hay gặp nhất; vocab 8k so với 16k = <b>dừng gộp sớm hay muộn</b> — 16k gộp thêm được các từ và cụm tiếng Việt dài hơn thành một token duy nhất. Hai hệ quả đi kèm: mỗi từ tiếng Việt tốn <b>ít token hơn</b> (fertility thấp hơn), và mỗi token thêm vào đều <b>ăn tham số embedding</b>. Ali 2024 cảnh báo: fertility thấp chưa chắc mô hình đã tốt hơn — phải đo bằng held-out perplexity, không chỉ fertility. Và một chi tiết chuẩn hóa không được quên: cả hai tokenizer đều train trên văn bản đã chuẩn hóa <b>NFC</b> (Day 32) — cùng một chữ có dấu phải luôn là cùng một dãy byte, nếu không vocab 16k sẽ lãng phí slot cho các biến thể trùng lặp của cùng một chữ.</p>
+<p><b>Chi phí:</b> mỗi lần chạy A khoảng 8 phút, tổng E2 ≈ 8 phút × 2 — rẻ như E1, vì cùng cấu hình A. Rẻ nên chạy ngay sau E1, trước E5 (seed) và E3–E4 (đắt).</p>
+
+<h2>2. Cái giá của vocab — một phép nhân, ba hệ quả</h2>
+<p>Ở quy mô lớn, vocab 20k hay 50k chỉ là một con số trong bảng cấu hình. Ở quy mô tiny, vocab là một quyết định ngân sách — vì bảng embedding ăn một phần rất lớn trong tổng ~10M tham số.</p>
+<h3>Phép nhân duy nhất cần nhớ</h3>
+<div class="formula">
+Tham số embedding = vocab × d &nbsp;(tied embeddings: một bảng dùng chung cho đầu vào và LM head)
+<small>d = 320 (cấu hình A chạy thật ở lab Day 34) • 8.000 × 320 = 2,56M • 16.000 × 320 = 5,12M</small>
+</div>
+<table>
+<tr><th></th><th>BPE 8k</th><th>BPE 16k</th></tr>
+<tr><td>Tham số embedding</td><td>8.000 × 320 = <b>2,56M</b></td><td>16.000 × 320 = <b>5,12M</b></td></tr>
+<tr><td>Tỉ trọng trong ~9,94M tham số*</td><td>≈ <b>26%</b></td><td>≈ <b>52%</b> — hơn một nửa mô hình</td></tr>
+<tr><td>Tham số phần thân transformer (không đổi)</td><td>9,94 − 2,56 = <b>7,38M</b></td><td>7,38M — bằng nhau</td></tr>
+<tr><td><b>Tổng tham số N</b></td><td><b>≈ 9,94M</b></td><td><b>≈ 12,50M</b> (+2,56M, tức +26%)</td></tr>
+<tr><td>Tỉ lệ D/N với 200M token</td><td>200 / 9,94 ≈ <b>20</b> (chuẩn Chinchilla)</td><td>200 / 12,50 = <b>16</b> — lệch chuẩn</td></tr>
+<tr><td>Compute C = 6ND (Day 34)</td><td>≈ <b>1,19 × 10¹⁶</b> FLOPs</td><td>≈ <b>1,50 × 10¹⁶</b> FLOPs (+26%)</td></tr>
+</table>
+<p class="sub">* ~9,94M là số tham số đo thật của cấu hình A ở lab Day 34 (tied embeddings, d = 320, 6 layer). Mọi con số trong bảng này tính theo d = 320, tied, nhất quán toàn bài.</p>
+<div class="card warn">
+<p style="margin:0"><b>⚠️ Đối chiếu với Day 32 — vì sao số cũ khác?</b> Day 32 ghi “8k ~20%, 16k ~41%” — nhưng bảng đó tính với <b>d_model = 256</b>, giả định lúc lập kế hoạch: 8.000 × 256 = 2,048M (~20%), 16.000 × 256 = 4,096M (~41%). Khi lab Day 34 chạy cấu hình A thật, d chốt là <b>320</b>, nên tỉ trọng thực tế là <b>~26% và ~52%</b> — cao hơn số Day 32. Đây không phải sai số đo, mà là hai lần tính với hai d khác nhau. Từ Day 44 trở đi, mọi tính toán embedding trong đề tài dùng <b>d = 320</b> — và con số “16k ăn hơn một nửa mô hình” là theo d = 320, không phải theo Day 32.</p>
+</div>
+<svg width="700" height="240" viewBox="0 0 700 240" xmlns="http://www.w3.org/2000/svg">
+<rect x="0" y="0" width="700" height="240" rx="12" fill="#101830"/>
+<text x="350" y="28" text-anchor="middle" fill="#f5c542" font-size="16" font-weight="bold">Ngân sách ~10M tham số — vocab 16k ăn hơn một nửa</text>
+<text x="130" y="58" text-anchor="middle" fill="#93a0bd" font-size="13">BPE 8k — tổng ≈ 9,94M</text>
+<rect x="40" y="70" width="180" height="46" rx="6" fill="#1a1607" stroke="#f5c542"/>
+<text x="130" y="98" text-anchor="middle" fill="#f5c542" font-size="14">embedding 2,56M</text>
+<rect x="40" y="124" width="180" height="46" rx="6" fill="#0f2233" stroke="#4ade80"/>
+<text x="130" y="152" text-anchor="middle" fill="#4ade80" font-size="14">thân transformer 7,38M</text>
+<text x="350" y="122" text-anchor="middle" fill="#93a0bd" font-size="22">→</text>
+<text x="570" y="58" text-anchor="middle" fill="#93a0bd" font-size="13">BPE 16k — tổng ≈ 12,50M</text>
+<rect x="480" y="70" width="180" height="46" rx="6" fill="#2a1218" stroke="#f87171"/>
+<text x="570" y="98" text-anchor="middle" fill="#f87171" font-size="14">embedding 5,12M</text>
+<rect x="480" y="124" width="180" height="46" rx="6" fill="#0f2233" stroke="#4ade80"/>
+<text x="570" y="152" text-anchor="middle" fill="#4ade80" font-size="14">thân transformer 7,38M</text>
+<text x="350" y="205" text-anchor="middle" fill="#93a0bd" font-size="13">Thân transformer không đổi — N tăng hoàn toàn do bảng embedding phình ra</text>
+</svg>
+<h3>Hệ quả 1 — N đổi theo, D/N lệch chuẩn</h3>
+<p>Điểm tinh tế nhất của E2: đổi tokenizer thì <b>tổng tham số N đổi theo</b> — đây là hệ quả, không phải lỗi thiết kế. Lần chạy 16k là mô hình <b>~12,50M</b> tham số, không còn là ~10M nữa. Giữ nguyên ngân sách 200M token thì tỉ lệ D/N rơi từ 20 xuống 16 — lệch chuẩn Chinchilla (Day 34). Muốn giữ D/N = 20 cho lần 16k thì phải train 250M token — tức là tốn thêm compute. E2 chọn so sánh ở <b>cùng 200M token</b> (cùng compute theo token), và ghi rõ D/N lệch này vào báo cáo — không giấu, không “sửa” bằng cách đổi ngân sách giữa chừng.</p>
+<h3>Hệ quả 2 — chuỗi ngắn lại, suy luận nhanh hơn mỗi từ — nhưng đầu ra nặng hơn</h3>
+<p>Vocab 16k gộp được từ dài thành một token, nên cùng một câu tiếng Việt thành <b>ít token hơn</b>. Suy luận: mỗi từ cần ít bước sinh token hơn, chuỗi ngắn lại — có lợi cho tốc độ và cho bộ nhớ KV cache. Nhưng mặt kia: mỗi bước sinh phải tính logits trên <b>16.000</b> thay vì 8.000 lựa chọn (LM head dùng chung bảng embedding vì tied), nên chi phí mỗi bước tăng. Lợi hay hại ròng — đo bằng tokens/s và độ trễ mỗi từ ở lab, không đoán trước. Và lưu ý: fertility (số token trung bình trên một từ) của 16k thấp hơn là <b>chắc chắn về mặt định nghĩa</b>, nhưng con số cụ thể bao nhiêu thì <b>đo thật trên Wikipedia tiếng Việt tối nay</b> — bài này không đoán số trước.</p>
+<h3>Hệ quả 3 — mỗi token thêm vào đều là một “cái miệng ăn” lúc train</h3>
+<p>Tham số embedding chỉ được cập nhật khi token đó xuất hiện trong batch. Vocab 16k có gấp đôi số token, nhưng mỗi token hiếm gặp ít hơn — nhiều hàng embedding có thể <b>hiếm khi được huấn luyện</b> trong 200M token ít ỏi. Đó là rủi ro thật của vocab lớn ở quy mô tiny: trả 2,56M tham số, mà một phần trong đó gần như không học được gì.</p>
+
+<h2>3. Thiết kế E2 — so sánh công bằng, và cái bẫy PPL mỗi token</h2>
+<p>Phần này có hai cái bẫy — một bẫy giống E1 (so theo token đã thấy), một bẫy chỉ E2 mới có (so PPL giữa hai tokenizer khác nhau).</p>
+<h3>Bẫy 1 — so theo token đã thấy, không theo epoch hay theo văn bản</h3>
+<p>Giống E1: so sánh ở <b>cùng 200M token đã thấy</b>, không cùng epoch, không cùng số bài viết. Nhưng E2 có thêm một lớp tinh tế: vì fertility của 16k thấp hơn, cùng 200M token thì lần chạy 16k “đọc” được <b>nhiều văn bản hơn</b> lần 8k — đó là một phần của hiệu ứng tokenizer, không phải nhiễu cần loại bỏ. Ghi rõ vào báo cáo: “16k thấy nhiều văn bản hơn ở cùng 200M token, vì mỗi câu tốn ít token hơn” — rồi mới bàn xem phần chênh lệch kết quả nào đến từ việc đọc nhiều hơn, phần nào đến từ việc mỗi token mang nghĩa dài hơn.</p>
+<h3>Bẫy 2 — PPL mỗi token không so được giữa hai tokenizer</h3>
+<p>Đây là bẫy nguy hiểm nhất của E2. Perplexity đo theo công thức PPL = e^(loss trung bình mỗi token). Nhưng “một token” của 8k và của 16k là <b>hai đơn vị khác nhau</b>: token 16k trung bình mang nhiều chữ hơn. So PPL mỗi token của hai lần chạy thì giống như so “giá mỗi gói” khi hai gói nặng khác nhau — con số thấp hơn có thể chỉ vì gói to hơn, không phải vì mô hình giỏi hơn.</p>
+<div class="formula">
+Metric quyết định của E2: bits-per-character (BPC) trên cùng một văn bản held-out
+<small>BPC = tổng negative log-likelihood trên toàn bộ văn bản ÷ tổng số ký tự — cùng tử số là văn bản, cùng mẫu số là ký tự, không phụ thuộc tokenizer</small>
+</div>
+<p><b>Cách làm trong lab:</b> lấy cùng một tập held-out đóng băng (Day 34), tính tổng negative log-likelihood mà mỗi mô hình gán cho toàn bộ văn bản đó, chia cho tổng số ký tự của văn bản. Hai mô hình được so trên <b>cùng một lượng chữ</b>, bất kể tokenizer nào. PPL mỗi token vẫn ghi lại để tham khảo — nhưng <b>không dùng để kết luận</b> 8k hay 16k thắng. Ai trong hội đồng hỏi “sao PPL 16k thấp hơn mà anh vẫn chọn 8k?” — câu trả lời nằm ở BPC và ở bảng chi phí §2.</p>
+<table>
+<tr><th>Hạng mục</th><th>Chạy 1 — BPE 8k</th><th>Chạy 2 — BPE 16k</th></tr>
+<tr><td>Tokenizer</td><td>BPE 8.000, NFC</td><td>BPE 16.000, NFC — chỉ khác chỗ này</td></tr>
+<tr><td>Dữ liệu</td><td>Wikipedia-vi, dữ liệu sạch E1 chốt</td><td>Cùng dữ liệu sạch — bằng nhau</td></tr>
+<tr><td>Ngân sách train</td><td>200M token</td><td>200M token — bằng nhau</td></tr>
+<tr><td>Cấu hình</td><td>A: d = 320, 6 layer, tied embeddings</td><td>Giống hệt (N đổi theo: ~9,94M → ~12,50M)</td></tr>
+<tr><td>Learning rate, seed</td><td>Như Day 40 đã ghi</td><td>Giống hệt</td></tr>
+<tr><td>Đánh giá</td><td><b>BPC</b> trên held-out đóng băng + PPL/token tham khảo</td><td>Cùng tập held-out — bằng nhau</td></tr>
+<tr><td>Chi phí</td><td>~8 phút</td><td>~8 phút (+26% FLOPs)</td></tr>
+</table>
+<p><b>Tiêu chí dừng viết trước khi chạy</b> (Day 41, §3): dừng một lần chạy nếu loss diverge hoặc NaN trong 200 bước đầu; dừng cả E2 nếu E0 PASS đã hết hạn — tức là code hoặc dữ liệu đã đổi sau E0 mà chưa chạy lại smoke test. E0 chạy lại vài phút mỗi lần đổi tokenizer — rẻ hơn nhiều so với chạy lại E2.</p>
+<div class="card">
+<p style="margin:0"><b>📋 Câu kiểm tra trước mỗi lần chạy (prompt 03):</b> viết ra một dòng — <i>“thứ duy nhất thay đổi là tokenizer: BPE 8k hay 16k”</i> — rồi kiểm tra từng mục trong bảng trên có bằng nhau không. Hai thứ đổi cùng lúc thì kết quả không gán được cho thứ nào. Và nhớ ghi thêm một dòng: <i>“metric quyết định là BPC, không phải PPL mỗi token”</i>.</p>
+</div>
+
+<h2>4. Đọc kết quả E2 — ba kịch bản, một ngưỡng</h2>
+<p>Sau hai lần chạy, có ba kịch bản có thể xảy ra. Mỗi kịch bản có một quyết định khác nhau — và một sai lầm khác nhau cần tránh. Tất cả đều đọc bằng <b>BPC</b>, không phải PPL mỗi token.</p>
+<svg width="700" height="250" viewBox="0 0 700 250" xmlns="http://www.w3.org/2000/svg">
+<rect x="0" y="0" width="700" height="250" rx="12" fill="#101830"/>
+<text x="350" y="28" text-anchor="middle" fill="#f5c542" font-size="16" font-weight="bold">Hai đường BPC — cùng 200M token, chỉ khác tokenizer</text>
+<line x1="70" y1="210" x2="660" y2="210" stroke="#22305a" stroke-width="2"/>
+<line x1="70" y1="210" x2="70" y2="45" stroke="#22305a" stroke-width="2"/>
+<text x="365" y="238" text-anchor="middle" fill="#93a0bd" font-size="13">số token đã thấy →</text>
+<text x="30" y="130" text-anchor="middle" fill="#93a0bd" font-size="13" transform="rotate(-90 30 130)">BPC ↓</text>
+<path d="M 80 70 Q 300 110 650 150" stroke="#f87171" stroke-width="3" fill="none"/>
+<path d="M 80 70 Q 300 95 650 125" stroke="#4ade80" stroke-width="3" fill="none"/>
+<circle cx="650" cy="150" r="5" fill="#f87171"/>
+<circle cx="650" cy="125" r="5" fill="#4ade80"/>
+<text x="560" y="105" fill="#4ade80" font-size="14">BPE 16k</text>
+<text x="560" y="172" fill="#f87171" font-size="14">BPE 8k</text>
+<text x="350" y="200" text-anchor="middle" fill="#93a0bd" font-size="12">Khoảng cách cuối = hiệu quả thật của vocab lớn — nếu lớn hơn dao động seed</text>
+</svg>
+<table>
+<tr><th>Kịch bản</th><th>Dấu hiệu (đọc bằng BPC)</th><th>Kết luận &amp; quyết định</th></tr>
+<tr><td><b>1. 16k thắng rõ</b></td><td>BPC của 16k thấp hơn BPC của 8k một khoảng <b>lớn hơn dao động seed</b></td><td>Vocab lớn đáng tiền. <b>Chốt BPE 16k</b> làm tokenizer chuẩn cho E3–E5 — và chấp nhận N ≈ 12,50M thay vì ~10M, ghi rõ vào đề cương. Kiểm tra thêm: fertility đo thật + tokens/s lúc suy luận có cải thiện không.</td></tr>
+<tr><td><b>2. Không khác biệt</b></td><td>Chênh lệch BPC nhỏ hơn dao động seed — hai đường gần như chồng lên nhau</td><td>Không kết luận được 16k tốt hơn. <b>Chọn BPE 8k</b> — vì cùng chất lượng mà rẻ hơn 2,56M tham số, rẻ hơn 26% FLOPs, và giữ được D/N = 20 chuẩn Chinchilla. Ghi rõ “không khác biệt có ý nghĩa” thay vì “16k vô dụng”.</td></tr>
+<tr><td><b>3. 16k thua rõ</b></td><td>BPC của 16k cao hơn BPC của 8k vượt ngưỡng seed</td><td>Đừng vội kết luận “vocab lớn hại mô hình”. Kiểm tra trước: <b>nhiều hàng embedding hiếm có được train đủ không</b> — 200M token có quá ít để nuôi 16k token? So fertility đo thật hai tokenizer — nếu 16k chỉ rút ngắn chuỗi một chút mà tốn gấp đôi embedding thì 8k thắng là hợp lý. Đây là bằng chứng cho RQ2, không phải thất bại.</td></tr>
+</table>
+<p><b>Ngưỡng dao động seed (nhắc lại Day 41):</b> chạy lại đúng cấu hình A với 2–3 seed khác nhau, PPL dao động một chút — ví dụ ±0,3. Chênh lệch BPC giữa hai lần chạy E2 mà nhỏ hơn dao động tương đương thì chưa kết luận được gì. Nếu chưa có dao động seed đo thật (E5 chạy ngày mai, Day 45), dùng ngưỡng tạm từ Day 41 và ghi rõ “chưa có E5, ngưỡng này là ước tính” — không bịa số chắc chắn.</p>
+<div class="card good">
+<p style="margin:0"><b>✅ Quy tắc báo cáo:</b> trong báo cáo, mỗi con số của E2 phải đi kèm 4 thứ: (1) số token đã thấy (200M), (2) ± dao động seed, (3) ghi rõ metric là <b>BPC</b> (PPL mỗi token chỉ tham khảo), (4) số tham số N của từng lần chạy (~9,94M và ~12,50M). Thiếu một trong bốn, hội đồng sẽ hỏi lại — và câu trả lời “không nhớ” thì không được tính điểm.</p>
+</div>
+
+<h2>⚡ Góc tiết kiệm năng lượng</h2>
+<div class="card energy">
+<p style="margin:0">E2 là thí nghiệm <b>quyết định ngân sách tham số của cả đề tài</b> mà chỉ tốn 16 phút GPU: nếu 16k không thắng mà cứ chọn vì “vocab lớn nghe sang hơn”, thì mọi thí nghiệm E3–E5 sau này đều phải nuôi thêm 2,56M tham số — tốn thêm ~26% FLOPs mỗi lần chạy, tốn thêm điện suy luận ở mỗi bước sinh (logits trên 16.000 lựa chọn), mà không được chất lượng nào bù lại. Ngược lại, nếu 16k thắng rõ mà cứ giữ 8k vì sợ tốn, thì mô hình phải sinh nhiều token hơn cho cùng một câu — chuỗi dài hơn, KV cache lớn hơn, suy luận chậm hơn suốt đời mô hình. Và điều tiết kiệm nhất: <b>đo bằng BPC ngay từ đầu</b> — một lần so PPL mỗi token lệch có thể cho kết luận sai, mà kết luận sai về tokenizer thì phải chạy lại cả ma trận trên tokenizer khác.</p>
+</div>
+
+<h2>📌 Tóm tắt</h2>
+<ul>
+<li>E2: hai lần chạy A giống hệt nhau, <b>chỉ khác tokenizer</b> — BPE 8k hay 16k, trên dữ liệu sạch E1 vừa chốt, cùng 200M token, cùng seed/LR/held-out.</li>
+<li>Cái giá của vocab (tied, d = 320): 8k ăn <b>2,56M (~26%)</b>, 16k ăn <b>5,12M (~52%)</b> — tổng N thành ~12,50M, D/N rơi từ 20 xuống 16, FLOPs tăng 26%.</li>
+<li>Day 32 ghi 20%/41% vì tính với d = 256 (giả định lập kế hoạch); lab Day 34 chạy A thật với d = 320 — từ nay dùng <b>d = 320 nhất quán</b>.</li>
+<li><b>PPL mỗi token không so được</b> giữa hai tokenizer — metric quyết định là <b>bits-per-character</b> trên cùng một văn bản held-out.</li>
+<li>Ba kịch bản: 16k thắng rõ → chốt 16k; không khác biệt → chọn 8k (rẻ hơn, cùng chất lượng); 16k thua rõ → kiểm tra embedding hiếm trước khi kết luận.</li>
+<li>Chênh lệch nhỏ hơn <b>dao động seed</b> thì là nhiễu — không phải cải tiến. Trần P vẫn để trống cho đến khi A train xong đủ 200M token.</li>
+</ul>
+
+<h2>📝 Nhiệm vụ nghiên cứu hôm nay (buổi lab tối nay)</h2>
+<ol>
+<li><b>Chạy E2 thật trên máy:</b> hai lần cấu hình A, mỗi lần 200M token — một lần BPE 8k, một lần BPE 16k, cùng dữ liệu sạch E1. Cùng seed, cùng LR, cùng tập held-out đóng băng. Log val loss mỗi ~50 bước, tokens/s, MFU, kWh.</li>
+<li><b>Đo fertility thật:</b> đếm số token trung bình trên một từ của từng tokenizer trên cùng một mẫu Wikipedia tiếng Việt — ghi con số đo được, không đoán trước.</li>
+<li><b>Điền bảng kết quả E2:</b> BPC của 8k và 16k trên cùng held-out (ghi cả PPL mỗi token để tham khảo, kèm chú thích “không dùng để kết luận”), chênh lệch BPC, dao động seed (chưa có E5 thì ghi “ước tính, chờ E5”), N của từng lần chạy (~9,94M / ~12,50M), kWh.</li>
+<li><b>Viết một câu quyết định:</b> “chốt tokenizer BPE ___ vì ___” — kèm bằng chứng số (BPC + chi phí tham số + FLOPs), không viết theo cảm tính.</li>
+<li><b>Lưu bảng E2</b> vào phụ lục thí nghiệm của đề cương (Day 39) — E5 ngày mai sẽ chạy trên tokenizer mà E2 vừa chốt.</li>
+</ol>
+<p><a class="btn" href="Day44_quiz.html">📝 Làm quiz tự đánh giá — Day 44</a>
+<a class="btn" href="Day44_video.mp4">🎬 Xem video giải thích</a></p>
+<p class="sub">Phase 2 — Tiny Vietnamese LM • Ngày mai (Day 45): chạy E5 — lặp lại cấu hình A với seed khác, đo dao động seed để biết ngưỡng ý nghĩa là bao nhiêu.</p>
+</div>
+</body>
+</html>
