@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ngày 45 — Chạy E5: lặp seed, dao động seed là bao nhiêu, ngưỡng nào mới tính là cải tiến thật?</title>
+<style>
+:root{--bg:#0a0f1e;--card:#101830;--line:#22305a;--gold:#f5c542;--green:#4ade80;--red:#f87171;--cyan:#67e8f9;--text:#e8edf7;--muted:#93a0bd;}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;line-height:1.75;font-size:16.5px;}
+.wrap{max-width:780px;margin:0 auto;padding:18px 16px 60px;}
+h1{font-size:27px;line-height:1.3;margin:8px 0 6px;}
+h2{font-size:21px;color:var(--gold);margin:34px 0 10px;border-bottom:1px solid var(--line);padding-bottom:6px;}
+h3{font-size:18px;color:var(--cyan);margin:22px 0 6px;}
+p{margin:10px 0;}
+.sub{color:var(--muted);}
+.hero{width:100%;border-radius:14px;border:1px solid var(--line);margin:14px 0 6px;}
+.cap{color:var(--muted);font-size:14px;text-align:center;margin:0 0 14px;}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin:16px 0;}
+.card.energy{border-left:5px solid var(--gold);background:#1a1607;}
+.warn{border-left:5px solid var(--red);background:#2a1218;}
+.good{border-left:5px solid var(--green);background:#0f2233;}
+.formula{background:#0a1428;border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin:12px 0;text-align:center;font-size:19px;overflow-x:auto;}
+.formula small{display:block;font-size:14px;color:var(--muted);margin-top:6px;}
+table{width:100%;border-collapse:collapse;margin:12px 0;font-size:15px;}
+th,td{border:1px solid var(--line);padding:9px 10px;text-align:left;vertical-align:top;}
+th{background:#16224a;color:var(--gold);}
+ul,ol{margin:8px 0 8px 22px;padding:0;}
+li{margin:6px 0;}
+code{background:#1a2447;padding:2px 7px;border-radius:6px;font-size:15px;}
+a{color:var(--cyan);}
+.btn{display:inline-block;background:var(--gold);color:#14100a;font-weight:700;border-radius:10px;padding:12px 22px;text-decoration:none;margin:10px 8px 0 0;}
+.tag{display:inline-block;background:#1a2447;border:1px solid var(--line);border-radius:20px;padding:3px 12px;font-size:13.5px;color:var(--muted);margin:2px 4px 2px 0;}
+svg{display:block;margin:14px auto;max-width:100%;}
+</style>
+</head>
+<body>
+<div class="wrap">
+<p class="sub">Phase 2 — Đề tài Tiny Vietnamese LM • Ngày 45 / 60 • Nhóm ngày 45–53: thí nghiệm</p>
+<h1>Ngày 45 — Chạy E5: lặp seed — dao động seed là bao nhiêu, và ngưỡng nào mới tính là cải tiến thật?</h1>
+<p class="sub">Advisor buổi sáng — đọc ~15 phút, nhiệm vụ chạy E5 thật vào buổi lab tối nay. E2 xong hôm qua (Day 44) — tokenizer đã có hướng chốt. Hôm nay chạy ô đo "sai số của chính cái thước": cùng một cấu hình A, chỉ đổi seed, PPL dao động bao nhiêu? Không có con số này thì mọi tuyên bố "cải tiến" ở E3, E4 sau đó đều là kể chuyện.</p>
+<img class="hero" src="img/hero45.webp" alt="Ba mô hình giống hệt nhau nảy mầm từ ba hạt giống khác nhau">
+<p class="cap">Cùng một cấu hình A, ba seed khác nhau — ba lần train, ba con số PPL hơi khác nhau. Khoảng dao động đó chính là sai số đo của đề tài.</p>
+
+<div class="card">
+🎯 <b>Mục tiêu buổi học</b>
+<ul>
+<li><b>Hiểu E5 — thí nghiệm lặp seed:</b> thứ duy nhất thay đổi là seed, mọi thứ khác giữ nguyên y hệt cấu hình A, trên dữ liệu sạch E1 vừa chốt và tokenizer đã chốt sau E2.</li>
+<li><b>Biết seed len vào train ở những chỗ nào</b> — và vì sao cùng một code, cùng một dữ liệu, chạy lại vẫn ra số khác.</li>
+<li><b>Đo được dao động seed:</b> tính mean và độ lệch chuẩn từ 3 lần chạy, rồi dùng nó làm ngưỡng "cải tiến thật" cho E3 và E4.</li>
+<li><b>Đọc được kết quả E5 theo 3 kịch bản</b> — dao động nhỏ, vừa, hay lớn bất thường — và biết khi nào phải dừng lại sửa pipeline thay vì chạy tiếp.</li>
+</ul>
+<p>⏱️ Ước lượng: §1 E5 là gì ~4 phút • §2 seed len vào đâu ~4 phút • §3 đo dao động + quy tắc vàng ~5 phút • §4 đọc kết quả + nhiệm vụ ~3 phút.</p>
+</div>
+
+<h2>1. E5 là gì — biến duy nhất là seed</h2>
+<p><b>Định nghĩa ngắn:</b> E5 là ô thứ ba của ma trận thí nghiệm (Day 41) trả lời một câu hỏi về độ tin cậy: <i>nếu chạy lại đúng cấu hình A một lần nữa, PPL sẽ khác đi bao nhiêu?</i> Cách trả lời: chạy cấu hình A ba lần, giống hệt nhau mọi thứ, chỉ khác seed khởi đầu.</p>
+<p>Thứ duy nhất thay đổi là seed. Viết ra trước khi chạy, theo quy tắc vàng của ma trận (Day 41):</p>
+<ul>
+<li><b>Chạy 1 — A + seed 42:</b> cấu hình A (tied embeddings, d = 320, 6 layer), dữ liệu sạch (kết quả E1), tokenizer đã chốt sau E2, 200M token, cùng learning rate.</li>
+<li><b>Chạy 2 — A + seed 123:</b> y hệt chạy 1, chỉ đổi seed thành 123.</li>
+<li><b>Chạy 3 — A + seed 2026:</b> y hệt chạy 1, chỉ đổi seed thành 2026.</li>
+<li><b>Mọi thứ còn lại bằng nhau tuyệt đối:</b> dữ liệu sạch (ExactSubstr + NearDup, Day 33), cấu hình A, learning rate, tập held-out đóng băng, cùng một máy.</li>
+</ul>
+<p><b>Chi phí:</b> mỗi lần chạy A khoảng 8 phút (Day 34), tổng E5 ≈ 8 phút × 3 ≈ 24 phút — rẻ như E1, E2. Rẻ nên chạy ngay sau E2, <b>trước</b> E3–E4 (đắt): vì không biết dao động thì E3, E4 không kết luận được gì, có chạy cũng uổng.</p>
+<div class="card warn">
+⚠️ <b>Giả định cần ghi rõ tối nay:</b> E5 chạy trên tokenizer đã chốt sau E2. Nếu lab tối qua (Day 44) cho thấy 8k và 16k "không khác biệt có ý nghĩa" thì E5 chạy trên BPE 8k — phương án rẻ hơn khi chất lượng ngang nhau (Day 44, §4). Nếu E2 ngã ngũ theo hướng 16k thì E5 chạy trên 16k. Ghi rõ lựa chọn này vào sổ lab — đừng để người đọc báo cáo phải đoán.
+</div>
+
+<svg width="640" height="240" viewBox="0 0 640 240" role="img" aria-label="Ba lan chay seed cho ra ba PPL va thanh sai so">
+<rect x="0" y="0" width="640" height="240" rx="12" fill="#101830" stroke="#22305a"/>
+<text x="320" y="28" text-anchor="middle" fill="#f5c542" font-size="15" font-weight="bold">E5: cùng cấu hình A — ba seed, ba PPL, một thanh sai số</text>
+<circle cx="130" cy="80" r="26" fill="#1a2447" stroke="#67e8f9" stroke-width="2"/><text x="130" y="86" text-anchor="middle" fill="#67e8f9" font-size="14">seed 42</text>
+<circle cx="320" cy="80" r="26" fill="#1a2447" stroke="#67e8f9" stroke-width="2"/><text x="320" y="86" text-anchor="middle" fill="#67e8f9" font-size="14">seed 123</text>
+<circle cx="510" cy="80" r="26" fill="#1a2447" stroke="#67e8f9" stroke-width="2"/><text x="510" y="86" text-anchor="middle" fill="#67e8f9" font-size="14">seed 2026</text>
+<line x1="130" y1="106" x2="130" y2="130" stroke="#93a0bd" stroke-width="2"/><line x1="320" y1="106" x2="320" y2="130" stroke="#93a0bd" stroke-width="2"/><line x1="510" y1="106" x2="510" y2="130" stroke="#93a0bd" stroke-width="2"/>
+<text x="130" y="152" text-anchor="middle" fill="#e8edf7" font-size="15">PPL₁</text>
+<text x="320" y="152" text-anchor="middle" fill="#e8edf7" font-size="15">PPL₂</text>
+<text x="510" y="152" text-anchor="middle" fill="#e8edf7" font-size="15">PPL₃</text>
+<line x1="90" y1="185" x2="550" y2="185" stroke="#4ade80" stroke-width="3"/>
+<line x1="90" y1="176" x2="90" y2="194" stroke="#4ade80" stroke-width="3"/><line x1="550" y1="176" x2="550" y2="194" stroke="#4ade80" stroke-width="3"/>
+<text x="320" y="212" text-anchor="middle" fill="#4ade80" font-size="14">dao động seed = khoảng PPL₁ – PPL₃ (và độ lệch chuẩn) → ngưỡng "cải tiến thật"</text>
+</svg>
+
+<h2>2. Seed len vào buổi train ở những chỗ nào?</h2>
+<p><b>Định nghĩa ngắn:</b> seed là một con số khởi đầu cho bộ sinh số ngẫu nhiên. Đổi seed không đổi code, không đổi dữ liệu — nhưng đổi <i>thứ tự</i> và <i>điểm xuất phát</i> của những thứ ngẫu nhiên trong buổi train. Ba chỗ seed len vào nhiều nhất:</p>
+<table>
+<tr><th>Chỗ seed len vào</th><th>Nó làm gì</th><th>Vì sao làm PPL khác nhau</th></tr>
+<tr><td><b>Khởi tạo trọng số</b></td><td>Các ma trận trọng số ban đầu được rút ngẫu nhiên quanh 0</td><td>Điểm xuất phát khác nhau trên mặt loss → đường đi tối ưu khác nhau, có thể dừng ở cực tiểu khác nhau</td></tr>
+<tr><td><b>Thứ tự xáo dữ liệu (shuffle)</b></td><td>Mỗi epoch, thứ tự các batch được xáo ngẫu nhiên</td><td>Mô hình "thấy" dữ liệu theo thứ tự khác nhau → gradient từng bước khác nhau, dù tổng dữ liệu y hệt</td></tr>
+<tr><td><b>Dropout / nhiễu huấn luyện</b></td><td>Mặt nạ dropout (nếu bật) rút ngẫu nhiên mỗi bước</td><td>Đơn vị nào bị tắt ở bước nào là khác nhau → mô hình học được hơi khác nhau</td></tr>
+</table>
+<p><b>Ví dụ trực quan:</b> tưởng tượng ba người leo cùng một ngọn núi, xuất phát từ ba vị trí khác nhau quanh chân núi, đi theo ba lối mòn khác nhau — cả ba đều lên tới đỉnh, nhưng độ cao cuối cùng của mỗi người chênh nhau một chút. Seed chính là "điểm xuất phát" đó. Mô hình 10M tham số có mặt loss rất nhiều chiều, nên hai điểm xuất phát khác nhau hầu như không bao giờ cho ra đúng một con số PPL.</p>
+<p><b>Lỗi thường gặp — "seed may mắn":</b> chạy 3 seed, thấy seed 123 cho PPL thấp nhất, rồi chỉ báo cáo con số của seed 123 và lặng lẽ bỏ hai seed còn lại. Đó là <b>cherry-picking</b> — báo cáo thiên lệch. Hội đồng hỏi "chạy mấy seed?" mà đáp án chỉ có một con số thì coi như chưa có bằng chứng. Quy tắc: báo cáo <b>mean ± độ lệch chuẩn của tất cả các seed đã chạy</b>, không bao giờ báo cáo mỗi seed tốt nhất.</p>
+<div class="card warn">
+⚠️ <b>Bẫy liên quan (Day 40–41):</b> chọn seed "tốt nhất" bằng tập test rồi báo cáo PPL trên chính tập test đó là rò rỉ đánh giá. Seed chỉ được chọn bằng val; test chỉ mở một lần khi báo cáo — "két sắt, không phải ngăn kéo". Trong E5, cả ba seed đều đo trên cùng tập held-out đã đóng băng từ Day 40, không đo trên test.
+</div>
+
+<h2>3. Đo dao động seed — mean, độ lệch chuẩn, và quy tắc vàng</h2>
+<p>Ba lần chạy cho ba con số PPL. Hai phép tính biến ba con số đó thành "thanh sai số" của đề tài:</p>
+<div class="formula">
+mean = (PPL₁ + PPL₂ + PPL₃) / 3
+<small>độ lệch chuẩn (mẫu) s = √[ Σ(PPLᵢ − mean)² / (3 − 1) ] — chia cho n−1, không phải n</small>
+</div>
+<p><b>Ví dụ tính tay (số minh họa — chưa phải số đo thật của đề tài):</b> giả sử ba seed cho PPL 7,72 / 7,85 / 7,79.</p>
+<ul>
+<li>Mean = (7,72 + 7,85 + 7,79) / 3 = <b>7,79</b>.</li>
+<li>Độ lệch chuẩn s ≈ <b>0,065</b> — tính: (7,72−7,79)² + (7,85−7,79)² + (7,79−7,79)² = 0,0049 + 0,0036 + 0 = 0,0085; 0,0085 / 2 = 0,00425; √0,00425 ≈ 0,065.</li>
+<li>Khoảng dao động (max − min) = 7,85 − 7,72 = <b>0,13</b>.</li>
+</ul>
+<p><b>Quy tắc vàng (Day 40–41, nhắc lại):</b></p>
+<div class="formula">
+|ΔPPL| &lt; dao động seed → NHIỄU, không phải cải tiến
+<small>chênh lệch nhỏ hơn thanh sai số thì chưa kết luận được gì — chạy thêm seed, hoặc chấp nhận "không khác biệt"</small>
+</div>
+<p>Với ví dụ trên (s ≈ 0,065, khoảng dao động 0,13): một thí nghiệm sau này cho chênh lệch 0,05 PPL thì là nhiễu — đừng viết "cải thiện 0,05" vào báo cáo. Chênh lệch 0,2 PPL — gấp khoảng 3 lần độ lệch chuẩn — thì đáng chú ý: vượt ngưỡng nhiễu một cách rõ ràng. Còn chênh lệch 0,13, đúng bằng khoảng dao động, thì nằm ở vùng xám: cần chạy thêm seed để thu hẹp thanh sai số rồi mới kết luận.</p>
+<p><b>Vì sao chỉ 3 seed, không phải 10?</b> Mỗi seed tốn ~8 phút GPU. Ba seed là mức tối thiểu cho ra được độ lệch chuẩn mà vẫn rẻ (~24 phút). Nếu sau này E3/E4 cho chênh lệch nằm đúng vùng xám, lúc đó mới chạy thêm seed cho riêng cặp so sánh đó — tốn thêm vài chục phút, nhưng chỉ tốn khi thật sự cần. Đây cũng là lý do E5 chạy trước E4: biết thanh sai số rồi mới quyết định E4 cần chạy mấy seed.</p>
+<div class="card good">
+✅ <b>Nhắc lại kiến thức nền (Day 41):</b> PPL 7,78 của A là số đo nền từ lab Day 34 (mới train vài triệu token). Con số chính thức của A — và trần P của đề tài — chỉ chốt khi A train xong đủ 200M token (lab Day 35). E5 đo dao động quanh lần chạy A đầy đủ đó. Trong bài hôm nay, mọi con số PPL cụ thể đều là <b>ví dụ minh họa</b> để học cách tính — số đo thật chỉ có sau khi lab tối nay chạy xong, không bịa trước.
+</div>
+
+<h2>4. Đọc kết quả E5 theo 3 kịch bản + nhiệm vụ tối nay</h2>
+<table>
+<tr><th>Kịch bản</th><th>Dấu hiệu</th><th>Đọc thế nào</th><th>Làm gì tiếp theo</th></tr>
+<tr><td><b>A. Dao động nhỏ</b></td><td>s &lt; 0,1; khoảng dao động &lt; 0,15</td><td>Pipeline ổn định; ngưỡng "cải tiến thật" chặt — E3/E4 chỉ cần chênh lệch &gt; ~0,15 là kết luận được</td><td>Chốt ngưỡng, đi tiếp E3 theo kế hoạch</td></tr>
+<tr><td><b>B. Dao động vừa</b></td><td>s ≈ 0,2–0,3; khoảng dao động ≈ 0,4–0,6</td><td>Bình thường ở mô hình nhỏ; ngưỡng nới ra — E3/E4 phải thắng đậm mới tính</td><td>Chốt ngưỡng, cân nhắc chạy thêm 1–2 seed cho cặp so sánh quan trọng ở E3/E4</td></tr>
+<tr><td><b>C. Dao động lớn bất thường</b></td><td>s &gt; 0,5; hoặc một seed diverge / loss vọt</td><td>Có gì đó không ổn định — LR quá cao, held-out quá nhỏ, hoặc dữ liệu còn vấn đề</td><td><b>Dừng.</b> Kiểm tra lại LR và kích thước held-out (Day 40–41) trước khi chạy E3/E4 — chạy tiếp lúc này là đốt GPU mù</td></tr>
+</table>
+<p><b>Một yếu tố hay bị quên — kích thước tập held-out:</b> PPL đo trên tập held-out càng nhỏ thì bản thân phép đo càng nhiễu, và dao động seed đo được sẽ bị "thổi phồng" bởi nhiễu đo. Nếu rơi vào kịch bản C, trước khi đổ lỗi cho seed, hãy kiểm tra held-out có đủ lớn không (Day 40: giao thức đo 4 con số). Phân biệt "dao động do seed" với "dao động do phép đo" là một câu hội đồng rất hay hỏi.</p>
+<div class="card">
+📋 <b>Nhiệm vụ buổi lab tối nay (Day 45, tối)</b>
+<ol>
+<li>Chạy cấu hình A ba lần với seed 42, 123, 2026 — ghi rõ tokenizer dùng là BPE 8k hay 16k theo kết quả E2, và ghi câu "thứ duy nhất thay đổi là seed" vào sổ lab.</li>
+<li>Ghi bảng 3 con số PPL held-out, tính mean, độ lệch chuẩn mẫu (chia n−1) và khoảng dao động max−min.</li>
+<li>Chốt ngưỡng "cải tiến thật" của đề tài (dạng: chênh lệch PPL phải lớn hơn ___ mới tính), ghi vào báo cáo — từ mai, mọi con số PPL trong đề tài đều đi kèm ± dao động này.</li>
+<li>Đối chiếu với 3 kịch bản ở §4: nếu rơi vào kịch bản C thì dừng, báo lại để sửa pipeline trước khi sang E3.</li>
+</ol>
+</div>
+
+<div class="card energy">
+⚡ <b>Góc tiết kiệm năng lượng</b>
+<ul>
+<li>E5 tốn ~24 phút GPU cho 3 lần chạy A — rẻ. Nhưng giá trị của nó nằm ở chỗ <b>ngăn lãng phí lớn hơn</b>: E4 là ô đắt nhất ma trận (Day 41). Chạy E4 mà không biết thanh sai số thì rất dễ chạy đi chạy lại nhiều lần vì "không biết chênh lệch 0,2 có nghĩa lý gì không" — mỗi lần lặp lại là thêm GPU-giờ. Đo dao động trước, chạy đắt sau — đúng tinh thần "rẻ trước, đắt sau".</li>
+<li>Ba seed không nhất thiết phải chạy nối tiếp nhau: nếu lab tối nay có thể chạy song song trên cùng máy mà không tranh tài nguyên, tổng thời gian tường (wall-clock) còn rút ngắn — nhưng phải ghi rõ vào sổ lab, vì chạy song song làm thay đổi thời gian đo tokens/s, không làm thay đổi PPL.</li>
+<li>Sau E5, ma trận còn E3 (kiến trúc) và E4 (huấn luyện, đắt nhất). Ngưỡng từ E5 sẽ quyết định E3/E4 cần mấy seed — đừng đặt trước con số, để số liệu E5 quyết định.</li>
+</ul>
+</div>
+
+<h2>📌 Tóm tắt</h2>
+<ul>
+<li><b>E5:</b> chạy lại cấu hình A với 3 seed (42, 123, 2026) — thứ duy nhất thay đổi là seed; mọi thứ khác (dữ liệu sạch E1, tokenizer chốt sau E2, LR, held-out) giữ nguyên. Chi phí ~24 phút.</li>
+<li><b>Seed len vào 3 chỗ:</b> khởi tạo trọng số, thứ tự xáo dữ liệu, mặt nạ dropout — cùng code, cùng dữ liệu, chạy lại vẫn ra PPL khác nhau.</li>
+<li><b>Đo dao động:</b> mean và độ lệch chuẩn mẫu (chia n−1) của 3 PPL; khoảng dao động max−min. Quy tắc vàng: chênh lệch PPL nhỏ hơn dao động seed → nhiễu.</li>
+<li><b>Không cherry-picking:</b> báo cáo mean ± độ lệch chuẩn của tất cả seed, không bao giờ chỉ báo seed tốt nhất; checkpoint chỉ chọn bằng val, test mở một lần lúc báo cáo.</li>
+<li><b>3 kịch bản:</b> dao động nhỏ → chốt ngưỡng, đi tiếp E3; vừa → ngưỡng nới ra, cân nhắc thêm seed; lớn bất thường → dừng, kiểm tra LR và held-out trước khi chạy tiếp.</li>
+<li><b>Tối nay:</b> chạy E5 thật, tính mean/độ lệch chuẩn/khoảng dao động, chốt ngưỡng "cải tiến thật" cho cả đề tài.</li>
+</ul>
+<p>
+<a class="btn" href="Day45_quiz.html">📝 Làm quiz Ngày 45 →</a>
+<a class="btn" href="Day45_video.mp4">🎬 Xem video giải thích →</a>
+</p>
+</div>
+</body>
+</html>
