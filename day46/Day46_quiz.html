@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 46 Quiz — Chạy E3: kiến trúc — tied embeddings và sâu hay rộng?</title>
+<style>
+:root{--bg:#0a0f1e;--card:#101830;--line:#22305a;--gold:#f5c542;--green:#4ade80;--red:#f87171;--cyan:#67e8f9;--text:#e8edf7;--muted:#93a0bd;}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;line-height:1.7;font-size:16.5px;}
+.wrap{max-width:760px;margin:0 auto;padding:18px 16px 60px;}
+h1{font-size:26px;line-height:1.3;margin:6px 0 8px;}
+.sub{color:var(--muted);}
+.q{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin:18px 0;}
+.q h3{margin:0 0 10px;font-size:17px;color:var(--gold);}
+label{display:block;padding:8px 10px;border-radius:8px;cursor:pointer;margin:4px 0;}
+label:hover{background:#1a2447;}
+input{margin-right:8px;}
+.expl{display:none;margin-top:10px;padding:10px 14px;border-left:4px solid var(--green);background:#0f2233;border-radius:0 10px 10px 0;font-size:15.5px;}
+.expl.wrong{border-left-color:var(--red);background:#2a1218;}
+.btn{display:inline-block;background:var(--gold);color:#14100a;font-weight:700;border-radius:10px;padding:12px 22px;border:none;font-size:16px;cursor:pointer;margin:8px 8px 0 0;}
+.btn2{display:inline-block;background:#1a2447;color:var(--text);border:1px solid var(--line);border-radius:10px;padding:12px 22px;font-size:16px;cursor:pointer;margin:8px 8px 0 0;}
+#result{font-size:18px;font-weight:700;margin:16px 0 6px;}
+#copyBox{width:100%;background:#0a1428;color:var(--text);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:15px;margin-top:8px;}
+.note{color:var(--muted);font-size:14.5px;margin-top:14px;}
+a{color:var(--cyan);}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>📝 Day 46 Quiz — Chạy E3: kiến trúc — tied embeddings và sâu hay rộng?</h1>
+<p class="sub">5 câu trắc nghiệm • Chọn đáp án rồi bấm "Nộp bài" để chấm điểm ngay trong file. File HTML này không tự gửi kết quả về được — làm xong bấm "Copy kết quả" rồi paste vào chat để trợ lý ghi điểm.</p>
+
+<div class="q" id="q1">
+<h3>Câu 1. Trong E3, "thứ duy nhất thay đổi là ___"? Điền đúng vào chỗ trống.</h3>
+<label><input type="radio" name="q1" value="A"> A. Kiến trúc: E3a đổi việc buộc chung embedding (tied bật/tắt), E3b đổi hình dạng (sâu hay rộng) — mọi thứ khác (dữ liệu sạch, tokenizer, 200M token, LR, seed, held-out) giữ nguyên</label>
+<label><input type="radio" name="q1" value="B"> B. Số token train: mỗi hình dạng train một lượng token khác nhau cho đủ "công bằng" với số tham số của nó</label>
+<label><input type="radio" name="q1" value="C"> C. Learning rate: mô hình sâu hơn được LR thấp hơn, mô hình rộng hơn được LR cao hơn, vì mỗi hình dạng "muốn" một LR khác nhau</label>
+<label><input type="radio" name="q1" value="D"> D. Tokenizer: hình dạng Sâu dùng BPE 8k, hình dạng Rộng dùng BPE 16k để đo luôn cả dao động tokenizer</label>
+<div class="expl" id="e1"><b>Đúng: A.</b> E3 là thí nghiệm kiến trúc — chỉ kiến trúc đổi, còn lại bằng nhau tuyệt đối. Đổi thêm token, LR hay tokenizer thì kết quả không gán được cho kiến trúc nữa (Day 41: mỗi ô một biến). LR giữ nguyên là quyết định có chủ ý — tinh chỉnh LR cho từng hình dạng là việc của E4.</div>
+</div>
+
+<div class="q" id="q2">
+<h3>Câu 2. Tied embeddings ở BPE 8k, d = 320 tiết kiệm bao nhiêu tham số so với untied, và tắt tied làm gì với FLOPs mỗi token?</h3>
+<label><input type="radio" name="q2" value="A"> A. Tiết kiệm 2,56 triệu tham số (8.000 × 320, khoảng 26% của A); tắt tied KHÔNG làm tăng FLOPs/token — logits vẫn nhân ma trận vocab × d như cũ, chỉ tăng tham số và bộ nhớ</label>
+<label><input type="radio" name="q2" value="B"> B. Tiết kiệm 5,12 triệu tham số (16.000 × 320); tắt tied làm FLOPs/token tăng gấp đôi vì phải nhân thêm một ma trận đầu ra riêng</label>
+<label><input type="radio" name="q2" value="C"> C. Tiết kiệm 2,56 triệu tham số; tắt tied làm FLOPs/token giảm vì đầu ra riêng tính nhanh hơn ma trận buộc chung</label>
+<label><input type="radio" name="q2" value="D"> D. Không tiết kiệm tham số nào — tied chỉ đổi cách lưu checkpoint, tổng N của A vẫn là 9,94M dù bật hay tắt</label>
+<div class="expl" id="e2"><b>Đúng: A.</b> Một ma trận embedding 8k × 320 = 2,56M tham số; tied dùng chung một ma trận cho đầu vào và đầu ra nên N ≈ 9,94M, untied cần hai ma trận nên N ≈ 12,50M. Phép nhân logits vocab × d vẫn phải làm dù tied hay untied — tied chỉ tiết kiệm tham số lưu trữ và bộ nhớ, không tiết kiệm phép tính.</div>
+</div>
+
+<div class="q" id="q3">
+<h3>Câu 3. Ba hình dạng E3b có tổng tham số gần bằng nhau. Hình dạng nào sau đây KHÔNG thuộc nhóm "cùng ngân sách ~10M" của E3b?</h3>
+<label><input type="radio" name="q3" value="A"> A. Sâu 8 layer × d = 288, tổng ≈ 10,27M</label>
+<label><input type="radio" name="q3" value="B"> B. Rộng 4 layer × d = 384, tổng ≈ 10,15M</label>
+<label><input type="radio" name="q3" value="C"> C. A cân bằng 6 layer × d = 320, tổng ≈ 9,94M</label>
+<label><input type="radio" name="q3" value="D"> D. Sâu 8 layer × d = 320, tổng ≈ 12,39M — sâu hơn A nhưng cũng nhiều tham số hơn A</label>
+<div class="expl" id="e3"><b>Đúng: D.</b> 8 layer × d = 320 có tổng khoảng 12,39M — vừa sâu hơn vừa nhiều tham số hơn A, nên thắng thua không gán được cho hình dạng. E3b chọn d = 288 cho Sâu và d = 384 cho Rộng chính để tổng N về quanh 10M, chênh nhau chưa tới 4% — lúc đó thắng thua mới là do cách xếp tham số.</div>
+</div>
+
+<div class="q" id="q4">
+<h3>Câu 4. E3a cho thấy A untied tốt hơn A tied 0,04 PPL. Dao động seed đo được ở E5 (ví dụ minh họa trong bài) có khoảng dao động 0,13. Kết luận đúng là gì?</h3>
+<label><input type="radio" name="q4" value="A"> A. Untied thắng thật — vì 0,04 là số dương, mô hình untied tốt hơn tied 0,04 PPL nên chốt untied mang sang E4</label>
+<label><input type="radio" name="q4" value="B"> B. Nhiễu — chênh lệch 0,04 nhỏ hơn dao động seed (khoảng dao động 0,13), chưa kết luận được gì; giữ tied (rẻ hơn, gọn hơn) hoặc chạy thêm seed cho đúng cặp này rồi mới kết luận</label>
+<label><input type="radio" name="q4" value="C"> C. Untied thắng thật — vì 0,04 gần bằng độ lệch chuẩn 0,065 nên đã vượt ngưỡng nhiễu</label>
+<label><input type="radio" name="q4" value="D"> D. Nhiễu — vì mọi chênh lệch dưới 0,5 PPL đều là nhiễu bất kể dao động seed đo được là bao nhiêu</label>
+<div class="expl" id="e4"><b>Đúng: B.</b> Quy tắc vàng từ E5: chênh lệch PPL nhỏ hơn dao động seed thì là nhiễu. 0,04 &lt; 0,13 nên không kết luận được — đừng viết "untied cải thiện 0,04" vào báo cáo, và đừng vội chốt kiến trúc đắt hơn (N 12,50M) trên một chênh lệch chưa vượt ngưỡng nhiễu. Vùng xám thì chạy thêm seed cho đúng cặp đó.</div>
+</div>
+
+<div class="q" id="q5">
+<h3>Câu 5. Trong E3b, hình dạng Sâu (8×288) bị loss vọt lên, thành NaN sau vài trăm bước đầu, trong khi A chạy bình thường ở cùng LR. Quyết định đúng là gì?</h3>
+<label><input type="radio" name="q5" value="A"> A. Kết luận ngay "Sâu dở hơn A" và loại hình dạng Sâu khỏi ma trận — loss vọt lên là bằng chứng kiến trúc sâu không hợp với đề tài</label>
+<label><input type="radio" name="q5" value="B"> B. Tăng LR lên gấp đôi rồi chạy lại Sâu — loss vọt lên nghĩa là LR còn thấp, cần tăng để mô hình học nhanh hơn</label>
+<label><input type="radio" name="q5" value="C"> C. Dừng lần chạy đó theo tiêu chí dừng đã viết trước — kiểm tra LR và warmup cho hình dạng sâu (sâu hơn thường muốn LR thấp hơn hoặc warmup dài hơn), chạy lại; kết luận đúng lúc này chỉ là "ở cùng LR này, Sâu không ổn định", chưa phải "Sâu dở hơn A"</label>
+<label><input type="radio" name="q5" value="D"> D. Bỏ qua lần chạy Sâu, lấy kết quả của A và Rộng để kết luận E3b — một lần chạy diverge không phải là kết quả</label>
+<div class="expl" id="e5"><b>Đúng: C.</b> Diverge sớm là dạng loss curve số 3 (Day 41) — dừng ngay, đừng chờ hết 8 phút. Mô hình sâu hơn thường cần LR thấp hơn hoặc warmup dài hơn, nên kết luận "Sâu dở hơn A" là vội vàng khi LR chưa được tinh chỉnh cho độ sâu mới. Ghi nhận "không ổn định ở LR này" cũng là một kết quả — bỏ qua nó thì mất thông tin.</div>
+</div>
+
+<button class="btn" onclick="grade()">Nộp bài</button>
+<button class="btn2" onclick="copyResult()">Copy kết quả</button>
+<div id="result"></div>
+<input id="copyBox" readonly value="Chưa có kết quả — hãy bấm Nộp bài trước.">
+<p class="note">💡 File HTML này không tự gửi kết quả về được. Sau khi bấm "Copy kết quả", paste chuỗi "Day46 Quiz: 1A 2B … — s/5" vào chat để trợ lý ghi điểm. Điểm dưới 70% (dưới 4/5) — xem lại phần tương ứng trong bài học rồi làm lại nhé.</p>
+<p><a href="Day46_lesson.html">← Quay lại bài học Ngày 46</a></p>
+
+<script>
+const answers = {q1:"A", q2:"A", q3:"D", q4:"B", q5:"C"};
+let resultStr = "";
+function grade(){
+  let score = 0; const letters = [];
+  for(let i=1;i<=5;i++){
+    const sel = document.querySelector('input[name="q'+i+'"]:checked');
+    const expl = document.getElementById('e'+i);
+    const letter = sel ? sel.value : "?";
+    letters.push(letter);
+    if(sel && sel.value === answers["q"+i]){ score++; expl.classList.remove("wrong"); }
+    else if(sel){ expl.classList.add("wrong"); }
+    expl.style.display = "block";
+  }
+  resultStr = "Day46 Quiz: " + letters.map((l,i)=>(i+1)+l).join(" ") + " — " + score + "/5";
+  document.getElementById("result").textContent = "🎯 Bạn được " + score + "/5 câu đúng." + (score<4 ? " Dưới 70% — xem lại phần tương ứng trong bài học rồi làm lại nhé." : " Đạt! Sẵn sàng sang Day 47.");
+  document.getElementById("copyBox").value = resultStr;
+}
+function copyResult(){
+  const box = document.getElementById("copyBox");
+  if(!resultStr){ alert("Bạn chưa nộp bài — hãy chọn đáp án và bấm Nộp bài trước."); return; }
+  box.select();
+  if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(resultStr); }
+  else { document.execCommand("copy"); }
+  alert("Đã copy: " + resultStr);
+}
+</script>
+</div>
+</body>
+</html>

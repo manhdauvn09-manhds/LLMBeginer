@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ngày 46 — Chạy E3: kiến trúc — tied embeddings và sâu hay rộng, tham số đặt ở đâu thì hiệu quả nhất?</title>
+<style>
+:root{--bg:#0a0f1e;--card:#101830;--line:#22305a;--gold:#f5c542;--green:#4ade80;--red:#f87171;--cyan:#67e8f9;--text:#e8edf7;--muted:#93a0bd;}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;line-height:1.75;font-size:16.5px;}
+.wrap{max-width:780px;margin:0 auto;padding:18px 16px 60px;}
+h1{font-size:27px;line-height:1.3;margin:8px 0 6px;}
+h2{font-size:21px;color:var(--gold);margin:34px 0 10px;border-bottom:1px solid var(--line);padding-bottom:6px;}
+h3{font-size:18px;color:var(--cyan);margin:22px 0 6px;}
+p{margin:10px 0;}
+.sub{color:var(--muted);}
+.hero{width:100%;border-radius:14px;border:1px solid var(--line);margin:14px 0 6px;}
+.cap{color:var(--muted);font-size:14px;text-align:center;margin:0 0 14px;}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin:16px 0;}
+.card.energy{border-left:5px solid var(--gold);background:#1a1607;}
+.warn{border-left:5px solid var(--red);background:#2a1218;}
+.good{border-left:5px solid var(--green);background:#0f2233;}
+.formula{background:#0a1428;border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin:12px 0;text-align:center;font-size:19px;overflow-x:auto;}
+.formula small{display:block;font-size:14px;color:var(--muted);margin-top:6px;}
+table{width:100%;border-collapse:collapse;margin:12px 0;font-size:15px;}
+th,td{border:1px solid var(--line);padding:9px 10px;text-align:left;vertical-align:top;}
+th{background:#16224a;color:var(--gold);}
+td.num{font-family:ui-monospace,Menlo,Consolas,monospace;}
+ul,ol{margin:8px 0 8px 22px;padding:0;}
+li{margin:6px 0;}
+code{background:#1a2447;padding:2px 7px;border-radius:6px;font-size:15px;}
+a{color:var(--cyan);}
+.btn{display:inline-block;background:var(--gold);color:#14100a;font-weight:700;border-radius:10px;padding:12px 22px;text-decoration:none;margin:10px 8px 0 0;}
+.tag{display:inline-block;background:#1a2447;border:1px solid var(--line);border-radius:20px;padding:3px 12px;font-size:13.5px;color:var(--muted);margin:2px 4px 2px 0;}
+svg{display:block;margin:14px auto;max-width:100%;}
+</style>
+</head>
+<body>
+<div class="wrap">
+<p class="sub">Phase 2 — Đề tài Tiny Vietnamese LM • Ngày 46 / 60 • Nhóm ngày 45–53: thí nghiệm</p>
+<h1>Ngày 46 — Chạy E3: kiến trúc — tied embeddings và sâu hay rộng, tham số đặt ở đâu thì hiệu quả nhất?</h1>
+<p class="sub">Advisor buổi sáng — đọc ~15 phút, nhiệm vụ chạy E3 thật vào buổi lab tối nay. E5 hôm qua (Day 45) đã đo xong "thanh sai số" của đề tài — dao động seed. Hôm nay dùng chính thanh sai số đó để hỏi câu hỏi lớn đầu tiên của ma trận: với cùng một ngân sách khoảng 10 triệu tham số, đặt tham số ở đâu thì PPL tốt nhất — buộc chung embedding đầu vào/đầu ra, hay tách ra? Xếp tham số theo chiều sâu, hay chiều rộng?</p>
+<img class="hero" src="img/hero46.webp" alt="Ba mô hình nhỏ cùng kích thước nhưng hình dạng khác nhau: sâu hẹp, cân bằng, rộng nông">
+<p class="cap">Cùng một ngân sách khoảng 10 triệu tham số — ba hình dạng khác nhau. E3 hỏi: hình dạng nào học tiếng Việt hiệu quả nhất?</p>
+
+<div class="card">
+🎯 <b>Mục tiêu buổi học</b>
+<ul>
+<li><b>Hiểu E3 — thí nghiệm kiến trúc:</b> thứ duy nhất thay đổi là kiến trúc, mọi thứ khác (dữ liệu sạch E1, tokenizer chốt sau E2, 200M token, LR, held-out, seed) giữ nguyên.</li>
+<li><b>Biết tied embeddings là gì</b> — buộc chung ma trận embedding đầu vào và đầu ra tiết kiệm bao nhiêu tham số, và cái giá phải trả là gì.</li>
+<li><b>So được sâu và rộng ở cùng ngân sách</b> — tính được số tham số của ba hình dạng 6×320, 8×288 và 4×384, và biết trực giác đằng sau từng hình dạng.</li>
+<li><b>Đọc được kết quả E3 bằng ngưỡng của E5</b> — chênh lệch nào là cải tiến thật, chênh lệch nào chỉ là nhiễu, và khi nào phải dừng để sửa pipeline.</li>
+</ul>
+<p>⏱️ Ước lượng: §1 E3 là gì ~3 phút • §2 tied embeddings ~4 phút • §3 sâu vs rộng ~4 phút • §4 thiết kế + đọc kết quả + nhiệm vụ ~4 phút.</p>
+</div>
+
+<h2>1. E3 là gì — ô kiến trúc của ma trận</h2>
+<p><b>Định nghĩa ngắn:</b> E3 là ô thứ tư của ma trận thí nghiệm (Day 41), trả lời một câu hỏi về kiến trúc: <i>với cùng một ngân sách tham số, đặt tham số ở đâu thì hiệu quả nhất?</i> Ma trận đã khóa thứ tự chạy: E0 → E1 → E2 → E5 → E3 → E4. E5 chạy trước để đo thanh sai số; E3 chạy ngay sau đó, vì kết quả E3 sẽ quyết định hình dạng mô hình mang sang E4 — ô đắt nhất ma trận. Chọn sai hình dạng rồi mang sang E4 thì mỗi lần chạy E4 (50–110 phút) đều trả giá cho một lựa chọn chưa được kiểm chứng.</p>
+<p>E3 có hai nhánh, chạy cùng một buổi lab tối nay. Viết ra trước khi chạy, theo quy tắc vàng của ma trận (Day 41):</p>
+<ul>
+<li><b>E3a — tied embeddings bật / tắt:</b> cấu hình A giữ nguyên (d = 320, 6 layer), chỉ đổi một thứ — ma trận embedding đầu ra có buộc chung với embedding đầu vào hay không.</li>
+<li><b>E3b — sâu hay rộng, cùng ngân sách ~10M:</b> ba hình dạng — A (6 layer × d = 320), Sâu (8 layer × d = 288), Rộng (4 layer × d = 384) — tổng tham số đều quanh 10 triệu, chỉ khác cách xếp tham số.</li>
+<li><b>Mọi thứ còn lại bằng nhau tuyệt đối:</b> dữ liệu sạch (kết quả E1), tokenizer đã chốt sau E2, 200M token, cùng learning rate, cùng seed, tập held-out đóng băng, cùng một máy.</li>
+</ul>
+<p><b>Chi phí:</b> mỗi lần chạy A khoảng 8 phút (Day 34). E3a hai lần chạy ≈ 16 phút, E3b ba lần chạy ≈ 24 phút, tổng E3 ≈ 40 phút — vừa khớp ước tính 8–50 phút trong ma trận Day 41. Vẫn rẻ hơn nhiều so với E4, nên chạy E3 kỹ ngay bây giờ: một buổi lab 40 phút hôm nay có thể tiết kiệm vài GPU-giờ ở E4.</p>
+<div class="card warn">
+⚠️ <b>Giả định cần ghi rõ tối nay:</b> E3 chạy trên tokenizer đã chốt sau E2. Nếu lab tối qua (Day 44) cho thấy 8k và 16k "không khác biệt có ý nghĩa" thì E3 chạy trên BPE 8k — phương án rẻ hơn khi chất lượng ngang nhau (Day 44, §4). Nếu E2 ngã ngũ theo hướng 16k thì E3 chạy trên 16k. Ghi rõ lựa chọn này vào sổ lab — đừng để người đọc báo cáo phải đoán. Cùng một lưu ý cho ngưỡng dao động seed của E5: số đo thật của E5 vẫn đang chờ nộp — trong bài hôm nay, mọi con số dao động cụ thể đều là <b>ví dụ minh họa</b> của Day 45, không phải số đo thật của đề tài.
+</div>
+
+<h2>2. Tied embeddings — một ma trận làm hai việc</h2>
+<p><b>Định nghĩa ngắn:</b> mô hình ngôn ngữ có hai ma trận liên quan đến từ vựng. Ma trận <b>embedding đầu vào</b> biến mỗi token thành một vector d chiều khi mô hình "đọc" dữ liệu. Ma trận <b>đầu ra</b> biến vector cuối cùng trở lại thành điểm số cho từng token trong từ vựng khi mô hình "dự đoán" từ tiếp theo. <b>Tied embeddings</b> nghĩa là dùng chung một ma trận cho cả hai việc — đầu ra chính là chuyển vị của đầu vào:</p>
+<div class="formula">
+W<sub>out</sub> = W<sub>in</sub><sup>T</sup>
+<small>ma trận đầu ra dùng lại đúng ma trận embedding đầu vào, chỉ chuyển vị — không tạo thêm tham số nào</small>
+</div>
+<p><b>Cái giá của việc tách ra:</b> với BPE 8k và d = 320, một ma trận embedding ăn vocab × d = 8.000 × 320 = <b>2,56 triệu tham số</b> — khoảng 26% của cấu hình A (Day 44). Buộc chung thì tổng N ≈ 9,94M; tách ra thì N ≈ 12,50M. Nói cách khác, tắt tied là "mua" thêm 2,56M tham số cho riêng đầu ra — và E3a hỏi: 2,56M đó có đáng tiền không, hay chỉ là tham số chết?</p>
+<svg width="640" height="250" viewBox="0 0 640 250" role="img" aria-label="Tied embeddings mot ma tran lam hai viec, untied hai ma tran rieng">
+<rect x="0" y="0" width="640" height="250" rx="12" fill="#101830" stroke="#22305a"/>
+<text x="320" y="28" text-anchor="middle" fill="#f5c542" font-size="15" font-weight="bold">Tied vs untied — cùng một mô hình, khác một ma trận</text>
+<rect x="40" y="60" width="250" height="70" rx="10" fill="#1a2447" stroke="#67e8f9" stroke-width="2"/>
+<text x="165" y="88" text-anchor="middle" fill="#67e8f9" font-size="15" font-weight="bold">TIED — 1 ma trận</text>
+<text x="165" y="112" text-anchor="middle" fill="#e8edf7" font-size="14">W chung cho đọc + dự đoán</text>
+<text x="165" y="150" text-anchor="middle" fill="#4ade80" font-size="15" font-weight="bold">N ≈ 9,94M</text>
+<text x="165" y="176" text-anchor="middle" fill="#93a0bd" font-size="13">D/N = 200M / 9,94M ≈ 20</text>
+<rect x="350" y="60" width="250" height="70" rx="10" fill="#1a2447" stroke="#f87171" stroke-width="2"/>
+<text x="475" y="88" text-anchor="middle" fill="#f87171" font-size="15" font-weight="bold">UNTIED — 2 ma trận</text>
+<text x="475" y="112" text-anchor="middle" fill="#e8edf7" font-size="14">W_in riêng + W_out riêng</text>
+<text x="475" y="150" text-anchor="middle" fill="#f5c542" font-size="15" font-weight="bold">N ≈ 12,50M (+2,56M)</text>
+<text x="475" y="176" text-anchor="middle" fill="#93a0bd" font-size="13">D/N = 200M / 12,50M = 16</text>
+<text x="320" y="212" text-anchor="middle" fill="#e8edf7" font-size="14">FLOPs/token KHÔNG đổi — logits vẫn nhân ma trận vocab × d</text>
+<text x="320" y="236" text-anchor="middle" fill="#93a0bd" font-size="13">chỉ tăng tham số và bộ nhớ, không tăng phép tính mỗi token</text>
+</svg>
+<p><b>Vì sao buộc chung có thể TỐT?</b> Hai lý do. Một, nó là một dạng <b>ràng buộc chính quy</b> (regularization): đầu vào và đầu ra phải "nói cùng một ngôn ngữ" về từ vựng, mô hình không được tự do học hai cách biểu diễn khác nhau cho cùng một từ — ở mô hình nhỏ, dữ liệu ít, ràng buộc này chống overfit. Hai, nó tiết kiệm 26% tham số — ngân sách đó có thể dành cho các layer transformer, nơi tham số làm việc "nặng" hơn là ở bảng tra từ vựng.</p>
+<p><b>Vì sao buộc chung có thể XẤU?</b> Đầu vào và đầu ra làm hai việc khác nhau: đầu vào cần biểu diễn <i>ngữ nghĩa của từ khi nó xuất hiện</i>, đầu ra cần biểu diễn <i>khả năng từ đó xuất hiện tiếp theo</i>. Buộc chung là ép hai việc khác nhau dùng chung một bộ vector — ở mô hình lớn, dữ liệu nhiều, sự chuyên biệt hóa này có thể đáng giá hơn 2,56M tham số tiết kiệm được. Đây là câu hỏi thực nghiệm, không phải câu hỏi lý thuyết: E3a chạy cả hai rồi đo.</p>
+<p><b>Ví dụ trực quan:</b> tưởng tượng một cuốn từ điển dùng chung cho cả việc đọc hiểu và việc viết văn. Tied là dùng chung đúng một cuốn: gọn, nhất quán, nhưng cách tra cứu khi đọc và khi viết không hoàn toàn giống nhau. Untied là in hai cuốn riêng: tốn giấy hơn, nhưng mỗi cuốn tối ưu cho đúng một việc. Mô hình 10M tham số thì "tốn giấy" 2,56M là một khoản lớn — E3a sẽ cho biết cuốn thứ hai có đáng in không.</p>
+<div class="card">
+📏 <b>Chi tiết hay bị nhầm — FLOPs không đổi:</b> tắt tied KHÔNG làm mô hình tính toán nặng hơn mỗi token. Để dự đoán từ tiếp theo, mô hình vẫn phải nhân vector cuối cùng với ma trận vocab × d để ra điểm số cho 8.000 token — phép nhân này tồn tại dù ma trận đó là bản sao hay bản gốc. Tied chỉ tiết kiệm <b>tham số lưu trữ và bộ nhớ</b>, không tiết kiệm phép tính. Vì vậy E3a so sánh thuần túy "tham số thêm có giúp PPL không", không lẫn với "tính toán thêm". Ghi chú này vào sổ lab — hội đồng rất hay hỏi "untied có tốn FLOPs hơn không?"
+</div>
+<p><b>Một điểm cần khai báo thẳng trong sổ lab:</b> tắt tied làm N tăng từ 9,94M lên 12,50M, nên tỉ lệ D/N rơi từ 20 xuống 16 (Day 44). "Thứ duy nhất thay đổi" ở đây là việc buộc chung — N tăng là hệ quả của nó, không phải một biến thứ hai tự ý đổi. Khai báo rõ hệ quả này trong báo cáo; giấu nó đi thì người đọc sẽ tưởng hai lần chạy có cùng N.</p>
+
+<h2>3. Sâu hay rộng — cùng 10 triệu tham số, xếp khác nhau</h2>
+<p><b>Định nghĩa ngắn:</b> một transformer có hai chiều để "to ra": <b>sâu</b> (thêm layer — xếp chồng nhiều tầng) và <b>rộng</b> (tăng d — mỗi tầng to hơn). Ở cùng một ngân sách tham số, sâu hơn thì phải hẹp lại, rộng hơn thì phải nông lại. E3b so ba hình dạng có tổng tham số gần bằng nhau, để hỏi: tham số đặt theo chiều sâu hay chiều rộng thì học tiếng Việt tốt hơn?</p>
+<p><b>Cách tính tham số (công thức cần nhớ):</b> mỗi layer transformer tốn khoảng 12d² tham số — 4d² cho attention (Q, K, V, O, mỗi cái d×d) và 8d² cho MLP (d×4d cộng 4d×d). Cộng thêm embedding vocab×d. Bỏ qua layernorm (quá nhỏ). Kiểm chứng với cấu hình A: 6 layer × 12 × 320² = 7.372.800, cộng embedding 8.000 × 320 = 2.560.000, tổng ≈ <b>9,94M</b> — khớp đúng con số lab Day 34 đo được. Công thức này đúng thì ba hình dạng dưới đây mới so được với nhau:</p>
+<table>
+<tr><th>Hình dạng</th><th>Layer × d</th><th>Tham số layer</th><th>Embedding</th><th>Tổng N</th></tr>
+<tr><td><b>A — cân bằng (baseline)</b></td><td class="num">6 × 320</td><td class="num">7,37M</td><td class="num">2,56M</td><td class="num"><b>≈ 9,94M</b></td></tr>
+<tr><td><b>Sâu — hẹp</b></td><td class="num">8 × 288</td><td class="num">7,96M</td><td class="num">2,30M</td><td class="num"><b>≈ 10,27M</b></td></tr>
+<tr><td><b>Rộng — nông</b></td><td class="num">4 × 384</td><td class="num">7,08M</td><td class="num">3,07M</td><td class="num"><b>≈ 10,15M</b></td></tr>
+</table>
+<p>Ba con số tổng đều quanh 10 triệu — chênh nhau chưa tới 4%, nhỏ hơn nhiều so với dao động seed. Đây là điểm mấu chốt của thiết kế: nếu một hình dạng thắng đậm thì đó là do <i>cách xếp</i> tham số, không phải do <i>số lượng</i> tham số.</p>
+<svg width="640" height="260" viewBox="0 0 640 260" role="img" aria-label="Ba hinh dang cung ngan sach tham so: sau hep, can bang, rong nong">
+<rect x="0" y="0" width="640" height="260" rx="12" fill="#101830" stroke="#22305a"/>
+<text x="320" y="28" text-anchor="middle" fill="#f5c542" font-size="15" font-weight="bold">Cùng ~10M tham số — ba cách xếp khác nhau</text>
+<g><rect x="110" y="55" width="90" height="150" rx="8" fill="#1a2447" stroke="#67e8f9" stroke-width="2"/><text x="155" y="135" text-anchor="middle" fill="#67e8f9" font-size="13" font-weight="bold">8 layer</text><text x="155" y="155" text-anchor="middle" fill="#67e8f9" font-size="13">d = 288</text><text x="155" y="228" text-anchor="middle" fill="#e8edf7" font-size="14" font-weight="bold">Sâu — hẹp</text><text x="155" y="248" text-anchor="middle" fill="#93a0bd" font-size="13">≈ 10,27M</text></g>
+<g><rect x="275" y="70" width="90" height="135" rx="8" fill="#1a2447" stroke="#f5c542" stroke-width="2"/><text x="320" y="135" text-anchor="middle" fill="#f5c542" font-size="13" font-weight="bold">6 layer</text><text x="320" y="155" text-anchor="middle" fill="#f5c542" font-size="13">d = 320</text><text x="320" y="228" text-anchor="middle" fill="#e8edf7" font-size="14" font-weight="bold">A — cân bằng</text><text x="320" y="248" text-anchor="middle" fill="#93a0bd" font-size="13">≈ 9,94M</text></g>
+<g><rect x="440" y="85" width="90" height="120" rx="8" fill="#1a2447" stroke="#4ade80" stroke-width="2"/><text x="485" y="135" text-anchor="middle" fill="#4ade80" font-size="13" font-weight="bold">4 layer</text><text x="485" y="155" text-anchor="middle" fill="#4ade80" font-size="13">d = 384</text><text x="485" y="228" text-anchor="middle" fill="#e8edf7" font-size="14" font-weight="bold">Rộng — nông</text><text x="485" y="248" text-anchor="middle" fill="#93a0bd" font-size="13">≈ 10,15M</text></g>
+</svg>
+<p><b>Trực giác đằng sau từng hình dạng:</b></p>
+<ul>
+<li><b>Sâu (8×288) — tổng hợp nhiều tầng:</b> mỗi layer là một bước biến đổi; càng nhiều layer, mô hình càng có nhiều bước để "suy nghĩ" từ từ — layer dưới bắt mẫu cục bộ, layer trên tổng hợp thành nghĩa. Điểm yếu: càng sâu càng khó tối ưu — gradient phải đi qua nhiều tầng, dễ gặp plateau sớm hoặc cần warmup kỹ (Day 41, §1). Sâu thắng khi bài toán cần nhiều bước suy luận; sâu thua khi LR giữ nguyên không hợp với độ sâu mới.</li>
+<li><b>Rộng (4×384) — nhiều dung lượng mỗi tầng:</b> mỗi layer "to" hơn, chứa được nhiều mẫu hơn trong một bước, và tính toán song song tốt hơn — 4 layer chạy nhanh hơn 8 layer trên cùng một GPU. Điểm yếu: chỉ có 4 bước biến đổi — mô hình có thể "nhớ" nhiều nhưng "suy luận" ít tầng. Rộng thắng khi bài toán cần dung lượng ghi nhớ; rộng thua khi cần tổng hợp nhiều tầng.</li>
+<li><b>A (6×320) — điểm cân bằng đã kiểm chứng:</b> đã chạy ổn định ở lab Day 34–35. Nếu Sâu và Rộng đều không thắng A vượt ngưỡng nhiễu thì kết luận không phải "A là tốt nhất tuyệt đối", mà là "ở ngân sách 10M, hình dạng không phải yếu tố quyết định — giữ A cho đơn giản".</li>
+</ul>
+<p><b>Lỗi thường gặp — so sánh không cùng ngân sách:</b> lấy mô hình 8 layer × d = 320 (N ≈ 12,5M) so với A (9,94M), thấy PPL tốt hơn rồi kết luận "sâu hơn thì tốt hơn". Sai: mô hình đó vừa sâu hơn <i>vừa</i> nhiều tham số hơn — không biết phần thắng đến từ đâu. Quy tắc của E3b: muốn kết luận về hình dạng thì tổng N phải gần bằng nhau. Đây cũng là lý do d của Sâu là 288 và của Rộng là 384 — hai con số được chọn để tổng N về quanh 10M, không phải số tròn cho đẹp.</p>
+<div class="card warn">
+⚠️ <b>Điểm tinh tế cần khai báo — learning rate giữ nguyên:</b> E3b giữ cùng một LR cho cả ba hình dạng, vì LR là biến của E4, không phải E3. Nhưng mô hình sâu hơn thường "muốn" LR thấp hơn hoặc warmup dài hơn. Nghĩa là nếu Sâu thua A ở E3b, kết luận đúng là "ở cùng LR này, Sâu không thắng" — chưa phải "Sâu dở hơn A". Tinh chỉnh LR cho từng hình dạng là việc của E4. Ghi câu này vào sổ lab trước khi chạy, đừng đợi kết quả ra rồi mới viện cớ.
+</div>
+
+<h2>4. Thiết kế E3, tiêu chí dừng, đọc kết quả + nhiệm vụ tối nay</h2>
+<p><b>Bảng thí nghiệm E3 (điền trước khi chạy):</b></p>
+<table>
+<tr><th>Lần chạy</th><th>Thứ duy nhất thay đổi</th><th>Cố định</th><th>Chi phí</th></tr>
+<tr><td><b>E3a-1: A tied</b> (baseline)</td><td>—</td><td rowspan="2">d = 320, 6 layer, dữ liệu sạch E1, tokenizer chốt sau E2, 200M token, cùng LR/seed/held-out</td><td class="num">~8 phút</td></tr>
+<tr><td><b>E3a-2: A untied</b></td><td>Tied tắt — thêm ma trận đầu ra 2,56M</td><td class="num">~8 phút</td></tr>
+<tr><td><b>E3b-1: A 6×320</b></td><td>—</td><td rowspan="3">Dữ liệu sạch E1, tokenizer chốt sau E2, 200M token, cùng LR/seed/held-out, N ≈ 10M</td><td class="num">~8 phút</td></tr>
+<tr><td><b>E3b-2: Sâu 8×288</b></td><td>Hình dạng: sâu hơn, hẹp lại</td><td class="num">~8 phút</td></tr>
+<tr><td><b>E3b-3: Rộng 4×384</b></td><td>Hình dạng: rộng hơn, nông lại</td><td class="num">~8 phút</td></tr>
+</table>
+<p><b>Đo bằng gì:</b> cả năm lần chạy dùng cùng một tokenizer nên PPL so được trực tiếp — không cần BPC như E2 (Day 44). Mỗi lần chạy ghi PPL held-out, tokens/s, MFU, kWh. So sánh từng cặp với A bằng ngưỡng dao động seed từ E5: <b>|ΔPPL| &lt; dao động seed → nhiễu</b>. Chênh lệch nằm trong vùng xám (đúng bằng khoảng dao động) thì chạy thêm một seed nữa cho đúng cặp đó rồi mới kết luận — E5 đã dạy cách làm việc này.</p>
+<p><b>Tiêu chí dừng (viết trước khi chạy):</b> nếu một lần chạy diverge — loss vọt lên hoặc thành NaN trong vài trăm bước đầu — dừng ngay, không chờ hết 8 phút (Day 41: đọc loss curve 5 phút đầu). Kiểm tra LR và warmup cho hình dạng đó rồi chạy lại; nếu vẫn diverge thì ghi nhận "hình dạng này không ổn định ở LR này" — đó cũng là một kết quả, không phải thất bại. Nếu loss plateau phẳng lì từ sớm thì để chạy hết (8 phút rẻ) nhưng ghi rõ "plateau" vào sổ.</p>
+<p><b>Đọc kết quả theo kịch bản:</b></p>
+<table>
+<tr><th>Kết quả</th><th>Đọc thế nào</th><th>Làm gì tiếp theo</th></tr>
+<tr><td><b>Untied thắng rõ</b> (ΔPPL vượt ngưỡng E5)</td><td>Đầu ra chuyên biệt hóa đáng giá hơn 2,56M tham số</td><td>Chốt kiến trúc untied mang sang E4; ghi rõ N mới 12,50M, D/N 16</td></tr>
+<tr><td><b>Tied thắng hoặc không khác biệt</b></td><td>Ràng buộc buộc chung đủ tốt, hoặc 2,56M thêm vào là tham số chết</td><td>Giữ tied — rẻ hơn, gọn hơn, cùng chất lượng; E4 chạy trên A tied</td></tr>
+<tr><td><b>Sâu thắng rõ</b></td><td>Nhiều tầng tổng hợp giúp ích ở quy mô này</td><td>Chốt hình dạng Sâu 8×288 mang sang E4</td></tr>
+<tr><td><b>Rộng thắng rõ</b></td><td>Dung lượng mỗi tầng quan trọng hơn số tầng</td><td>Chốt hình dạng Rộng 4×384 mang sang E4</td></tr>
+<tr><td><b>Ba hình dạng không khác biệt</b></td><td>Ở ngân sách 10M, hình dạng không phải yếu tố quyết định</td><td>Giữ A 6×320 — đơn giản, đã kiểm chứng; ghi kết luận này vào báo cáo (kết quả âm cũng là kết quả)</td></tr>
+</table>
+<div class="card">
+📋 <b>Nhiệm vụ buổi lab tối nay (Day 46, tối)</b>
+<ol>
+<li>Chạy E3a: A tied rồi A untied — ghi rõ tokenizer dùng là BPE 8k hay 16k theo kết quả E2, và ghi câu "thứ duy nhất thay đổi là việc buộc chung embedding" vào sổ lab.</li>
+<li>Chạy E3b: ba hình dạng 6×320, 8×288, 4×384 — mỗi lần ~8 phút, cùng LR, seed, held-out; ghi PPL held-out, tokens/s, MFU, kWh của từng lần.</li>
+<li>Điền bảng kết quả E3: từng cặp so với A, chênh lệch ΔPPL, đối chiếu với ngưỡng dao động seed từ E5 — ghi rõ cặp nào là cải tiến thật, cặp nào là nhiễu, cặp nào ở vùng xám.</li>
+<li>Viết một câu quyết định: "chốt kiến trúc ___ vì ___" — hình dạng nào mang sang E4, kèm bằng chứng số (ΔPPL so với ngưỡng E5 + chi phí tham số), không viết theo cảm tính. Lưu bảng E3 vào phụ lục thí nghiệm của đề cương (Day 39).</li>
+</ol>
+</div>
+
+<div class="card energy">
+⚡ <b>Góc tiết kiệm năng lượng</b>
+<ul>
+<li>E3 tốn ~40 phút GPU cho 5 lần chạy — rẻ. Nhưng giá trị của nó nằm ở chỗ <b>ngăn lãng phí ở E4</b>: E4 là ô đắt nhất ma trận (50–110 phút mỗi lần chạy). Mang một hình dạng chưa kiểm chứng sang E4 thì mỗi lần chạy E4 đều trả giá cho lựa chọn đó — chọn đúng hình dạng hôm nay, E4 chỉ việc trả lời "train bao lâu", không phải trả lời lại "kiến trúc nào".</li>
+<li>Tied embeddings tiết kiệm 2,56M tham số — khoảng 10 MB checkpoint ở fp32. Ở suy luận trên thiết bị biên, checkpoint nhỏ hơn nghĩa là tải trọng số nhanh hơn và ít bộ nhớ hơn mỗi lần nạp mô hình. Nếu E3a cho thấy tied không thua untied thì đề tài vừa giữ được chất lượng, vừa giữ được mô hình gọn nhẹ — đúng tinh thần tiết kiệm năng lượng của luận văn.</li>
+<li>Ba hình dạng E3b có FLOPs/token gần bằng nhau (cùng ~10M tham số, cùng 200M token) nên kWh mỗi lần chạy gần như nhau — E3b là một phép so sánh công bằng về mặt năng lượng: hình dạng nào thắng thì thắng bằng chất lượng, không phải bằng cách đốt nhiều điện hơn.</li>
+</ul>
+</div>
+
+<h2>📌 Tóm tắt</h2>
+<ul>
+<li><b>E3:</b> thí nghiệm kiến trúc — thứ duy nhất thay đổi là kiến trúc; hai nhánh E3a (tied bật/tắt) và E3b (sâu 8×288 vs A 6×320 vs rộng 4×384, cùng ngân sách ~10M). Tổng chi phí ~40 phút.</li>
+<li><b>Tied embeddings:</b> W<sub>out</sub> = W<sub>in</sub><sup>T</sup> — tiết kiệm 2,56M tham số (~26% của A ở BPE 8k, d = 320); FLOPs/token không đổi; tắt tied làm N lên ~12,50M và D/N rơi từ 20 xuống 16 — khai báo rõ trong sổ lab.</li>
+<li><b>Sâu vs rộng:</b> mỗi layer ≈ 12d² tham số; ba hình dạng đều quanh 10M nên thắng thua là do cách xếp, không phải số lượng. Sâu tổng hợp nhiều tầng nhưng khó tối ưu; rộng nhiều dung lượng mỗi tầng nhưng ít bước suy luận.</li>
+<li><b>Đọc kết quả bằng ngưỡng E5:</b> chênh lệch PPL nhỏ hơn dao động seed thì là nhiễu; vùng xám thì chạy thêm seed cho đúng cặp đó. Cùng tokenizer nên PPL so được trực tiếp, không cần BPC.</li>
+<li><b>Tối nay:</b> chạy đủ 5 lần E3, điền bảng kết quả, viết một câu "chốt kiến trúc ___ vì ___" — hình dạng đó mang sang E4, ô đắt nhất ma trận.</li>
+</ul>
+<p>
+<a class="btn" href="Day46_quiz.html">📝 Làm quiz Ngày 46 →</a>
+<a class="btn" href="Day46_video.mp4">🎬 Xem video giải thích →</a>
+</p>
+</div>
+</body>
+</html>
