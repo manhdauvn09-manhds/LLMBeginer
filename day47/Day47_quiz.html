@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 47 Quiz — Chạy E4: huấn luyện dài — điểm tối ưu nằm ở A, B hay C?</title>
+<style>
+:root{--bg:#0a0f1e;--card:#101830;--line:#22305a;--gold:#f5c542;--green:#4ade80;--red:#f87171;--cyan:#67e8f9;--text:#e8edf7;--muted:#93a0bd;}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;line-height:1.7;font-size:16.5px;}
+.wrap{max-width:760px;margin:0 auto;padding:18px 16px 60px;}
+h1{font-size:26px;line-height:1.3;margin:6px 0 8px;}
+.sub{color:var(--muted);}
+.q{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin:18px 0;}
+.q h3{margin:0 0 10px;font-size:17px;color:var(--gold);}
+label{display:block;padding:8px 10px;border-radius:8px;cursor:pointer;margin:4px 0;}
+label:hover{background:#1a2447;}
+input{margin-right:8px;}
+.expl{display:none;margin-top:10px;padding:10px 14px;border-left:4px solid var(--green);background:#0f2233;border-radius:0 10px 10px 0;font-size:15.5px;}
+.expl.wrong{border-left-color:var(--red);background:#2a1218;}
+.btn{display:inline-block;background:var(--gold);color:#14100a;font-weight:700;border-radius:10px;padding:12px 22px;border:none;font-size:16px;cursor:pointer;margin:8px 8px 0 0;}
+.btn2{display:inline-block;background:#1a2447;color:var(--text);border:1px solid var(--line);border-radius:10px;padding:12px 22px;font-size:16px;cursor:pointer;margin:8px 8px 0 0;}
+#result{font-size:18px;font-weight:700;margin:16px 0 6px;}
+#copyBox{width:100%;background:#0a1428;color:var(--text);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:15px;margin-top:8px;}
+.note{color:var(--muted);font-size:14.5px;margin-top:14px;}
+a{color:var(--cyan);}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>📝 Day 47 Quiz — Chạy E4: huấn luyện dài — điểm tối ưu nằm ở A, B hay C?</h1>
+<p class="sub">5 câu trắc nghiệm • Chọn đáp án rồi bấm "Nộp bài" để chấm điểm ngay trong file. File HTML này không tự gửi kết quả về được — làm xong bấm "Copy kết quả" rồi paste vào chat để trợ lý ghi điểm.</p>
+
+<div class="q" id="q1">
+<h3>Câu 1. Trong E4, "thứ duy nhất thay đổi" là gì?</h3>
+<label><input type="radio" name="q1" value="A"> A. Kiến trúc: A dùng tied embeddings, B dùng untied, C dùng hình dạng Sâu — mỗi cấu hình một kiến trúc khác nhau</label>
+<label><input type="radio" name="q1" value="B"> B. Ngân sách huấn luyện: cặp (N, D) cùng leo theo đường Chinchilla (A 10M/200M, B 25M/500M, C 37M/744M, D/N ≈ 20) — dữ liệu sạch, tokenizer, kiến trúc, LR schedule dạng cosine, seed và held-out giữ nguyên</label>
+<label><input type="radio" name="q1" value="C"> C. Tokenizer: A chạy trên BPE 8k, B trên BPE 16k, C trên BPE 32k để đo luôn cả dao động tokenizer trong E4</label>
+<label><input type="radio" name="q1" value="D"> D. Số epoch: chỉ D thay đổi (200M, 500M, 744M token), còn N giữ nguyên 10M cho cả ba cấu hình để tách riêng tác động của dữ liệu</label>
+<div class="expl" id="e1"><b>Đúng: B.</b> E4 đổi ngân sách huấn luyện — N và D cùng leo dọc biên Chinchilla, giữ D/N ≈ 20. Mọi thứ khác (dữ liệu sạch E1, tokenizer chốt sau E2, kiến trúc chốt sau E3, LR schedule cosine decay đúng horizon từng lần chạy, seed, held-out) giữ nguyên tuyệt đối. Lưu ý: E4 đổi cả N lẫn D cùng lúc nên nó không phải thí nghiệm "một biến thuần" — nó so ba điểm tính toán dọc biên Chinchilla.</div>
+</div>
+
+<div class="q" id="q2">
+<h3>Câu 2. Vì sao E4 chạy cuối cùng trong ma trận E0–E5?</h3>
+<label><input type="radio" name="q2" value="A"> A. Vì E4 cần kết quả của E5 để tính PPL — không có dao động seed thì không đo được PPL của A, B, C</label>
+<label><input type="radio" name="q2" value="B"> B. Vì E4 là ô rẻ nhất nên để dành làm cuối cho nhẹ nhàng, trong khi các ô đắt như E1, E2 chạy trước</label>
+<label><input type="radio" name="q2" value="C"> C. Vì thứ tự ma trận là ngẫu nhiên — E0→E1→E2→E5→E3→E4 chỉ là thứ tự viết trong đề cương, chạy ô nào trước cũng được</label>
+<label><input type="radio" name="q2" value="D"> D. Vì E4 là ô đắt nhất (B ~50 phút, C ~110 phút) và cần mọi thứ đã chốt trước — dữ liệu sạch, tokenizer, kiến trúc, thanh sai số — để không phải trả giá cho một lựa chọn chưa kiểm chứng trong mỗi lần chạy dài</label>
+<div class="expl" id="e2"><b>Đúng: D.</b> E4 đắt nhất ma trận nên chạy cuối: mang vào E4 một thứ chưa chốt (dữ liệu bẩn, tokenizer sai, kiến trúc dở) thì mỗi lần chạy 50–110 phút đều trả giá cho sai lầm đó. E4 thừa hưởng mọi quyết định đúng của các ô trước và chỉ còn một việc: leo dọc biên Chinchilla và ghi lại cái giá của từng bậc.</div>
+</div>
+
+<div class="q" id="q3">
+<h3>Câu 3. C train 3 epoch trên cùng dữ liệu sạch. Theo Muennighoff et al. (2023), lặp epoch quá nhiều thì sao?</h3>
+<label><input type="radio" name="q3" value="A"> A. Lợi ích của epoch sau giảm dần — 3 epoch cho khoảng 744M token hiệu dụng, 4 epoch chỉ khoảng 902M; dữ liệu lặp lại không tạo ra token mới, tối đa khoảng 4 epoch là hết giá trị, và lặp nhiều còn có nguy cơ overfit (train giảm, val tăng)</label>
+<label><input type="radio" name="q3" value="B"> B. Mỗi epoch cho thêm đúng bằng số token gốc — 3 epoch trên 248M token cho 744M token hiệu dụng đầy đủ, 10 epoch cho 2.480M, càng lặp càng tốt không giới hạn</label>
+<label><input type="radio" name="q3" value="C"> C. Lặp epoch làm loss tăng trở lại ngay từ epoch 2 — vì vậy C không bao giờ nên train quá 1 epoch, E4 chạy C 3 epoch là sai thiết kế</label>
+<label><input type="radio" name="q3" value="D"> D. Lặp epoch chỉ ảnh hưởng đến tốc độ train (tokens/s giảm dần), không ảnh hưởng đến chất lượng mô hình hay PPL held-out</label>
+<div class="expl" id="e3"><b>Đúng: A.</b> Dữ liệu lặp lại có giới hạn: token hiệu dụng tăng chậm dần theo số epoch (3 epoch ≈ 744M, 4 epoch ≈ 902M), và lặp nhiều làm tăng nguy cơ overfit — mô hình học thuộc dữ liệu thay vì học quy luật. Vì vậy nếu loss đã plateau sau epoch 2 thì dừng, đừng đốt epoch 3 chỉ vì đã lên lịch.</div>
+</div>
+
+<div class="q" id="q4">
+<h3>Câu 4. E4 cho thấy C tốt hơn B 0,05 PPL, trong khi dao động seed đo được ở E5 có khoảng dao động 0,13 (ví dụ minh họa trong bài). Kết luận đúng là gì?</h3>
+<label><input type="radio" name="q4" value="A"> A. C thắng thật — vì 0,05 là số dương, C tốt hơn B nên chốt C làm cấu hình cuối</label>
+<label><input type="radio" name="q4" value="B"> B. C thắng thật — vì 0,05 gần bằng một nửa khoảng dao động nên đã đủ lớn để kết luận, không cần chạy thêm seed</label>
+<label><input type="radio" name="q4" value="C"> C. Nhiễu — chênh lệch 0,05 nhỏ hơn dao động seed (khoảng 0,13), chưa kết luận được gì; chạy lại với seed khác thì thứ hạng có thể đảo ngược, nên chưa thể chốt C chỉ vì PPL thấp hơn một chút</label>
+<label><input type="radio" name="q4" value="D"> D. Nhiễu — vì mọi chênh lệch PPL dưới 1,0 đều là nhiễu bất kể dao động seed đo được là bao nhiêu</label>
+<div class="expl" id="e4"><b>Đúng: C.</b> Quy tắc vàng từ E5: chênh lệch PPL nhỏ hơn dao động seed thì là nhiễu. 0,05 &lt; 0,13 nên không kết luận được — đừng viết "C cải thiện 0,05 PPL" vào báo cáo, và đừng chốt cấu hình đắt hơn (C tốn ~110 phút, suy luận đắt gấp nhiều lần A) trên một chênh lệch chưa vượt ngưỡng nhiễu. Lưu ý: các con số dao động trong bài là ví dụ minh họa, số đo thật của E5 vẫn đang chờ nộp.</div>
+</div>
+
+<div class="q" id="q5">
+<h3>Câu 5. Chọn cấu hình cuối (A, B hay C) dựa trên tiêu chí nào là đúng nhất?</h3>
+<label><input type="radio" name="q5" value="A"> A. Chỉ cần PPL held-out thấp nhất — cấu hình nào có PPL thấp nhất thì chốt, bất kể tốn bao nhiêu điện hay suy luận đắt ra sao</label>
+<label><input type="radio" name="q5" value="B"> B. Cả ba tiêu chí theo thứ tự: (1) PPL có vượt ngưỡng nhiễu của E5 không, (2) chi phí cho mỗi điểm PPL (kWh và phút GPU / ΔPPL) có chấp nhận được không, (3) chi phí suy luận tương lai — A rẻ hơn C khoảng 4,3 lần ở 10 tỉ token suy luận nên C chỉ hơn A trong vùng nhiễu thì không đáng chọn</label>
+<label><input type="radio" name="q5" value="C"> C. Chỉ cần thời gian train ngắn nhất — A chạy ~8 phút nên luôn chốt A, E4 chạy B và C chỉ để cho đủ ma trận</label>
+<label><input type="radio" name="q5" value="D"> D. Chỉ cần kích thước lớn nhất — C có nhiều tham số nhất (37M) nên luôn là cấu hình cuối tốt nhất, vì mô hình lớn hơn thì PPL luôn thấp hơn</label>
+<div class="expl" id="e5"><b>Đúng: B.</b> Quyết định không chỉ bằng PPL thấp nhất: chênh lệch phải vượt ngưỡng nhiễu của E5 mới là cải tiến thật, rồi phải tính chi phí cho mỗi điểm PPL và chi phí suy luận tương lai. Đề tài tiết kiệm năng lượng không có nghĩa là luôn chọn mô hình nhỏ nhất, mà là chọn mô hình đáng tiền nhất — C chỉ hơn A trong vùng nhiễu thì chốt A, C thắng rõ với chi phí hợp lý thì chốt C.</div>
+</div>
+
+<button class="btn" onclick="grade()">Nộp bài</button>
+<button class="btn2" onclick="copyResult()">Copy kết quả</button>
+<div id="result"></div>
+<input id="copyBox" readonly value="Chưa có kết quả — hãy bấm Nộp bài trước.">
+<p class="note">💡 File HTML này không tự gửi kết quả về được. Sau khi bấm "Copy kết quả", paste chuỗi "Day47 Quiz: 1A 2B … — s/5" vào chat để trợ lý ghi điểm. Điểm dưới 70% (dưới 4/5) — xem lại phần tương ứng trong bài học rồi làm lại nhé.</p>
+<p><a href="Day47_lesson.html">← Quay lại bài học Ngày 47</a></p>
+
+<script>
+const answers = {q1:"B", q2:"D", q3:"A", q4:"C", q5:"B"};
+let resultStr = "";
+function grade(){
+  let score = 0; const letters = [];
+  for(let i=1;i<=5;i++){
+    const sel = document.querySelector('input[name="q'+i+'"]:checked');
+    const expl = document.getElementById('e'+i);
+    const letter = sel ? sel.value : "?";
+    letters.push(letter);
+    if(sel && sel.value === answers["q"+i]){ score++; expl.classList.remove("wrong"); }
+    else if(sel){ expl.classList.add("wrong"); }
+    expl.style.display = "block";
+  }
+  resultStr = "Day47 Quiz: " + letters.map((l,i)=>(i+1)+l).join(" ") + " — " + score + "/5";
+  document.getElementById("result").textContent = "🎯 Bạn được " + score + "/5 câu đúng." + (score<4 ? " Dưới 70% — xem lại phần tương ứng trong bài học rồi làm lại nhé." : " Đạt! Sẵn sàng sang Day 48.");
+  document.getElementById("copyBox").value = resultStr;
+}
+function copyResult(){
+  const box = document.getElementById("copyBox");
+  if(!resultStr){ alert("Bạn chưa nộp bài — hãy chọn đáp án và bấm Nộp bài trước."); return; }
+  box.select();
+  if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(resultStr); }
+  else { document.execCommand("copy"); }
+  alert("Đã copy: " + resultStr);
+}
+</script>
+</div>
+</body>
+</html>

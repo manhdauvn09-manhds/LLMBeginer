@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ngày 47 — Chạy E4: huấn luyện dài — điểm tối ưu nằm ở A, B hay C?</title>
+<style>
+:root{--bg:#0a0f1e;--card:#101830;--line:#22305a;--gold:#f5c542;--green:#4ade80;--red:#f87171;--cyan:#67e8f9;--text:#e8edf7;--muted:#93a0bd;}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;line-height:1.75;font-size:16.5px;}
+.wrap{max-width:780px;margin:0 auto;padding:18px 16px 60px;}
+h1{font-size:27px;line-height:1.3;margin:8px 0 6px;}
+h2{font-size:21px;color:var(--gold);margin:34px 0 10px;border-bottom:1px solid var(--line);padding-bottom:6px;}
+h3{font-size:18px;color:var(--cyan);margin:22px 0 6px;}
+p{margin:10px 0;}
+.sub{color:var(--muted);}
+.hero{width:100%;border-radius:14px;border:1px solid var(--line);margin:14px 0 6px;}
+.cap{color:var(--muted);font-size:14px;text-align:center;margin:0 0 14px;}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin:16px 0;}
+.card.energy{border-left:5px solid var(--gold);background:#1a1607;}
+.warn{border-left:5px solid var(--red);background:#2a1218;}
+.good{border-left:5px solid var(--green);background:#0f2233;}
+.formula{background:#0a1428;border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin:12px 0;text-align:center;font-size:19px;overflow-x:auto;}
+.formula small{display:block;font-size:14px;color:var(--muted);margin-top:6px;}
+table{width:100%;border-collapse:collapse;margin:12px 0;font-size:15px;}
+th,td{border:1px solid var(--line);padding:9px 10px;text-align:left;vertical-align:top;}
+th{background:#16224a;color:var(--gold);}
+td.num{font-family:ui-monospace,Menlo,Consolas,monospace;}
+ul,ol{margin:8px 0 8px 22px;padding:0;}
+li{margin:6px 0;}
+code{background:#1a2447;padding:2px 7px;border-radius:6px;font-size:15px;}
+a{color:var(--cyan);}
+.btn{display:inline-block;background:var(--gold);color:#14100a;font-weight:700;border-radius:10px;padding:12px 22px;text-decoration:none;margin:10px 8px 0 0;}
+.tag{display:inline-block;background:#1a2447;border:1px solid var(--line);border-radius:20px;padding:3px 12px;font-size:13.5px;color:var(--muted);margin:2px 4px 2px 0;}
+svg{display:block;margin:14px auto;max-width:100%;}
+</style>
+</head>
+<body>
+<div class="wrap">
+<p class="sub">Phase 2 — Đề tài Tiny Vietnamese LM • Ngày 47 / 60 • Nhóm ngày 45–53: thí nghiệm</p>
+<h1>Ngày 47 — Chạy E4: huấn luyện dài — điểm tối ưu nằm ở A, B hay C?</h1>
+<p class="sub">Advisor buổi sáng — đọc ~15 phút, nhiệm vụ chạy E4 thật vào buổi lab tối nay. E3 hôm qua (Day 46) đã chốt hình dạng kiến trúc mang sang đây — tied hay untied, sâu hay rộng. Hôm nay là ô cuối cùng và đắt nhất của ma trận thí nghiệm E0–E5 đã khóa ở Day 41: E4 hỏi một câu tưởng đơn giản — "huấn luyện dài hơn thì sao?" — và trả lời nó bằng ba lần chạy dọc theo biên Chinchilla: A nhỏ mà nhanh, B vừa, C to mà lâu. Chạy xong E4, ma trận thí nghiệm đóng lại, và đề tài có đủ bằng chứng để chốt cấu hình cuối.</p>
+<img class="hero" src="img/hero47.webp" alt="Mô hình nhỏ leo ba bậc A, B, C với đường cong loss giảm dần">
+<p class="cap">Ba bậc thang A → B → C: càng lên cao càng tốn điện và thời gian. E4 hỏi bậc nào xứng đáng với cái giá đó.</p>
+
+<div class="card">
+🎯 <b>Mục tiêu buổi học</b>
+<ul>
+<li><b>Hiểu E4 là gì:</b> thứ duy nhất thay đổi là "ngân sách huấn luyện" — cặp (N, D) cùng leo theo đường Chinchilla; mọi thứ khác giữ nguyên tuyệt đối.</li>
+<li><b>Nhớ lại bài học Day 35:</b> mô hình nhỏ train vượt Chinchilla có thể thắng mô hình lớn khi tính cả chi phí suy luận — tổng chi phí ≈ 6ND + 2N × số token suy luận.</li>
+<li><b>Đọc được loss curve của E4</b> — plateau, diverge, overfit: mỗi dạng nói gì, và tiêu chí dừng nào phải viết trước khi chạy.</li>
+<li><b>Ra được quyết định cuối:</b> chọn A, B hay C làm cấu hình cuối bằng ngưỡng dao động seed của E5 và "chi phí cho mỗi điểm PPL", không chỉ bằng PPL thấp nhất.</li>
+</ul>
+<p>⏱️ Ước lượng: §1 E4 là gì ~4 phút • §2 đọc đường cong ~4 phút • §3 đọc kết quả bằng ngưỡng E5 ~4 phút • §4 thiết kế + nhiệm vụ ~3 phút.</p>
+</div>
+
+<h2>Bối cảnh — từ Chinchilla đến "train lâu hơn thì sao?"</h2>
+<p>Day 34 đã vẽ bản đồ: luật Chinchilla nói rằng với một ngân sách tính toán cho trước, kích thước mô hình N và lượng token D nên tăng cùng nhau theo tỉ lệ <b>D/N ≈ 20</b> — 20 token cho mỗi tham số. Từ đó sinh ra ba cấu hình dọc biên Chinchilla, đều nằm trên cùng một đường thẳng trong bản đồ:</p>
+<table>
+<tr><th>Cấu hình</th><th>N (tham số)</th><th>D (token)</th><th>Epoch</th><th>Thời gian ước tính</th></tr>
+<tr><td><b>A</b></td><td class="num">10M</td><td class="num">200M</td><td class="num">1</td><td class="num">~8 phút</td></tr>
+<tr><td><b>B</b></td><td class="num">25M</td><td class="num">500M</td><td class="num">2,5</td><td class="num">~50 phút</td></tr>
+<tr><td><b>C</b></td><td class="num">37M</td><td class="num">744M</td><td class="num">3</td><td class="num">~110 phút</td></tr>
+</table>
+<p>Day 35 đặt câu hỏi xoáy vào bản đồ đó: Chinchilla tối ưu cho <i>một lần huấn luyện</i>, nhưng mô hình nhỏ train lâu (vượt Chinchilla) có thể thắng mô hình lớn khi tính cả chi phí suy luận về sau. Sardana &amp; Frankle (2024) và Besiroglu et al. (2024) đều chỉ ra: tổng chi phí thực sự của một mô hình là chi phí huấn luyện cộng chi phí suy luận nhân với số lần nó được dùng:</p>
+<div class="formula">
+C<sub>tổng</sub> ≈ 6ND + 2N × N<sub>suy luận</sub>
+<small>6ND là chi phí huấn luyện, 2N × số token suy luận là chi phí dùng mô hình về sau</small>
+</div>
+<p>Ở 10 tỉ token suy luận, cấu hình A rẻ hơn cấu hình C khoảng <b>4,3 lần</b> (Day 35) — một con số đủ lớn để câu hỏi "train dài hơn thì sao" không còn là chuyện tò mò: nếu C chỉ tốt hơn A một chút về PPL mà đắt gấp bốn lần mỗi lần suy luận, thì C không phải đáp án đúng của đề tài tiết kiệm năng lượng. E4 là phép đo để trả lời chính xác câu đó — bằng số, không bằng cảm tính.</p>
+<div class="card">
+📌 <b>Nhắc lại vị trí của E4 trong ma trận:</b> thứ tự chạy đã khóa ở Day 41 là E0 → E1 → E2 → E5 → E3 → E4. E0 là baseline, E1 chốt dữ liệu sạch, E2 chốt tokenizer, E5 đo dao động seed (thanh sai số), E3 chốt hình dạng kiến trúc. E4 chạy <b>cuối cùng</b> vì nó là ô đắt nhất — mang vào E4 một thứ chưa chốt (dữ liệu bẩn, tokenizer sai, kiến trúc dở) thì mỗi lần chạy 50–110 phút đều trả giá cho sai lầm đó. Chạy cuối cũng có nghĩa là E4 thừa hưởng mọi quyết định đúng của các ô trước: dữ liệu sạch, tokenizer đã chốt, kiến trúc đã chốt, thanh sai số đã có. E4 chỉ còn một việc: leo dọc biên Chinchilla và ghi lại cái giá của từng bậc.
+</div>
+
+<h2>1. E4 là gì — thứ duy nhất thay đổi là "ngân sách huấn luyện"</h2>
+<p><b>Định nghĩa ngắn:</b> E4 so sánh ba điểm tính toán A, B, C dọc theo biên Chinchilla — cùng một công thức leo thang, chỉ khác <i>leo tới đâu</i>. Thứ duy nhất thay đổi là ngân sách huấn luyện: N và D cùng tăng, giữ tỉ lệ D/N ≈ 20. Mọi thứ còn lại giữ nguyên tuyệt đối:</p>
+<ul>
+<li><b>Dữ liệu sạch</b> — đúng bộ dữ liệu đã khử trùng lặp ở E1.</li>
+<li><b>Tokenizer đã chốt sau E2</b> — cùng một bộ mã hóa cho cả ba lần chạy, nên PPL so được trực tiếp, không cần BPC.</li>
+<li><b>Hình dạng kiến trúc đã chốt sau E3</b> — tied hay untied, sâu hay rộng, y như E3 kết luận; chỉ đổi kích thước, không đổi hình dạng.</li>
+<li><b>LR schedule dạng cosine, decay về 0 theo đúng horizon của từng lần chạy</b> — A decay hết trong 200M token, C decay hết trong 744M token. Đây là chi tiết quan trọng: nếu C dùng schedule của A (decay xong ở 200M rồi chạy tiếp 544M token với LR ~0) thì C không học được gì thêm — so sánh sẽ sai từ gốc. Mỗi lần chạy phải có schedule riêng, vừa đúng horizon của nó.</li>
+<li><b>Cùng seed, cùng tập held-out đóng băng, cùng 1 GPU RTX 4090.</b></li>
+</ul>
+<svg width="640" height="300" viewBox="0 0 640 300" role="img" aria-label="Ba cau hinh A B C leo theo duong Chinchilla D tren N bang 20">
+<rect x="0" y="0" width="640" height="300" rx="12" fill="#101830" stroke="#22305a"/>
+<text x="320" y="28" text-anchor="middle" fill="#f5c542" font-size="15" font-weight="bold">Ba điểm A, B, C trên đường Chinchilla (D/N ≈ 20)</text>
+<line x1="90" y1="250" x2="600" y2="250" stroke="#22305a" stroke-width="2"/>
+<line x1="90" y1="250" x2="90" y2="55" stroke="#22305a" stroke-width="2"/>
+<text x="320" y="282" text-anchor="middle" fill="#93a0bd" font-size="13">N — số tham số (tăng dần →)</text>
+<text x="42" y="155" text-anchor="middle" fill="#93a0bd" font-size="13" transform="rotate(-90 42 155)">D — số token (tăng dần ↑)</text>
+<line x1="110" y1="235" x2="560" y2="95" stroke="#4ade80" stroke-width="2" stroke-dasharray="7 5"/>
+<text x="560" y="80" text-anchor="end" fill="#4ade80" font-size="13">đường Chinchilla D = 20N</text>
+<circle cx="150" cy="222" r="9" fill="#67e8f9"/>
+<text x="150" y="200" text-anchor="middle" fill="#67e8f9" font-size="14" font-weight="bold">A</text>
+<text x="150" y="272" text-anchor="middle" fill="#e8edf7" font-size="12">10M / 200M</text>
+<circle cx="330" cy="168" r="9" fill="#f5c542"/>
+<text x="330" y="146" text-anchor="middle" fill="#f5c542" font-size="14" font-weight="bold">B</text>
+<text x="330" y="272" text-anchor="middle" fill="#e8edf7" font-size="12">25M / 500M</text>
+<circle cx="500" cy="112" r="9" fill="#f87171"/>
+<text x="500" y="90" text-anchor="middle" fill="#f87171" font-size="14" font-weight="bold">C</text>
+<text x="500" y="272" text-anchor="middle" fill="#e8edf7" font-size="12">37M / 744M</text>
+</svg>
+<p><b>Ví dụ trực quan:</b> tưởng tượng ba người leo cùng một ngọn núi theo cùng một đường mòn, chỉ khác nhau ở điểm dừng: A dừng ở trạm 1, B leo tới trạm 2, C leo tới đỉnh. Đường mòn là như nhau (dữ liệu, tokenizer, kiến trúc, LR schedule dạng cosine), chỉ khác quãng đường. E4 hỏi: leo thêm mỗi đoạn thì tầm nhìn (PPL) cải thiện bao nhiêu — và có đoạn nào càng leo càng mệt mà tầm nhìn chẳng khá hơn?</p>
+<div class="card warn">
+⚠️ <b>Cảnh báo trung thực — E4 KHÔNG phải thí nghiệm "một biến thuần":</b> ở E1–E3, mỗi ô chỉ đổi đúng một thứ: E1 đổi dữ liệu, E2 đổi tokenizer, E3 đổi kiến trúc. E4 đổi <i>hai thứ cùng lúc</i> — N và D cùng tăng. Vì vậy E4 không trả lời được "tăng N thì sao" hay "tăng D thì sao" riêng rẽ; nó trả lời "leo dọc biên Chinchilla thì sao" — so sánh ba <i>điểm tính toán</i>, không phải ba <i>biến độc lập</i>. Đây không phải lỗi thiết kế — leo theo biên là đúng cách dùng Chinchilla — nhưng <b>phải ghi rõ điều này trong báo cáo</b>: "E4 so sánh ba cấu hình dọc biên Chinchilla (N và D cùng thay đổi), không tách riêng tác động của N và D." Hội đồng rất hay hỏi câu này; trả lời trước trong báo cáo thì không bị bắt bẻ. Nếu muốn tách riêng N và D thì đó là một ma trận khác, ngoài phạm vi đề tài 60 ngày.
+</div>
+
+<h2>2. Đọc đường cong — lặp lại có giới hạn, và khi nào thì dừng</h2>
+<p>E4 chạy dài — C mất ~110 phút — nên không thể ngồi chờ hết rồi mới đọc kết quả. Phải đọc loss curve <i>trong lúc chạy</i>, và tiêu chí dừng phải viết ra <b>trước khi bấm nút chạy</b>. Hai bài học cũ áp thẳng vào đây.</p>
+<p><b>Bài học 1 — lặp lại có giới hạn (Muennighoff et al. 2023, Day 33):</b> C train 3 epoch trên cùng dữ liệu sạch. Nhưng dữ liệu lặp lại không tạo ra token mới: 3 epoch cho khoảng 744M token hiệu dụng, 4 epoch cho khoảng 902M — lợi ích của epoch sau giảm dần, đường cong hiệu dụng cong xuống. Nghĩa là epoch thứ 3 của C đóng góp ít hơn nhiều so với epoch đầu, và nếu loss đã plateau từ cuối epoch 2 thì epoch 3 chủ yếu đốt điện. Day 33 đã dạy: dữ liệu lặp lại tối đa khoảng 4 epoch là hết giá trị; E4 chạy đúng 3 epoch là đã ở gần giới hạn đó rồi.</p>
+<svg width="640" height="300" viewBox="0 0 640 300" role="img" aria-label="Loss curve 3 epoch voi diem plateau va diem dung">
+<rect x="0" y="0" width="640" height="300" rx="12" fill="#101830" stroke="#22305a"/>
+<text x="320" y="28" text-anchor="middle" fill="#f5c542" font-size="15" font-weight="bold">Loss curve của C — 3 epoch, và điểm nên dừng</text>
+<line x1="80" y1="250" x2="590" y2="250" stroke="#22305a" stroke-width="2"/>
+<line x1="80" y1="250" x2="80" y2="50" stroke="#22305a" stroke-width="2"/>
+<text x="335" y="280" text-anchor="middle" fill="#93a0bd" font-size="13">số token đã train →</text>
+<text x="38" y="150" text-anchor="middle" fill="#93a0bd" font-size="13" transform="rotate(-90 38 150)">loss ↓</text>
+<path d="M 95 90 C 180 105, 240 160, 300 190 S 420 215, 560 218" fill="none" stroke="#67e8f9" stroke-width="3"/>
+<line x1="300" y1="60" x2="300" y2="250" stroke="#f87171" stroke-width="1.5" stroke-dasharray="5 4"/>
+<text x="300" y="48" text-anchor="middle" fill="#f87171" font-size="13" font-weight="bold">hết epoch 2</text>
+<circle cx="300" cy="190" r="6" fill="#f5c542"/>
+<text x="310" y="175" fill="#f5c542" font-size="13">plateau?</text>
+<text x="560" y="240" text-anchor="end" fill="#4ade80" font-size="13">epoch 3: loss gần như phẳng</text>
+<text x="95" y="80" fill="#e8edf7" font-size="13">epoch 1: loss giảm nhanh</text>
+</svg>
+<p><b>Bài học 2 — bốn dạng loss curve (Day 41):</b> áp vào từng lần chạy E4:</p>
+<ul>
+<li><b>Giảm đều rồi phẳng (bình thường):</b> loss giảm nhanh epoch 1, chậm dần epoch 2, phẳng epoch 3 — đúng kỳ vọng. Đọc PPL held-out ở cuối, lấy checkpoint cuối làm kết quả.</li>
+<li><b>Plateau sau epoch 2:</b> loss không giảm thêm trong cả epoch 3 — đây là tín hiệu dừng. Nếu tiêu chí dừng đã viết trước nói "plateau 1 epoch thì dừng", thì dừng C ở cuối epoch 2, tiết kiệm ~35 phút GPU, và ghi rõ "C dừng sớm ở epoch 2 do plateau" vào sổ lab. Đừng đốt epoch 3 chỉ vì "đã lên lịch 3 epoch".</li>
+<li><b>Diverge:</b> loss vọt lên hoặc thành NaN — dừng ngay, không chờ. Kiểm tra LR schedule: C có decay đúng horizon 744M không, hay vô tình dùng schedule của A? Đây là lỗi hay gặp nhất ở E4, và rẻ nhất khi bắt sớm.</li>
+<li><b>Overfit:</b> train loss vẫn giảm mà val loss tăng — mô hình bắt đầu "học thuộc" dữ liệu lặp lại thay vì học quy luật. Lấy checkpoint có val loss thấp nhất, không lấy checkpoint cuối. Ở C (3 epoch trên dữ liệu lặp), dạng này có khả năng xuất hiện cao hơn ở A (1 epoch) — đó cũng là một phát hiện, không phải lỗi.</li>
+</ul>
+<div class="card">
+📏 <b>Tiêu chí dừng — viết trước khi chạy, không viết sau khi thấy kết quả:</b> ví dụ một bộ tiêu chí đủ dùng cho E4: (1) loss NaN hoặc tăng gấp đôi trong 500 bước → dừng ngay, kiểm tra schedule; (2) val loss không cải thiện trong suốt 1 epoch → dừng ở cuối epoch đó; (3) train giảm mà val tăng liên tục → dừng, lấy checkpoint val thấp nhất. Viết ba dòng này vào sổ lab trước buổi tối. Viết tiêu chí sau khi thấy kết quả thì tiêu chí không còn giá trị chứng cứ — hội đồng đọc báo cáo sẽ hỏi "sao biết không phải anh dừng lúc kết quả đẹp nhất?", và chỉ có sổ lab ghi trước mới trả lời được.
+</div>
+
+<h2>3. Đọc kết quả bằng ngưỡng E5 — PPL rẻ nhất, không phải PPL thấp nhất</h2>
+<p><b>Quy tắc vàng từ E5 (Day 45):</b> chênh lệch PPL nhỏ hơn dao động seed thì là <b>nhiễu</b> — chưa kết luận được gì. E5 đã đo thanh sai số đó cho đề tài; mọi con số dao động cụ thể trong bài hôm nay vẫn là <b>ví dụ minh họa</b>, số đo thật của E5 đang chờ nộp — khi số thật về, thay vào bảng dưới đây rồi mới kết luận. Ví dụ: nếu dao động seed khoảng 0,13 PPL (ví dụ minh họa) mà C chỉ tốt hơn B 0,05 PPL thì C "thắng" B trên giấy nhưng thua trong thực tế — vì chạy lại với seed khác, thứ hạng có thể đảo ngược.</p>
+<p><b>Bảng so sánh A / B / C (điền sau buổi lab tối nay):</b></p>
+<table>
+<tr><th>Cấu hình</th><th>N</th><th>D</th><th>Epoch</th><th>Thời gian</th><th>kWh</th><th>PPL held-out</th><th>PPL / kWh</th></tr>
+<tr><td><b>A</b></td><td class="num">10M</td><td class="num">200M</td><td class="num">1</td><td class="num">~8 phút</td><td class="num">—</td><td class="num">—</td><td class="num">—</td></tr>
+<tr><td><b>B</b></td><td class="num">25M</td><td class="num">500M</td><td class="num">2,5</td><td class="num">~50 phút</td><td class="num">—</td><td class="num">—</td><td class="num">—</td></tr>
+<tr><td><b>C</b></td><td class="num">37M</td><td class="num">744M</td><td class="num">3</td><td class="num">~110 phút</td><td class="num">—</td><td class="num">—</td><td class="num">—</td></tr>
+</table>
+<p><b>Hai con số phải tính cho từng cấu hình, không chỉ PPL:</b></p>
+<ul>
+<li><b>Chi phí cho mỗi điểm PPL:</b> lấy kWh (hoặc phút GPU) chia cho ΔPPL so với A. Ví dụ minh họa: nếu B tốt hơn A 0,5 PPL mà tốn thêm 40 phút thì mỗi 0,1 PPL "mua" bằng 8 phút; nếu C tốt hơn B thêm 0,1 PPL mà tốn thêm 60 phút thì mỗi 0,1 PPL đó "mua" bằng 60 phút — đắt gấp 7,5 lần. Con số này nói thẳng: bậc thang nào đáng leo, bậc nào không.</li>
+<li><b>PPL trên mỗi kWh:</b> cột cuối của bảng — cấu hình nào cho chất lượng tốt nhất trên mỗi đơn vị điện đã đốt. Đây là thước đo đúng tinh thần đề tài tiết kiệm năng lượng, và là con số hội đồng sẽ nhìn đầu tiên sau PPL.</li>
+</ul>
+<p><b>Quyết định không chỉ bằng PPL thấp nhất:</b> ba tiêu chí xếp theo thứ tự — (1) PPL có vượt ngưỡng nhiễu của E5 không; (2) chi phí cho mỗi điểm PPL có chấp nhận được không; (3) chi phí suy luận tương lai — A rẻ hơn C khoảng 4,3 lần ở 10 tỉ token suy luận (Day 35), nên một C chỉ tốt hơn A trong vùng nhiễu thì không có lý do gì để chọn C làm cấu hình cuối. Ngược lại, nếu C thắng A vượt xa ngưỡng nhiễu với chi phí mỗi điểm PPL hợp lý, thì chọn C là đúng — đề tài tiết kiệm năng lượng không có nghĩa là luôn chọn mô hình nhỏ nhất, mà là chọn mô hình <i>đáng tiền nhất</i>.</p>
+<div class="card">
+📋 <b>Đọc kết quả theo kịch bản (viết trước khi chạy):</b>
+<ul>
+<li><b>C thắng rõ, chi phí mỗi điểm PPL hợp lý:</b> chốt C làm cấu hình cuối — leo tới đỉnh là đáng.</li>
+<li><b>B thắng A rõ, C không hơn B vượt ngưỡng nhiễu:</b> chốt B — điểm tối ưu nằm ở giữa; C là bậc thang phí điện.</li>
+<li><b>A, B, C không khác biệt vượt ngưỡng nhiễu:</b> chốt A — rẻ nhất, nhanh nhất, suy luận rẻ nhất; train dài hơn không mua được gì thêm.</li>
+<li><b>C plateau sau epoch 2 hoặc overfit:</b> kết luận ghi rõ "C dừng sớm / lấy checkpoint val thấp nhất" — và cân nhắc B mới là điểm tối ưu thực tế.</li>
+</ul>
+</div>
+
+<h2>4. Thiết kế chạy E4 + nhiệm vụ lab tối nay</h2>
+<p><b>Thứ tự chạy: A trước, rồi B, rồi C nếu còn thời gian.</b> A rẻ nhất (~8 phút) nên chạy đầu tiên để kiểm chứng lại toàn bộ pipeline — schedule cosine, dữ liệu, checkpoint, đo lường — trước khi đốt 50–110 phút cho B và C. Nếu A chạy lỗi thì sửa pipeline ngay, không phát hiện lỗi ở phút thứ 90 của lần chạy C. B chạy thứ hai; C chạy cuối, khi pipeline đã chắc chắn.</p>
+<p><b>Mỗi lần chạy ghi đủ 5 thứ:</b> PPL held-out, tokens/s, MFU, kWh, và loss curve (lưu ảnh hoặc số liệu thô). Năm thứ này là "bằng chứng gốc" của E4 — thiếu một thứ, bảng kết quả ở §3 không điền được, và báo cáo mất một cột bằng chứng. Lưu loss curve ngay khi chạy xong, đừng để hôm sau mới nhớ ra là chưa lưu.</p>
+<p><b>Điền bảng §3 và kết luận:</b> sau cả ba lần chạy, điền đủ bảng so sánh, tính chi phí cho mỗi điểm PPL và PPL/kWh, đối chiếu từng chênh lệch với ngưỡng dao động seed của E5, rồi viết một câu quyết định: <b>"chốt cấu hình ___ làm cấu hình cuối vì ___"</b> — kèm bằng chứng số, không viết theo cảm tính. Lưu bảng E4 vào phụ lục thí nghiệm của đề cương (Day 39). Ma trận E0–E5 đóng lại ở câu này.</p>
+<div class="card warn">
+⚠️ <b>Trần PPL P vẫn chưa chốt:</b> nhắc lại từ Day 35 — trần PPL P chỉ được chốt khi cấu hình A đã train đủ 200M token, không chốt bằng PPL nền đo sau vài triệu token, và tuyệt đối không bịa số. E4 chạy A đủ 200M token chính là lần chạy cung cấp số liệu đó. Nếu số liệu A tối nay về đầy đủ thì P chốt được ngay trong buổi lab; nếu chưa đủ thì P vẫn để trống — để trống còn hơn điền số bịa.
+</div>
+<div class="card">
+📋 <b>Nhiệm vụ buổi lab tối nay (Day 47, tối)</b>
+<ol>
+<li>Chạy A trước (~8 phút): kiểm chứng pipeline, ghi PPL held-out, tokens/s, MFU, kWh, loss curve. Nếu A lỗi, sửa pipeline rồi mới chạy tiếp.</li>
+<li>Chạy B (~50 phút), rồi C (~110 phút) nếu còn thời gian; mỗi lần chạy kiểm tra LR schedule cosine decay đúng horizon của nó trước khi bấm chạy.</li>
+<li>Trong lúc chạy, đọc loss curve theo tiêu chí dừng đã viết trước (dừng khi diverge; plateau 1 epoch thì dừng ở cuối epoch đó; overfit thì lấy checkpoint val thấp nhất).</li>
+<li>Điền bảng §3: kWh, PPL held-out, PPL/kWh cho A/B/C; tính chi phí cho mỗi điểm PPL; đối chiếu từng chênh lệch với ngưỡng dao động seed của E5.</li>
+<li>Viết một câu quyết định: "chốt cấu hình ___ làm cấu hình cuối vì ___" — và nếu số liệu A đã đủ 200M token thì chốt luôn trần PPL P. Lưu bảng E4 vào phụ lục thí nghiệm của đề cương.</li>
+</ol>
+</div>
+
+<div class="card energy">
+⚡ <b>Góc tiết kiệm năng lượng</b>
+<ul>
+<li>E4 là ô đắt nhất ma trận — cả ma trận E0–E5 tốn khoảng 3 GPU-giờ (Day 38), phần lớn nằm ở E4. Nhưng đắt không có nghĩa là lãng phí: mỗi phút GPU ở E4 trả lời trực tiếp câu hỏi "điểm tối ưu nằm ở đâu", và câu trả lời đó quyết định chi phí suy luận của mọi lần dùng mô hình về sau.</li>
+<li><b>Đọc loss curve sớm + tiêu chí dừng là cách tiết kiệm rẻ nhất:</b> dừng C ở cuối epoch 2 khi đã plateau tiết kiệm ~35 phút GPU — gần bằng cả buổi lab E3. Dừng ngay khi diverge tiết kiệm cả lần chạy 110 phút. Tiêu chí dừng viết trước là "công tắc tiết kiệm điện" miễn phí.</li>
+<li><b>Chọn đúng cấu hình cuối tiết kiệm chi phí suy luận dài hạn:</b> A rẻ hơn C khoảng 4,3 lần ở 10 tỉ token suy luận (Day 35). Nếu E4 cho thấy C chỉ hơn A trong vùng nhiễu, chốt A nghĩa là mỗi tỉ token suy luận sau này đều rẻ hơn bốn lần — tiết kiệm này lớn hơn nhiều lần tổng điện đã đốt cho cả ma trận thí nghiệm.</li>
+</ul>
+</div>
+
+<h2>📌 Tóm tắt</h2>
+<ul>
+<li><b>E4:</b> ô cuối cùng và đắt nhất của ma trận — so ba cấu hình A (10M/200M/1 epoch/~8 phút), B (25M/500M/2,5 epoch/~50 phút), C (37M/744M/3 epoch/~110 phút) dọc biên Chinchilla D/N ≈ 20; thứ duy nhất thay đổi là ngân sách huấn luyện, còn lại giữ nguyên tuyệt đối, kể cả LR schedule cosine decay đúng horizon từng lần chạy.</li>
+<li><b>Cảnh báo trung thực:</b> E4 đổi cả N lẫn D cùng lúc nên không phải thí nghiệm "một biến thuần" — nó so ba điểm tính toán dọc biên Chinchilla; ghi rõ điều này trong báo cáo.</li>
+<li><b>Đọc đường cong:</b> lặp lại có giới hạn (3 epoch ≈ 744M, 4 epoch ≈ 902M token hiệu dụng); plateau sau epoch 2 thì dừng, diverge thì dừng ngay, overfit thì lấy checkpoint val thấp nhất — tiêu chí dừng viết trước khi chạy.</li>
+<li><b>Đọc kết quả bằng ngưỡng E5:</b> chênh lệch PPL nhỏ hơn dao động seed là nhiễu; tính chi phí cho mỗi điểm PPL và PPL/kWh; quyết định bằng cả ba tiêu chí PPL, chi phí huấn luyện và chi phí suy luận tương lai — không chỉ bằng PPL thấp nhất.</li>
+<li><b>Tối nay:</b> chạy A trước rồi B rồi C, điền bảng §3, viết một câu "chốt cấu hình ___ vì ___" — ma trận E0–E5 đóng lại; trần PPL P chỉ chốt khi A train đủ 200M token, không bịa số.</li>
+</ul>
+<p>
+<a class="btn" href="Day47_quiz.html">📝 Làm quiz Ngày 47 →</a>
+<a class="btn" href="Day47_video.mp4">🎬 Xem video giải thích →</a>
+</p>
+<p class="sub">📌 Video giải thích sẽ được bổ sung sau.</p>
+</div>
+</body>
+</html>
